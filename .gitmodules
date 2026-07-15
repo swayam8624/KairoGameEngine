@@ -62,3 +62,7 @@
 	path = KairoECS
 	url = https://github.com/swayam8624/KairoECS.git
 	branch = main
+[submodule "KairoReflection"]
+	path = KairoReflection
+	url = https://github.com/swayam8624/KairoReflection.git
+	branch = main

@@ -21,6 +21,7 @@ set(KAIRO_WORKSPACE_COMPONENTS
     Foundation/KairoPhysicsEngine
     KairoAssets
     KairoECS
+    KairoReflection
     KairoEngineCore
     KairoRenderer
     KairoEditor
@@ -48,6 +49,7 @@ set(KAIRO_PHYSICS_ENGINE_BUILD_SANDBOX ${KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX
 set(KAIRO_PHYSICS_ENGINE_BUILD_GLFW_SANDBOX ${KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX} CACHE BOOL "" FORCE)
 set(KAIRO_ASSETS_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_ECS_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
+set(KAIRO_REFLECTION_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_ENGINE_CORE_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_RENDERER_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_RENDERER_BUILD_PHYSICS_BRIDGE ON CACHE BOOL "" FORCE)
@@ -61,6 +63,7 @@ set(KAIRO_RAYTRACER_BUILD_PREVIEW ${KAIRO_GAME_ENGINE_BUILD_EDITOR} CACHE BOOL "
 # compiling a second copy.
 add_subdirectory(Foundation/KairoPhysicsEngine)
 add_subdirectory(KairoECS)
+add_subdirectory(KairoReflection)
 add_subdirectory(KairoEngineCore)
 add_subdirectory(KairoRenderer)
 
@@ -89,6 +92,7 @@ endif()
 add_library(KairoGameEngine INTERFACE)
 target_link_libraries(KairoGameEngine INTERFACE
     KairoECS
+    KairoReflection
     KairoEngineCore
     KairoRenderer
     KairoPhysicsEngine)

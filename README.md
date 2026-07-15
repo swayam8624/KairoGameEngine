@@ -19,6 +19,7 @@ KairoMath ------------------------------------------------------+
                                                                |
 KairoAssets -> KairoEngineCore ---------------------------------+
 KairoECS --------------------------------------------------------+
+KairoReflection -------------------------------------------------+
                                                                v
                          KairoRenderer -> KairoEditor -> game tools
 
@@ -147,6 +148,7 @@ standalone build path.
 | `Foundation/KairoPhysicsEngine` | [KairoPhysicsEngine](https://github.com/swayam8624/KairoPhysicsEngine) | Rigid-body world, collision, solver, and sandboxes | `main` |
 | `KairoAssets` | [KairoAssets](https://github.com/swayam8624/KairoAssets) | Asset identity, metadata, and project manifests | `main` |
 | `KairoECS` | [KairoECS](https://github.com/swayam8624/KairoECS) | Generational entities, sparse-set component storage, and runtime iteration | `main` |
+| `KairoReflection` | [KairoReflection](https://github.com/swayam8624/KairoReflection) | Stable type/property metadata and inspector-ready access adapters | `main` |
 | `KairoEngineCore` | [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore) | Scene/runtime services and application contracts | `main` |
 | `KairoRenderer` | [KairoRenderer](https://github.com/swayam8624/KairoRenderer) | Real-time Vulkan renderer and debug drawing | `main` |
 | `KairoEditor` | [KairoEditor](https://github.com/swayam8624/KairoEditor) | Native docked authoring application | `main` |
