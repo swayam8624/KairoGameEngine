@@ -81,6 +81,10 @@ cmake --preset release
 cmake --build --preset release
 ```
 
+The KairoMath and KairoSpatial visual laboratories remain available from their
+standalone repositories. The umbrella build excludes them because they are
+interactive developer tools, not runtime or integration-test artifacts.
+
 The superbuild fails during configuration with the repair command when a
 required submodule has not been initialized.
 
