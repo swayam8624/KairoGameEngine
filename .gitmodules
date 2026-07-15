@@ -1,0 +1,60 @@
+[submodule "Foundation/KairoMath"]
+	path = Foundation/KairoMath
+	url = https://github.com/swayam8624/KairoMath.git
+	branch = master
+[submodule "Foundation/KairoGeometry"]
+	path = Foundation/KairoGeometry
+	url = https://github.com/swayam8624/KairoGeometry.git
+	branch = master
+[submodule "Foundation/Spatial"]
+	path = Foundation/Spatial
+	url = https://github.com/swayam8624/KairoSpatial.git
+	branch = main
+[submodule "Foundation/KairoPhysicsMath"]
+	path = Foundation/KairoPhysicsMath
+	url = https://github.com/swayam8624/KairoPhysicsMath.git
+	branch = main
+[submodule "Foundation/KairoPhysicsEngine"]
+	path = Foundation/KairoPhysicsEngine
+	url = https://github.com/swayam8624/KairoPhysicsEngine.git
+	branch = main
+[submodule "KairoAssets"]
+	path = KairoAssets
+	url = https://github.com/swayam8624/KairoAssets.git
+	branch = main
+[submodule "KairoRenderer"]
+	path = KairoRenderer
+	url = https://github.com/swayam8624/KairoRenderer.git
+	branch = main
+[submodule "KairoEngineCore"]
+	path = KairoEngineCore
+	url = https://github.com/swayam8624/KairoEngineCore.git
+	branch = main
+[submodule "KairoEditor"]
+	path = KairoEditor
+	url = https://github.com/swayam8624/KairoEditor.git
+	branch = main
+[submodule "KairoRayTracer"]
+	path = KairoRayTracer
+	url = https://github.com/swayam8624/KairoRayTracer.git
+	branch = main
+[submodule "KairoGPU"]
+	path = KairoGPU
+	url = https://github.com/swayam8624/KairoGPU.git
+	branch = main
+[submodule "KairoSIMD"]
+	path = KairoSIMD
+	url = https://github.com/swayam8624/KairoSIMD.git
+	branch = main
+[submodule "KairoScheduler"]
+	path = KairoScheduler
+	url = https://github.com/swayam8624/KairoScheduler.git
+	branch = main
+[submodule "KairoONNX"]
+	path = KairoONNX
+	url = https://github.com/swayam8624/KairoONNX.git
+	branch = main
+[submodule "KairoTransformers"]
+	path = KairoTransformers
+	url = https://github.com/swayam8624/KairoTransformers.git
+	branch = main

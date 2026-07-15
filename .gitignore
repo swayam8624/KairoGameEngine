@@ -1,0 +1,15 @@
+# macOS and local IDE state
+.DS_Store
+**/.DS_Store
+/.idea/
+
+# Root superbuild output. Component build directories are ignored by their
+# owning repositories and are never stored by this superproject.
+/build/
+/build-*/
+/out/
+/cmake-build-*/
+/CMakeUserPresets.json
+
+# Historical local planning notes are not authoritative workspace status.
+/Foundation/ROADMAP.md
