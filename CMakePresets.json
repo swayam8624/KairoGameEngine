@@ -47,6 +47,16 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF"
       }
+    },
+    {
+      "name": "ci-msvc",
+      "displayName": "Kairo CI build (MSVC)",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/build/ci-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -65,6 +75,10 @@
     {
       "name": "ci-clang",
       "configurePreset": "ci-clang"
+    },
+    {
+      "name": "ci-msvc",
+      "configurePreset": "ci-msvc"
     }
   ],
   "testPresets": [
@@ -85,6 +99,13 @@
     {
       "name": "ci-clang",
       "configurePreset": "ci-clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-msvc",
+      "configurePreset": "ci-msvc",
       "output": {
         "outputOnFailure": true
       }

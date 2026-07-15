@@ -100,10 +100,10 @@ component publishes install and package-config targets.
 
 ## Continuous Integration
 
-GitHub Actions performs a recursive-supermodule Clang build, test run, and
-source-package smoke check on Ubuntu, macOS, and Windows. Linux publishes the
-generated source archive as a workflow artifact. The workflow intentionally
-uses package-manager discovery rather than the machine-specific paths that
+GitHub Actions performs recursive-supermodule Clang builds on Ubuntu and macOS,
+and an MSVC build on Windows, followed by tests and a source-package smoke
+check. Linux publishes the generated source archive as a workflow artifact.
+The workflow intentionally uses package-manager discovery rather than the machine-specific paths that
 older local presets required.
 
 ## Run
