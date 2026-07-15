@@ -61,9 +61,11 @@ jobs:
           }
           & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
           & "$vcpkg\vcpkg.exe" install glfw3 vulkan-headers vulkan-loader glslang --triplet x64-windows
+          $glslangValidator = Get-ChildItem -Path "$vcpkg\installed\x64-windows" -Filter glslangValidator.exe -Recurse | Select-Object -First 1
+          if (-not $glslangValidator) { throw "vcpkg did not install glslangValidator.exe" }
           "KAIRO_CXX_COMPILER=C:\Program Files\LLVM\bin\clang++.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
           "CMAKE_PREFIX_PATH=$vcpkg\installed\x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "$vcpkg\installed\x64-windows\tools\glslang" | Out-File -FilePath $env:GITHUB_PATH -Append
+          $glslangValidator.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Configure
         run: cmake --preset ci-clang
