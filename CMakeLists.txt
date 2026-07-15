@@ -98,9 +98,13 @@ if(KAIRO_GAME_ENGINE_ENABLE_PACKAGING)
     set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
     set(CPACK_SOURCE_IGNORE_FILES
         "/\\.git/"
+        "/\\.idea/"
+        "/\\.DS_Store$"
         "/build/"
         "/build-[^/]+/"
         "/out/"
-        "/cmake-build-[^/]+/")
+        "/cmake-build-[^/]+/"
+        "/_CPack_Packages/"
+        "/KairoGameEngine-.*-Source\\.(tar\\.gz|zip)$")
     include(CPack)
 endif()
