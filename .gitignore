@@ -10,6 +10,9 @@
 /out/
 /cmake-build-*/
 /CMakeUserPresets.json
+/_CPack_Packages/
+/KairoGameEngine-*-Source.tar.*
+/KairoGameEngine-*-Source.zip
 
 # Historical local planning notes are not authoritative workspace status.
 /Foundation/ROADMAP.md

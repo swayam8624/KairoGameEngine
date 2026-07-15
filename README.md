@@ -61,13 +61,19 @@ brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shader
 ## Build And Test
 
 ```bash
-cmake --preset dev
-cmake --build --preset dev
-ctest --preset dev
+cmake --preset dev-clang
+cmake --build --preset dev-clang
+ctest --preset dev-clang
 ```
 
-The `dev` preset builds the real-time editor, CPU ray tracer, physics sandboxes,
-and all registered tests. The optimized preset is:
+`dev-clang` uses the repository-owned portable Clang toolchain. On macOS it
+prefers the current Homebrew LLVM installation; on other platforms it resolves
+`clang++` from `PATH`. Set `KAIRO_CXX_COMPILER` to an absolute compiler path to
+select a specific Clang installation. The plain `dev` preset deliberately uses
+the compiler selected by the host environment.
+
+Both developer presets build the real-time editor, CPU ray tracer, physics
+sandboxes, and all registered tests. The optimized preset is:
 
 ```bash
 cmake --preset release
@@ -76,6 +82,21 @@ cmake --build --preset release
 
 The superbuild fails during configuration with the repair command when a
 required submodule has not been initialized.
+
+## Source Package
+
+The current package artifact is a source snapshot, not a binary SDK. Component
+repositories do not yet export installable package targets, so producing a
+binary archive would imply a supported redistributable surface that does not
+exist yet. After configuration, create a reproducible source archive with:
+
+```bash
+cpack --config build/dev-clang/CPackSourceConfig.cmake -G TGZ
+```
+
+The archive excludes local build output and Git metadata while retaining the
+pinned component source trees. Binary SDK packaging follows once each runtime
+component publishes install and package-config targets.
 
 ## Run
 
