@@ -146,7 +146,7 @@ standalone build path.
 | `Foundation/Spatial` | [KairoSpatial](https://github.com/swayam8624/KairoSpatial) | BVH, broadphase, partitioning, and spatial queries | `main` |
 | `Foundation/KairoPhysicsMath` | [KairoPhysicsMath](https://github.com/swayam8624/KairoPhysicsMath) | Reusable rigid-body formulas and integration math | `main` |
 | `Foundation/KairoPhysicsEngine` | [KairoPhysicsEngine](https://github.com/swayam8624/KairoPhysicsEngine) | Rigid-body world, collision, solver, and sandboxes | `main` |
-| `KairoAssets` | [KairoAssets](https://github.com/swayam8624/KairoAssets) | Asset identity, metadata, and project manifests | `main` |
+| `KairoAssets` | [KairoAssets](https://github.com/swayam8624/KairoAssets) | Identity, manifests, source provenance, derived cache, and import transactions | `main` |
 | `KairoECS` | [KairoECS](https://github.com/swayam8624/KairoECS) | Generational entities, sparse-set component storage, and runtime iteration | `main` |
 | `KairoReflection` | [KairoReflection](https://github.com/swayam8624/KairoReflection) | Stable type/property metadata and inspector-ready access adapters | `main` |
 | `KairoEngineCore` | [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore) | Scene/runtime services and application contracts | `main` |
@@ -208,9 +208,11 @@ or verified.
 
 ## Integration Status
 
-The initial umbrella baseline configures and builds all runtime, editor,
-ray-tracing, and sandbox targets in one 582-step Ninja build. Its 18 registered
-cross-repository test targets pass from the root `dev` preset. This is an
+The current umbrella baseline configures and builds all runtime, editor,
+ray-tracing, and sandbox targets in one Ninja superbuild. Its 21 registered
+cross-repository test targets pass from the root `dev-clang` preset. GitHub
+Actions separately validates the pinned submodule graph on Ubuntu/macOS Clang
+and Windows MSVC, then creates a source-package smoke artifact. This is an
 integration result for the pinned commits, not a substitute for component-level
 tests and platform coverage.
 
