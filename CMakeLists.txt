@@ -11,6 +11,7 @@ option(KAIRO_GAME_ENGINE_BUILD_EDITOR "Build the native Vulkan editor" ON)
 option(KAIRO_GAME_ENGINE_BUILD_RAYTRACER "Build the offline CPU ray tracer" ON)
 option(KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX "Build physics terminal and GLFW sandboxes" ON)
 option(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK "Build experimental GPU/SIMD/scheduler/ONNX/transformer modules" OFF)
+option(KAIRO_GAME_ENGINE_ENABLE_PACKAGING "Enable CPack source-package configuration" ON)
 
 set(KAIRO_WORKSPACE_COMPONENTS
     Foundation/KairoMath
@@ -84,3 +85,22 @@ target_link_libraries(KairoGameEngine INTERFACE
     KairoRenderer
     KairoPhysicsEngine)
 add_library(Kairo::GameEngine ALIAS KairoGameEngine)
+
+# The component repositories do not yet export installable package targets, so
+# a binary SDK archive would be misleading. Source packages are still useful:
+# they preserve the exact superproject and submodule sources used for an
+# integration build, without pretending that the resulting archive is a
+# complete redistributable runtime.
+if(KAIRO_GAME_ENGINE_ENABLE_PACKAGING)
+    set(CPACK_PACKAGE_NAME "KairoGameEngine")
+    set(CPACK_PACKAGE_VENDOR "Kairo")
+    set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+    set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
+    set(CPACK_SOURCE_IGNORE_FILES
+        "/\\.git/"
+        "/build/"
+        "/build-[^/]+/"
+        "/out/"
+        "/cmake-build-[^/]+/")
+    include(CPack)
+endif()

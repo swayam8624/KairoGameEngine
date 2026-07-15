@@ -13,12 +13,19 @@
       "binaryDir": "${sourceDir}/build/dev",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "BUILD_TESTING": "ON",
         "KAIRO_GAME_ENGINE_BUILD_EDITOR": "ON",
         "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "ON",
         "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "ON"
       }
+    },
+    {
+      "name": "dev-clang",
+      "displayName": "Kairo developer build (Clang)",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/build/dev-clang",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/clang.cmake"
     },
     {
       "name": "release",
@@ -30,6 +37,16 @@
         "BUILD_TESTING": "OFF",
         "KAIRO_RENDERER_ENABLE_VALIDATION": "OFF"
       }
+    },
+    {
+      "name": "ci-clang",
+      "displayName": "Kairo CI build (Clang)",
+      "inherits": "dev-clang",
+      "binaryDir": "${sourceDir}/build/ci-clang",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -40,12 +57,23 @@
     {
       "name": "release",
       "configurePreset": "release"
+    },
+    {
+      "name": "ci-clang",
+      "configurePreset": "ci-clang"
     }
   ],
   "testPresets": [
     {
       "name": "dev",
       "configurePreset": "dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-clang",
+      "configurePreset": "ci-clang",
       "output": {
         "outputOnFailure": true
       }
