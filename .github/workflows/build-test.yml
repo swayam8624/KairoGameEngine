@@ -1,0 +1,88 @@
+name: Build, Test, and Package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  superbuild:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu Clang
+            os: ubuntu-latest
+            platform: linux
+          - name: macOS Clang
+            os: macos-latest
+            platform: macos
+          - name: Windows Clang
+            os: windows-latest
+            platform: windows
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools
+          echo "KAIRO_CXX_COMPILER=$(command -v clang++)" >> "$GITHUB_ENV"
+
+      - name: Install macOS dependencies
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          brew update
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          echo "KAIRO_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+
+      - name: Install Windows dependencies
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          choco install llvm ninja -y --no-progress
+          $vcpkg = "$env:VCPKG_INSTALLATION_ROOT"
+          if (-not $vcpkg) { $vcpkg = "C:\vcpkg" }
+          if (-not (Test-Path $vcpkg)) {
+            git clone https://github.com/microsoft/vcpkg.git $vcpkg
+          }
+          & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          & "$vcpkg\vcpkg.exe" install glfw3 vulkan-headers vulkan-loader glslang --triplet x64-windows
+          "KAIRO_CXX_COMPILER=C:\Program Files\LLVM\bin\clang++.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CMAKE_PREFIX_PATH=$vcpkg\installed\x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "$vcpkg\installed\x64-windows\tools\glslang" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Configure
+        run: cmake --preset ci-clang
+
+      - name: Build
+        run: cmake --build --preset ci-clang --parallel
+
+      - name: Test
+        run: ctest --preset ci-clang
+
+      - name: Create source package
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: cpack --config build/ci-clang/CPackSourceConfig.cmake -G TGZ
+
+      - name: Upload source package
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: KairoGameEngine-source
+          path: KairoGameEngine-*-Source.tar.gz
+          if-no-files-found: error

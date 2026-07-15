@@ -98,6 +98,14 @@ The archive excludes local build output and Git metadata while retaining the
 pinned component source trees. Binary SDK packaging follows once each runtime
 component publishes install and package-config targets.
 
+## Continuous Integration
+
+GitHub Actions performs a recursive-supermodule Clang build, test run, and
+source-package smoke check on Ubuntu, macOS, and Windows. Linux publishes the
+generated source archive as a workflow artifact. The workflow intentionally
+uses package-manager discovery rather than the machine-specific paths that
+older local presets required.
+
 ## Run
 
 Launch the native editor with its starter project:
