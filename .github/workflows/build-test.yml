@@ -53,16 +53,16 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          choco install llvm ninja -y --no-progress
+          choco install llvm ninja vulkan-sdk -y --no-progress
           $vcpkg = "$env:VCPKG_INSTALLATION_ROOT"
           if (-not $vcpkg) { $vcpkg = "C:\vcpkg" }
           if (-not (Test-Path $vcpkg)) {
             git clone https://github.com/microsoft/vcpkg.git $vcpkg
           }
           & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
-          & "$vcpkg\vcpkg.exe" install glfw3 vulkan-headers vulkan-loader glslang --triplet x64-windows
-          $glslangValidator = Get-ChildItem -Path "$vcpkg\installed\x64-windows" -Filter glslangValidator.exe -Recurse | Select-Object -First 1
-          if (-not $glslangValidator) { throw "vcpkg did not install glslangValidator.exe" }
+          & "$vcpkg\vcpkg.exe" install glfw3 vulkan-headers vulkan-loader --triplet x64-windows
+          $glslangValidator = Get-ChildItem -Path "C:\VulkanSDK" -Filter glslangValidator.exe -Recurse | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $glslangValidator) { throw "The Vulkan SDK did not provide glslangValidator.exe" }
           "KAIRO_CXX_COMPILER=C:\Program Files\LLVM\bin\clang++.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
           "CMAKE_PREFIX_PATH=$vcpkg\installed\x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Append
           $glslangValidator.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append
