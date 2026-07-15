@@ -20,6 +20,7 @@ set(KAIRO_WORKSPACE_COMPONENTS
     Foundation/KairoPhysicsMath
     Foundation/KairoPhysicsEngine
     KairoAssets
+    KairoECS
     KairoEngineCore
     KairoRenderer
     KairoEditor
@@ -42,6 +43,7 @@ set(KAIRO_PHYSICS_ENGINE_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_PHYSICS_ENGINE_BUILD_SANDBOX ${KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX} CACHE BOOL "" FORCE)
 set(KAIRO_PHYSICS_ENGINE_BUILD_GLFW_SANDBOX ${KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX} CACHE BOOL "" FORCE)
 set(KAIRO_ASSETS_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
+set(KAIRO_ECS_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_ENGINE_CORE_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_RENDERER_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_RENDERER_BUILD_PHYSICS_BRIDGE ON CACHE BOOL "" FORCE)
@@ -54,6 +56,7 @@ set(KAIRO_RAYTRACER_BUILD_PREVIEW ${KAIRO_GAME_ENGINE_BUILD_EDITOR} CACHE BOOL "
 # component's local-first dependency resolver reuses it instead of fetching or
 # compiling a second copy.
 add_subdirectory(Foundation/KairoPhysicsEngine)
+add_subdirectory(KairoECS)
 add_subdirectory(KairoEngineCore)
 add_subdirectory(KairoRenderer)
 
@@ -81,6 +84,7 @@ endif()
 # authoring-only dependencies into shipped games.
 add_library(KairoGameEngine INTERFACE)
 target_link_libraries(KairoGameEngine INTERFACE
+    KairoECS
     KairoEngineCore
     KairoRenderer
     KairoPhysicsEngine)

@@ -58,3 +58,7 @@
 	path = KairoTransformers
 	url = https://github.com/swayam8624/KairoTransformers.git
 	branch = main
+[submodule "KairoECS"]
+	path = KairoECS
+	url = https://github.com/swayam8624/KairoECS.git
+	branch = main
