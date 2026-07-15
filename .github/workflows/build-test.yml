@@ -9,6 +9,12 @@ on:
 permissions:
   contents: read
 
+# A newer push supersedes an older integration snapshot. Cancelling stale
+# matrices avoids spending hosted runners on commits that will never merge.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   superbuild:
     name: ${{ matrix.name }}
@@ -48,7 +54,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools
+          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb
           echo "KAIRO_CXX_COMPILER=$(command -v clang++)" >> "$GITHUB_ENV"
 
       - name: Install macOS dependencies
@@ -82,7 +88,15 @@ jobs:
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} --parallel
 
+      - name: Test on Linux virtual display
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: >
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24"
+          ctest --preset ${{ matrix.preset }}
+
       - name: Test
+        if: matrix.platform != 'linux'
         run: ctest --preset ${{ matrix.preset }}
 
       - name: Create source package
