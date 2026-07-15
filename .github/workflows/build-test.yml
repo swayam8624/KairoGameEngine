@@ -53,7 +53,11 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          choco install llvm ninja vulkan-sdk -y --no-progress
+          # LLVM 20.1.8 crashes in its Windows frontend while compiling
+          # KairoAssets C++ modules. Keep CI on the supported LLVM 18 line
+          # used by the Linux module build until that upstream defect is fixed.
+          choco install llvm --version=18.1.8 -y --no-progress
+          choco install ninja vulkan-sdk -y --no-progress
           $vcpkg = "$env:VCPKG_INSTALLATION_ROOT"
           if (-not $vcpkg) { $vcpkg = "C:\vcpkg" }
           if (-not (Test-Path $vcpkg)) {
