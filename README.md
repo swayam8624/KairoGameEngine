@@ -12,25 +12,28 @@ reproducible engine dependency version.
 ## Architecture
 
 ```text
-KairoMath ------------------------------------------------------+
-    +-> KairoGeometry -> KairoSpatial --------------------------+
-    |                         +-> KairoRayTracer                 |
-    +-> KairoPhysicsMath -> KairoPhysicsEngine -----------------+
-                                                               |
-KairoAssets -> KairoEngineCore ---------------------------------+
-KairoECS --------------------------------------------------------+
-KairoReflection -------------------------------------------------+
-                                                               v
-                         KairoRenderer -> KairoEditor -> game tools
+KairoMath --------------------------------------------------------+
+    +-> KairoGeometry -> KairoSpatial -> KairoRayTracer           |
+    +-> KairoPhysicsMath -> KairoPhysicsEngine -------------------+
+                                                                 |
+KairoAssets -> KairoEngineCore -----------------------------------+
+    +--------> KairoRenderer -------------------------------------+
+    +--------> KairoRayTracer                                     |
+KairoECS ----------------------------------------------------------+
+KairoReflection ---------------------------------------------------+
+                                                                 v
+                           KairoRenderer -> KairoEditor -> game tools
 
 Optional compute stack:
 KairoSIMD + KairoScheduler + KairoGPU -> KairoONNX -> KairoTransformers
 ```
 
 The aggregate CMake target `Kairo::GameEngine` exposes the runtime-facing
-`KairoEngineCore`, `KairoRenderer`, and `KairoPhysicsEngine` targets. Authoring
-tools and the offline ray tracer remain separate targets so their dependencies
-do not leak into a shipped game runtime.
+`KairoAssets`, `KairoEngineCore`, `KairoRenderer`, and `KairoPhysicsEngine`
+targets. KairoAssets owns the portable `kairo.mesh.v1` contract consumed by
+both renderers, including strict OBJ import, while each renderer owns only its
+backend conversion. Authoring tools and the offline ray tracer remain separate
+targets so their dependencies do not leak into a shipped game runtime.
 
 ## Clone
 
@@ -146,11 +149,11 @@ standalone build path.
 | `Foundation/Spatial` | [KairoSpatial](https://github.com/swayam8624/KairoSpatial) | BVH, broadphase, partitioning, and spatial queries | `main` |
 | `Foundation/KairoPhysicsMath` | [KairoPhysicsMath](https://github.com/swayam8624/KairoPhysicsMath) | Reusable rigid-body formulas and integration math | `main` |
 | `Foundation/KairoPhysicsEngine` | [KairoPhysicsEngine](https://github.com/swayam8624/KairoPhysicsEngine) | Rigid-body world, collision, solver, and sandboxes | `main` |
-| `KairoAssets` | [KairoAssets](https://github.com/swayam8624/KairoAssets) | Identity, manifests, source provenance, derived cache, and import transactions | `main` |
+| `KairoAssets` | [KairoAssets](https://github.com/swayam8624/KairoAssets) | Identity, manifests, derived cache, importer registry, strict OBJ import, and portable mesh artifacts | `main` |
 | `KairoECS` | [KairoECS](https://github.com/swayam8624/KairoECS) | Generational entities, sparse-set component storage, and runtime iteration | `main` |
 | `KairoReflection` | [KairoReflection](https://github.com/swayam8624/KairoReflection) | Stable type/property metadata and inspector-ready access adapters | `main` |
 | `KairoEngineCore` | [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore) | Scene/runtime services and application contracts | `main` |
-| `KairoRenderer` | [KairoRenderer](https://github.com/swayam8624/KairoRenderer) | Real-time Vulkan renderer and debug drawing | `main` |
+| `KairoRenderer` | [KairoRenderer](https://github.com/swayam8624/KairoRenderer) | Real-time Vulkan renderer, portable mesh adaptation, and debug drawing | `main` |
 | `KairoEditor` | [KairoEditor](https://github.com/swayam8624/KairoEditor) | Native docked authoring application | `main` |
 | `KairoRayTracer` | [KairoRayTracer](https://github.com/swayam8624/KairoRayTracer) | Offline CPU rendering and visual diagnostics | `main` |
 | `KairoGPU` | [KairoGPU](https://github.com/swayam8624/KairoGPU) | Compute-backend abstraction | `main` |

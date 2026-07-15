@@ -91,6 +91,7 @@ endif()
 # authoring-only dependencies into shipped games.
 add_library(KairoGameEngine INTERFACE)
 target_link_libraries(KairoGameEngine INTERFACE
+    KairoAssets
     KairoECS
     KairoReflection
     KairoEngineCore
