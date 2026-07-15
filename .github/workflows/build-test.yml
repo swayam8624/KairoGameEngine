@@ -27,7 +27,10 @@ jobs:
             platform: macos
             preset: ci-clang
           - name: Windows MSVC
-            os: windows-latest
+            # The latest label currently selects the VS 2026 preview toolset,
+            # whose C++ module reader crashes on the editor's standard-library
+            # import graph. VS 2022 supplies the supported stable MSVC lane.
+            os: windows-2022
             platform: windows
             preset: ci-msvc
 
