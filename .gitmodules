@@ -66,3 +66,6 @@
 	path = KairoReflection
 	url = https://github.com/swayam8624/KairoReflection.git
 	branch = main
+[submodule "KairoHub"]
+	path = KairoHub
+	url = https://github.com/swayam8624/KairoHub.git
