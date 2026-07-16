@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(CTest)
 
 option(KAIRO_GAME_ENGINE_BUILD_EDITOR "Build the native Vulkan editor" ON)
+option(KAIRO_GAME_ENGINE_BUILD_PLAYER "Build the standalone Kairo runtime player" ON)
 option(KAIRO_GAME_ENGINE_BUILD_RAYTRACER "Build the offline CPU ray tracer" ON)
 option(KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX "Build physics terminal and GLFW sandboxes" ON)
 option(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK "Build experimental GPU/SIMD/scheduler/ONNX/transformer modules" OFF)
@@ -98,6 +99,10 @@ target_link_libraries(KairoGameEngine INTERFACE
     KairoRenderer
     KairoPhysicsEngine)
 add_library(Kairo::GameEngine ALIAS KairoGameEngine)
+
+if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
+    add_subdirectory(Runtime/KairoPlayer)
+endif()
 
 # The component repositories do not yet export installable package targets, so
 # a binary SDK archive would be misleading. Source packages are still useful:

@@ -23,6 +23,7 @@ KairoECS ----------------------------------------------------------+
 KairoReflection ---------------------------------------------------+
                                                                  v
                            KairoRenderer -> KairoEditor -> game tools
+                                         -> KairoPlayer -> shipped runtime
 
 Optional compute stack:
 KairoSIMD + KairoScheduler + KairoGPU -> KairoONNX -> KairoTransformers
@@ -78,7 +79,7 @@ select a specific Clang installation. The plain `dev` preset deliberately uses
 the compiler selected by the host environment.
 
 Both developer presets build the real-time editor, CPU ray tracer, physics
-sandboxes, and all registered tests. The optimized preset is:
+sandboxes, standalone player, and all registered tests. The optimized preset is:
 
 ```bash
 cmake --preset release
@@ -116,6 +117,37 @@ The workflow intentionally uses package-manager discovery rather than the machin
 older local presets required.
 
 ## Run
+
+Validate a project without opening a native window. This is the stable contract
+used by launchers, CI, recovery tools, and future packaging profiles:
+
+```bash
+./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
+  KairoEditor/examples/StarterProject/Project.kproject --validate
+```
+
+Run the same startup scene in the standalone Vulkan player:
+
+```bash
+./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
+  KairoEditor/examples/StarterProject/Project.kproject
+```
+
+Render, read back, and verify a nonblank native frame without leaving the
+window open. CI runners with Vulkan presentation support use this mode as
+visual acceptance evidence:
+
+```bash
+./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
+  KairoEditor/examples/StarterProject/Project.kproject --smoke
+```
+
+`KairoPlayer` resolves all authored paths relative to the descriptor, rejects
+missing or escaping manifest/scene paths, imports source meshes through
+KairoAssets' content-addressed OBJ pipeline, and keeps GPU handles private to
+the runtime render bridge. Gameplay input, physics stepping, and logic bytecode
+remain subsequent runtime milestones; validation and scene presentation here
+are executable foundations, not claims that those systems already ship.
 
 Launch the native editor with its starter project:
 
@@ -167,6 +199,7 @@ standalone build path.
 | CMake option | Default | Purpose |
 | --- | --- | --- |
 | `KAIRO_GAME_ENGINE_BUILD_EDITOR` | `ON` | Build the native editor application |
+| `KAIRO_GAME_ENGINE_BUILD_PLAYER` | `ON` | Build the standalone project validator and Vulkan player |
 | `KAIRO_GAME_ENGINE_BUILD_RAYTRACER` | `ON` | Build the offline CPU ray tracer |
 | `KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX` | `ON` | Build terminal and GLFW physics sandboxes |
 | `KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK` | `OFF` | Include the experimental ML/compute repositories |
