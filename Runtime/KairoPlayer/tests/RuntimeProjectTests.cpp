@@ -131,6 +131,8 @@ int main()
             "input-map \"Config/Input.kinput\"\nrendering-profile \"desktop\"\n"
             "build-profile \"Development\" development \"Build/Development\"\n");
         Write(root / "Assets.kassets", "kairo-assets 1\n");
+        Write(root / "Config/Input.kinput",
+            "kairo-input 1\naction \"Jump\" button\nbind \"Jump\" key Space 1 0 0\n");
         Write(root / "Scenes/Main.kscene",
             "kairo-scene 2\nentity 1 \"Root\"\nenabled true\nlayer 0\n"
             "transform 0 0 0 0 0 0 1 1 1 1\nend\n");
@@ -139,12 +141,23 @@ int main()
         Require(project.Descriptor().Name == "Runtime Test", "Project descriptor did not load.");
         Require(project.Assets().Size() == 0u, "Empty asset manifest changed during load.");
         Require(project.Scene().Size() == 1u, "Startup scene did not load.");
+        Require(project.InputMap().FindAction("Jump") != nullptr,
+            "Authored input action map did not load.");
 
         std::filesystem::remove(root / "Scenes/Main.kscene");
         bool missingRejected = false;
         try { kairo::player::RuntimeProject invalid(root / "Project.kproject"); }
         catch (const std::invalid_argument&) { missingRejected = true; }
         Require(missingRejected, "Missing startup scene was accepted.");
+
+        Write(root / "Scenes/Main.kscene",
+            "kairo-scene 2\nentity 1 \"Root\"\nenabled true\nlayer 0\n"
+            "transform 0 0 0 0 0 0 1 1 1 1\nend\n");
+        std::filesystem::remove(root / "Config/Input.kinput");
+        bool missingInputRejected = false;
+        try { kairo::player::RuntimeProject invalid(root / "Project.kproject"); }
+        catch (const std::invalid_argument&) { missingInputRejected = true; }
+        Require(missingInputRejected, "Missing project input map was accepted.");
 
         bool extensionRejected = false;
         Write(root / "Project.txt", "not a project\n");

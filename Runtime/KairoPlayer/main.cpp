@@ -8,6 +8,7 @@
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
 import Kairo.Player.RuntimePhysicsBridge;
+import Kairo.Player.RuntimeInputBridge;
 import Kairo.Renderer;
 
 namespace
@@ -51,6 +52,7 @@ int main(int argc, char** argv)
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
         kairo::player::RuntimePhysicsBridge physics(project.Scene());
+        kairo::player::RuntimeInputBridge input(project.InputMap());
         renderer.SubmitRenderScene(bridge.BuildScene());
         renderer.SetCameraPose(bridge.CameraPose());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
@@ -59,6 +61,9 @@ int main(int argc, char** argv)
         while (!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
+            input.Poll(renderer.NativeWindow());
+            if (input.HasAction("Quit") && input.Action("Quit").Pressed)
+                renderer.NativeWindow().RequestClose();
             const auto currentFrame = std::chrono::steady_clock::now();
             const float elapsedSeconds = std::chrono::duration<float>(currentFrame - previousFrame).count();
             previousFrame = currentFrame;

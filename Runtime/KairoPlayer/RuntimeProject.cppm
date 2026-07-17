@@ -42,14 +42,17 @@ export namespace kairo::player
         {
             const auto manifest = RequireProjectFile(m_Descriptor.AssetManifest, "asset manifest");
             const auto scene = RequireProjectFile(m_Descriptor.StartupScene, "startup scene");
+            const auto inputMap = RequireProjectFile(m_Descriptor.InputMap, "input map");
             kairo::assets::LoadAssetManifest(manifest, m_Assets);
             kairo::engine::LoadScene(scene, m_Assets, m_Scene);
+            m_InputMap = kairo::engine::LoadInputActionMap(inputMap);
         }
 
         [[nodiscard]] const std::filesystem::path& DescriptorPath() const noexcept { return m_DescriptorPath; }
         [[nodiscard]] const std::filesystem::path& Root() const noexcept { return m_Root; }
         [[nodiscard]] const kairo::engine::ProjectDescriptor& Descriptor() const noexcept { return m_Descriptor; }
         [[nodiscard]] const kairo::assets::AssetRegistry& Assets() const noexcept { return m_Assets; }
+        [[nodiscard]] const kairo::engine::InputActionMap& InputMap() const noexcept { return m_InputMap; }
         [[nodiscard]] const kairo::engine::Scene& Scene() const noexcept { return m_Scene; }
         [[nodiscard]] kairo::engine::Scene& Scene() noexcept { return m_Scene; }
 
@@ -85,5 +88,6 @@ export namespace kairo::player
         kairo::engine::ProjectDescriptor m_Descriptor;
         kairo::assets::AssetRegistry m_Assets;
         kairo::engine::Scene m_Scene;
+        kairo::engine::InputActionMap m_InputMap;
     };
 }
