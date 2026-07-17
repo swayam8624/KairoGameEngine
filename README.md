@@ -185,6 +185,23 @@ Launch the native editor with its starter project:
   --project KairoEditor/examples/StarterProject/Project.kproject
 ```
 
+The `Kairo AI` dock is always present, while cloud transport remains opt-in:
+
+```bash
+cmake --preset dev-clang -DKAIRO_GAME_ENGINE_BUILD_AI_CLOUD=ON
+cmake --build --preset dev-clang
+
+KAIRO_AI_API_KEY='...' \
+KAIRO_AI_MODEL='your-openai-compatible-model' \
+./build/dev-clang/KairoEditor/KairoEditorApp \
+  --project KairoEditor/examples/StarterProject/Project.kproject
+```
+
+Ask and Plan cannot mutate the project. Agent changes appear as validated
+command previews and require exact approval before entering the manual undo
+history. `KAIRO_AI_ENDPOINT` may select another HTTPS-compatible endpoint;
+credentials are never written to project or recovery data.
+
 Launch the interactive physics sandbox:
 
 ```bash
