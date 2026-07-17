@@ -21,6 +21,7 @@ set(KAIRO_WORKSPACE_COMPONENTS
     Foundation/KairoPhysicsMath
     Foundation/KairoPhysicsEngine
     KairoAssets
+    KairoAI
     KairoECS
     KairoReflection
     KairoEngineCore
@@ -49,6 +50,7 @@ set(KAIRO_PHYSICS_ENGINE_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_PHYSICS_ENGINE_BUILD_SANDBOX ${KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX} CACHE BOOL "" FORCE)
 set(KAIRO_PHYSICS_ENGINE_BUILD_GLFW_SANDBOX ${KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX} CACHE BOOL "" FORCE)
 set(KAIRO_ASSETS_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
+set(KAIRO_AI_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_ECS_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_REFLECTION_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_ENGINE_CORE_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
@@ -63,6 +65,7 @@ set(KAIRO_RAYTRACER_BUILD_PREVIEW ${KAIRO_GAME_ENGINE_BUILD_EDITOR} CACHE BOOL "
 # component's local-first dependency resolver reuses it instead of fetching or
 # compiling a second copy.
 add_subdirectory(Foundation/KairoPhysicsEngine)
+add_subdirectory(KairoAI)
 add_subdirectory(KairoECS)
 add_subdirectory(KairoReflection)
 add_subdirectory(KairoEngineCore)

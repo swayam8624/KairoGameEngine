@@ -69,3 +69,6 @@
 [submodule "KairoHub"]
 	path = KairoHub
 	url = https://github.com/swayam8624/KairoHub.git
+[submodule "KairoAI"]
+	path = KairoAI
+	url = https://github.com/swayam8624/KairoAI.git

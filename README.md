@@ -21,6 +21,7 @@ KairoAssets -> KairoEngineCore -----------------------------------+
     +--------> KairoRayTracer                                     |
 KairoECS ----------------------------------------------------------+
 KairoReflection ---------------------------------------------------+
+KairoAI -----------------------------> editor assistance / optional game services
                                                                  v
                            KairoRenderer -> KairoEditor -> game tools
                                          -> KairoPlayer -> shipped runtime
@@ -210,6 +211,7 @@ standalone build path.
 | `Foundation/KairoPhysicsMath` | [KairoPhysicsMath](https://github.com/swayam8624/KairoPhysicsMath) | Reusable rigid-body formulas and integration math | `main` |
 | `Foundation/KairoPhysicsEngine` | [KairoPhysicsEngine](https://github.com/swayam8624/KairoPhysicsEngine) | Rigid-body world, collision, solver, and sandboxes | `main` |
 | `KairoAssets` | [KairoAssets](https://github.com/swayam8624/KairoAssets) | Identity, manifests, derived cache, importer registry, strict OBJ import, and portable mesh artifacts | `main` |
+| `KairoAI` | [KairoAI](https://github.com/swayam8624/KairoAI) | Bounded provider contracts, streaming, cancellation, structured tool calls, and deterministic mock inference | `main` |
 | `KairoECS` | [KairoECS](https://github.com/swayam8624/KairoECS) | Generational entities, sparse-set component storage, and runtime iteration | `main` |
 | `KairoReflection` | [KairoReflection](https://github.com/swayam8624/KairoReflection) | Stable type/property metadata and inspector-ready access adapters | `main` |
 | `KairoEngineCore` | [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore) | Scene/runtime services and application contracts | `main` |
