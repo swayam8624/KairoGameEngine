@@ -118,6 +118,15 @@ older local presets required.
 
 ## Run
 
+Compile every logic document attached to the startup scene. Saving incomplete
+graphs remains allowed; this explicit build gate rejects graph diagnostics and
+publishes source-bound runtime artifacts:
+
+```bash
+./build/dev-clang/KairoEditor/KairoProjectCompiler \
+  KairoEditor/examples/StarterProject/Project.kproject
+```
+
 Validate a project without opening a native window. This is the stable contract
 used by launchers, CI, recovery tools, and future packaging profiles:
 
@@ -158,27 +167,33 @@ data. Excess backlog beyond the configured substep budget is reported and
 dropped instead of producing an unbounded spiral after a debugger or window
 stall.
 
-Gameplay input and logic bytecode remain subsequent runtime milestones;
-validation, scene presentation, and deterministic physics here are executable
-foundations, not claims that those systems already ship.
+Gameplay input is loaded from the project's versioned `.kinput` map and polled
+through GLFW's keyboard, mouse, and standardized gamepad paths. Scene-attached
+logic runs as bounded deterministic EngineCore bytecode without linking editor
+graph code into the player. Begin Play and input transitions dispatch once;
+Tick dispatches on the fixed physics clock; collision begin/end events map back
+to scene entities. Host calls currently cover terminal output, world-position
+updates, and center-of-mass impulses. `--validate` fingerprints every source
+document and rejects missing, foreign, stale, or unknown-action artifacts before
+opening a Vulkan window.
 
 Launch the native editor with its starter project:
 
 ```bash
-./build/dev/KairoEditor/KairoEditorApp \
+./build/dev-clang/KairoEditor/KairoEditorApp \
   --project KairoEditor/examples/StarterProject/Project.kproject
 ```
 
 Launch the interactive physics sandbox:
 
 ```bash
-./build/dev/Foundation/KairoPhysicsEngine/KairoPhysicsGlfwSandbox
+./build/dev-clang/Foundation/KairoPhysicsEngine/KairoPhysicsGlfwSandbox
 ```
 
 Render and preview a CPU ray-traced scene:
 
 ```bash
-./build/dev/KairoRayTracer/KairoRayTracerPreview \
+./build/dev-clang/KairoRayTracer/KairoRayTracerPreview \
   KairoRayTracer/scenes/cornell.kairo --mode whitted
 ```
 

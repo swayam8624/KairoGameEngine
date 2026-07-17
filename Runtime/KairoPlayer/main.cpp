@@ -9,6 +9,7 @@ import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeInputBridge;
+import Kairo.Player.RuntimeLogicBridge;
 import Kairo.Renderer;
 
 namespace
@@ -46,13 +47,15 @@ int main(int argc, char** argv)
                   << "  assets: " << project.Assets().Size() << "\n"
                   << "  entities: " << project.Scene().Size() << "\n"
                   << "  startup scene: " << project.Descriptor().StartupScene.generic_string() << '\n';
+        kairo::player::RuntimePhysicsBridge physics(project.Scene());
+        kairo::player::RuntimeInputBridge input(project.InputMap());
+        kairo::player::RuntimeLogicBridge logic(project, physics);
         if (arguments.ValidateOnly) return 0;
 
         kairo::renderer::RendererRuntime renderer({
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
-        kairo::player::RuntimePhysicsBridge physics(project.Scene());
-        kairo::player::RuntimeInputBridge input(project.InputMap());
+        logic.BeginPlay();
         renderer.SubmitRenderScene(bridge.BuildScene());
         renderer.SetCameraPose(bridge.CameraPose());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
@@ -64,10 +67,13 @@ int main(int argc, char** argv)
             input.Poll(renderer.NativeWindow());
             if (input.HasAction("Quit") && input.Action("Quit").Pressed)
                 renderer.NativeWindow().RequestClose();
+            for (const auto& action : project.InputMap().Actions())
+                logic.DispatchInput(action.Name, input.Action(action.Name));
             const auto currentFrame = std::chrono::steady_clock::now();
             const float elapsedSeconds = std::chrono::duration<float>(currentFrame - previousFrame).count();
             previousFrame = currentFrame;
-            (void)physics.Advance(elapsedSeconds);
+            (void)physics.Advance(elapsedSeconds, &logic);
+            logic.DispatchContacts();
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.DrawFrame();
             if (arguments.SmokeTest)

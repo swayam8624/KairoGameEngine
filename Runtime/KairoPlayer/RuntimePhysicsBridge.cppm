@@ -47,6 +47,13 @@ export namespace kairo::player
         bool DroppedExcessTime = false;
     };
 
+    class RuntimeFixedStepListener
+    {
+    public:
+        virtual ~RuntimeFixedStepListener() = default;
+        virtual void BeforePhysicsStep(float fixedDeltaSeconds) = 0;
+    };
+
     /// Entity-facing contact event. Runtime body/collider IDs intentionally do
     /// not cross this boundary because they are valid only for one play session.
     struct RuntimeContactEvent final
@@ -90,7 +97,8 @@ export namespace kairo::player
         /// Task: bound debugger/window stalls, execute deterministic substeps,
         /// discard an unrecoverable backlog at the explicit substep cap, and
         /// publish interpolated body poses into the runtime scene.
-        [[nodiscard]] RuntimePhysicsAdvance Advance(float elapsedSeconds)
+        [[nodiscard]] RuntimePhysicsAdvance Advance(float elapsedSeconds,
+            RuntimeFixedStepListener* listener = nullptr)
         {
             if (!std::isfinite(elapsedSeconds) || elapsedSeconds < 0.0f)
                 throw std::invalid_argument("Runtime physics elapsed time must be finite and non-negative.");
@@ -101,6 +109,7 @@ export namespace kairo::player
                 result.Steps < m_Settings.MaximumSubsteps)
             {
                 for (auto& [entity, pose] : m_Poses) pose.Previous = pose.Current;
+                if (listener != nullptr) listener->BeforePhysicsStep(m_Settings.FixedDeltaSeconds);
                 m_World.Step(m_Settings.FixedDeltaSeconds);
                 SynchronizeCurrentPoses();
                 m_Accumulator -= m_Settings.FixedDeltaSeconds;
@@ -134,6 +143,46 @@ export namespace kairo::player
         {
             const auto found = m_EntitiesByBody.find(body);
             return found == m_EntitiesByBody.end() ? std::nullopt : std::optional(found->second);
+        }
+
+        /// Sets an entity's world position across the scene and physics world.
+        /// Bodies retain rotation and velocity; pose history is reset to avoid
+        /// interpolating from the pre-teleport location on the next frame.
+        void SetEntityPosition(kairo::engine::Entity entity,
+            const kairo::foundation::math::Vec3d& position)
+        {
+            if (!m_Scene.Contains(entity))
+                throw std::out_of_range("Cannot position an unknown runtime entity.");
+            if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z))
+                throw std::invalid_argument("Runtime entity position must be finite.");
+            auto world = m_Scene.WorldTransform(entity);
+            world.Translation = { static_cast<float>(position.x), static_cast<float>(position.y),
+                static_cast<float>(position.z) };
+            m_Scene.Transform(entity).Local = ToLocal(m_Scene, entity, world);
+            if (const auto body = BodyFor(entity))
+            {
+                auto& state = m_World.Bodies().at(*body).State;
+                state.Position = world.Translation;
+                auto& pose = m_Poses.at(entity.Value);
+                pose.Previous = world;
+                pose.Current = world;
+                m_World.WakeBody(*body);
+            }
+        }
+
+        /// Applies a world-space impulse at the body's center of mass. Static
+        /// and kinematic bodies follow PhysicsWorld's explicit no-op policy.
+        void ApplyEntityImpulse(kairo::engine::Entity entity,
+            const kairo::foundation::math::Vec3d& impulse)
+        {
+            if (!std::isfinite(impulse.x) || !std::isfinite(impulse.y) || !std::isfinite(impulse.z))
+                throw std::invalid_argument("Runtime entity impulse must be finite.");
+            const auto body = BodyFor(entity);
+            if (!body) throw std::invalid_argument("Cannot apply an impulse to an entity without a runtime body.");
+            const kairo::foundation::math::Vec3f value{ static_cast<float>(impulse.x),
+                static_cast<float>(impulse.y), static_cast<float>(impulse.z) };
+            const auto point = m_World.Bodies().at(*body).State.Position;
+            m_World.ApplyBodyImpulseAtPoint(*body, value, point);
         }
 
         /// Entity-aware nearest ray query for gameplay, sensors, and future

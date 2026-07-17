@@ -6,6 +6,7 @@
 
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimePhysicsBridge;
+import Kairo.Player.RuntimeLogicBridge;
 import Kairo.EngineCore;
 import Kairo.Foundation.Math;
 
@@ -71,6 +72,9 @@ namespace
         const auto hit = physics.Raycast({ 0.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 10.0f);
         Require(hit.has_value() && hit->first == fixture.Ball,
             "Entity-aware raycast did not return the nearest authored sphere.");
+        physics.ApplyEntityImpulse(fixture.Ball, { 0.0, 2.0, 0.0 });
+        Require(physics.World().Bodies().at(*ballBody).State.LinearVelocity.y > 0.0f,
+            "Entity-aware impulse did not reach the mapped dynamic body.");
 
         auto sixtyHertz = MakePhysicsFixture();
         auto thirtyHertz = MakePhysicsFixture();
@@ -130,19 +134,59 @@ int main()
             "assets \"Assets.kassets\"\nstartup-scene \"Scenes/Main.kscene\"\n"
             "input-map \"Config/Input.kinput\"\nrendering-profile \"desktop\"\n"
             "build-profile \"Development\" development \"Build/Development\"\n");
-        Write(root / "Assets.kassets", "kairo-assets 1\n");
+        const auto logicID = kairo::assets::AssetID::Parse(
+            "00000000-0000-4000-8000-000000000901");
+        Write(root / "Assets.kassets",
+            "kairo-assets 1\n"
+            "asset 00000000-0000-4000-8000-000000000901 document source 1 "
+            "\"Logic/Runtime.kdoc\" \"kairo.document-v1\"\nend\n");
+        Write(root / "Logic/Runtime.kdoc", "runtime logic source\n");
         Write(root / "Config/Input.kinput",
             "kairo-input 1\naction \"Jump\" button\nbind \"Jump\" key Space 1 0 0\n");
         Write(root / "Scenes/Main.kscene",
             "kairo-scene 2\nentity 1 \"Root\"\nenabled true\nlayer 0\n"
-            "transform 0 0 0 0 0 0 1 1 1 1\nend\n");
+            "transform 0 0 0 0 0 0 1 1 1 1\n"
+            "logic 00000000-0000-4000-8000-000000000901 true\nend\n");
+
+        kairo::engine::LogicProgram logicProgram;
+        logicProgram.Vectors = { { 2.0, 3.0, 4.0 } };
+        logicProgram.Entities = { { 1u } };
+        logicProgram.RegisterCount = 5u;
+        logicProgram.Instructions = {
+            { kairo::engine::LogicOpcode::LoadEntity, 3u, 0u },
+            { kairo::engine::LogicOpcode::LoadVector3, 4u, 0u },
+            { kairo::engine::LogicOpcode::SetEntityPosition, 3u, 4u },
+            { kairo::engine::LogicOpcode::Halt }
+        };
+        logicProgram.Entries = { { kairo::engine::LogicEventKind::BeginPlay, {}, 0u } };
+        kairo::engine::SaveCompiledLogicArtifact(
+            kairo::engine::CompiledLogicPath(root, logicID),
+            { logicID, kairo::assets::FingerprintFile(root / "Logic/Runtime.kdoc"), logicProgram });
 
         kairo::player::RuntimeProject project(root / "Project.kproject");
         Require(project.Descriptor().Name == "Runtime Test", "Project descriptor did not load.");
-        Require(project.Assets().Size() == 0u, "Empty asset manifest changed during load.");
+        Require(project.Assets().Size() == 1u, "Document asset manifest did not load.");
         Require(project.Scene().Size() == 1u, "Startup scene did not load.");
         Require(project.InputMap().FindAction("Jump") != nullptr,
             "Authored input action map did not load.");
+        kairo::player::RuntimePhysicsBridge projectPhysics(project.Scene());
+        kairo::player::RuntimeLogicBridge projectLogic(project, projectPhysics);
+        Require(projectLogic.InstanceCount() == 1u, "Attached runtime logic instance did not load.");
+        projectLogic.BeginPlay();
+        Require(project.Scene().Transform({ 1u }).Local.Translation ==
+            kairo::foundation::math::Vec3f{ 2.0f, 3.0f, 4.0f },
+            "Begin Play bytecode did not mutate the runtime scene through its host.");
+
+        Write(root / "Logic/Runtime.kdoc", "changed runtime logic source\n");
+        bool staleRejected = false;
+        try
+        {
+            kairo::player::RuntimeProject staleProject(root / "Project.kproject");
+            kairo::player::RuntimePhysicsBridge stalePhysics(staleProject.Scene());
+            kairo::player::RuntimeLogicBridge staleLogic(staleProject, stalePhysics);
+        }
+        catch (const std::invalid_argument&) { staleRejected = true; }
+        Require(staleRejected, "Runtime accepted a compiled artifact for stale source bytes.");
 
         std::filesystem::remove(root / "Scenes/Main.kscene");
         bool missingRejected = false;
