@@ -145,9 +145,22 @@ visual acceptance evidence:
 `KairoPlayer` resolves all authored paths relative to the descriptor, rejects
 missing or escaping manifest/scene paths, imports source meshes through
 KairoAssets' content-addressed OBJ pipeline, and keeps GPU handles private to
-the runtime render bridge. Gameplay input, physics stepping, and logic bytecode
-remain subsequent runtime milestones; validation and scene presentation here
-are executable foundations, not claims that those systems already ship.
+the runtime render bridge.
+
+Authored Scene V2 rigid-body and collider descriptors are instantiated in an
+isolated `KairoPhysicsEngine` world when the player starts. Rendering may run at
+any frame rate: elapsed time feeds a bounded 60 Hz fixed-step accumulator, body
+poses retain previous/current snapshots, and the scene receives interpolated
+hierarchy-local transforms before draw extraction. Collision category/mask and
+trigger settings are preserved, contact callbacks are translated back to stable
+scene entities, and player-side raycasts return both entity and physics hit
+data. Excess backlog beyond the configured substep budget is reported and
+dropped instead of producing an unbounded spiral after a debugger or window
+stall.
+
+Gameplay input and logic bytecode remain subsequent runtime milestones;
+validation, scene presentation, and deterministic physics here are executable
+foundations, not claims that those systems already ship.
 
 Launch the native editor with its starter project:
 

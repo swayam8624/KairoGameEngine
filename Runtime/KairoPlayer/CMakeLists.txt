@@ -1,7 +1,7 @@
 add_library(KairoPlayerRuntime)
 target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-    FILES RuntimeProject.cppm RuntimeRenderBridge.cppm)
+    FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimePhysicsBridge.cppm)
 target_link_libraries(KairoPlayerRuntime PUBLIC Kairo::GameEngine)
 target_compile_features(KairoPlayerRuntime PUBLIC cxx_std_23)
 

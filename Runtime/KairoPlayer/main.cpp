@@ -1,4 +1,5 @@
 #include <exception>
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -6,6 +7,7 @@
 
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
+import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Renderer;
 
 namespace
@@ -48,13 +50,20 @@ int main(int argc, char** argv)
         kairo::renderer::RendererRuntime renderer({
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
+        kairo::player::RuntimePhysicsBridge physics(project.Scene());
         renderer.SubmitRenderScene(bridge.BuildScene());
         renderer.SetCameraPose(bridge.CameraPose());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
         unsigned smokeFrames = 0u;
+        auto previousFrame = std::chrono::steady_clock::now();
         while (!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
+            const auto currentFrame = std::chrono::steady_clock::now();
+            const float elapsedSeconds = std::chrono::duration<float>(currentFrame - previousFrame).count();
+            previousFrame = currentFrame;
+            (void)physics.Advance(elapsedSeconds);
+            renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.DrawFrame();
             if (arguments.SmokeTest)
             {
