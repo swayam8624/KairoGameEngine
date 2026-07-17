@@ -232,6 +232,7 @@ standalone build path.
 | `KAIRO_GAME_ENGINE_BUILD_PLAYER` | `ON` | Build the standalone project validator and Vulkan player |
 | `KAIRO_GAME_ENGINE_BUILD_RAYTRACER` | `ON` | Build the offline CPU ray tracer |
 | `KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX` | `ON` | Build terminal and GLFW physics sandboxes |
+| `KAIRO_GAME_ENGINE_BUILD_AI_CLOUD` | `OFF` | Build KairoAI's pinned CPR OpenAI-compatible transport |
 | `KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK` | `OFF` | Include the experimental ML/compute repositories |
 
 Override an option during configuration when a narrower build is useful:
