@@ -72,3 +72,6 @@
 [submodule "KairoAI"]
 	path = KairoAI
 	url = https://github.com/swayam8624/KairoAI.git
+[submodule "KairoMacPerception"]
+	path = KairoMacPerception
+	url = https://github.com/swayam8624/KairoMacPerception.git
