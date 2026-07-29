@@ -2,6 +2,8 @@
 #include <chrono>
 #include <filesystem>
 #include <iostream>
+#include <optional>
+#include <string>
 #include <stdexcept>
 #include <string_view>
 
@@ -10,6 +12,7 @@ import Kairo.Player.RuntimeRenderBridge;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeInputBridge;
 import Kairo.Player.RuntimeLogicBridge;
+import Kairo.Player.RuntimePackaging;
 import Kairo.Renderer;
 
 namespace
@@ -19,11 +22,15 @@ namespace
         std::filesystem::path Project;
         bool ValidateOnly = false;
         bool SmokeTest = false;
+        bool ReplacePackage = false;
+        std::optional<std::string> PackageProfile;
     };
 
     [[nodiscard]] Arguments ParseArguments(int count, char** values)
     {
-        if (count < 2) throw std::invalid_argument("Usage: KairoPlayer <Project.kproject> [--validate|--smoke]");
+        if (count < 2)
+            throw std::invalid_argument(
+                "Usage: KairoPlayer <Project.kproject> [--validate|--smoke|--package <profile> [--replace]]");
         Arguments result;
         result.Project = values[1];
         for (int index = 2; index < count; ++index)
@@ -31,8 +38,22 @@ namespace
             const std::string_view option = values[index];
             if (option == "--validate") result.ValidateOnly = true;
             else if (option == "--smoke") result.SmokeTest = true;
+            else if (option == "--package")
+            {
+                if (result.PackageProfile.has_value())
+                    throw std::invalid_argument("--package may be specified only once.");
+                if (++index >= count) throw std::invalid_argument("--package requires an exact build-profile name.");
+                result.PackageProfile = values[index];
+            }
+            else if (option == "--replace") result.ReplacePackage = true;
             else throw std::invalid_argument("Unknown KairoPlayer option: " + std::string(option));
         }
+        const unsigned operationCount = static_cast<unsigned>(result.ValidateOnly) +
+            static_cast<unsigned>(result.SmokeTest) + static_cast<unsigned>(result.PackageProfile.has_value());
+        if (operationCount > 1u)
+            throw std::invalid_argument("--validate, --smoke, and --package are mutually exclusive operations.");
+        if (result.ReplacePackage && !result.PackageProfile.has_value())
+            throw std::invalid_argument("--replace is valid only with --package.");
         return result;
     }
 }
@@ -51,6 +72,15 @@ int main(int argc, char** argv)
         kairo::player::RuntimeInputBridge input(project.InputMap());
         kairo::player::RuntimeLogicBridge logic(project, physics);
         if (arguments.ValidateOnly) return 0;
+        if (arguments.PackageProfile.has_value())
+        {
+            const auto package = kairo::player::PackageRuntimeProject(project,
+                { *arguments.PackageProfile, argv[0], arguments.ReplacePackage });
+            std::cout << "Packaged " << package.ProjectFileCount << " project files ("
+                      << package.ProjectByteCount << " bytes) to "
+                      << package.OutputDirectory << '\n';
+            return 0;
+        }
 
         kairo::renderer::RendererRuntime renderer({
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true });

@@ -1,12 +1,15 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <cmath>
 #include <stdexcept>
+#include <string>
 
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeLogicBridge;
+import Kairo.Player.RuntimePackaging;
 import Kairo.EngineCore;
 import Kairo.Foundation.Math;
 
@@ -31,6 +34,100 @@ namespace
         kairo::engine::Entity Ball;
         kairo::engine::Entity Floor;
     };
+
+    [[nodiscard]] std::string Read(const std::filesystem::path& path)
+    {
+        std::ifstream input(path, std::ios::binary);
+        if (!input) throw std::runtime_error("Fixture read failed.");
+        return { std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>() };
+    }
+
+    void TestRuntimePackaging(const std::filesystem::path& testRoot)
+    {
+        const auto root = testRoot / "packaging-project";
+        const auto player = testRoot / "fake-KairoPlayer";
+        Write(player, "test player executable\n");
+        Write(root / "PackageTest.kproject",
+            "kairo-project 2\nname \"Package Test\"\nengine-version \"0.1.0\"\n"
+            "assets \"Assets.kassets\"\nstartup-scene \"Scenes/Main.kscene\"\n"
+            "input-map \"Config/Input.kinput\"\nrendering-profile \"desktop\"\n"
+            "build-profile \"Development\" development \"Build/Development\"\n"
+            "build-profile \"Release\" release \"Build/Release\"\n");
+        Write(root / "Assets.kassets", "kairo-assets 1\n");
+        Write(root / "Config/Input.kinput",
+            "kairo-input 1\naction \"Quit\" button\nbind \"Quit\" key Escape 1 0 0\n");
+        Write(root / "Scenes/Main.kscene", "kairo-scene 2\n");
+        Write(root / "Content/keep.txt", "authored payload\n");
+        Write(root / ".kairo/compiled/keep.bin", "compiled logic\n");
+        Write(root / ".kairo/recovery/drop.bin", "recovery journal\n");
+        Write(root / ".kairo/derived-data/drop.bin", "derived cache\n");
+        Write(root / ".git/config", "source control metadata\n");
+        Write(root / "Build/Release/old.bin", "old release package\n");
+
+        kairo::player::RuntimeProject project(root / "PackageTest.kproject");
+        const auto result = kairo::player::PackageRuntimeProject(project,
+            { "Development", player, false });
+        const auto output = project.Root() / "Build/Development";
+        Require(result.OutputDirectory == output, "Package output did not use the selected profile directory.");
+        Require(result.ManifestPath == output / "package.kmanifest", "Package manifest path is incorrect.");
+        Require(result.ProjectFileCount > 4u && result.ProjectByteCount > 0u,
+            "Package did not report its project payload.");
+        Require(std::filesystem::is_regular_file(output / "project/Project.kproject"),
+            "Canonical packaged descriptor is missing.");
+        Require(std::filesystem::is_regular_file(output / "project/Content/keep.txt"),
+            "Authored project payload was not copied.");
+        Require(std::filesystem::is_regular_file(output / "project/.kairo/compiled/keep.bin"),
+            "Required compiled logic was not copied.");
+        Require(!std::filesystem::exists(output / "project/.kairo/recovery"),
+            "Recovery journals leaked into the package.");
+        Require(!std::filesystem::exists(output / "project/.kairo/derived-data"),
+            "Derived cache leaked into the package.");
+        Require(!std::filesystem::exists(output / "project/.git"),
+            "Source-control metadata leaked into the package.");
+        Require(!std::filesystem::exists(output / "project/Build"),
+            "A configured build output recursively leaked into the package.");
+        Require(std::filesystem::is_regular_file(output / "bin" / player.filename()),
+            "KairoPlayer executable was not copied.");
+#if defined(_WIN32)
+        Require(std::filesystem::is_regular_file(output / "run.cmd"), "Windows package launcher is missing.");
+#else
+        Require(std::filesystem::is_regular_file(output / "run.sh"), "POSIX package launcher is missing.");
+#endif
+        const auto manifest = Read(output / "package.kmanifest");
+        Require(manifest.find("kairo-package 1") != std::string::npos &&
+            manifest.find("profile \"Development\"") != std::string::npos,
+            "Package manifest does not identify its format and selected profile.");
+
+        // Loading through the canonical bundled descriptor proves that all
+        // descriptor-relative bootstrap files survived relocation.
+        kairo::player::RuntimeProject bundled(output / "project/Project.kproject");
+        Require(bundled.Descriptor().Name == "Package Test", "Published package cannot load as a runtime project.");
+
+        bool existingRejected = false;
+        try { (void)kairo::player::PackageRuntimeProject(project, { "Development", player, false }); }
+        catch (const std::invalid_argument&) { existingRejected = true; }
+        Require(existingRejected, "Existing package output was replaced without explicit permission.");
+
+        Write(output / "obsolete.txt", "must disappear\n");
+        (void)kairo::player::PackageRuntimeProject(project, { "Development", player, true });
+        Require(!std::filesystem::exists(output / "obsolete.txt"),
+            "Atomic package replacement retained a stale output file.");
+
+        bool unknownRejected = false;
+        try { (void)kairo::player::PackageRuntimeProject(project, { "Shipping", player, false }); }
+        catch (const std::invalid_argument&) { unknownRejected = true; }
+        Require(unknownRejected, "Unknown build profile was accepted.");
+
+        std::error_code symlinkError;
+        std::filesystem::create_symlink(root / "Content/keep.txt", root / "Content/link.txt", symlinkError);
+        if (!symlinkError)
+        {
+            bool symlinkRejected = false;
+            try { (void)kairo::player::PackageRuntimeProject(project, { "Release", player, false }); }
+            catch (const std::invalid_argument&) { symlinkRejected = true; }
+            Require(symlinkRejected, "Symbolic link in project payload was accepted.");
+        }
+    }
 
     [[nodiscard]] PhysicsFixture MakePhysicsFixture()
     {
@@ -209,6 +306,7 @@ int main()
         catch (const std::invalid_argument&) { extensionRejected = true; }
         Require(extensionRejected, "Non-kproject descriptor was accepted.");
         TestRuntimePhysics();
+        TestRuntimePackaging(root);
         std::filesystem::remove_all(root);
         return 0;
     }

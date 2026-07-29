@@ -143,6 +143,44 @@ Run the same startup scene in the standalone Vulkan player:
   KairoEditor/examples/StarterProject/Project.kproject
 ```
 
+Build one of the exact profiles authored in `Project.kproject` after publishing
+current logic artifacts:
+
+```bash
+./build/dev-clang/KairoEditor/KairoProjectCompiler \
+  KairoEditor/examples/StarterProject/Project.kproject
+
+./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
+  KairoEditor/examples/StarterProject/Project.kproject \
+  --package Release
+```
+
+The profile's output directory receives a staged runtime bundle and is
+published by one filesystem rename only after the relocated project validates.
+An existing output is preserved unless replacement is explicit:
+
+```bash
+./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
+  KairoEditor/examples/StarterProject/Project.kproject \
+  --package Release --replace
+```
+
+The bundle contains `bin/KairoPlayer`, `project/Project.kproject`, project
+payload files, `package.kmanifest`, and `run.sh` (`run.cmd` on Windows). It keeps
+compiled logic but excludes every configured build output, Git metadata,
+recovery journals, and derived editor caches. Symbolic links are rejected so a
+package cannot copy data outside its project boundary. The current artifact is
+a host runtime bundle: GLFW, Vulkan loader, graphics driver, and other shared
+system dependencies must still be installed on the target machine. Platform
+dependency deployment and signing remain separate release-engineering gates.
+
+Validate or run the relocated project through its generated launcher:
+
+```bash
+KairoEditor/examples/StarterProject/Build/Release/run.sh --validate
+KairoEditor/examples/StarterProject/Build/Release/run.sh
+```
+
 Render, read back, and verify a nonblank native frame without leaving the
 window open. CI runners with Vulkan presentation support use this mode as
 visual acceptance evidence:
