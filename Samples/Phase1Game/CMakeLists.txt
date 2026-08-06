@@ -20,6 +20,14 @@ if(BUILD_TESTING)
         COMMAND $<TARGET_FILE:KairoPlayer>
             "${CMAKE_CURRENT_SOURCE_DIR}/Project/Phase1.kproject" --validate)
 
+    add_test(NAME KairoPhase1.Package
+        COMMAND ${CMAKE_COMMAND}
+            -DKAIRO_PHASE1_EXECUTABLE=$<TARGET_FILE:KairoPhase1Game>
+            -DKAIRO_PHASE1_PROJECT_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/Project
+            -DKAIRO_PHASE1_PACKAGE_ROOT=${CMAKE_CURRENT_BINARY_DIR}/package-test
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/PackagePhase1.cmake)
+    set_tests_properties(KairoPhase1.Package PROPERTIES RUN_SERIAL TRUE TIMEOUT 30)
+
     add_test(NAME KairoPhase1.NativeSmoke COMMAND $<TARGET_FILE:KairoPhase1Game> --smoke)
     set_tests_properties(KairoPhase1.NativeSmoke PROPERTIES
         RUN_SERIAL TRUE TIMEOUT 30 SKIP_RETURN_CODE 77)
