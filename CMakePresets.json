@@ -64,11 +64,12 @@
     },
     {
       "name": "ci-msvc",
-      "displayName": "Kairo CI build (MSVC)",
+      "displayName": "Kairo runtime CI build (MSVC)",
       "inherits": "dev",
       "binaryDir": "${sourceDir}/build/ci-msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF"
       }
     }
