@@ -1,0 +1,86 @@
+kairo-scene 2
+entity 1 "Player"
+enabled true
+layer 0
+tag "player"
+transform 0 0.6 0 0 0 0 1 0.7 0.7 0.7
+mesh-renderer 10000000-0000-4000-8000-000000000003 10000000-0000-4000-8000-000000000005 true
+rigid-body dynamic 1 1 2 1
+collider sphere 0.5 0.8 0.05 1 4294967295 false
+end
+entity 2 "Ground"
+enabled true
+layer 0
+tag "ground"
+transform 0 -0.1 0 0 0 0 1 5 1 5
+mesh-renderer 10000000-0000-4000-8000-000000000002 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.1 0.5 0.8 0.05 2 4294967295 false
+end
+entity 3 "Collectible A"
+enabled true
+layer 0
+tag "collectible"
+transform -1.4 0.35 -1.1 0 0 0 1 0.35 0.35 0.35
+mesh-renderer 10000000-0000-4000-8000-000000000001 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.5 0.5 0.2 0 4 1 true
+end
+entity 4 "Collectible B"
+enabled true
+layer 0
+tag "collectible"
+transform 0.2 0.35 1.4 0 0 0 1 0.35 0.35 0.35
+mesh-renderer 10000000-0000-4000-8000-000000000003 10000000-0000-4000-8000-000000000005 true
+collider sphere 0.5 0.2 0 4 1 true
+end
+entity 5 "Collectible C"
+enabled true
+layer 0
+tag "collectible"
+transform 1.4 0.35 -0.8 0 0 0 1 0.35 0.35 0.35
+mesh-renderer 10000000-0000-4000-8000-000000000004 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.5 0.5 0.2 0 4 1 true
+end
+entity 6 "Goal"
+enabled true
+layer 0
+tag "goal"
+transform 1.8 0.2 1.8 0 0 0 1 0.6 0.2 0.6
+mesh-renderer 10000000-0000-4000-8000-000000000004 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.5 0.5 0.2 0 8 1 true
+end
+entity 7 "Hazard"
+enabled true
+layer 0
+tag "hazard"
+transform -1.8 0.1 1.8 0 0 0 1 0.8 0.1 0.8
+mesh-renderer 10000000-0000-4000-8000-000000000004 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.5 0.5 0.2 0 16 1 true
+end
+entity 8 "North Wall"
+enabled true
+layer 0
+transform 0 0.5 -2.5 0 0 0 1 5 1 0.15
+mesh-renderer 10000000-0000-4000-8000-000000000001 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.5 0.5 0.8 0.05 2 4294967295 false
+end
+entity 9 "South Wall"
+enabled true
+layer 0
+transform 0 0.5 2.5 0 0 0 1 5 1 0.15
+mesh-renderer 10000000-0000-4000-8000-000000000001 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.5 0.5 0.8 0.05 2 4294967295 false
+end
+entity 10 "West Wall"
+enabled true
+layer 0
+transform -2.5 0.5 0 0 0 0 1 0.15 1 5
+mesh-renderer 10000000-0000-4000-8000-000000000001 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.5 0.5 0.8 0.05 2 4294967295 false
+end
+entity 11 "East Wall"
+enabled true
+layer 0
+transform 2.5 0.5 0 0 0 0 1 0.15 1 5
+mesh-renderer 10000000-0000-4000-8000-000000000001 10000000-0000-4000-8000-000000000005 true
+collider box 0.5 0.5 0.5 0.8 0.05 2 4294967295 false
+end

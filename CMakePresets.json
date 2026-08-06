@@ -17,7 +17,8 @@
         "BUILD_TESTING": "ON",
         "KAIRO_GAME_ENGINE_BUILD_EDITOR": "ON",
         "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "ON",
-        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "ON"
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "ON"
       }
     },
     {
@@ -49,66 +50,43 @@
       }
     },
     {
+      "name": "ci-sanitized",
+      "displayName": "Kairo CI build (ASan + UBSan)",
+      "inherits": "dev-clang",
+      "binaryDir": "${sourceDir}/build/ci-sanitized",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
+        "KAIRO_GAME_ENGINE_ENABLE_SANITIZERS": "ON"
+      }
+    },
+    {
       "name": "ci-msvc",
-      "displayName": "Kairo CI build (MSVC)",
+      "displayName": "Kairo runtime CI build (MSVC)",
       "inherits": "dev",
       "binaryDir": "${sourceDir}/build/ci-msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF"
       }
     }
   ],
   "buildPresets": [
-    {
-      "name": "dev",
-      "configurePreset": "dev"
-    },
-    {
-      "name": "dev-clang",
-      "configurePreset": "dev-clang"
-    },
-    {
-      "name": "release",
-      "configurePreset": "release"
-    },
-    {
-      "name": "ci-clang",
-      "configurePreset": "ci-clang"
-    },
-    {
-      "name": "ci-msvc",
-      "configurePreset": "ci-msvc"
-    }
+    { "name": "dev", "configurePreset": "dev" },
+    { "name": "dev-clang", "configurePreset": "dev-clang" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "ci-clang", "configurePreset": "ci-clang" },
+    { "name": "ci-sanitized", "configurePreset": "ci-sanitized" },
+    { "name": "ci-msvc", "configurePreset": "ci-msvc" }
   ],
   "testPresets": [
-    {
-      "name": "dev",
-      "configurePreset": "dev",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "dev-clang",
-      "configurePreset": "dev-clang",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "ci-clang",
-      "configurePreset": "ci-clang",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "ci-msvc",
-      "configurePreset": "ci-msvc",
-      "output": {
-        "outputOnFailure": true
-      }
-    }
+    { "name": "dev", "configurePreset": "dev", "output": { "outputOnFailure": true } },
+    { "name": "dev-clang", "configurePreset": "dev-clang", "output": { "outputOnFailure": true } },
+    { "name": "ci-clang", "configurePreset": "ci-clang", "output": { "outputOnFailure": true } },
+    { "name": "ci-sanitized", "configurePreset": "ci-sanitized", "output": { "outputOnFailure": true } },
+    { "name": "ci-msvc", "configurePreset": "ci-msvc", "output": { "outputOnFailure": true } }
   ]
 }
