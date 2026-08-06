@@ -34,7 +34,7 @@ jobs:
             os: macos-latest
             platform: macos
             preset: ci-clang
-          - name: Windows MSVC
+          - name: Windows Runtime MSVC
             os: windows-2022
             platform: windows
             preset: ci-msvc
@@ -102,12 +102,12 @@ jobs:
         run: ctest --preset ${{ matrix.preset }}
 
       - name: Create source package
-        if: matrix.preset == 'ci-clang'
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
         run: cpack --config build/ci-clang/CPackSourceConfig.cmake -G TGZ
 
       - name: Upload source package
-        if: matrix.preset == 'ci-clang'
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         uses: actions/upload-artifact@v4
         with:
           name: KairoGameEngine-source
