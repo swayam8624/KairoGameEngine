@@ -9,11 +9,23 @@ include(CTest)
 
 option(KAIRO_GAME_ENGINE_BUILD_EDITOR "Build the native Vulkan editor" ON)
 option(KAIRO_GAME_ENGINE_BUILD_PLAYER "Build the standalone Kairo runtime player" ON)
+option(KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE "Build the Phase 1 gameplay vertical slice" ON)
 option(KAIRO_GAME_ENGINE_BUILD_RAYTRACER "Build the offline CPU ray tracer" ON)
 option(KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX "Build physics terminal and GLFW sandboxes" ON)
 option(KAIRO_GAME_ENGINE_BUILD_AI_CLOUD "Build the optional CPR OpenAI-compatible transport" OFF)
 option(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK "Build experimental GPU/SIMD/scheduler/ONNX/transformer modules" OFF)
+option(KAIRO_GAME_ENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(KAIRO_GAME_ENGINE_ENABLE_PACKAGING "Enable CPack source-package configuration" ON)
+
+if(KAIRO_GAME_ENGINE_ENABLE_SANITIZERS)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    else()
+        message(FATAL_ERROR
+            "KAIRO_GAME_ENGINE_ENABLE_SANITIZERS currently requires Clang or GCC.")
+    endif()
+endif()
 
 set(KAIRO_WORKSPACE_COMPONENTS
     Foundation/KairoMath
@@ -107,6 +119,14 @@ add_library(Kairo::GameEngine ALIAS KairoGameEngine)
 
 if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
     add_subdirectory(Runtime/KairoPlayer)
+endif()
+
+if(KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE)
+    if(NOT KAIRO_GAME_ENGINE_BUILD_PLAYER)
+        message(FATAL_ERROR
+            "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE requires KAIRO_GAME_ENGINE_BUILD_PLAYER.")
+    endif()
+    add_subdirectory(Samples/Phase1Game)
 endif()
 
 # The component repositories do not yet export installable package targets, so

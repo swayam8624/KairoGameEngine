@@ -1,0 +1,11 @@
+kairo-assets 1
+asset 10000000-0000-4000-8000-000000000001 mesh builtin 1 "builtin/cube" "kairo.builtin.cube"
+end
+asset 10000000-0000-4000-8000-000000000002 mesh builtin 1 "builtin/plane" "kairo.builtin.plane"
+end
+asset 10000000-0000-4000-8000-000000000003 mesh builtin 1 "builtin/uv-sphere" "kairo.builtin.uv-sphere"
+end
+asset 10000000-0000-4000-8000-000000000004 mesh builtin 1 "builtin/cylinder" "kairo.builtin.cylinder"
+end
+asset 10000000-0000-4000-8000-000000000005 material builtin 1 "builtin/default-material" "kairo.builtin"
+end
