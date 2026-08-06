@@ -1,5 +1,3 @@
-module;
-
 #include <GLFW/glfw3.h>
 
 #include <chrono>
@@ -299,29 +297,32 @@ int main(int argc, char** argv)
             const float elapsedSeconds = std::chrono::duration<float>(
                 currentFrame - previousFrame).count();
             previousFrame = currentFrame;
-            (void)physics.Advance(elapsedSeconds, &driver);
 
-            for (const auto& contact : physics.ContactEvents())
+            if (state.IsRunning())
             {
-                if (contact.Type != kairo::foundation::physics::PhysicsContactEventType::Begin)
-                    continue;
-                Entity other;
-                if (contact.EntityA == player) other = contact.EntityB;
-                else if (contact.EntityB == player) other = contact.EntityA;
-                else continue;
-
-                if (scene.HasTag(other, "collectible") && state.Collect(other))
+                (void)physics.Advance(elapsedSeconds, &driver);
+                for (const auto& contact : physics.ContactEvents())
                 {
-                    physics.SetEntityPosition(other, hiddenPosition(other));
-                    std::cout << "Collected " << state.CollectedCount() << "/"
-                              << state.CollectibleCount() << '\n';
+                    if (contact.Type != kairo::foundation::physics::PhysicsContactEventType::Begin)
+                        continue;
+                    Entity other;
+                    if (contact.EntityA == player) other = contact.EntityB;
+                    else if (contact.EntityB == player) other = contact.EntityA;
+                    else continue;
+
+                    if (scene.HasTag(other, "collectible") && state.Collect(other))
+                    {
+                        physics.SetEntityPosition(other, hiddenPosition(other));
+                        std::cout << "Collected " << state.CollectedCount() << "/"
+                                  << state.CollectibleCount() << '\n';
+                    }
+                    else if (other == goal && state.ReachGoal())
+                        std::cout << "Phase 1 complete.\n";
+                    else if (scene.HasTag(other, "hazard"))
+                        state.Lose();
                 }
-                else if (other == goal && state.ReachGoal())
-                    std::cout << "Phase 1 complete.\n";
-                else if (scene.HasTag(other, "hazard"))
-                    state.Lose();
+                if (WorldPosition(scene, player).y < -5.0f) state.Lose();
             }
-            if (WorldPosition(scene, player).y < -5.0f) state.Lose();
 
             const std::string title = project.Descriptor().Name + " | " + state.StatusLine();
             glfwSetWindowTitle(renderer.NativeWindow().NativeHandle(), title.c_str());
