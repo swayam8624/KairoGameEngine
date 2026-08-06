@@ -22,6 +22,7 @@ import Kairo.EngineCore;
 import Kairo.Foundation.Math;
 import Kairo.Foundation.PhysicsEngine;
 import Kairo.Player.RuntimeInputBridge;
+import Kairo.Player.RuntimePackaging;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
@@ -37,6 +38,8 @@ namespace
     struct Arguments final
     {
         std::filesystem::path Project = KAIRO_PHASE1_PROJECT_PATH;
+        std::optional<std::string> PackageProfile;
+        bool Replace = false;
         bool Smoke = false;
     };
 
@@ -48,6 +51,12 @@ namespace
         {
             const std::string_view argument = argv[index];
             if (argument == "--smoke") result.Smoke = true;
+            else if (argument == "--replace") result.Replace = true;
+            else if (argument == "--package")
+            {
+                if (++index >= argc) throw std::invalid_argument("--package requires a build-profile name.");
+                result.PackageProfile = argv[index];
+            }
             else if (!argument.empty() && argument.front() == '-')
                 throw std::invalid_argument("Unknown Kairo Phase 1 option: " + std::string(argument));
             else if (projectSeen)
@@ -58,6 +67,10 @@ namespace
                 projectSeen = true;
             }
         }
+        if (result.Replace && !result.PackageProfile.has_value())
+            throw std::invalid_argument("--replace is valid only with --package.");
+        if (result.Smoke && result.PackageProfile.has_value())
+            throw std::invalid_argument("--smoke and --package are mutually exclusive.");
         return result;
     }
 
@@ -83,6 +96,12 @@ namespace
     [[nodiscard]] Vec3f WorldPosition(const kairo::engine::Scene& scene, Entity entity)
     {
         return scene.WorldTransform(entity).Translation;
+    }
+
+    [[nodiscard]] Vec3d ToDouble(const Vec3f& value) noexcept
+    {
+        return { static_cast<double>(value.x), static_cast<double>(value.y),
+            static_cast<double>(value.z) };
     }
 
     void ClearVelocity(kairo::player::RuntimePhysicsBridge& physics, Entity entity)
@@ -180,8 +199,19 @@ int main(int argc, char** argv)
         const auto hazards = Tagged(scene, "hazard");
         if (collectibles.empty())
             throw std::invalid_argument("Phase 1 project requires at least one collectible.");
+        if (hazards.empty())
+            throw std::invalid_argument("Phase 1 project requires at least one hazard.");
         if (!scene.HasRigidBody(player) || !scene.HasCollider(player))
             throw std::invalid_argument("The Phase 1 player requires rigid-body and collider components.");
+
+        if (arguments.PackageProfile.has_value())
+        {
+            const auto package = kairo::player::PackageRuntimeProject(project, {
+                *arguments.PackageProfile, argv[0], arguments.Replace });
+            std::cout << "Packaged Kairo Phase 1 to " << package.OutputDirectory << "\nManifest: "
+                      << package.ManifestPath << '\n';
+            return 0;
+        }
 
         kairo::sample::Phase1GameState state(collectibles);
         kairo::player::RuntimePhysicsBridge physics(scene);
@@ -198,20 +228,20 @@ int main(int argc, char** argv)
         };
         const auto restoreWorld = [&]
         {
-            physics.SetEntityPosition(player, Vec3d(initialPositions.at(player.Value)));
+            physics.SetEntityPosition(player, ToDouble(initialPositions.at(player.Value)));
             ClearVelocity(physics, player);
             for (const Entity entity : collectibles)
-                physics.SetEntityPosition(entity, Vec3d(initialPositions.at(entity.Value)));
+                physics.SetEntityPosition(entity, ToDouble(initialPositions.at(entity.Value)));
         };
         const auto applySnapshot = [&](const kairo::sample::Phase1Snapshot& snapshot)
         {
             state.Restore(snapshot);
-            physics.SetEntityPosition(player, Vec3d(snapshot.PlayerPosition));
+            physics.SetEntityPosition(player, ToDouble(snapshot.PlayerPosition));
             ClearVelocity(physics, player);
             for (const Entity entity : collectibles)
             {
                 if (state.IsCollected(entity)) physics.SetEntityPosition(entity, hiddenPosition(entity));
-                else physics.SetEntityPosition(entity, Vec3d(initialPositions.at(entity.Value)));
+                else physics.SetEntityPosition(entity, ToDouble(initialPositions.at(entity.Value)));
             }
         };
         const auto reset = [&]
