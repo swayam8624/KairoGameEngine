@@ -13,6 +13,7 @@ module;
 
 export module Kairo.Runtime.RenderBridge.EditorOfflineService;
 
+import Kairo.Editor.ProductionAuthoring;
 import Kairo.Editor.OfflineRenderAuthoring;
 import Kairo.EngineCore;
 import Kairo.Foundation.RayTracer;
