@@ -1,0 +1,62 @@
+name: Phase 6-12 Stacked Integration
+
+on:
+  push:
+    branches:
+      - agent/phases6-12-integration
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu-clang-stacked:
+    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'agent/phases6-12-integration'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Checkout stacked component review heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          checkout_ref() {
+            local path="$1"
+            local ref="$2"
+            git -C "$path" fetch --depth=1 origin "$ref"
+            git -C "$path" checkout --detach FETCH_HEAD
+          }
+          checkout_ref KairoAssets agent/phases8-11-authoring-completion
+          checkout_ref KairoEngineCore agent/phases6-12-runtime
+          checkout_ref KairoEditor agent/phases6-12-editor
+          checkout_ref KairoRayTracer agent/phase6-shared-light-semantics
+
+      - name: Install graphics toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build libglfw3-dev libvulkan-dev glslang-tools
+
+      - name: Configure complete stack
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          cmake -S . -B build/stacked -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=ON \
+            -DKAIRO_GAME_ENGINE_BUILD_EDITOR=ON \
+            -DKAIRO_GAME_ENGINE_BUILD_PLAYER=ON \
+            -DKAIRO_GAME_ENGINE_BUILD_RAYTRACER=ON \
+            -DKAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX=OFF \
+            -DKAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK=OFF
+
+      - name: Build complete stack
+        run: cmake --build build/stacked --parallel 2
+
+      - name: Test complete stack
+        run: ctest --test-dir build/stacked --output-on-failure

@@ -12,6 +12,8 @@ import Kairo.Player.RuntimeRenderBridge;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeInputBridge;
 import Kairo.Player.RuntimeLogicBridge;
+import Kairo.Player.RuntimeNativeGameplayBridge;
+import Kairo.Player.RuntimeProductionSystemsBridge;
 import Kairo.Player.RuntimePackaging;
 import Kairo.Renderer;
 
@@ -24,6 +26,24 @@ namespace
         bool SmokeTest = false;
         bool ReplacePackage = false;
         std::optional<std::string> PackageProfile;
+    };
+
+    class RuntimeFixedStepFanout final : public kairo::player::RuntimeFixedStepListener
+    {
+    public:
+        RuntimeFixedStepFanout(kairo::player::RuntimeLogicBridge& logic,
+            kairo::player::RuntimeNativeGameplayBridge& native)
+            : m_Logic(logic), m_Native(native) {}
+
+        void BeforePhysicsStep(float fixedDeltaSeconds) override
+        {
+            m_Logic.BeforePhysicsStep(fixedDeltaSeconds);
+            m_Native.BeforePhysicsStep(fixedDeltaSeconds);
+        }
+
+    private:
+        kairo::player::RuntimeLogicBridge& m_Logic;
+        kairo::player::RuntimeNativeGameplayBridge& m_Native;
     };
 
     [[nodiscard]] Arguments ParseArguments(int count, char** values)
@@ -71,6 +91,11 @@ int main(int argc, char** argv)
         kairo::player::RuntimePhysicsBridge physics(project.Scene());
         kairo::player::RuntimeInputBridge input(project.InputMap());
         kairo::player::RuntimeLogicBridge logic(project, physics);
+        kairo::player::RuntimeNativeGameplayBridge nativeGameplay(
+            project, kairo::player::PlayerNativeGameplayRegistry());
+        kairo::player::RuntimeProductionSystemsBridge production(project);
+        std::cout << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
+                  << "  production systems: " << (production.Enabled() ? "enabled" : "disabled") << '\n';
         if (arguments.ValidateOnly) return 0;
         if (arguments.PackageProfile.has_value())
         {
@@ -85,7 +110,9 @@ int main(int argc, char** argv)
         kairo::renderer::RendererRuntime renderer({
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
+        RuntimeFixedStepFanout fixedSteps(logic, nativeGameplay);
         logic.BeginPlay();
+        nativeGameplay.BeginPlay();
         renderer.SubmitRenderScene(bridge.BuildScene());
         renderer.SetCameraPose(bridge.CameraPose());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
@@ -102,8 +129,10 @@ int main(int argc, char** argv)
             const auto currentFrame = std::chrono::steady_clock::now();
             const float elapsedSeconds = std::chrono::duration<float>(currentFrame - previousFrame).count();
             previousFrame = currentFrame;
-            (void)physics.Advance(elapsedSeconds, &logic);
+            (void)physics.Advance(elapsedSeconds, &fixedSteps);
             logic.DispatchContacts();
+            nativeGameplay.Update(static_cast<double>(elapsedSeconds));
+            production.Step(static_cast<double>(elapsedSeconds));
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.DrawFrame();
             if (arguments.SmokeTest)
@@ -114,12 +143,14 @@ int main(int argc, char** argv)
                         throw std::runtime_error("Native smoke capture is blank or visually uniform.");
                     std::cout << "Native viewport smoke passed at " << capture->Width
                               << 'x' << capture->Height << ".\n";
+                    nativeGameplay.EndPlay();
                     return 0;
                 }
                 if (++smokeFrames > 16u)
                     throw std::runtime_error("Native smoke capture did not complete within 16 frames.");
             }
         }
+        nativeGameplay.EndPlay();
         return 0;
     }
     catch (const std::exception& error)

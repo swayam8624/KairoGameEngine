@@ -50,8 +50,6 @@ foreach(component IN LISTS KAIRO_WORKSPACE_COMPONENTS)
     endif()
 endforeach()
 
-# Component projects remain independently buildable. These cache values only
-# coordinate their optional surfaces when they participate in the superbuild.
 set(KAIRO_MATH_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_MATH_BUILD_VISUALIZER OFF CACHE BOOL "" FORCE)
 set(KAIRO_GEOMETRY_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
@@ -75,9 +73,6 @@ set(KAIRO_EDITOR_BUILD_APP ${KAIRO_GAME_ENGINE_BUILD_EDITOR} CACHE BOOL "" FORCE
 set(KAIRO_RAYTRACER_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_RAYTRACER_BUILD_PREVIEW ${KAIRO_GAME_ENGINE_BUILD_EDITOR} CACHE BOOL "" FORCE)
 
-# Dependency order matters for C++ module targets. Once a target exists, every
-# component's local-first dependency resolver reuses it instead of fetching or
-# compiling a second copy.
 add_subdirectory(Foundation/KairoPhysicsEngine)
 add_subdirectory(KairoAI)
 add_subdirectory(KairoECS)
@@ -91,6 +86,7 @@ endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_RAYTRACER)
     add_subdirectory(KairoRayTracer)
+    add_subdirectory(Runtime/KairoRenderBridge)
 endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK)
@@ -104,9 +100,6 @@ if(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK)
     endforeach()
 endif()
 
-# Aggregate runtime consumption target. Tools such as KairoEditor and
-# KairoRayTracer remain separate executables/libraries rather than leaking
-# authoring-only dependencies into shipped games.
 add_library(KairoGameEngine INTERFACE)
 target_link_libraries(KairoGameEngine INTERFACE
     KairoAssets
@@ -143,11 +136,6 @@ if(KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE)
     add_subdirectory(Samples/Phase1Game)
 endif()
 
-# The component repositories do not yet export installable package targets, so
-# a binary SDK archive would be misleading. Source packages are still useful:
-# they preserve the exact superproject and submodule sources used for an
-# integration build, without pretending that the resulting archive is a
-# complete redistributable runtime.
 if(KAIRO_GAME_ENGINE_ENABLE_PACKAGING)
     set(CPACK_PACKAGE_NAME "KairoGameEngine")
     set(CPACK_PACKAGE_VENDOR "Kairo")
