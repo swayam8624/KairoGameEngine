@@ -11,8 +11,8 @@ if(TARGET KairoEditor)
     add_library(KairoEditorOfflineRenderBridge)
     target_sources(KairoEditorOfflineRenderBridge PUBLIC FILE_SET CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-        FILES EditorOfflineRenderService.cppm)
-    target_link_libraries(KairoEditorOfflineRenderBridge PUBLIC KairoRenderBridge KairoEditor)
+        FILES EditorOfflineRenderService.cppm MaterialPreviewBridge.cppm)
+    target_link_libraries(KairoEditorOfflineRenderBridge PUBLIC KairoRenderBridge KairoEditor KairoRenderer)
     add_library(Kairo::EditorOfflineRenderBridge ALIAS KairoEditorOfflineRenderBridge)
 endif()
 
@@ -22,7 +22,9 @@ if(BUILD_TESTING AND TARGET Catch2::Catch2WithMain)
     add_test(NAME KairoRenderBridgeTests COMMAND KairoRenderBridgeTests)
 
     if(TARGET KairoEditorOfflineRenderBridge)
-        add_executable(KairoEditorOfflineRenderBridgeTests tests/EditorOfflineRenderServiceTests.cpp)
+        add_executable(KairoEditorOfflineRenderBridgeTests
+            tests/EditorOfflineRenderServiceTests.cpp
+            tests/MaterialPreviewBridgeTests.cpp)
         target_link_libraries(KairoEditorOfflineRenderBridgeTests PRIVATE
             KairoEditorOfflineRenderBridge Catch2::Catch2WithMain)
         add_test(NAME KairoEditorOfflineRenderBridgeTests COMMAND KairoEditorOfflineRenderBridgeTests)
