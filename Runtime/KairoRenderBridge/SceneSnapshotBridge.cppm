@@ -238,9 +238,22 @@ export namespace kairo::runtime::renderbridge
                 }
             }
 
-            if (environment.Fog != engine::FogMode::Disabled)
-                detail::AddDiagnostic(result, DiagnosticSeverity::Error, *environmentEntity,
-                    "fog-unsupported", "Offline ray tracing does not yet implement EngineCore fog semantics.");
+            result.Snapshot.Settings.FogColor = detail::ToColor(environment.FogColor);
+            result.Snapshot.Settings.FogDensity = environment.FogDensity;
+            result.Snapshot.Settings.FogNear = environment.FogNear;
+            result.Snapshot.Settings.FogFar = environment.FogFar;
+            switch (environment.Fog)
+            {
+                case engine::FogMode::Disabled:
+                    result.Snapshot.Settings.Fog = ray::FogMode::Disabled;
+                    break;
+                case engine::FogMode::Linear:
+                    result.Snapshot.Settings.Fog = ray::FogMode::Linear;
+                    break;
+                case engine::FogMode::Exponential:
+                    result.Snapshot.Settings.Fog = ray::FogMode::Exponential;
+                    break;
+            }
         }
 
         for (const engine::Entity entity : scene.LightEntities())
@@ -265,15 +278,27 @@ export namespace kairo::runtime::renderbridge
                         8u });
                     break;
                 case engine::LightType::Directional:
-                    detail::AddDiagnostic(result, DiagnosticSeverity::Error, entity,
-                        "directional-light-unsupported",
-                        "The current CPU ray tracer has no directional-light emitter; rendering is blocked rather than approximated.");
+                {
+                    ray::DirectionalLight directional;
+                    directional.Direction = world.Forward();
+                    directional.Color = detail::ToColor(light.Color);
+                    directional.Illuminance = light.Intensity;
+                    result.Snapshot.DirectionalLights.push_back(directional);
                     break;
+                }
                 case engine::LightType::Spot:
-                    detail::AddDiagnostic(result, DiagnosticSeverity::Error, entity,
-                        "spot-light-unsupported",
-                        "The current CPU ray tracer has no spot-light emitter; rendering is blocked rather than approximated.");
+                {
+                    ray::SpotLight spot;
+                    spot.Position = world.Translation;
+                    spot.Direction = world.Forward();
+                    spot.Color = detail::ToColor(light.Color);
+                    spot.Intensity = light.Intensity;
+                    spot.Range = light.Range;
+                    spot.InnerConeCosine = std::cos(light.InnerConeRadians);
+                    spot.OuterConeCosine = std::cos(light.OuterConeRadians);
+                    result.Snapshot.SpotLights.push_back(spot);
                     break;
+                }
             }
         }
 

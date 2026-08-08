@@ -53,22 +53,47 @@ TEST_CASE("EngineCore camera and point light convert without a second scene file
     CHECK(converted.Snapshot.Lights.front().Color.g == 0.5f);
 }
 
-TEST_CASE("Unsupported authored light semantics block render before launch")
+TEST_CASE("directional spot and fog semantics convert into the shared offline scene")
 {
     using namespace kairo::engine;
     using namespace kairo::runtime::renderbridge;
     Scene scene = MakeRenderableScene();
+
     const Entity sun = scene.CreateEntity("Sun");
-    LightComponent light;
-    light.Type = LightType::Directional;
-    light.Unit = PhotometricUnit::Lux;
-    scene.SetLight(sun, light);
+    LightComponent directional;
+    directional.Type = LightType::Directional;
+    directional.Unit = PhotometricUnit::Lux;
+    directional.Intensity = 3.0f;
+    scene.SetLight(sun, directional);
+
+    const Entity spotEntity = scene.CreateEntity("Spot");
+    LightComponent spot;
+    spot.Type = LightType::Spot;
+    spot.Unit = PhotometricUnit::Candela;
+    spot.Intensity = 8.0f;
+    spot.Range = 25.0f;
+    spot.InnerConeRadians = 0.25f;
+    spot.OuterConeRadians = 0.5f;
+    scene.SetLight(spotEntity, spot);
+    scene.Transform(spotEntity).Local.Translation = { 0.0f, 2.0f, 3.0f };
+
+    const Entity environmentEntity = scene.CreateEntity("Environment");
+    EnvironmentComponent environment;
+    environment.Active = true;
+    environment.Fog = FogMode::Exponential;
+    environment.FogColor = { 0.1f, 0.2f, 0.3f };
+    environment.FogDensity = 0.04f;
+    scene.SetEnvironment(environmentEntity, environment);
+
     const auto converted = ConvertSceneSnapshot(scene, {});
-    CHECK_FALSE(converted.Supported());
-    bool found = false;
-    for (const auto& diagnostic : converted.Diagnostics)
-        found = found || diagnostic.Code == "directional-light-unsupported";
-    CHECK(found);
+    REQUIRE(converted.Supported());
+    REQUIRE(converted.Snapshot.DirectionalLights.size() == 1u);
+    REQUIRE(converted.Snapshot.SpotLights.size() == 1u);
+    CHECK(converted.Snapshot.DirectionalLights.front().Illuminance == 3.0f);
+    CHECK(converted.Snapshot.SpotLights.front().Intensity == 8.0f);
+    CHECK(converted.Snapshot.SpotLights.front().Range == 25.0f);
+    CHECK(converted.Snapshot.Settings.Fog == kairo::foundation::raytracer::FogMode::Exponential);
+    CHECK(converted.Snapshot.Settings.FogDensity == 0.04f);
 }
 
 TEST_CASE("Offline render session writes project-owned result metadata")

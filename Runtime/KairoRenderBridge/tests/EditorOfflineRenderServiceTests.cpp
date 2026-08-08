@@ -57,7 +57,7 @@ TEST_CASE("editor offline service renders the current EngineCore scene and publi
     std::filesystem::remove_all(root);
 }
 
-TEST_CASE("editor offline service reports unsupported scene semantics before starting worker")
+TEST_CASE("editor offline service accepts directional authored lighting")
 {
     using namespace kairo::engine;
     using namespace kairo::editor;
@@ -65,24 +65,26 @@ TEST_CASE("editor offline service reports unsupported scene semantics before sta
 
     Scene scene;
     const Entity cameraEntity = scene.CreateEntity("Camera");
-    CameraComponent camera;
-    camera.Primary = true;
+    CameraComponent camera; camera.Primary = true;
     scene.SetCamera(cameraEntity, camera);
+    scene.Transform(cameraEntity).Local.Translation = { 0.0f, 0.0f, 4.0f };
     const Entity sun = scene.CreateEntity("Sun");
     LightComponent light;
     light.Type = LightType::Directional;
     light.Unit = PhotometricUnit::Lux;
+    light.Intensity = 2.0f;
     scene.SetLight(sun, light);
 
+    const auto root = std::filesystem::temp_directory_path() / "kairo-editor-offline-directional-test";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "Renders");
     EditorOfflineRenderService service([&]() -> const Scene& { return scene; }, {});
     OfflineRenderRequest request;
-    request.JobID = 102u;
-    request.Width = 4u;
-    request.Height = 4u;
-    request.Passes = 1u;
-    request.ProjectRoot = std::filesystem::temp_directory_path();
+    request.JobID = 102u; request.Width = 4u; request.Height = 4u; request.Passes = 1u;
+    request.ProjectRoot = root; request.RelativeOutput = "Renders/directional.ppm";
     service.Submit(request);
-    const auto progress = service.Poll(request.JobID);
-    CHECK(progress.Status == OfflineRenderWorkspaceStatus::Failed);
-    REQUIRE_FALSE(progress.Diagnostics.empty());
+    auto progress = service.Poll(request.JobID);
+    CHECK(progress.Status != OfflineRenderWorkspaceStatus::Failed);
+    service.Cancel(request.JobID);
+    std::filesystem::remove_all(root);
 }
