@@ -3,6 +3,8 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <variant>
 
 import Kairo.Assets;
 import Kairo.EngineCore;
