@@ -13,6 +13,7 @@ import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeInputBridge;
 import Kairo.Player.RuntimeLogicBridge;
 import Kairo.Player.RuntimeNativeGameplayBridge;
+import Kairo.Player.RuntimeProductionSystemsBridge;
 import Kairo.Player.RuntimePackaging;
 import Kairo.Renderer;
 
@@ -92,7 +93,9 @@ int main(int argc, char** argv)
         kairo::player::RuntimeLogicBridge logic(project, physics);
         kairo::player::RuntimeNativeGameplayBridge nativeGameplay(
             project, kairo::player::PlayerNativeGameplayRegistry());
-        std::cout << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n';
+        kairo::player::RuntimeProductionSystemsBridge production(project);
+        std::cout << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
+                  << "  production systems: " << (production.Enabled() ? "enabled" : "disabled") << '\n';
         if (arguments.ValidateOnly) return 0;
         if (arguments.PackageProfile.has_value())
         {
@@ -129,6 +132,7 @@ int main(int argc, char** argv)
             (void)physics.Advance(elapsedSeconds, &fixedSteps);
             logic.DispatchContacts();
             nativeGameplay.Update(static_cast<double>(elapsedSeconds));
+            production.Step(static_cast<double>(elapsedSeconds));
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.DrawFrame();
             if (arguments.SmokeTest)
