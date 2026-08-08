@@ -45,7 +45,7 @@ int main()
     camera.Primary = true;
     scene.SetCamera(cameraEntity, camera);
     scene.Transform(cameraEntity).Local.Translation = { 64.0f, 0.0f, 0.0f };
-    SaveScene(root / "Scenes/Main.kscene", assets, scene);
+    SaveScene(root / "Scenes/Main.kscene", scene, assets);
 
     ProductionSystemsManifest manifest;
     manifest.Particles = ProductionParticleDescriptor{ 32u };
