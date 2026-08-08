@@ -1,0 +1,3 @@
+kairo-input 1
+action "Quit" button
+bind "Quit" key Escape 1 0 0

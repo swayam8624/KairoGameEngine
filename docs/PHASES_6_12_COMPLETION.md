@@ -1,4 +1,4 @@
-# Phases 6-12 completion record
+# Phases 6-15 completion record
 
 This document records the implementation ownership and acceptance contracts for the second half of the content-authoring/rendering roadmap. The component repositories remain the source of truth for their code; the umbrella repository owns cross-component integration and end-to-end acceptance.
 
@@ -42,12 +42,36 @@ Animation, terrain/foliage, particles, cloth, fluid, and world streaming persist
 
 Editor authors and previews the same manifest; Player loads and executes it, using the primary camera position as the current streaming origin. The current implementations are modular CPU kernels and stable project/runtime contracts, not a claim of final GPU-scale AAA simulation backends. Individual specialized/GPU backends can replace those kernels later without changing the persisted authoring contract.
 
+## Phase 13 — runtime audio contract
+
+`Kairo.EngineCore.ShippingRuntime` owns deterministic audio voice, bus, looping,
+completion, listener, and spatial attenuation state. Editor auditions and Player
+advances this exact mixer. Platform audio adapters consume mix frames and own
+device I/O only; device callbacks never become authoritative gameplay state.
+
+## Phase 14 — runtime UI, localization, and accessibility
+
+Runtime UI uses a parent-first renderer-neutral widget hierarchy with normalized
+anchors, deterministic nested layout, explicit locale fallback, stable focus
+order, accessible labels, and semantic actions. Editor preview and Player use the
+same scene validation. Rendering backends translate the resulting rectangles and
+semantics without owning a second UI model.
+
+## Phase 15 — save, replay, and replication state
+
+The canonical `kairo-state 1` format persists bounded typed values atomically.
+Stable ordering provides deterministic hashes; replication deltas name their
+baseline hash and cannot apply to unrelated state. Replay frames require strictly
+increasing ticks and verify recorded state hashes so divergence is an explicit
+failure rather than silent desynchronization. Network transport remains outside
+the deterministic state contract.
+
 ## Acceptance ownership
 
 - **KairoAssets:** topology/modeling/UV/material/sculpt unit and save/reopen tests on Ubuntu, macOS, and Windows.
-- **KairoEngineCore:** native gameplay manifests/lifecycle and production manifest/runtime/budget tests on Ubuntu, macOS, and Windows.
-- **KairoEditor:** document workspace, reflected native inspector, production authoring, offline-render controller, and material-preview request tests on its standalone matrix.
+- **KairoEngineCore:** native gameplay manifests/lifecycle, production manifests/budgets, audio/UI contracts, save state, and replay tests on Ubuntu, macOS, and Windows.
+- **KairoEditor:** document workspace, reflected native inspector, production and shipping-system authoring, offline-render controller, and material-preview request tests on its standalone matrix.
 - **KairoRayTracer:** shared directional/spot/fog semantics and offline-lighting tests on its standalone matrix.
-- **KairoGameEngine:** stacked cross-repository build/tests plus Player native/production runtime and Editor-to-RayTracer/material-preview acceptance.
+- **KairoGameEngine:** stacked cross-repository build/tests plus Player native/production/shipping runtime and Editor-to-RayTracer/material-preview acceptance.
 
 During stacked review the umbrella CI checks out the component review heads explicitly. Before final merge preparation those review refs are replaced by immutable reviewed submodule commit SHAs and the ordinary umbrella `Build, Test, and Package` workflow is the release gate.

@@ -14,6 +14,7 @@ import Kairo.Player.RuntimeInputBridge;
 import Kairo.Player.RuntimeLogicBridge;
 import Kairo.Player.RuntimeNativeGameplayBridge;
 import Kairo.Player.RuntimeProductionSystemsBridge;
+import Kairo.Player.RuntimeShippingBridge;
 import Kairo.Player.RuntimePackaging;
 import Kairo.Renderer;
 
@@ -94,6 +95,7 @@ int main(int argc, char** argv)
         kairo::player::RuntimeNativeGameplayBridge nativeGameplay(
             project, kairo::player::PlayerNativeGameplayRegistry());
         kairo::player::RuntimeProductionSystemsBridge production(project);
+        kairo::player::RuntimeShippingBridge shipping(project);
         std::cout << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
                   << "  production systems: " << (production.Enabled() ? "enabled" : "disabled") << '\n';
         if (arguments.ValidateOnly) return 0;
@@ -133,6 +135,7 @@ int main(int argc, char** argv)
             logic.DispatchContacts();
             nativeGameplay.Update(static_cast<double>(elapsedSeconds));
             production.Step(static_cast<double>(elapsedSeconds));
+            (void)shipping.Step(static_cast<double>(elapsedSeconds));
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.DrawFrame();
             if (arguments.SmokeTest)

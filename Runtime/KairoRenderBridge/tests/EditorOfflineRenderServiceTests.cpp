@@ -6,6 +6,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 import Kairo.Editor.OfflineRenderAuthoring;
+import Kairo.Editor.ProductionAuthoring;
 import Kairo.EngineCore;
 import Kairo.Runtime.RenderBridge.EditorOfflineService;
 
@@ -24,6 +25,7 @@ TEST_CASE("editor offline service renders the current EngineCore scene and publi
     const Entity lightEntity = scene.CreateEntity("Light");
     LightComponent light;
     light.Type = LightType::Point;
+    light.Unit = PhotometricUnit::Candela;
     light.Intensity = 4.0f;
     scene.SetLight(lightEntity, light);
 

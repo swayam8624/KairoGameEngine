@@ -1,0 +1,18 @@
+kairo-assets 1
+asset 10000000-0000-4000-8000-000000000001 mesh builtin 1 "builtin/cube" "kairo.builtin.cube"
+end
+asset 10000000-0000-4000-8000-000000000002 mesh builtin 1 "builtin/plane" "kairo.builtin.plane"
+end
+asset 10000000-0000-4000-8000-000000000003 mesh builtin 1 "builtin/uv-sphere" "kairo.builtin.uv-sphere"
+end
+asset 10000000-0000-4000-8000-000000000004 mesh builtin 1 "builtin/cylinder" "kairo.builtin.cylinder"
+end
+asset 10000000-0000-4000-8000-000000000010 material builtin 1 "builtin/default-material" "kairo.builtin"
+end
+asset 10000000-0000-4000-8000-000000000020 scene source 1 "Content/ToyCar/ToyCar.glb" "kairo.gltf.scene"
+end
+asset 10000000-0000-4000-8000-000000000021 texture2d source 1 "Content/TexturedPanel/checker.png" "kairo.texture.stb"
+end
+asset 10000000-0000-4000-8000-000000000022 scene source 1 "Content/TexturedPanel/TexturedPanel.gltf" "kairo.gltf.scene"
+dependency 10000000-0000-4000-8000-000000000021 texture2d
+end

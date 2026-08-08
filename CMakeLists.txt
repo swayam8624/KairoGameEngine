@@ -87,6 +87,10 @@ endif()
 if(KAIRO_GAME_ENGINE_BUILD_RAYTRACER)
     add_subdirectory(KairoRayTracer)
     add_subdirectory(Runtime/KairoRenderBridge)
+    if(TARGET KairoEditorApp AND TARGET KairoEditorOfflineRenderBridge)
+        target_link_libraries(KairoEditorApp PRIVATE KairoEditorOfflineRenderBridge)
+        target_compile_definitions(KairoEditorApp PRIVATE KAIRO_EDITOR_HAS_OFFLINE_RENDER=1)
+    endif()
 endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK)
@@ -126,6 +130,23 @@ endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
     add_subdirectory(Runtime/KairoPlayer)
+    set(_kairo_shared_content_project
+        "${CMAKE_CURRENT_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject")
+    if(NOT EXISTS "${_kairo_shared_content_project}")
+        message(FATAL_ERROR
+            "Phase 5 shared-content fixture is missing: ${_kairo_shared_content_project}")
+    endif()
+    if(BUILD_TESTING)
+        add_test(NAME KairoSharedContentChecksums
+            COMMAND ${CMAKE_COMMAND} -P
+                ${CMAKE_CURRENT_SOURCE_DIR}/Samples/SharedContentShowcase/verify_checksums.cmake)
+        add_test(NAME KairoSharedContentProjectValidation
+            COMMAND KairoPlayer "${_kairo_shared_content_project}" --validate)
+        add_test(NAME KairoSharedContentPlayerSmoke
+            COMMAND KairoPlayer "${_kairo_shared_content_project}" --smoke)
+        set_tests_properties(KairoSharedContentProjectValidation
+            KairoSharedContentPlayerSmoke PROPERTIES TIMEOUT 30 SKIP_RETURN_CODE 77)
+    endif()
 endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE)

@@ -1,0 +1,72 @@
+kairo-scene 4
+entity 1 "Architecture"
+enabled true
+layer 0
+transform 0 0 0 0 0 0 1 1 1 1
+end
+entity 2 "Gallery Floor"
+parent 1
+enabled true
+layer 0
+transform 0 -0.65 0 0 0 0 1 6 1 6
+mesh-renderer 10000000-0000-4000-8000-000000000002 true true true 18446744073709551615 1 10000000-0000-4000-8000-000000000010
+end
+entity 3 "Hero Sphere"
+parent 1
+enabled true
+layer 0
+transform -1.5 0.1 0 0 0 0 1 0.75 0.75 0.75
+mesh-renderer 10000000-0000-4000-8000-000000000003 true true true 18446744073709551615 1 10000000-0000-4000-8000-000000000010
+end
+entity 4 "Tall Cylinder"
+parent 1
+enabled true
+layer 0
+transform 1.4 0.15 -0.35 0 0 0 1 0.65 1.3 0.65
+mesh-renderer 10000000-0000-4000-8000-000000000004 true true true 18446744073709551615 1 10000000-0000-4000-8000-000000000010
+end
+entity 5 "Plinth"
+parent 1
+enabled true
+layer 0
+transform 0 -0.3 -1.8 0 0 0 1 1.35 0.35 1.0
+mesh-renderer 10000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 10000000-0000-4000-8000-000000000010
+end
+entity 10 "Imported Toy Car"
+parent 1
+enabled true
+layer 0
+transform 0 0.08 -0.5 0 0 0 1 12 12 12
+scene-instance 10000000-0000-4000-8000-000000000020 true true true 18446744073709551615
+end
+entity 11 "Textured Reference Panel"
+parent 1
+enabled true
+layer 0
+transform 0 1.15 -3.2 0 0 0 1 1.6 1.6 1.6
+scene-instance 10000000-0000-4000-8000-000000000022 true true true 18446744073709551615
+end
+entity 6 "Main Camera"
+enabled true
+layer 0
+transform 0 2.8 8 0 0 0 1 1 1 1
+camera perspective 0.87266463 10 0.1 250 0 true environment 0.02 0.025 0.035 1 18446744073709551615
+end
+entity 7 "Sun"
+enabled true
+layer 0
+transform 0 5 3 -0.38268343 0 0 0.9238795 1 1 1
+light directional 1 0.94 0.82 80000 lux 100 0.34906585 0.52359878 1 1 soft 0.001 0.01 18446744073709551615
+end
+entity 8 "Warm Fill"
+enabled true
+layer 0
+transform -3 2.5 2 0 0 0 1 1 1 1
+light point 1 0.45 0.2 900 candela 12 0.34906585 0.52359878 1 1 disabled 0.001 0.01 18446744073709551615
+end
+entity 9 "World"
+enabled true
+layer 0
+transform 0 0 0 0 0 0 1 1 1 1
+environment true 10 0.018 0.028 0.045 none 0.12 1 disabled 0.5 0.5 0.5 0.01 0 1000 0.5 aces global
+end

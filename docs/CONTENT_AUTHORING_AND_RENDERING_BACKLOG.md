@@ -12,21 +12,19 @@ gameplay, real-time rendering, and offline rendering evolve as one workflow.
 
 - KairoEditor uses KairoRenderer for its live viewport. The editor receives the
   renderer's offscreen viewport texture and places Dear ImGui tooling around it.
-- KairoRayTracer is currently a separate offline renderer with its own `.kairo`
-  scene format. The editor does not currently submit its EngineCore scene to the
-  ray tracer.
-- EngineCore now owns versioned camera, light, environment, material-slot,
-  shadow, and render-layer authoring descriptors. KairoRenderer does not yet
-  consume the complete contract, and the editor does not yet expose complete
-  creation, inspector, viewport-gizmo, and camera-preview workflows.
-- Imported and procedural meshes are runtime/cooked geometry. They are not an
-  editable topology model, so vertex, edge, face, sculpt, modifier, and texture
-  painting workflows do not exist yet.
-- C++ can create entities through `Scene::CreateEntity`, and runtime code can
-  queue transactional spawns through `RuntimeWorld`. Gameplay bytecode also has
-  a spawn operation. Kairo does not yet provide a polished Unity-style gameplay
-  component API, script lifecycle, native hot reload, or editor-exposed C++
-  component workflow.
+- KairoRayTracer remains a separate offline renderer, but the shared render
+  bridge now snapshots EngineCore scenes and resolves authored camera, light,
+  mesh, material, texture, and environment state for asynchronous Editor jobs.
+- EngineCore's versioned camera, light, environment, material-slot, shadow, and
+  render-layer descriptors now reach KairoRenderer and the complete Editor scene
+  creation, inspector, gizmo, environment, and camera-preview workflows.
+- Runtime/cooked `MeshArtifact` data remains immutable. A separate EditableMesh
+  authoring kernel owns stable loop topology, validated transactional operations,
+  persistence, and deterministic cooking; later modeling and sculpt UX build on it.
+- Native C++ gameplay now has reflected registration, manifest-backed Editor
+  attachments, deterministic lifecycle dispatch, transactional RuntimeWorld
+  mutation, and Player execution. Binary reload remains an explicit
+  restart-required policy rather than unsafe implicit hot replacement.
 
 ## Track A: Licensed Compatibility Content
 
@@ -156,7 +154,7 @@ KairoPlayer
     -> KairoRenderer adapter provides the shipped real-time frame
 ```
 
-The editor's future `Render` action must be an explicit offline-render job:
+The editor's `Render` action is an explicit offline-render job:
 
 1. Validate and snapshot the current authored scene.
 2. Convert supported camera, light, material, texture, mesh, and environment
@@ -176,14 +174,17 @@ and `Lighting` remain real-time KairoRenderer diagnostic modes.
 - [x] Approve and acquire the licensed compatibility corpus. Committed fixtures and
   hash-locked optional scenery are recorded under `TestContent/Compatibility`.
 - [x] Add scene-authored camera, light, environment, and material descriptors.
-- [ ] Complete texture/material upload in KairoRenderer.
-- [ ] Import and instantiate one shared glTF scene in Assets, Editor, Player, and Renderer.
-- [ ] Add EngineCore-scene to KairoRayTracer conversion and an editor render job.
-- [ ] Deliver the reflected C++ entity/component authoring workflow.
-- [ ] Deliver editable polygon topology and deterministic mesh cooking.
-- [ ] Deliver UV/material authoring and texture inspection.
-- [ ] Deliver sculpting as a separately tested authoring subsystem.
-- [ ] Add animation, terrain/foliage, particles, cloth, fluids, and large-world content later.
+- [x] Complete texture/material upload in KairoRenderer.
+- [x] Import and instantiate one shared glTF scene in Assets, Editor, Player, and Renderer.
+- [x] Add EngineCore-scene to KairoRayTracer conversion and an editor render job.
+- [x] Deliver the reflected C++ entity/component authoring workflow.
+- [x] Deliver editable polygon topology and deterministic mesh cooking.
+- [x] Deliver UV/material authoring and texture inspection.
+- [x] Deliver sculpting as a separately tested authoring subsystem.
+- [x] Add animation, terrain/foliage, particles, cloth, fluids, and large-world runtime contracts.
+- [x] Add deterministic runtime audio mixing and Editor/Player audition boundaries.
+- [x] Add renderer-neutral runtime UI, localization, focus, and accessibility semantics.
+- [x] Add typed atomic saves, baseline-checked replication deltas, and replay divergence checks.
 
 ## Phase Distribution
 
@@ -206,6 +207,9 @@ exists while its serialization, runtime behavior, or tests remain missing.
 | 10. UV and material authoring | KairoEditor, KairoAssets, KairoRenderer | UV editor, seams, unwrap, packing, texel-density tools, material previews, texture/channel inspection, and reimport controls | A user can unwrap, texture, assign, save, reopen, and package a multi-material prop |
 | 11. Sculpting | dedicated sculpt subsystem, KairoEditor, KairoRenderer, KairoAssets | Brush engine, falloff, symmetry, masks, bounded stroke undo, multiresolution or dynamic topology, remesh, incremental viewport updates, and cook/bake | Sustained sculpt session meets correctness, memory, latency, save/reload, and final-cook budgets |
 | 12. Advanced production systems | separate subsystem repos plus EngineCore/Editor adapters | Animation, terrain, foliage, particles, cloth, fluids, and large-world streaming, each with its own proposal and performance budget | Each subsystem ships through Assets, Editor, Player, serialization, profiling, and automated tests rather than as an editor-only demo |
+| 13. Runtime audio contract | KairoEngineCore, KairoEditor, KairoPlayer, platform audio adapters | Stable voices, buses, looping, spatial attenuation, deterministic mix frames, and device-neutral audition | Editor and Player advance identical authored audio state; invalid voices fail before device submission |
+| 14. Runtime UI, localization, and accessibility | KairoEngineCore, KairoEditor, KairoPlayer, renderer adapters | Validated widget hierarchy, anchored layout, localization fallback, focus order, accessible labels, and semantic actions | Editor preview and Player resolve identical layout, language, focus, accessibility, and actions |
+| 15. Save, replay, and replication state | KairoEngineCore, KairoEditor, KairoPlayer | Canonical typed snapshots, atomic project saves, hashed deltas, bounded replay actions, and divergence detection | Save round trips are exact; mismatched replication baselines and divergent replay state are rejected |
 
 ### Safe Parallel Work
 

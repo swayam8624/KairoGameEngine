@@ -76,14 +76,15 @@ int main()
     Write(root / "NativeTest.kproject",
         "kairo-project 2\nname \"Native Test\"\nengine-version \"0.1.0\"\n"
         "assets \"Assets.kassets\"\nstartup-scene \"Scenes/Main.kscene\"\n"
-        "input-map \"Config/Input.kinput\"\nrendering-profile \"desktop\"\n");
+        "input-map \"Config/Input.kinput\"\nrendering-profile \"desktop\"\n"
+        "build-profile \"Development\" development \"Build/Development\"\n");
     Write(root / "Assets.kassets", "kairo-assets 1\n");
     Write(root / "Config/Input.kinput", "kairo-input 1\n");
 
     kairo::assets::AssetRegistry assets;
     Scene scene;
     const Entity actor = scene.CreateEntity("Actor");
-    SaveScene(root / "Scenes/Main.kscene", assets, scene);
+    SaveScene(root / "Scenes/Main.kscene", scene, assets);
 
     NativeGameplayManifest manifest;
     NativeGameplayAttachment attachment;

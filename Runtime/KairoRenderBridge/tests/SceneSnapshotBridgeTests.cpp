@@ -1,9 +1,12 @@
 #include <filesystem>
+#include <optional>
+#include <utility>
 
 #include <catch2/catch_test_macros.hpp>
 
 import Kairo.EngineCore;
 import Kairo.Foundation.Math;
+import Kairo.Foundation.Geometry.Triangle;
 import Kairo.Foundation.RayTracer;
 import Kairo.Runtime.RenderBridge.SceneSnapshot;
 import Kairo.Runtime.RenderBridge.OfflineSession;
@@ -79,7 +82,7 @@ TEST_CASE("directional spot and fog semantics convert into the shared offline sc
 
     const Entity environmentEntity = scene.CreateEntity("Environment");
     EnvironmentComponent environment;
-    environment.Active = true;
+    environment.Enabled = true;
     environment.Fog = FogMode::Exponential;
     environment.FogColor = { 0.1f, 0.2f, 0.3f };
     environment.FogDensity = 0.04f;
@@ -94,6 +97,53 @@ TEST_CASE("directional spot and fog semantics convert into the shared offline sc
     CHECK(converted.Snapshot.SpotLights.front().Range == 25.0f);
     CHECK(converted.Snapshot.Settings.Fog == kairo::foundation::raytracer::FogMode::Exponential);
     CHECK(converted.Snapshot.Settings.FogDensity == 0.04f);
+}
+
+TEST_CASE("authored mesh transforms and PBR material changes cross the offline resolver boundary")
+{
+    using namespace kairo::engine;
+    using namespace kairo::runtime::renderbridge;
+    namespace math = kairo::foundation::math;
+    namespace ray = kairo::foundation::raytracer;
+
+    Scene scene = MakeRenderableScene();
+    const Entity object = scene.CreateEntity("Offline mesh");
+    const auto meshID = kairo::assets::AssetID::Parse(
+        "00000000-0000-4000-8000-000000000601");
+    const auto materialID = kairo::assets::AssetID::Parse(
+        "00000000-0000-4000-8000-000000000602");
+    scene.SetMeshRenderer(object, { { meshID }, { materialID }, true });
+    scene.Transform(object).Local.Translation = { 2.0f, 0.0f, 0.0f };
+
+    OfflineSceneAssetResolver resolver;
+    resolver.ResolveMeshRenderer = [meshID, materialID](
+        const MeshRendererComponent& component, const math::Transformf& world)
+    {
+        REQUIRE(component.MeshAsset.ID == meshID);
+        REQUIRE(component.MaterialForSlot(0u).ID == materialID);
+        ray::Material material;
+        material.Type = ray::MaterialType::PBR;
+        material.Albedo = { 0.2f, 0.4f, 0.8f };
+        material.Metallic = 0.7f;
+        material.Roughness = 0.25f;
+        ray::MeshTriangle triangle;
+        triangle.Triangle = kairo::foundation::geometry::Trianglef::FromPoints(
+            math::TransformPoint(world, { 0.0f, 0.0f, 0.0f }),
+            math::TransformPoint(world, { 1.0f, 0.0f, 0.0f }),
+            math::TransformPoint(world, { 0.0f, 1.0f, 0.0f }));
+        ray::TriangleMesh mesh;
+        mesh.Triangles.push_back(triangle);
+        OfflineResolvedGeometry result;
+        result.Submeshes.push_back({ material, std::move(mesh), std::nullopt });
+        return result;
+    };
+
+    const auto converted = ConvertSceneSnapshot(scene, resolver);
+    REQUIRE(converted.Supported());
+    REQUIRE(converted.Snapshot.Materials.size() == 1u);
+    CHECK(converted.Snapshot.Materials[0].Albedo.b == 0.8f);
+    CHECK(converted.Snapshot.Materials[0].Metallic == 0.7f);
+    REQUIRE(converted.Snapshot.Primitives.size() == 1u);
 }
 
 TEST_CASE("Offline render session writes project-owned result metadata")

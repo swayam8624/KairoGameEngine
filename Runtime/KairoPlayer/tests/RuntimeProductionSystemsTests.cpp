@@ -5,6 +5,7 @@
 import Kairo.Assets;
 import Kairo.EngineCore;
 import Kairo.Player.RuntimeProductionSystemsBridge;
+import Kairo.Player.RuntimeShippingBridge;
 import Kairo.Player.RuntimeProject;
 
 namespace
@@ -35,7 +36,8 @@ int main()
     Write(root / "ProductionTest.kproject",
         "kairo-project 2\nname \"Production Test\"\nengine-version \"0.1.0\"\n"
         "assets \"Assets.kassets\"\nstartup-scene \"Scenes/Main.kscene\"\n"
-        "input-map \"Config/Input.kinput\"\nrendering-profile \"desktop\"\n");
+        "input-map \"Config/Input.kinput\"\nrendering-profile \"desktop\"\n"
+        "build-profile \"Development\" development \"Build/Development\"\n");
     Write(root / "Assets.kassets", "kairo-assets 1\n");
     Write(root / "Config/Input.kinput", "kairo-input 1\n");
     kairo::assets::AssetRegistry assets;
@@ -66,6 +68,24 @@ int main()
     const auto profile = bridge.Profile();
     Require(profile.has_value() && profile->Frames == 1u,
         "Player production runtime did not publish profiling counters.");
+
+    kairo::player::RuntimeShippingBridge shipping(project);
+    shipping.Audio().AddBus({"Effects",0.5,false});
+    AudioVoice voice; voice.Bus="Effects"; voice.DurationSeconds=1.0;
+    (void)shipping.Audio().Play(voice);
+    Require(shipping.Step(0.25).ActiveVoices==1u,"Player shipping audio did not advance.");
+    LocalizationCatalog catalog; catalog.Set("en","continue","Continue"); catalog.Set("en","continue-label","Continue game");
+    RuntimeUIScene ui(std::move(catalog)); RuntimeWidget button; button.ID="continue"; button.Kind=RuntimeWidgetKind::Button;
+    button.TextKey="continue"; button.AccessibleLabelKey="continue-label"; button.Action="game.continue"; button.Focusable=true; ui.Add(button);
+    shipping.InstallUI(std::move(ui));
+    Require(shipping.UI()->Activate("continue")=="game.continue","Player shipping UI action did not resolve.");
+    shipping.Save("Saves/slot-1.ksave");
+    const auto savedHash=HashRuntimeState(shipping.State());
+    shipping.Record(1u,{"continue"});
+    shipping.Load("Saves/slot-1.ksave");
+    Require(HashRuntimeState(shipping.State())==savedHash,"Player save state did not round trip.");
+    shipping.Verify(0u);
+    Require(shipping.ReplayFrames()==1u,"Player replay frame was not retained.");
 
     fs::remove_all(root);
     return 0;
