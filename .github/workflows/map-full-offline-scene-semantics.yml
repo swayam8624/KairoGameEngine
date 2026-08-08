@@ -1,0 +1,22 @@
+name: Map full offline scene semantics
+on:
+  push:
+    branches:
+      - agent/phases6-12-integration
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/phases6-12-integration
+      - run: python3 .github/scripts/map_full_offline_scene_semantics.py
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Map full authored light and fog semantics into offline rendering"
+          git push
