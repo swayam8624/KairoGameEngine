@@ -1,0 +1,109 @@
+{
+  "schema": "kairo-compatibility-assets-1",
+  "accessed": "2026-08-08",
+  "assets": [
+    {
+      "id": "khronos-toy-car",
+      "path": "committed/ToyCar/ToyCar.glb",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ToyCar/glTF-Binary/ToyCar.glb",
+      "upstreamRevision": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+      "authors": ["Guido Odendahl", "Eric Chadwick"],
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "redistribution": "approved",
+      "bytes": 5422412,
+      "sha256": "01a60862de55cd4b9f3acfab0b0def86451800f9c42467fcd61052c16cb9838c",
+      "expected": "scene import with hierarchy, geometry, base PBR materials, and located diagnostics for unsupported extensions"
+    },
+    {
+      "id": "khronos-metal-rough-spheres-no-textures",
+      "path": "committed/MetalRoughSpheresNoTextures/MetalRoughSpheresNoTextures.glb",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MetalRoughSpheresNoTextures/glTF-Binary/MetalRoughSpheresNoTextures.glb",
+      "upstreamRevision": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+      "authors": ["Krill Gavrilov", "Open CASCADE Draw Harness contributors"],
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "redistribution": "approved",
+      "bytes": 291316,
+      "sha256": "5e677f260ec0f366967a6e9545de2f3dab2a160e307b9bcb9d050cd2028f63f8",
+      "expected": "scene import preserving geometry and metallic-roughness factors"
+    },
+    {
+      "id": "khronos-light-visibility",
+      "path": "committed/LightVisibility/LightVisibility.glb",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/LightVisibility/glTF-Binary/LightVisibility.glb",
+      "upstreamRevision": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+      "authors": ["Aaron Franke"],
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "redistribution": "approved",
+      "bytes": 2940,
+      "sha256": "0295dadb5467f4b24d2ebe255c2957446e83c1eea5510e23f22fcedc96330267",
+      "expected": "controlled success or explicit diagnostic for KHR_node_visibility and animation-pointer content"
+    },
+    {
+      "id": "polyhaven-kloppenheim-06-pure-sky-1k",
+      "path": "committed/KloppenheimSky/kloppenheim_06_puresky_1k.hdr",
+      "source": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_puresky_1k.hdr",
+      "authors": ["Greg Zaal", "Jarod Guest"],
+      "license": "CC0-1.0",
+      "licenseUrl": "https://polyhaven.com/license",
+      "redistribution": "approved",
+      "bytes": 1173154,
+      "sha256": "206c67e3a1b992282821cf06662bdd69bbb4915c1c4444a66338a40d6a7d4e34",
+      "expected": "linear HDR texture import with finite RGBA16F mip levels"
+    },
+    {
+      "id": "kairo-malformed-invalid-json",
+      "path": "committed/Malformed/invalid_json.gltf",
+      "source": "Kairo-authored compatibility fixture",
+      "upstreamRevision": "not-applicable",
+      "authors": ["Kairo Project contributors"],
+      "license": "MIT",
+      "licenseUrl": "../../LICENSE",
+      "redistribution": "approved",
+      "bytes": 39,
+      "sha256": "61ee795d49d073555f923b5423cc0578b2e75d4e3f44bdf690069b79cb857878",
+      "expected": "deterministic invalid JSON diagnostic without a crash"
+    },
+    {
+      "id": "khronos-a-beautiful-game",
+      "path": "optional/ABeautifulGame.glb",
+      "source": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ABeautifulGame/glTF-Binary/ABeautifulGame.glb",
+      "upstreamRevision": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+      "authors": ["MaterialX Project", "Ed Mackey"],
+      "license": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+      "redistribution": "approved-with-attribution-optional-download",
+      "bytes": 42977928,
+      "sha256": "bd7133b4b322aae97c589b8839dae8155ad2546acb35ae32a127e722a959d007",
+      "expected": "large scenery and advanced transmission-volume compatibility fixture"
+    },
+    {
+      "id": "kenney-nature-kit-source",
+      "path": "optional/kenney_nature-kit.zip",
+      "source": "https://kenney.nl/media/pages/assets/nature-kit/37ac38a37b-1677698939/kenney_nature-kit.zip",
+      "authors": ["Kenney"],
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "redistribution": "approved-optional-source-pack",
+      "bytes": 10537521,
+      "sha256": "fa7974a0d342bfe63c38664ba9f8ec1a4aab8ea25f099bdc56870e33588c4d9d",
+      "expected": "source pack for future multi-object scenery assembly and OBJ material diagnostics"
+    }
+  ],
+  "rejected": [
+    {
+      "id": "khronos-sponza",
+      "reason": "Cryengine license is not suitable for Kairo redistribution"
+    },
+    {
+      "id": "khronos-virtual-city",
+      "reason": "3DRT license prohibits redistribution except under its narrow testing exception"
+    },
+    {
+      "id": "khronos-damaged-helmet",
+      "reason": "mixed CC-BY and CC-BY-NC terms are unsuitable for a commercial engine corpus"
+    }
+  ]
+}

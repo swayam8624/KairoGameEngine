@@ -14,5 +14,10 @@
 /KairoGameEngine-*-Source.tar.*
 /KairoGameEngine-*-Source.zip
 
+# Reproducible but intentionally opt-in compatibility assets. Their exact
+# source URLs and checksums live in TestContent/Compatibility/ASSET_LICENSES.json.
+/TestContent/Compatibility/optional/*
+!/TestContent/Compatibility/optional/.gitkeep
+
 # Historical local planning notes are not authoritative workspace status.
 /Foundation/ROADMAP.md

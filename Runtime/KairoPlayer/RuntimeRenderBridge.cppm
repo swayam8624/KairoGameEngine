@@ -1,5 +1,6 @@
 module;
 
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
@@ -73,7 +74,8 @@ export namespace kairo::player
             for (const auto entity : m_Project.Scene().RenderableEntities())
             {
                 const auto& component = m_Project.Scene().MeshRenderer(entity);
-                (void)m_Project.Assets().Resolve(component.MaterialAsset);
+                for (std::size_t slot = 0u; slot < component.MaterialSlotCount(); ++slot)
+                    (void)m_Project.Assets().Resolve(component.MaterialForSlot(slot));
                 const auto found = m_Meshes.find(component.MeshAsset.ID);
                 if (found == m_Meshes.end())
                     throw std::runtime_error("No runtime mesh binding exists for asset " + component.MeshAsset.ID.ToString());

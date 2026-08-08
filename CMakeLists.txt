@@ -117,6 +117,20 @@ target_link_libraries(KairoGameEngine INTERFACE
     KairoPhysicsEngine)
 add_library(Kairo::GameEngine ALIAS KairoGameEngine)
 
+if(BUILD_TESTING)
+    add_test(NAME KairoCompatibilityContentChecksums
+        COMMAND ${CMAKE_COMMAND} -P
+            ${CMAKE_CURRENT_SOURCE_DIR}/TestContent/Compatibility/verify_checksums.cmake)
+    if(TARGET Catch2::Catch2WithMain)
+        add_executable(KairoCompatibilityContentTests tests/CompatibilityContentTests.cpp)
+        target_link_libraries(KairoCompatibilityContentTests PRIVATE
+            KairoAssets Catch2::Catch2WithMain)
+        target_compile_definitions(KairoCompatibilityContentTests PRIVATE
+            KAIRO_COMPATIBILITY_CONTENT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/TestContent/Compatibility")
+        add_test(NAME KairoCompatibilityContentTests COMMAND KairoCompatibilityContentTests)
+    endif()
+endif()
+
 if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
     add_subdirectory(Runtime/KairoPlayer)
 endif()
