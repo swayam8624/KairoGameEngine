@@ -39,6 +39,8 @@ namespace
         std::optional<std::string> PackageProfile;
         bool Replace = false;
         bool Smoke = false;
+        kairo::renderer::GraphicsBackend Backend =
+            kairo::renderer::GraphicsBackend::Automatic;
     };
 
     [[nodiscard]] Arguments ParseArguments(int argc, char** argv)
@@ -54,6 +56,13 @@ namespace
             {
                 if (++index >= argc) throw std::invalid_argument("--package requires a build-profile name.");
                 result.PackageProfile = argv[index];
+            }
+            else if (argument == "--renderer")
+            {
+                if (++index >= argc)
+                    throw std::invalid_argument(
+                        "--renderer requires auto, vulkan, metal, d3d12, or opengl.");
+                result.Backend = kairo::renderer::ParseGraphicsBackend(argv[index]);
             }
             else if (!argument.empty() && argument.front() == '-')
                 throw std::invalid_argument("Unknown Kairo Phase 1 option: " + std::string(argument));
@@ -250,7 +259,8 @@ int main(int argc, char** argv)
 
         const std::filesystem::path savePath = project.Root() / ".kairo" / "saves" / "phase1.ksave";
         kairo::renderer::RendererRuntime renderer({
-            project.Descriptor().Name + " - Phase 1", 1280u, 720u, true });
+            project.Descriptor().Name + " - Phase 1", 1280u, 720u, true,
+            arguments.Backend });
         kairo::player::RuntimeRenderBridge renderBridge(renderer, project);
         renderer.SubmitRenderScene(renderBridge.BuildScene());
         renderer.SetCameraPose(renderBridge.CameraPose());

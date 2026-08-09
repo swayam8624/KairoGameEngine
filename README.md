@@ -36,6 +36,13 @@ targets. KairoAssets owns the portable `kairo.mesh.v1` contract consumed by
 both renderers, including strict OBJ import, while each renderer owns only its
 backend conversion. Authoring tools and the offline ray tracer remain separate
 targets so their dependencies do not leak into a shipped game runtime.
+`KairoRealtimeRenderBridge` is the single Editor/Player conversion boundary for
+builtin and imported meshes, textures, PBR materials, scene instances, lights,
+environments, layers, object IDs, and shadow policy.
+
+The current evidence-based work tracks and gates are maintained in
+[`docs/DEVELOPMENT_MAP.md`](docs/DEVELOPMENT_MAP.md). It distinguishes locally
+verified implementations, platform-gated implementations, and planned work.
 
 ## Clone
 
@@ -59,7 +66,7 @@ The checked-in developer preset targets the current macOS/Homebrew toolchain:
 - CMake 3.28 or newer
 - Ninja
 - Homebrew LLVM with C++23 module support
-- GLFW, Vulkan headers/loader, MoltenVK, and `glslangValidator`
+- GLFW, OpenGL, Vulkan headers/loader, MoltenVK, and `glslangValidator`
 
 ```bash
 brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
@@ -136,11 +143,23 @@ used by launchers, CI, recovery tools, and future packaging profiles:
   KairoEditor/examples/StarterProject/Project.kproject --validate
 ```
 
-Run the same startup scene in the standalone Vulkan player:
+Run the same startup scene in the standalone player. The project descriptor's
+`graphics-backend` policy is used unless `--renderer` overrides it. `auto`
+selects the native-first compiled backend; explicit unavailable APIs fail before
+native window/device creation:
 
 ```bash
 ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
-  KairoEditor/examples/StarterProject/Project.kproject
+  KairoEditor/examples/StarterProject/Project.kproject \
+  --renderer auto
+
+./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
+  KairoEditor/examples/StarterProject/Project.kproject \
+  --renderer vulkan
+
+./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
+  Samples/SharedContentShowcase/Project.kproject \
+  --renderer opengl --smoke
 ```
 
 Build one of the exact profiles authored in `Project.kproject` after publishing
@@ -220,7 +239,8 @@ Launch the native editor with its starter project:
 
 ```bash
 ./build/dev-clang/KairoEditor/KairoEditorApp \
-  --project KairoEditor/examples/StarterProject/Project.kproject
+  --project KairoEditor/examples/StarterProject/Project.kproject \
+  --renderer auto
 ```
 
 The `Kairo AI` dock is always present, while cloud transport remains opt-in:
@@ -270,7 +290,7 @@ standalone build path.
 | `KairoECS` | [KairoECS](https://github.com/swayam8624/KairoECS) | Generational entities, sparse-set component storage, and runtime iteration | `main` |
 | `KairoReflection` | [KairoReflection](https://github.com/swayam8624/KairoReflection) | Stable type/property metadata and inspector-ready access adapters | `main` |
 | `KairoEngineCore` | [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore) | Scene/runtime services and application contracts | `main` |
-| `KairoRenderer` | [KairoRenderer](https://github.com/swayam8624/KairoRenderer) | Real-time Vulkan renderer, portable mesh adaptation, and debug drawing | `main` |
+| `KairoRenderer` | [KairoRenderer](https://github.com/swayam8624/KairoRenderer) | Multi-backend Vulkan/Metal/D3D12/OpenGL renderer, portable scene adaptation, and debug drawing | `main` |
 | `KairoEditor` | [KairoEditor](https://github.com/swayam8624/KairoEditor) | Native docked authoring application | `main` |
 | `KairoRayTracer` | [KairoRayTracer](https://github.com/swayam8624/KairoRayTracer) | Offline CPU rendering and visual diagnostics | `main` |
 | `KairoGPU` | [KairoGPU](https://github.com/swayam8624/KairoGPU) | Compute-backend abstraction | `main` |

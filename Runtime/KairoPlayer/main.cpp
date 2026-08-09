@@ -27,6 +27,7 @@ namespace
         bool SmokeTest = false;
         bool ReplacePackage = false;
         std::optional<std::string> PackageProfile;
+        std::optional<kairo::renderer::GraphicsBackend> BackendOverride;
     };
 
     class RuntimeFixedStepFanout final : public kairo::player::RuntimeFixedStepListener
@@ -51,7 +52,8 @@ namespace
     {
         if (count < 2)
             throw std::invalid_argument(
-                "Usage: KairoPlayer <Project.kproject> [--validate|--smoke|--package <profile> [--replace]]");
+                "Usage: KairoPlayer <Project.kproject> [--renderer auto|vulkan|metal|d3d12|opengl] "
+                "[--validate|--smoke|--package <profile> [--replace]]");
         Arguments result;
         result.Project = values[1];
         for (int index = 2; index < count; ++index)
@@ -67,6 +69,14 @@ namespace
                 result.PackageProfile = values[index];
             }
             else if (option == "--replace") result.ReplacePackage = true;
+            else if (option == "--renderer")
+            {
+                if (++index >= count)
+                    throw std::invalid_argument(
+                        "--renderer requires auto, vulkan, metal, d3d12, or opengl.");
+                result.BackendOverride =
+                    kairo::renderer::ParseGraphicsBackend(values[index]);
+            }
             else throw std::invalid_argument("Unknown KairoPlayer option: " + std::string(option));
         }
         const unsigned operationCount = static_cast<unsigned>(result.ValidateOnly) +
@@ -109,8 +119,13 @@ int main(int argc, char** argv)
             return 0;
         }
 
+        const kairo::renderer::GraphicsBackend backend =
+            arguments.BackendOverride.value_or(
+                kairo::renderer::ParseGraphicsBackend(
+                    project.Descriptor().GraphicsBackend));
         kairo::renderer::RendererRuntime renderer({
-            project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true });
+            project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true,
+            backend });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
         RuntimeFixedStepFanout fixedSteps(logic, nativeGameplay);
         logic.BeginPlay();

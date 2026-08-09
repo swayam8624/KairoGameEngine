@@ -79,6 +79,7 @@ add_subdirectory(KairoECS)
 add_subdirectory(KairoReflection)
 add_subdirectory(KairoEngineCore)
 add_subdirectory(KairoRenderer)
+add_subdirectory(Runtime/KairoRealtimeRenderBridge)
 
 if(KAIRO_GAME_ENGINE_BUILD_EDITOR)
     add_subdirectory(KairoEditor)
@@ -146,6 +147,17 @@ if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
             COMMAND KairoPlayer "${_kairo_shared_content_project}" --smoke)
         set_tests_properties(KairoSharedContentProjectValidation
             KairoSharedContentPlayerSmoke PROPERTIES TIMEOUT 30 SKIP_RETURN_CODE 77)
+        if(TARGET KairoEditorRendererBridge AND TARGET Catch2::Catch2WithMain)
+            add_executable(KairoSharedContentContractTests
+                tests/SharedContentContractTests.cpp)
+            target_link_libraries(KairoSharedContentContractTests PRIVATE
+                KairoPlayerRuntime KairoEditorRendererBridge
+                Catch2::Catch2WithMain)
+            target_compile_definitions(KairoSharedContentContractTests PRIVATE
+                KAIRO_SHARED_CONTENT_PROJECT="${_kairo_shared_content_project}")
+            add_test(NAME KairoSharedContentContractTests
+                COMMAND KairoSharedContentContractTests)
+        endif()
     endif()
 endif()
 
