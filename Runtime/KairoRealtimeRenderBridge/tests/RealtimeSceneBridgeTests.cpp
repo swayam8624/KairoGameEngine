@@ -1,5 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
+
 import Kairo.Runtime.RealtimeSceneBridge;
 import Kairo.Assets;
 import Kairo.EngineCore;
