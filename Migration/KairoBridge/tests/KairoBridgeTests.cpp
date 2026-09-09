@@ -146,9 +146,18 @@ TEST_CASE("Migration manifest supports deterministic incremental upserts and cov
     script.SourceFingerprint = "sha256:script";
     manifest.Upsert(script);
 
+    // Reimport may advance converter implementation and source content while
+    // preserving the durable canonical ID referenced by the rest of the graph.
     material.ConverterVersion = 2u;
     material.SourceFingerprint = "sha256:second";
     manifest.Upsert(material);
+
+    // A converter bug or migration rule change must never silently rename the
+    // canonical identity for the same source object, because that would break
+    // prefab/scene/material references throughout a large migrated production.
+    MigrationRecord unstableIdentity = material;
+    unstableIdentity.CanonicalID = "asset/material/car-renamed";
+    REQUIRE_THROWS_AS(manifest.Upsert(unstableIdentity), std::invalid_argument);
 
     manifest.Validate();
     manifest.SortDeterministically();
