@@ -11,6 +11,13 @@ import Kairo.Renderer;
 
 namespace kairo::runtime::renderbridge
 {
+    MaterialPreviewScene::MaterialPreviewScene() = default;
+    MaterialPreviewScene::MaterialPreviewScene(const MaterialPreviewScene&) = default;
+    MaterialPreviewScene::MaterialPreviewScene(MaterialPreviewScene&&) = default;
+    MaterialPreviewScene& MaterialPreviewScene::operator=(const MaterialPreviewScene&) = default;
+    MaterialPreviewScene& MaterialPreviewScene::operator=(MaterialPreviewScene&&) = default;
+    MaterialPreviewScene::~MaterialPreviewScene() = default;
+
     kairo::renderer::Mesh MakeMaterialPreviewMesh(
         kairo::editor::MaterialPreviewShape shape)
     {
