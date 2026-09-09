@@ -10,6 +10,7 @@ target_sources(KairoBridge PUBLIC
         MigrationManifest.cppm
         UnityAdapter.cppm
         GodotAdapter.cppm
+        UnrealAdapter.cppm
         KairoBridge.cppm)
 
 add_library(Kairo::Bridge ALIAS KairoBridge)
@@ -18,7 +19,8 @@ if(BUILD_TESTING AND TARGET Catch2::Catch2WithMain)
     add_executable(KairoBridgeTests
         tests/KairoBridgeTests.cpp
         tests/DurableIdentityTests.cpp
-        tests/GodotAdapterTests.cpp)
+        tests/GodotAdapterTests.cpp
+        tests/UnrealAdapterTests.cpp)
     target_link_libraries(KairoBridgeTests PRIVATE
         KairoBridge
         Catch2::Catch2WithMain)
