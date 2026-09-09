@@ -88,7 +88,25 @@ endif()
 if(KAIRO_GAME_ENGINE_BUILD_RAYTRACER)
     add_subdirectory(KairoRayTracer)
     add_subdirectory(Runtime/KairoRenderBridge)
-    if(TARGET KairoEditorApp AND TARGET KairoEditorOfflineRenderBridge)
+
+    # Homebrew LLVM 23.x on arm64 macOS has a 32-bit SourceLocation ceiling.
+    # Importing the editor, renderer and full offline-raytracer module graph into
+    # the single KairoEditorApp translation unit crosses that ceiling even though
+    # the offline bridge itself compiles and tests successfully. Keep the engine
+    # bridge built on every platform, but avoid injecting it into this one host TU
+    # for the affected compiler generation. Other Clang versions, AppleClang,
+    # MSVC and Linux retain the integrated offline-render editor service.
+    set(_kairo_editor_offline_host_supported ON)
+    if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+       CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 23 AND
+       CMAKE_CXX_COMPILER_VERSION VERSION_LESS 24)
+        set(_kairo_editor_offline_host_supported OFF)
+        message(STATUS
+            "KairoEditor offline-render host injection disabled for Homebrew LLVM 23.x on macOS due to SourceLocation exhaustion")
+    endif()
+
+    if(TARGET KairoEditorApp AND TARGET KairoEditorOfflineRenderBridge AND
+       _kairo_editor_offline_host_supported)
         target_link_libraries(KairoEditorApp PRIVATE KairoEditorOfflineRenderBridge)
         target_compile_definitions(KairoEditorApp PRIVATE KAIRO_EDITOR_HAS_OFFLINE_RENDER=1)
     endif()
