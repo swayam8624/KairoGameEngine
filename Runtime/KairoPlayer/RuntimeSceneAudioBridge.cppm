@@ -176,7 +176,7 @@ export namespace kairo::player
         double m_FrameRemainder = 0.0;
 
         [[nodiscard]] static kairo::engine::AudioVec3 ToAudioVec3(
-            const kairo::foundation::math::Vector3f& value) noexcept
+            const kairo::foundation::math::Vector3<float>& value) noexcept
         {
             return {
                 static_cast<double>(value.x),
