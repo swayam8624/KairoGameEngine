@@ -28,6 +28,9 @@ if(BUILD_TESTING)
     target_link_libraries(KairoPlayerAudioBridgeTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerAudioBridgeTests COMMAND KairoPlayerAudioBridgeTests)
 
+    # This integration executable exercises the transactional Player-side cell
+    # load/unload boundary against the same complete runtime target used by the
+    # audio and render bridges, catching stale stacked dependency generations.
     add_executable(KairoPlayerWorldStreamingBridgeTests tests/RuntimeWorldStreamingBridgeTests.cpp)
     target_link_libraries(KairoPlayerWorldStreamingBridgeTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerWorldStreamingBridgeTests COMMAND KairoPlayerWorldStreamingBridgeTests)
