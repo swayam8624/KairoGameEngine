@@ -1,6 +1,7 @@
 module;
 
 #include <algorithm>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
