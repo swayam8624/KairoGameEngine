@@ -64,6 +64,14 @@ export namespace kairo::player
         float RemainingPlanarDistance = 0.0f;
     };
 
+    struct RuntimeNavigationSteeringRequest final
+    {
+        RuntimeNavigationAgentState Navigation;
+        kairo::foundation::math::Vec3f PreferredVelocity =
+            kairo::foundation::math::Vec3f::Zero();
+        bool WantsMovement = false;
+    };
+
     struct RuntimeNavigationAgentStep final
     {
         RuntimeNavigationAgentState Navigation;
@@ -74,6 +82,11 @@ export namespace kairo::player
     /// KairoAI owns intent, KairoSpatial owns pathfinding, PhysicsEngine owns
     /// collision resolution through RuntimeCharacterMotorBridge, and Scene stays
     /// the authoritative gameplay transform source.
+    ///
+    /// Path preparation and physical resolution are deliberately separate. This
+    /// allows deterministic crowd avoidance, gameplay steering, networking
+    /// prediction and animation-facing locomotion layers to modify the preferred
+    /// planar velocity without duplicating path-following state.
     class RuntimeNavigationAgentBridge final
     {
         struct AgentRecord final
@@ -114,6 +127,12 @@ export namespace kairo::player
         [[nodiscard]] bool IsRegistered(kairo::engine::Entity entity) const noexcept
         {
             return m_Agents.contains(entity.Value);
+        }
+
+        [[nodiscard]] const RuntimeNavigationAgentSettings& Settings(
+            kairo::engine::Entity entity) const
+        {
+            return Require(entity).Settings;
         }
 
         [[nodiscard]] const RuntimeNavigationAgentState& State(
@@ -178,34 +197,31 @@ export namespace kairo::player
             if (!record.Intent.has_value())
                 throw std::logic_error(
                     "Runtime navigation agent has no intent to replan.");
-            return SetIntent(entity, *record.Intent);
+            const auto intent = *record.Intent;
+            return SetIntent(entity, intent);
         }
 
-        [[nodiscard]] RuntimeNavigationAgentStep Step(
+        /// Advances path bookkeeping but does not move the character. The returned
+        /// preferred velocity is the path follower's unconstrained steering request.
+        [[nodiscard]] RuntimeNavigationSteeringRequest PrepareSteering(
             kairo::engine::Entity entity, float deltaSeconds)
         {
+            ValidateDelta(deltaSeconds);
             auto& record = Require(entity);
-            if (!std::isfinite(deltaSeconds) || deltaSeconds <= 0.0f ||
-                deltaSeconds > 0.25f)
-                throw std::invalid_argument(
-                    "Runtime navigation delta must be finite within (0, 0.25].");
-
             if (!record.Intent.has_value() ||
                 record.State.Status == RuntimeNavigationAgentStatus::Idle ||
-                record.State.Status == RuntimeNavigationAgentStatus::PathUnavailable)
-                return { record.State, std::nullopt };
-
-            if (record.State.Status == RuntimeNavigationAgentStatus::Arrived)
-                return { record.State, std::nullopt };
+                record.State.Status == RuntimeNavigationAgentStatus::PathUnavailable ||
+                record.State.Status == RuntimeNavigationAgentStatus::Arrived)
+                return { record.State, {}, false };
 
             AdvanceReachedWaypoints(entity, record);
             if (ResolveArrival(entity, record))
-                return { record.State, std::nullopt };
+                return { record.State, {}, false };
 
             if (record.State.WaypointIndex >= record.Path.Waypoints.size())
             {
                 record.State.Status = RuntimeNavigationAgentStatus::PathUnavailable;
-                return { record.State, std::nullopt };
+                return { record.State, {}, false };
             }
 
             const auto current = m_Scene.WorldTransform(entity).Translation;
@@ -218,12 +234,55 @@ export namespace kairo::player
                 direction *= record.Settings.MaximumSpeed / distance;
             else
                 direction = kairo::foundation::math::Vec3f::Zero();
+            return { record.State, direction, true };
+        }
 
-            auto motorStep = m_Motor.Step(entity, direction, false, deltaSeconds);
+        /// Applies an externally resolved steering velocity through the real
+        /// character motor, then advances path/arrival bookkeeping from the
+        /// resulting physical Scene transform. Speed is deterministically clamped
+        /// to the navigation agent's authored maximum.
+        [[nodiscard]] RuntimeNavigationAgentStep ApplySteering(
+            kairo::engine::Entity entity,
+            const kairo::foundation::math::Vec3f& planarVelocity,
+            float deltaSeconds)
+        {
+            ValidateDelta(deltaSeconds);
+            if (!std::isfinite(planarVelocity.x) ||
+                !std::isfinite(planarVelocity.y) ||
+                !std::isfinite(planarVelocity.z) ||
+                std::abs(planarVelocity.y) > 1.0e-5f)
+                throw std::invalid_argument(
+                    "Runtime navigation steering velocity must be finite and planar.");
+
+            auto& record = Require(entity);
+            if (record.State.Status != RuntimeNavigationAgentStatus::FollowingPath ||
+                !record.Intent.has_value())
+                return { record.State, std::nullopt };
+
+            auto velocity = planarVelocity;
+            const float speedSquared = velocity.x * velocity.x + velocity.z * velocity.z;
+            const float maximum = record.Settings.MaximumSpeed;
+            if (speedSquared > maximum * maximum)
+            {
+                const float scale = maximum / std::sqrt(speedSquared);
+                velocity.x *= scale;
+                velocity.z *= scale;
+            }
+
+            auto motorStep = m_Motor.Step(entity, velocity, false, deltaSeconds);
             AdvanceReachedWaypoints(entity, record);
             UpdateRemainingDistance(entity, record);
             ResolveArrival(entity, record);
             return { record.State, std::move(motorStep) };
+        }
+
+        [[nodiscard]] RuntimeNavigationAgentStep Step(
+            kairo::engine::Entity entity, float deltaSeconds)
+        {
+            const auto steering = PrepareSteering(entity, deltaSeconds);
+            if (!steering.WantsMovement)
+                return { steering.Navigation, std::nullopt };
+            return ApplySteering(entity, steering.PreferredVelocity, deltaSeconds);
         }
 
     private:
@@ -231,6 +290,14 @@ export namespace kairo::player
         RuntimeCharacterMotorBridge& m_Motor;
         const kairo::foundation::spatial::NavMesh& m_NavMesh;
         std::unordered_map<std::uint32_t, AgentRecord> m_Agents;
+
+        static void ValidateDelta(float deltaSeconds)
+        {
+            if (!std::isfinite(deltaSeconds) || deltaSeconds <= 0.0f ||
+                deltaSeconds > 0.25f)
+                throw std::invalid_argument(
+                    "Runtime navigation delta must be finite within (0, 0.25].");
+        }
 
         [[nodiscard]] AgentRecord& Require(kairo::engine::Entity entity)
         {
