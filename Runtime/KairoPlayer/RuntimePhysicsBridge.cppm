@@ -84,7 +84,7 @@ export namespace kairo::player
         {
             m_Settings.Validate();
             BuildWorld();
-            m_World.SetContactEventCallback([this](const auto& event) { CaptureContact(event); });
+            InstallContactCallback();
         }
 
         RuntimePhysicsBridge(const RuntimePhysicsBridge&) = delete;
@@ -130,6 +130,63 @@ export namespace kairo::player
         [[nodiscard]] const kairo::foundation::physics::PhysicsWorld& World() const noexcept { return m_World; }
         [[nodiscard]] kairo::foundation::physics::PhysicsWorld& World() noexcept { return m_World; }
         [[nodiscard]] const std::vector<RuntimeContactEvent>& ContactEvents() const noexcept { return m_Events; }
+
+        [[nodiscard]] kairo::foundation::physics::PhysicsWorldSnapshot CaptureSnapshot() const
+        {
+            return m_World.CaptureSnapshot();
+        }
+
+        /// Restores deterministic PhysicsWorld state while preserving the
+        /// entity/body mapping established from the running authored scene.
+        /// The snapshot must therefore describe the same active body topology.
+        /// Pose history is collapsed onto the restored state so the first frame
+        /// after a load never interpolates from the pre-load position.
+        void RestoreSnapshot(const kairo::foundation::physics::PhysicsWorldSnapshot& snapshot)
+        {
+            kairo::foundation::physics::PhysicsWorld validated;
+            validated.RestoreSnapshot(snapshot);
+
+            std::size_t activeBodies = 0u;
+            for (const auto& body : validated.Bodies())
+            {
+                if (!body.Active) continue;
+                ++activeBodies;
+                if (!m_EntitiesByBody.contains(body.ID))
+                    throw std::invalid_argument(
+                        "Physics snapshot contains an active body that is not mapped to the running scene.");
+            }
+            if (activeBodies != m_BodiesByEntity.size())
+                throw std::invalid_argument(
+                    "Physics snapshot active-body topology does not match the running scene.");
+            for (const auto& [entityValue, body] : m_BodiesByEntity)
+            {
+                if (!validated.IsValidBody(body))
+                    throw std::invalid_argument(
+                        "Physics snapshot is missing a body required by the running scene.");
+                const kairo::engine::Entity entity{ entityValue };
+                if (!m_Scene.Contains(entity))
+                    throw std::logic_error(
+                        "Runtime physics entity mapping references an entity absent from the scene.");
+            }
+
+            m_World.RestoreSnapshot(snapshot);
+            InstallContactCallback();
+            m_Accumulator = 0.0f;
+            m_Events.clear();
+
+            for (auto& [entityValue, pose] : m_Poses)
+            {
+                const kairo::engine::Entity entity{ entityValue };
+                const auto body = m_BodiesByEntity.at(entityValue);
+                const auto& state = m_World.Bodies().at(body).State;
+                auto world = m_Scene.WorldTransform(entity);
+                world.Translation = state.Position;
+                world.Rotation = state.Rotation;
+                m_Scene.Transform(entity).Local = ToLocal(m_Scene, entity, world);
+                pose.Previous = world;
+                pose.Current = world;
+            }
+        }
 
         [[nodiscard]] std::optional<kairo::foundation::physics::BodyID> BodyFor(
             kairo::engine::Entity entity) const noexcept
@@ -218,6 +275,12 @@ export namespace kairo::player
         std::unordered_map<std::uint32_t, PoseHistory> m_Poses;
         std::vector<RuntimeContactEvent> m_Events;
         float m_Accumulator = 0.0f;
+
+        void InstallContactCallback()
+        {
+            m_World.SetContactEventCallback(
+                [this](const auto& event) { CaptureContact(event); });
+        }
 
         void BuildWorld()
         {
