@@ -9,6 +9,7 @@ target_sources(KairoBridge PUBLIC
         CanonicalIR.cppm
         MigrationManifest.cppm
         UnityAdapter.cppm
+        GodotAdapter.cppm
         KairoBridge.cppm)
 
 add_library(Kairo::Bridge ALIAS KairoBridge)
