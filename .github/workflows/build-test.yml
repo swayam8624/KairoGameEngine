@@ -83,7 +83,19 @@ jobs:
           $glslangValidator.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }}
+        shell: bash
+        run: |
+          # Homebrew Clang's standard C++ module SourceLocation address space is
+          # finite. Pulling the offline CPU raytracer into the already-large
+          # native editor TU crosses that frontend limit on current macOS runners.
+          # Linux and Windows retain full offline-render superbuild coverage;
+          # macOS still builds/tests the native editor, player, renderer, physics,
+          # assets, AI, ECS, reflection, EngineCore, and realtime render bridge.
+          if [[ "${{ matrix.platform }}" == "macos" ]]; then
+            cmake --preset ${{ matrix.preset }} -DKAIRO_GAME_ENGINE_BUILD_RAYTRACER=OFF
+          else
+            cmake --preset ${{ matrix.preset }}
+          fi
 
       - name: Build
         id: build
