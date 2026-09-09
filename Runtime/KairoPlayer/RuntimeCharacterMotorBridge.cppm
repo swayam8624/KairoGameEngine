@@ -4,7 +4,7 @@ module;
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
+#include <numbers>
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
@@ -47,7 +47,7 @@ export namespace kairo::player
                 throw std::invalid_argument(
                     "Runtime character ground probe distance must be finite and non-negative.");
             if (!std::isfinite(MaxSlopeAngleRadians) || MaxSlopeAngleRadians < 0.0f ||
-                MaxSlopeAngleRadians >= kairo::foundation::physics::Pi * 0.5f)
+                MaxSlopeAngleRadians >= std::numbers::pi_v<float> * 0.5f)
                 throw std::invalid_argument(
                     "Runtime character maximum slope angle must be in [0, pi/2).");
             if (MaxSlideIterations == 0u || MaxSlideIterations > 16u)
@@ -142,10 +142,11 @@ export namespace kairo::player
                 colliderID,
                 {}
             };
-            record.State.Grounded = record.Controller.ProbeGround(
-                m_Physics.World(), record.OwnCollider).Grounded;
-            if (record.State.Grounded)
-                record.State.GroundNormal = record.Controller.GroundState().Normal;
+            const auto initialGround = record.Controller.ProbeGround(
+                m_Physics.World(), record.OwnCollider);
+            record.State.Grounded = initialGround.Grounded;
+            if (initialGround.Grounded)
+                record.State.GroundNormal = initialGround.Normal;
             m_Characters.emplace(entity.Value, std::move(record));
         }
 
