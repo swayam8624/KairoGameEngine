@@ -89,10 +89,19 @@ namespace
         return { root, floor, ball, marker };
     }
 
+    void AddPrimaryListener(engine::Scene& scene, engine::Entity entity)
+    {
+        engine::AudioListenerComponent listener;
+        listener.Enabled = true;
+        listener.Primary = true;
+        scene.SetAudioListener(entity, listener);
+    }
+
     void TestRoundTrip(const std::filesystem::path& testRoot)
     {
         const auto fixture = MakeProject(testRoot / "roundtrip");
         player::RuntimeProject project(fixture.Root / "RuntimeSave.kproject");
+        AddPrimaryListener(project.Scene(), fixture.Marker);
         player::RuntimePhysicsBridge runtimePhysics(project.Scene());
         player::RuntimeSaveGameBridge saveGames(project, runtimePhysics);
 
@@ -113,8 +122,9 @@ namespace
             archive.Label == "checkpoint-one",
             "Captured save-game metadata is incorrect.");
         Require(archive.ContainsChunk(engine::SceneSaveChunkName) &&
+            archive.ContainsChunk(engine::AudioSceneSaveChunkName) &&
             archive.ContainsChunk(player::RuntimePhysicsSaveChunkName),
-            "Captured save-game is missing a required runtime chunk.");
+            "Captured save-game is missing a required runtime subsystem chunk.");
 
         const auto savePath = fixture.Root / "Saves/checkpoint.ksave";
         saveGames.Save(savePath, "checkpoint-one", 17u);
@@ -122,11 +132,14 @@ namespace
             "Runtime save-game file was not written.");
 
         project.Scene().Transform(fixture.Marker).Local.Translation = { 99.0f, 88.0f, 77.0f };
+        (void)project.Scene().RemoveAudioListener(fixture.Marker);
         runtimePhysics.SetEntityPosition(fixture.Ball, { 4.0, 6.0, 2.0 });
         runtimePhysics.ApplyEntityImpulse(fixture.Ball, { -8.0, 4.0, 3.0 });
         (void)runtimePhysics.Advance(1.0f / 30.0f);
         Require(physics::PhysicsStateHash(runtimePhysics.World()) != expectedPhysicsHash,
             "Fixture failed to move physics away from the saved state.");
+        Require(!project.Scene().HasAudioListener(fixture.Marker),
+            "Fixture failed to move authored audio away from the saved state.");
 
         const auto loaded = saveGames.Load(savePath);
         Require(loaded.Sequence == 17u && loaded.Label == "checkpoint-one",
@@ -136,6 +149,10 @@ namespace
         Require(project.Scene().Transform(fixture.Marker).Local.Translation ==
             expectedMarker.Translation,
             "Non-physics scene state did not restore from the scene chunk.");
+        Require(project.Scene().HasAudioListener(fixture.Marker) &&
+            project.Scene().AudioListenerComponentFor(fixture.Marker).Enabled &&
+            project.Scene().AudioListenerComponentFor(fixture.Marker).Primary,
+            "Authored primary audio listener did not restore from its save chunk.");
 
         const auto restoredBall = runtimePhysics.World().Bodies().at(expectedBallBody).State;
         Require(math::NearlyEqual(restoredBall.Position, expectedBallState.Position, 1.0e-6f) &&
@@ -158,6 +175,7 @@ namespace
     {
         const auto fixture = MakeProject(testRoot / "validation");
         player::RuntimeProject project(fixture.Root / "RuntimeSave.kproject");
+        AddPrimaryListener(project.Scene(), fixture.Marker);
         player::RuntimePhysicsBridge runtimePhysics(project.Scene());
         player::RuntimeSaveGameBridge saveGames(project, runtimePhysics);
         (void)runtimePhysics.Advance(1.0f / 60.0f);
@@ -173,8 +191,20 @@ namespace
         Require(wrongProjectRejected,
             "Save-game from another project was accepted.");
         Require(physics::PhysicsStateHash(runtimePhysics.World()) == originalHash &&
-            project.Scene().Transform(fixture.Marker).Local.Translation == originalMarker,
+            project.Scene().Transform(fixture.Marker).Local.Translation == originalMarker &&
+            project.Scene().HasAudioListener(fixture.Marker),
             "Rejected project mismatch mutated runtime state.");
+
+        auto missingAudio = saveGames.Capture();
+        missingAudio.RemoveChunk(engine::AudioSceneSaveChunkName);
+        bool missingAudioRejected = false;
+        try { saveGames.Restore(missingAudio); }
+        catch (const std::invalid_argument&) { missingAudioRejected = true; }
+        Require(missingAudioRejected,
+            "Save-game missing authored audio state was accepted.");
+        Require(physics::PhysicsStateHash(runtimePhysics.World()) == originalHash &&
+            project.Scene().HasAudioListener(fixture.Marker),
+            "Rejected missing-audio save mutated runtime state.");
 
         auto missingPhysics = saveGames.Capture();
         missingPhysics.RemoveChunk(player::RuntimePhysicsSaveChunkName);
@@ -210,7 +240,8 @@ namespace
         Require(topologyRejected,
             "Save-game with incompatible scene topology was accepted.");
         Require(physics::PhysicsStateHash(runtimePhysics.World()) == originalHash &&
-            project.Scene().Transform(fixture.Marker).Local.Translation == originalMarker,
+            project.Scene().Transform(fixture.Marker).Local.Translation == originalMarker &&
+            project.Scene().HasAudioListener(fixture.Marker),
             "Rejected scene topology mutated runtime state.");
     }
 }
