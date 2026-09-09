@@ -8,6 +8,13 @@ export namespace kairo::runtime::renderbridge
 {
     struct MaterialPreviewScene final
     {
+        MaterialPreviewScene();
+        MaterialPreviewScene(const MaterialPreviewScene&);
+        MaterialPreviewScene(MaterialPreviewScene&&);
+        MaterialPreviewScene& operator=(const MaterialPreviewScene&);
+        MaterialPreviewScene& operator=(MaterialPreviewScene&&);
+        ~MaterialPreviewScene();
+
         kairo::renderer::RenderScene Scene;
         kairo::renderer::CameraPose Camera;
     };
