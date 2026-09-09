@@ -10,8 +10,6 @@ export module Kairo.Bridge.Types;
 
 export namespace kairo::bridge
 {
-    /// External engines understood by the migration framework. Unknown is kept
-    /// explicit so detection can fail safely instead of guessing a source API.
     enum class SourceEngine : std::uint8_t
     {
         Unknown,
@@ -32,9 +30,6 @@ export namespace kairo::bridge
         return "unknown";
     }
 
-    /// Engine-neutral semantic kinds used by the canonical project IR. The list
-    /// is intentionally broader than Kairo's current runtime surface so importers
-    /// can preserve intent even before every concept has a native implementation.
     enum class CanonicalKind : std::uint16_t
     {
         Project,
@@ -113,9 +108,6 @@ export namespace kairo::bridge
         return "other";
     }
 
-    /// Outcome for one source concept after translation. Compatibility means the
-    /// imported project can run through a Kairo emulation facade but is not yet
-    /// expressed as a fully native Kairo system.
     enum class MigrationDisposition : std::uint8_t
     {
         Native,
@@ -137,10 +129,6 @@ export namespace kairo::bridge
         return "unsupported";
     }
 
-    /// Stable identity supplied by the source engine adapter. Examples include
-    /// a Unity .meta GUID, Unreal package/object path, or Godot resource UID.
-    /// SourcePath remains as human-readable provenance and a fallback identity
-    /// for formats that do not expose a durable engine-level identifier.
     struct SourceIdentity final
     {
         SourceEngine Engine = SourceEngine::Unknown;
@@ -164,10 +152,14 @@ export namespace kairo::bridge
         }
     };
 
+    /// Durable engine IDs are the identity. SourcePath is provenance only when
+    /// a GUID/UID/package identity exists, and becomes the key only as a fallback.
     [[nodiscard]] inline std::string SourceIdentityKey(const SourceIdentity& identity)
     {
         identity.Validate();
-        return std::string(NameOfSourceEngine(identity.Engine)) + "|" +
-            identity.StableID + "|" + identity.SourcePath.lexically_normal().generic_string();
+        const std::string engine = std::string(NameOfSourceEngine(identity.Engine));
+        if (!identity.StableID.empty())
+            return engine + "|id|" + identity.StableID;
+        return engine + "|path|" + identity.SourcePath.lexically_normal().generic_string();
     }
 }
