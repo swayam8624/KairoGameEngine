@@ -81,6 +81,8 @@ int main()
 {
     try
     {
+        // This is the cross-subsystem stability gate for the single-agent path:
+        // AI intent -> NavMesh corridor -> kinematic motor -> Physics -> Scene.
         engine::Scene scene;
         (void)AddFloor(scene);
         const auto npc = AddCharacter(scene);
