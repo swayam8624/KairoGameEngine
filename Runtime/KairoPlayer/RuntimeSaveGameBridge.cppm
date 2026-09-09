@@ -22,10 +22,11 @@ export namespace kairo::player
     inline constexpr std::uint32_t RuntimePhysicsSaveChunkSchema =
         kairo::foundation::physics::PhysicsSnapshotFileVersion;
 
-    /// Player-level composition boundary for the subsystem-owned save formats.
-    /// EngineCore owns the KSAVE001 container and scene snapshot. PhysicsEngine
-    /// owns the deterministic PhysicsWorld payload. This bridge only validates
-    /// that the running project can safely accept both snapshots together.
+    /// Player-level composition boundary for subsystem-owned save formats.
+    /// EngineCore owns the KSAVE001 container, core scene snapshot, and authored
+    /// audio snapshot. PhysicsEngine owns the deterministic PhysicsWorld payload.
+    /// This bridge validates every subsystem into temporary state before the live
+    /// runtime is mutated, keeping one all-or-nothing restore boundary.
     class RuntimeSaveGameBridge final
     {
     public:
@@ -42,6 +43,8 @@ export namespace kairo::player
             archive.Sequence = sequence;
             archive.SetChunk(kairo::engine::MakeSceneSaveChunk(
                 m_Project.Scene(), m_Project.Assets()));
+            archive.SetChunk(kairo::engine::MakeAudioSceneSaveChunk(
+                m_Project.Scene()));
             archive.SetChunk(MakePhysicsChunk(m_Physics.CaptureSnapshot()));
             archive.Validate();
             return archive;
@@ -69,16 +72,24 @@ export namespace kairo::player
             if (!archive.ContainsChunk(kairo::engine::SceneSaveChunkName))
                 throw std::invalid_argument(
                     "Runtime save-game is missing its scene snapshot chunk.");
+            if (!archive.ContainsChunk(kairo::engine::AudioSceneSaveChunkName))
+                throw std::invalid_argument(
+                    "Runtime save-game is missing its authored-audio snapshot chunk.");
             if (!archive.ContainsChunk(RuntimePhysicsSaveChunkName))
                 throw std::invalid_argument(
                     "Runtime save-game is missing its physics snapshot chunk.");
 
             // Parse and semantically validate every subsystem before mutating the
-            // running project. A malformed physics payload therefore cannot leave
-            // the Scene restored while PhysicsWorld remains on the previous state.
+            // running project. Audio is applied only to the temporary savedScene;
+            // a malformed audio or physics payload therefore cannot partially
+            // restore the live Scene while another subsystem remains stale.
             kairo::engine::Scene savedScene = kairo::engine::ParseSceneSaveChunk(
                 archive.Chunk(kairo::engine::SceneSaveChunkName),
                 m_Project.Assets());
+            kairo::engine::ApplyAudioSceneSaveChunk(
+                archive.Chunk(kairo::engine::AudioSceneSaveChunkName),
+                savedScene, m_Project.Assets());
+
             const auto physicsSnapshot = ParsePhysicsChunk(
                 archive.Chunk(RuntimePhysicsSaveChunkName));
             kairo::foundation::physics::PhysicsWorld physicsValidation;
@@ -88,10 +99,10 @@ export namespace kairo::player
             ValidatePhysicsTopology(physicsSnapshot);
 
             // RuntimeProject owns the Scene object by value. Move-assignment
-            // preserves that object's address, so renderer/physics/logic bridges
-            // that hold Scene& remain valid. RuntimePhysicsBridge then restores
-            // exact body state and collapses interpolation history to the loaded
-            // pose without waking sleeping bodies.
+            // preserves that object's address, so renderer/physics/logic/audio
+            // bridges holding Scene& remain valid. RuntimePhysicsBridge then
+            // restores exact body state and collapses interpolation history to
+            // the loaded pose without waking sleeping bodies.
             m_Project.Scene() = std::move(savedScene);
             m_Physics.RestoreSnapshot(physicsSnapshot);
         }
