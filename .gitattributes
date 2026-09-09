@@ -1,0 +1,3 @@
+# Compatibility fixtures are byte-exact parser inputs. Do not let Git line-ending
+# conversion rewrite malformed textual payloads on Windows before checksum tests.
+TestContent/Compatibility/committed/** -text

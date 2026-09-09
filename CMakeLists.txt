@@ -143,8 +143,19 @@ if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
                 ${CMAKE_CURRENT_SOURCE_DIR}/Samples/SharedContentShowcase/verify_checksums.cmake)
         add_test(NAME KairoSharedContentProjectValidation
             COMMAND KairoPlayer "${_kairo_shared_content_project}" --validate)
+
+        # The shared-content smoke verifies project/runtime integration, not
+        # graphics-backend discovery. Use one backend that is deterministic on
+        # each CI host so headless Linux does not accidentally select Vulkan
+        # when GLFW cannot create a Vulkan surface under Xvfb.
+        if(WIN32)
+            set(_kairo_shared_content_smoke_backend d3d12)
+        else()
+            set(_kairo_shared_content_smoke_backend opengl)
+        endif()
         add_test(NAME KairoSharedContentPlayerSmoke
-            COMMAND KairoPlayer "${_kairo_shared_content_project}" --smoke)
+            COMMAND KairoPlayer "${_kairo_shared_content_project}"
+                --renderer ${_kairo_shared_content_smoke_backend} --smoke)
         set_tests_properties(KairoSharedContentProjectValidation
             KairoSharedContentPlayerSmoke PROPERTIES TIMEOUT 30 SKIP_RETURN_CODE 77)
         if(TARGET KairoEditorRendererBridge AND TARGET Catch2::Catch2WithMain)

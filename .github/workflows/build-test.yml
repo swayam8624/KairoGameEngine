@@ -86,21 +86,61 @@ jobs:
         run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build --preset ${{ matrix.preset }} --parallel
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          cmake --build --preset ${{ matrix.preset }} --parallel 2 2>&1 | tee build-${{ matrix.preset }}.log
+
+      - name: Upload build diagnostics
+        if: failure() && steps.build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: KairoGameEngine-build-${{ matrix.platform }}-${{ matrix.preset }}
+          path: build-${{ matrix.preset }}.log
+          if-no-files-found: error
 
       - name: Test on Linux virtual display
+        id: test_linux
         if: matrix.platform == 'linux'
         shell: bash
         env:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-        run: >
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24"
-          ctest --preset ${{ matrix.preset }}
+        run: |
+          set -o pipefail
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" \
+            ctest --preset ${{ matrix.preset }} --output-on-failure 2>&1 | tee test-${{ matrix.preset }}.log
 
-      - name: Test
-        if: matrix.platform != 'linux'
-        run: ctest --preset ${{ matrix.preset }}
+      - name: Test on macOS
+        id: test_macos
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -o pipefail
+          # GitHub-hosted macOS runners have no interactive WindowServer session,
+          # so GLFW/OpenGL window smoke tests cannot create a native window. The
+          # Metal-native smoke tests remain enabled and cover the actual macOS
+          # renderer/player/editor integration path.
+          ctest --preset ${{ matrix.preset }} --output-on-failure \
+            -E 'KairoSharedContentPlayerSmoke|KairoEditorOpenGLSharedContentSmoke|KairoPlayerOpenGLSharedContentSmoke' \
+            2>&1 | tee test-${{ matrix.preset }}.log
+
+      - name: Test on Windows
+        id: test_windows
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          set -o pipefail
+          ctest --preset ${{ matrix.preset }} --output-on-failure 2>&1 | tee test-${{ matrix.preset }}.log
+
+      - name: Upload test diagnostics
+        if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')
+        uses: actions/upload-artifact@v4
+        with:
+          name: KairoGameEngine-test-${{ matrix.platform }}-${{ matrix.preset }}
+          path: test-${{ matrix.preset }}.log
+          if-no-files-found: error
 
       - name: Create source package
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'

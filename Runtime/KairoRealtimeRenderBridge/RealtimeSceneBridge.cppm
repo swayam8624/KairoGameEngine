@@ -1,10 +1,13 @@
 module;
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
@@ -51,9 +54,18 @@ export namespace kairo::runtime::renderbridge
             outcome.Key, outcome.CacheHit };
     }
 
-    /// Task: import one hierarchy-preserving glTF/GLB scene and convert its
-    /// portable primitives/materials through KairoRenderer's canonical adapter.
-    [[nodiscard]] inline kairo::renderer::GltfRenderAsset ImportRenderGltfScene(
+    /// Complete CPU-side glTF import needed by animation-aware runtime binding.
+    /// Keep the validated source artifact beside the renderer adaptation so node,
+    /// skin, rest-pose, and clip metadata are not discarded after mesh upload.
+    struct RenderGltfSceneImport final
+    {
+        kairo::assets::GltfSceneArtifactData Source;
+        kairo::renderer::GltfRenderAsset RenderAsset;
+        kairo::assets::DerivedDataKey CacheKey;
+        bool CacheHit = false;
+    };
+
+    [[nodiscard]] inline RenderGltfSceneImport ImportRenderGltfSceneWithSource(
         const std::filesystem::path& projectRoot,
         kairo::assets::SceneAssetHandle asset,
         const kairo::assets::AssetRegistry& registry,
@@ -71,8 +83,23 @@ export namespace kairo::runtime::renderbridge
             importer.Identifier(), importer.Version(), {}, {}, 1u };
         auto outcome = kairo::assets::ImportSourceAsset(projectRoot, std::move(record),
             importer, registry, imports, cache);
-        return kairo::renderer::MakeGltfRenderAsset(
-            kairo::assets::ParseGltfSceneDerivedArtifact(outcome.Artifact), resolveTexture);
+        auto source = kairo::assets::ParseGltfSceneDerivedArtifact(outcome.Artifact);
+        auto renderAsset = kairo::renderer::MakeGltfRenderAsset(source, resolveTexture);
+        return { std::move(source), std::move(renderAsset), outcome.Key,
+            outcome.CacheHit };
+    }
+
+    /// Compatibility projection for callers that only need static render data.
+    [[nodiscard]] inline kairo::renderer::GltfRenderAsset ImportRenderGltfScene(
+        const std::filesystem::path& projectRoot,
+        kairo::assets::SceneAssetHandle asset,
+        const kairo::assets::AssetRegistry& registry,
+        kairo::assets::ImportDatabase& imports,
+        const kairo::assets::DerivedDataCache& cache,
+        const kairo::renderer::GltfTextureResolver& resolveTexture = {})
+    {
+        return ImportRenderGltfSceneWithSource(projectRoot, asset, registry,
+            imports, cache, resolveTexture).RenderAsset;
     }
 
     /// Task: import a texture with explicit color/data semantics. Those
@@ -187,6 +214,15 @@ export namespace kairo::runtime::renderbridge
             kairo::renderer::PBRMaterial Material;
             kairo::foundation::math::Mat4f LocalToAsset =
                 kairo::foundation::math::Mat4f::Identity();
+            std::uint32_t NodeIndex = kairo::assets::GltfMissingIndex;
+            std::uint32_t PrimitiveIndex = kairo::assets::GltfMissingIndex;
+            std::uint32_t SkinIndex = kairo::assets::GltfMissingIndex;
+        };
+
+        struct SceneBinding final
+        {
+            std::vector<ScenePrimitive> Primitives;
+            std::optional<kairo::assets::GltfSceneArtifactData> GltfSource;
         };
 
         explicit RenderAssetBindings(const kairo::assets::AssetRegistry& registry) noexcept
@@ -257,28 +293,59 @@ export namespace kairo::runtime::renderbridge
             std::vector<ScenePrimitive> primitives)
         {
             (void)m_Registry.Resolve(asset);
-            if (primitives.empty())
-                throw std::invalid_argument("A render scene binding requires primitives.");
-            for (const auto& primitive : primitives)
+            ValidateScenePrimitives(primitives);
+            if (!m_Scenes.emplace(asset.ID,
+                SceneBinding{ std::move(primitives), std::nullopt }).second)
+                throw std::invalid_argument("A render scene asset is already bound.");
+        }
+
+        /// Bind the renderer handles produced from one exact glTF source while
+        /// retaining the node/skin identities needed by animation extraction.
+        void BindGltfScene(kairo::assets::SceneAssetHandle asset,
+            kairo::assets::GltfSceneArtifactData source,
+            const kairo::renderer::GltfRenderAsset& renderAsset,
+            std::span<const kairo::renderer::MeshHandle> meshHandles)
+        {
+            (void)m_Registry.Resolve(asset);
+            kairo::assets::ValidateGltfSceneArtifactData(source);
+            if (renderAsset.Primitives.size() != meshHandles.size())
+                throw std::invalid_argument(
+                    "glTF scene binding requires one GPU mesh handle per render primitive.");
+            std::vector<ScenePrimitive> primitives;
+            primitives.reserve(renderAsset.Primitives.size());
+            for (std::size_t index = 0u; index < renderAsset.Primitives.size(); ++index)
             {
-                if (primitive.Mesh == kairo::renderer::InvalidMeshHandle)
+                const auto& render = renderAsset.Primitives[index];
+                if (render.NodeIndex >= source.Nodes.size() ||
+                    render.PrimitiveIndex >= source.Primitives.size())
                     throw std::invalid_argument(
-                        "A render scene primitive requires a valid mesh handle.");
-                primitive.Material.Validate();
+                        "glTF render primitive references source metadata outside the bound artifact.");
+                const auto& node = source.Nodes[render.NodeIndex];
+                if (std::ranges::find(node.PrimitiveIndices, render.PrimitiveIndex) ==
+                    node.PrimitiveIndices.end() || node.SkinIndex != render.SkinIndex)
+                    throw std::invalid_argument(
+                        "glTF render primitive metadata does not match the bound source artifact.");
+                primitives.push_back({ meshHandles[index], render.Material,
+                    render.LocalToAsset, render.NodeIndex, render.PrimitiveIndex,
+                    render.SkinIndex });
             }
-            if (!m_Scenes.emplace(asset.ID, std::move(primitives)).second)
+            ValidateScenePrimitives(primitives);
+            if (!m_Scenes.emplace(asset.ID,
+                SceneBinding{ std::move(primitives), std::move(source) }).second)
                 throw std::invalid_argument("A render scene asset is already bound.");
         }
 
         [[nodiscard]] const std::vector<ScenePrimitive>& ResolveScene(
             kairo::assets::SceneAssetHandle asset) const
         {
-            (void)m_Registry.Resolve(asset);
-            const auto found = m_Scenes.find(asset.ID);
-            if (found == m_Scenes.end())
-                throw std::out_of_range(
-                    "No renderer scene is bound for asset ID: " + asset.ID.ToString());
-            return found->second;
+            return ResolveSceneBinding(asset).Primitives;
+        }
+
+        [[nodiscard]] const kairo::assets::GltfSceneArtifactData* ResolveGltfSource(
+            kairo::assets::SceneAssetHandle asset) const
+        {
+            const auto& binding = ResolveSceneBinding(asset);
+            return binding.GltfSource.has_value() ? &*binding.GltfSource : nullptr;
         }
 
     private:
@@ -289,8 +356,77 @@ export namespace kairo::runtime::renderbridge
             kairo::assets::AssetIDHash> m_Materials;
         std::unordered_map<kairo::assets::AssetID, kairo::renderer::TextureHandle,
             kairo::assets::AssetIDHash> m_Textures;
-        std::unordered_map<kairo::assets::AssetID, std::vector<ScenePrimitive>,
+        std::unordered_map<kairo::assets::AssetID, SceneBinding,
             kairo::assets::AssetIDHash> m_Scenes;
+
+        static void ValidateScenePrimitives(
+            std::span<const ScenePrimitive> primitives)
+        {
+            if (primitives.empty())
+                throw std::invalid_argument("A render scene binding requires primitives.");
+            for (const auto& primitive : primitives)
+            {
+                if (primitive.Mesh == kairo::renderer::InvalidMeshHandle)
+                    throw std::invalid_argument(
+                        "A render scene primitive requires a valid mesh handle.");
+                primitive.Material.Validate();
+            }
+        }
+
+        [[nodiscard]] const SceneBinding& ResolveSceneBinding(
+            kairo::assets::SceneAssetHandle asset) const
+        {
+            (void)m_Registry.Resolve(asset);
+            const auto found = m_Scenes.find(asset.ID);
+            if (found == m_Scenes.end())
+                throw std::out_of_range(
+                    "No renderer scene is bound for asset ID: " + asset.ID.ToString());
+            return found->second;
+        }
+    };
+
+    struct SceneAnimationPlayback final
+    {
+        std::uint32_t ClipIndex = 0u;
+        float TimeSeconds = 0.0f;
+        kairo::engine::AnimationTimeMode TimeMode =
+            kairo::engine::AnimationTimeMode::Loop;
+
+        void Validate() const
+        {
+            if (!std::isfinite(TimeSeconds))
+                throw std::invalid_argument(
+                    "Scene animation playback time must be finite.");
+        }
+    };
+
+    /// Per-instance playback overrides. Animation state is intentionally kept
+    /// outside serialized ECS in this first runtime slice so Editor/Player can
+    /// drive preview/playback without changing the Scene schema prematurely.
+    class SceneAnimationOverrides final
+    {
+        std::unordered_map<std::uint32_t, SceneAnimationPlayback> m_Playback;
+
+    public:
+        void Set(kairo::engine::Entity entity, SceneAnimationPlayback playback)
+        {
+            playback.Validate();
+            m_Playback.insert_or_assign(entity.Value, playback);
+        }
+
+        void Clear(kairo::engine::Entity entity) noexcept
+        {
+            m_Playback.erase(entity.Value);
+        }
+
+        [[nodiscard]] const SceneAnimationPlayback* Find(
+            kairo::engine::Entity entity) const noexcept
+        {
+            const auto found = m_Playback.find(entity.Value);
+            return found == m_Playback.end() ? nullptr : &found->second;
+        }
+
+        [[nodiscard]] bool Empty() const noexcept { return m_Playback.empty(); }
     };
 
     /// Input: one validated EngineCore light and its world transform.
@@ -348,6 +484,7 @@ export namespace kairo::runtime::renderbridge
     [[nodiscard]] inline kairo::renderer::RenderScene BuildRenderScene(
         const kairo::engine::Scene& scene,
         const RenderAssetBindings& assets,
+        const SceneAnimationOverrides& animations,
         std::uint64_t renderLayers = kairo::engine::AllRenderLayers)
     {
         if (renderLayers == 0u)
@@ -369,13 +506,64 @@ export namespace kairo::runtime::renderbridge
             const auto& source = scene.SceneInstance(entity);
             if ((source.RenderLayers & renderLayers) == 0u) continue;
             const auto world = kairo::foundation::math::ToMatrix4(scene.WorldTransform(entity));
-            for (const auto& primitive : assets.ResolveScene(source.SceneAsset))
-                result.Add({ .Mesh = primitive.Mesh,
-                    .Model = world * primitive.LocalToAsset,
-                    .Material = primitive.Material,
-                    .ObjectID = entity.Value,
-                    .CastShadows = source.CastShadows,
-                    .ReceiveShadows = source.ReceiveShadows });
+            const auto& primitives = assets.ResolveScene(source.SceneAsset);
+            const auto* gltf = assets.ResolveGltfSource(source.SceneAsset);
+            const auto* playback = animations.Find(entity);
+            if (gltf == nullptr)
+            {
+                if (playback != nullptr)
+                    throw std::invalid_argument(
+                        "Animation playback requires a glTF-aware scene binding.");
+                for (const auto& primitive : primitives)
+                    result.Add({ .Mesh = primitive.Mesh,
+                        .Model = world * primitive.LocalToAsset,
+                        .Material = primitive.Material,
+                        .ObjectID = entity.Value,
+                        .CastShadows = source.CastShadows,
+                        .ReceiveShadows = source.ReceiveShadows });
+                continue;
+            }
+
+            const auto pose = playback != nullptr
+                ? kairo::engine::SampleGltfAnimation(*gltf, playback->ClipIndex,
+                    playback->TimeSeconds, playback->TimeMode)
+                : kairo::engine::BuildGltfRestPose(*gltf);
+            const auto poseWorld = kairo::engine::ResolveGltfWorldMatrices(*gltf, pose);
+            std::unordered_map<std::uint32_t, kairo::renderer::SkinPalette> palettes;
+            for (const auto& primitive : primitives)
+            {
+                if (primitive.NodeIndex >= poseWorld.size())
+                    throw std::logic_error(
+                        "Bound glTF primitive node index is outside evaluated pose.");
+                kairo::renderer::MeshDraw draw;
+                draw.Mesh = primitive.Mesh;
+                draw.Material = primitive.Material;
+                draw.ObjectID = entity.Value;
+                draw.CastShadows = source.CastShadows;
+                draw.ReceiveShadows = source.ReceiveShadows;
+                if (primitive.SkinIndex == kairo::assets::GltfMissingIndex)
+                    draw.Model = world * poseWorld[primitive.NodeIndex];
+                else
+                {
+                    // EngineCore returns jointWorld * inverseBind in imported-
+                    // asset space. The outer entity transform belongs on Model;
+                    // applying the glTF mesh-node world here would double it.
+                    draw.Model = world;
+                    auto found = palettes.find(primitive.SkinIndex);
+                    if (found == palettes.end())
+                    {
+                        const auto evaluated =
+                            kairo::engine::BuildGltfAssetSpaceSkinPalette(
+                                *gltf, pose, primitive.SkinIndex);
+                        kairo::renderer::SkinPalette converted;
+                        converted.JointMatrices = evaluated.JointMatrices;
+                        found = palettes.emplace(primitive.SkinIndex,
+                            std::move(converted)).first;
+                    }
+                    draw.Skinning = found->second;
+                }
+                result.Add(std::move(draw));
+            }
         }
         for (const kairo::engine::Entity entity : scene.LightEntities())
             if ((scene.Light(entity).RenderLayers & renderLayers) != 0u)
@@ -393,5 +581,14 @@ export namespace kairo::runtime::renderbridge
             result.SetEnvironment(environment);
         }
         return result;
+    }
+
+    [[nodiscard]] inline kairo::renderer::RenderScene BuildRenderScene(
+        const kairo::engine::Scene& scene,
+        const RenderAssetBindings& assets,
+        std::uint64_t renderLayers = kairo::engine::AllRenderLayers)
+    {
+        const SceneAnimationOverrides none;
+        return BuildRenderScene(scene, assets, none, renderLayers);
     }
 }

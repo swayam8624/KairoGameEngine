@@ -151,6 +151,7 @@ int main(int argc, char** argv)
             nativeGameplay.Update(static_cast<double>(elapsedSeconds));
             production.Step(static_cast<double>(elapsedSeconds));
             (void)shipping.Step(static_cast<double>(elapsedSeconds));
+            bridge.StepAnimations(elapsedSeconds);
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.DrawFrame();
             if (arguments.SmokeTest)
