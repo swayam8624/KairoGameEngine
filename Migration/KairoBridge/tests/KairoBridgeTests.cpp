@@ -4,6 +4,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 import Kairo.Bridge;
 
