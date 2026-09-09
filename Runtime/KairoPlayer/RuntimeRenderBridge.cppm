@@ -1,5 +1,6 @@
 module;
 
+#include <cmath>
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
@@ -19,9 +20,9 @@ import Kairo.Player.RuntimeProject;
 
 export namespace kairo::player
 {
-    /// Runtime-owned bridge from persistent project mesh IDs to process-local
-    /// renderer handles. It uses KairoAssets importers and derived artifacts;
-    /// this layer never parses source geometry or owns native API objects directly.
+    /// Runtime-owned bridge from persistent project asset IDs to process-local
+    /// renderer handles. It owns GPU allocations plus the transient animation
+    /// playback state required to turn imported glTF clips into skinned draws.
     class RuntimeRenderBridge final
     {
     public:
@@ -44,13 +45,56 @@ export namespace kairo::player
         RuntimeRenderBridge(const RuntimeRenderBridge&) = delete;
         RuntimeRenderBridge& operator=(const RuntimeRenderBridge&) = delete;
 
-        /// Output: all active visible mesh entities in stable scene order.
-        /// World transforms include parent composition. Missing GPU bindings
-        /// fail explicitly rather than silently producing an empty window.
+        /// Advance the default runtime animation policy. Every active imported
+        /// glTF scene that contains at least one clip plays clip zero in a loop.
+        /// The transient clock intentionally lives outside authored Scene data;
+        /// editor/gameplay clip selection can override this policy in a later
+        /// authoring layer without coupling Renderer to gameplay state.
+        void StepAnimations(float deltaSeconds)
+        {
+            if (!std::isfinite(deltaSeconds) || deltaSeconds < 0.0f)
+                throw std::invalid_argument(
+                    "Runtime animation delta must be finite and non-negative.");
+
+            for (const auto entity : m_Project.Scene().SceneInstanceEntities())
+            {
+                const auto& instance = m_Project.Scene().SceneInstance(entity);
+                const auto* source = m_Assets.ResolveGltfSource(instance.SceneAsset);
+                if (source == nullptr || source->Animations.empty())
+                {
+                    m_Animations.Clear(entity);
+                    m_AnimationTimes.erase(entity.Value);
+                    continue;
+                }
+
+                float& time = m_AnimationTimes[entity.Value];
+                time += deltaSeconds;
+                const float duration = source->Animations.front().DurationSeconds();
+                if (duration > 0.0f && time >= duration)
+                    time = std::fmod(time, duration);
+                if (!std::isfinite(time))
+                    throw std::overflow_error("Runtime animation clock overflowed.");
+
+                m_Animations.Set(entity, {
+                    .ClipIndex = 0u,
+                    .TimeSeconds = time,
+                    .TimeMode = kairo::engine::AnimationTimeMode::Loop
+                });
+            }
+        }
+
+        [[nodiscard]] std::size_t AnimatedSceneInstanceCount() const noexcept
+        {
+            return m_AnimationTimes.size();
+        }
+
+        /// Output: all active visible mesh/scene entities in stable scene order.
+        /// Imported animated scenes are sampled using the runtime-owned clocks;
+        /// missing GPU bindings fail explicitly rather than disappearing.
         [[nodiscard]] kairo::renderer::RenderScene BuildScene() const
         {
             return kairo::runtime::renderbridge::BuildRenderScene(
-                m_Project.Scene(), m_Assets);
+                m_Project.Scene(), m_Assets, m_Animations);
         }
 
         /// Output: primary authored camera pose, or the renderer's documented
@@ -70,9 +114,6 @@ export namespace kairo::player
         {
             for (auto iterator = m_OwnedMeshes.rbegin(); iterator != m_OwnedMeshes.rend(); ++iterator)
             {
-                // RendererRuntime also owns every allocation. Explicit release
-                // keeps normal lifetimes prompt; exceptional teardown remains
-                // non-throwing and lets the renderer perform final cleanup.
                 try { m_Renderer.DestroyMesh(*iterator); }
                 catch (...) {}
             }
@@ -85,6 +126,7 @@ export namespace kairo::player
             m_OwnedMeshes.clear();
             m_OwnedTextures.clear();
         }
+
         [[nodiscard]] kairo::renderer::TextureHandle EnsureTexture(
             kairo::assets::TextureAssetHandle asset,
             const kairo::assets::TextureImportSettings& settings)
@@ -191,26 +233,29 @@ export namespace kairo::player
                     settings.NormalMap = semantic == kairo::assets::TextureSemantic::Normal;
                     return EnsureTexture({ texture->ID }, settings);
                 };
-                const auto imported = kairo::runtime::renderbridge::ImportRenderGltfScene(
-                    m_Project.Root(), { metadata.ID }, m_Project.Assets(),
-                    m_Imports, m_Cache, resolveTexture);
-                std::vector<kairo::runtime::renderbridge::RenderAssetBindings::ScenePrimitive>
-                    primitives;
-                primitives.reserve(imported.Primitives.size());
-                for (const auto& primitive : imported.Primitives)
+
+                auto imported =
+                    kairo::runtime::renderbridge::ImportRenderGltfSceneWithSource(
+                        m_Project.Root(), { metadata.ID }, m_Project.Assets(),
+                        m_Imports, m_Cache, resolveTexture);
+                std::vector<kairo::renderer::MeshHandle> handles;
+                handles.reserve(imported.RenderAsset.Primitives.size());
+                for (const auto& primitive : imported.RenderAsset.Primitives)
                 {
                     const auto handle = m_Renderer.CreateMesh(primitive.Geometry);
                     m_OwnedMeshes.push_back(handle);
-                    primitives.push_back(
-                        { handle, primitive.Material, primitive.LocalToAsset });
+                    handles.push_back(handle);
                 }
-                m_Assets.BindScene({ metadata.ID }, std::move(primitives));
+                m_Assets.BindGltfScene({ metadata.ID }, std::move(imported.Source),
+                    imported.RenderAsset, handles);
             }
         }
 
         kairo::renderer::RendererRuntime& m_Renderer;
         const RuntimeProject& m_Project;
         kairo::runtime::renderbridge::RenderAssetBindings m_Assets;
+        kairo::runtime::renderbridge::SceneAnimationOverrides m_Animations;
+        std::unordered_map<std::uint32_t, float> m_AnimationTimes;
         kairo::assets::ImportDatabase m_Imports;
         kairo::assets::DerivedDataCache m_Cache;
         std::unordered_map<kairo::assets::AssetID,
