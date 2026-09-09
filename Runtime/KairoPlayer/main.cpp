@@ -9,6 +9,8 @@
 
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
+import Kairo.Player.RuntimeAudioBridge;
+import Kairo.Player.RuntimeSceneAudioBridge;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeInputBridge;
 import Kairo.Player.RuntimeLogicBridge;
@@ -100,13 +102,16 @@ int main(int argc, char** argv)
                   << "  entities: " << project.Scene().Size() << "\n"
                   << "  startup scene: " << project.Descriptor().StartupScene.generic_string() << '\n';
         kairo::player::RuntimePhysicsBridge physics(project.Scene());
+        kairo::player::RuntimeAudioBridge audio(project);
+        kairo::player::RuntimeSceneAudioBridge sceneAudio(project.Scene(), audio);
         kairo::player::RuntimeInputBridge input(project.InputMap());
         kairo::player::RuntimeLogicBridge logic(project, physics);
         kairo::player::RuntimeNativeGameplayBridge nativeGameplay(
             project, kairo::player::PlayerNativeGameplayRegistry());
         kairo::player::RuntimeProductionSystemsBridge production(project);
         kairo::player::RuntimeShippingBridge shipping(project);
-        std::cout << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
+        std::cout << "  audio clips: " << audio.LoadedClipCount() << '\n'
+                  << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
                   << "  production systems: " << (production.Enabled() ? "enabled" : "disabled") << '\n';
         if (arguments.ValidateOnly) return 0;
         if (arguments.PackageProfile.has_value())
@@ -130,6 +135,7 @@ int main(int argc, char** argv)
         RuntimeFixedStepFanout fixedSteps(logic, nativeGameplay);
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
+        sceneAudio.BeginPlay();
         renderer.SubmitRenderScene(bridge.BuildScene());
         renderer.SetCameraPose(bridge.CameraPose());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
@@ -152,6 +158,12 @@ int main(int argc, char** argv)
             production.Step(static_cast<double>(elapsedSeconds));
             (void)shipping.Step(static_cast<double>(elapsedSeconds));
             bridge.StepAnimations(elapsedSeconds);
+
+            // This is currently the deterministic/headless output sink: it keeps
+            // authored voices, one-shots and spatial state advancing today while
+            // preserving the returned stereo PCM boundary for native device output.
+            (void)sceneAudio.Advance(static_cast<double>(elapsedSeconds));
+
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.DrawFrame();
             if (arguments.SmokeTest)
@@ -162,6 +174,7 @@ int main(int argc, char** argv)
                         throw std::runtime_error("Native smoke capture is blank or visually uniform.");
                     std::cout << "Native viewport smoke passed at " << capture->Width
                               << 'x' << capture->Height << ".\n";
+                    sceneAudio.EndPlay();
                     nativeGameplay.EndPlay();
                     return 0;
                 }
@@ -169,6 +182,7 @@ int main(int argc, char** argv)
                     throw std::runtime_error("Native smoke capture did not complete within 16 frames.");
             }
         }
+        sceneAudio.EndPlay();
         nativeGameplay.EndPlay();
         return 0;
     }
