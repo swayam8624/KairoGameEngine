@@ -7,7 +7,7 @@ target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
         RuntimeCharacterMotorBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeSaveGameBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
         RuntimeWorldStreamingBridge.cppm)
-target_link_libraries(KairoPlayerRuntime PUBLIC Kairo::GameEngine KairoRealtimeRenderBridge)
+target_link_libraries(KairoPlayerRuntime PUBLIC Kairo::GameEngine KairoRealtimeRenderBridge Kairo::AI)
 target_compile_features(KairoPlayerRuntime PUBLIC cxx_std_23)
 
 add_executable(KairoPlayer main.cpp)
