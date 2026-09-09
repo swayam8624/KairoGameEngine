@@ -12,19 +12,13 @@ if(TARGET KairoEditor)
     target_sources(KairoEditorOfflineRenderBridge PUBLIC FILE_SET CXX_MODULES
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
         FILES EditorOfflineRenderService.cppm MaterialPreviewBridge.cppm)
+    # Keep allocation-heavy material-preview bodies in a normal module
+    # implementation unit. Homebrew LLVM 23.1 on arm64 macOS ICEs while
+    # generating libc++ allocator code inside the module interface, independent
+    # of optimization level; the declaration-only interface avoids that compiler
+    # defect without weakening optimization or platform coverage.
+    target_sources(KairoEditorOfflineRenderBridge PRIVATE MaterialPreviewBridge.cpp)
     target_link_libraries(KairoEditorOfflineRenderBridge PUBLIC KairoRenderBridge KairoEditor KairoRenderer)
-
-    # Homebrew LLVM 23.1.0 on arm64 macOS currently crashes in CodeGen while
-    # emitting libc++ allocator/new machinery for this C++ module even at -O1.
-    # The same source is clean on Windows MSVC, Linux Clang, and sanitizer builds.
-    # Keep the workaround source-local so the rest of the Release build remains
-    # fully optimized; a later LLVM can remove this once the frontend ICE is gone.
-    if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
-       CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 23 AND
-       CMAKE_CXX_COMPILER_VERSION VERSION_LESS 24)
-        set_source_files_properties(MaterialPreviewBridge.cppm PROPERTIES
-            COMPILE_OPTIONS "-O0")
-    endif()
 
     add_library(Kairo::EditorOfflineRenderBridge ALIAS KairoEditorOfflineRenderBridge)
 endif()
