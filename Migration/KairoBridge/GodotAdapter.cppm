@@ -65,6 +65,20 @@ export namespace kairo::bridge
             return extension;
         }
 
+        [[nodiscard]] inline bool IsRelevantSourceFile(const std::filesystem::path& path)
+        {
+            const std::string extension = LowerExtension(path);
+            return extension == ".tscn" || extension == ".scn" ||
+                extension == ".tres" || extension == ".res" ||
+                extension == ".gd" || extension == ".cs" || extension == ".gdshader" ||
+                extension == ".glb" || extension == ".gltf" || extension == ".obj" ||
+                extension == ".fbx" || extension == ".dae" ||
+                extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
+                extension == ".webp" || extension == ".svg" || extension == ".tga" ||
+                extension == ".exr" || extension == ".hdr" ||
+                extension == ".wav" || extension == ".ogg" || extension == ".mp3";
+        }
+
         [[nodiscard]] inline std::optional<std::string> ExtractQuotedAttribute(
             std::string_view line, std::string_view name)
         {
@@ -219,8 +233,8 @@ export namespace kairo::bridge
 
     /// Performs a deterministic Godot discovery pass over source-controlled
     /// project data. Godot 4 text resources expose durable uid:// identities;
-    /// formats without an embedded UID use a project-relative path identity as a
-    /// deliberate fallback until the binary UID cache adapter is implemented.
+    /// formats without an embedded UID use project-relative path identity until
+    /// a future adapter consumes Godot's generated binary UID cache.
     [[nodiscard]] inline GodotProjectScan ScanGodotProject(
         const SourceProjectDescriptor& descriptor)
     {
@@ -255,14 +269,13 @@ export namespace kairo::bridge
 
             const std::filesystem::path relative =
                 std::filesystem::relative(entry.path(), descriptor.Root).lexically_normal();
-            if (relative == "project.godot")
+            if (relative == "project.godot" || !godot_detail::IsRelevantSourceFile(relative))
             {
                 ++iterator;
                 continue;
             }
 
             const std::string extension = godot_detail::LowerExtension(relative);
-            GodotResourceRecord record;
             std::string explicitUID;
             std::string resourceType;
             if (extension == ".tscn" || extension == ".tres")
@@ -272,14 +285,15 @@ export namespace kairo::bridge
                 resourceType = header.Type;
             }
 
-            const std::string stableID = explicitUID.empty()
+            const std::string uniquenessKey = explicitUID.empty()
                 ? "path:" + relative.generic_string()
-                : explicitUID;
-            if (!identities.insert(stableID).second)
+                : "uid:" + explicitUID;
+            if (!identities.insert(uniquenessKey).second)
                 throw std::invalid_argument(
-                    "Godot project contains a duplicate resource identity: " + stableID);
+                    "Godot project contains a duplicate resource identity: " + uniquenessKey);
 
-            record.Source = { SourceEngine::Godot, stableID, relative };
+            GodotResourceRecord record;
+            record.Source = { SourceEngine::Godot, explicitUID, relative };
             record.ResourceType = std::move(resourceType);
             record.HasExplicitUID = !explicitUID.empty();
             record.Kind = godot_detail::KindForPath(relative, record.ResourceType);
