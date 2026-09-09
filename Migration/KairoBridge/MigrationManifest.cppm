@@ -107,9 +107,20 @@ export namespace kairo::bridge
                     return SourceIdentityKey(candidate.Source) == key;
                 });
             if (existing == Records.end())
+            {
                 Records.push_back(std::move(record));
-            else
-                *existing = std::move(record);
+                return;
+            }
+
+            // The canonical ID is the durable bridge identity referenced by
+            // parents, dependencies, editor selections, and future Kairo assets.
+            // Converter upgrades may change target representation, but silently
+            // changing this ID during reimport would recreate the exact broken-
+            // reference failure that KairoBridge exists to prevent.
+            if (existing->CanonicalID != record.CanonicalID)
+                throw std::invalid_argument(
+                    "Incremental migration cannot change a source object's canonical ID.");
+            *existing = std::move(record);
         }
 
         [[nodiscard]] MigrationCoverage Coverage() const noexcept
