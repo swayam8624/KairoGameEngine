@@ -164,10 +164,16 @@ export namespace kairo::bridge
         }
     };
 
+    /// Identity comparison deliberately ignores SourcePath whenever the source
+    /// engine supplies a durable identifier. Moving/renaming a Unity GUID asset,
+    /// a Godot UID resource, or a future Unreal package/object with a preserved
+    /// stable ID must update provenance rather than create a new migrated object.
     [[nodiscard]] inline std::string SourceIdentityKey(const SourceIdentity& identity)
     {
         identity.Validate();
-        return std::string(NameOfSourceEngine(identity.Engine)) + "|" +
-            identity.StableID + "|" + identity.SourcePath.lexically_normal().generic_string();
+        const std::string engine = std::string(NameOfSourceEngine(identity.Engine));
+        if (!identity.StableID.empty())
+            return engine + "|id|" + identity.StableID;
+        return engine + "|path|" + identity.SourcePath.lexically_normal().generic_string();
     }
 }
