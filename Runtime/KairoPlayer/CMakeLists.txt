@@ -4,7 +4,7 @@ set(KAIRO_PLAYER_NATIVE_GAMEPLAY_TARGETS "" CACHE STRING
 add_library(KairoPlayerRuntime)
 target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-    FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimePhysicsBridge.cppm
+    FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
         RuntimeCharacterMotorBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
         RuntimeWorldStreamingBridge.cppm)
 target_link_libraries(KairoPlayerRuntime PUBLIC Kairo::GameEngine KairoRealtimeRenderBridge)
@@ -27,6 +27,10 @@ if(BUILD_TESTING)
     add_executable(KairoPlayerAudioBridgeTests tests/RuntimeAudioBridgeTests.cpp)
     target_link_libraries(KairoPlayerAudioBridgeTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerAudioBridgeTests COMMAND KairoPlayerAudioBridgeTests)
+
+    add_executable(KairoPlayerSceneAudioBridgeTests tests/RuntimeSceneAudioBridgeTests.cpp)
+    target_link_libraries(KairoPlayerSceneAudioBridgeTests PRIVATE KairoPlayerRuntime)
+    add_test(NAME KairoPlayerSceneAudioBridgeTests COMMAND KairoPlayerSceneAudioBridgeTests)
 
     add_executable(KairoPlayerWorldStreamingBridgeTests tests/RuntimeWorldStreamingBridgeTests.cpp)
     target_link_libraries(KairoPlayerWorldStreamingBridgeTests PRIVATE KairoPlayerRuntime)
