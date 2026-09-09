@@ -8,6 +8,7 @@ module;
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -62,6 +63,10 @@ export namespace kairo::player
         return { std::move(clip), outcome.Key, outcome.CacheHit };
     }
 
+    /// Runtime-owned audio asset/mixer boundary. Source decoding and the derived
+    /// cache stay KairoAssets-owned; authored scene synchronization is layered on
+    /// top by RuntimeSceneAudioBridge. Native output backends can consume Mix()
+    /// without taking ownership of voices or scene policy.
     class RuntimeAudioBridge final
     {
     public:
@@ -72,10 +77,12 @@ export namespace kairo::player
             : m_ProjectRoot(projectRoot),
               m_Registry(registry),
               m_Cache(projectRoot / ".kairo" / "derived-data"),
+              m_OutputSampleRate(outputSampleRate),
               m_Mixer(outputSampleRate, maximumVoices)
         {
             if (projectRoot.empty())
                 throw std::invalid_argument("Runtime audio bridge requires a project root.");
+            m_Buses.emplace("master");
             LoadAssets();
         }
 
@@ -100,6 +107,11 @@ export namespace kairo::player
             return m_CacheHits;
         }
 
+        [[nodiscard]] std::uint32_t OutputSampleRate() const noexcept
+        {
+            return m_OutputSampleRate;
+        }
+
         [[nodiscard]] const kairo::engine::AudioClip& Clip(
             kairo::assets::AssetID asset) const
         {
@@ -116,6 +128,12 @@ export namespace kairo::player
         bool Stop(kairo::engine::AudioVoiceHandle voice) noexcept
         {
             return m_Mixer.Stop(voice);
+        }
+
+        [[nodiscard]] bool IsPlaying(
+            kairo::engine::AudioVoiceHandle voice) const noexcept
+        {
+            return m_Mixer.IsPlaying(voice);
         }
 
         void SetPaused(kairo::engine::AudioVoiceHandle voice, bool paused)
@@ -136,12 +154,38 @@ export namespace kairo::player
 
         void SetListener(kairo::engine::AudioListener listener)
         {
-            m_Mixer.SetListener(listener);
+            m_Mixer.SetListener(std::move(listener));
+        }
+
+        [[nodiscard]] const kairo::engine::AudioListener& Listener() const noexcept
+        {
+            return m_Mixer.Listener();
+        }
+
+        [[nodiscard]] bool HasBus(std::string_view name) const
+        {
+            return m_Buses.contains(std::string(name));
         }
 
         void DefineBus(std::string name, kairo::engine::AudioBusState state = {})
         {
+            const std::string key = name;
             m_Mixer.DefineBus(std::move(name), state);
+            m_Buses.emplace(key);
+        }
+
+        /// Ensures authored bus names are playable even before a project-level
+        /// bus graph/editor lands. New buses inherit neutral gain/mute state.
+        /// Existing buses, including the built-in master bus, are untouched.
+        bool EnsureBus(std::string_view name)
+        {
+            if (name.empty())
+                throw std::invalid_argument("Runtime audio bus name cannot be empty.");
+            const std::string key(name);
+            if (m_Buses.contains(key)) return false;
+            m_Mixer.DefineBus(key, {});
+            m_Buses.emplace(key);
+            return true;
         }
 
         void SetBusState(std::string_view name, kairo::engine::AudioBusState state)
@@ -196,10 +240,12 @@ export namespace kairo::player
         const kairo::assets::AssetRegistry& m_Registry;
         kairo::assets::ImportDatabase m_Imports;
         kairo::assets::DerivedDataCache m_Cache;
+        std::uint32_t m_OutputSampleRate = 48'000u;
         kairo::engine::AudioMixer m_Mixer;
         std::unordered_map<kairo::assets::AssetID,
             std::shared_ptr<const kairo::engine::AudioClip>,
             kairo::assets::AssetIDHash> m_Clips;
+        std::unordered_set<std::string> m_Buses;
         std::size_t m_CacheHits = 0u;
     };
 }
