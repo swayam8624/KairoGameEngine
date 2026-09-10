@@ -19,6 +19,7 @@ import Kairo.Player.RuntimeEntityLifecycleBridge;
 import Kairo.Player.RuntimeNavigationAgentBridge;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeProject;
+import Kairo.Player.RuntimeSaveGameBridge;
 import Kairo.Player.RuntimeWorldSaveBridge;
 
 namespace ai = kairo::ai::gameplay;
