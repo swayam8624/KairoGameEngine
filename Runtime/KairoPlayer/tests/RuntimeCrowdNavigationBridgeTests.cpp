@@ -88,6 +88,10 @@ int main()
         (void)AddFloor(scene);
         const auto left = AddCharacter(scene, "LeftNPC", -4.0f);
         const auto right = AddCharacter(scene, "RightNPC", 4.0f);
+        // RuntimePhysicsBridge snapshots authored physics topology at bootstrap.
+        // Keep the negative-test NPC in that authored topology, but intentionally
+        // omit it from navigation registration below.
+        const auto third = AddCharacter(scene, "UnregisteredNPC", 0.0f);
 
         player::RuntimePhysicsBridge runtimePhysics(scene);
         player::RuntimeCharacterMotorBridge motor(scene, runtimePhysics);
@@ -176,7 +180,6 @@ int main()
             "Crowd static-obstacle replacement was not retained transactionally.");
 
         bool missingNavigationRejected = false;
-        const auto third = AddCharacter(scene, "UnregisteredNPC", 0.0f);
         motor.Register(third);
         try { crowd.Register(third); }
         catch (const std::invalid_argument&) { missingNavigationRejected = true; }
