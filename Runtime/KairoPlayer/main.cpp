@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string_view>
 
+import Kairo.EngineCore.InputMap;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
 import Kairo.Player.RuntimeAudioBridge;
