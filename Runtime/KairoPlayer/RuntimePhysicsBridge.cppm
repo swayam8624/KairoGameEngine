@@ -5,6 +5,7 @@ module;
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <type_traits>
 #include <unordered_map>
@@ -45,6 +46,12 @@ export namespace kairo::player
         std::uint32_t Steps = 0u;
         float InterpolationAlpha = 0.0f;
         bool DroppedExcessTime = false;
+    };
+
+    struct RuntimePhysicsTopologyChange final
+    {
+        std::size_t ActivatedBodies = 0u;
+        std::size_t DeactivatedBodies = 0u;
     };
 
     class RuntimeFixedStepListener
@@ -202,6 +209,83 @@ export namespace kairo::player
             return found == m_EntitiesByBody.end() ? std::nullopt : std::optional(found->second);
         }
 
+        /// Activates physics descriptors for entities appended after this bridge
+        /// was constructed, such as world-streaming cells. The operation is
+        /// transactional: a malformed entity restores the exact previous world,
+        /// mappings, pose history, and pending entity-level contact events.
+        [[nodiscard]] RuntimePhysicsTopologyChange ActivateEntities(
+            std::span<const kairo::engine::Entity> entities)
+        {
+            const auto snapshot = m_World.CaptureSnapshot();
+            const auto bodiesBefore = m_BodiesByEntity;
+            const auto entitiesBefore = m_EntitiesByBody;
+            const auto posesBefore = m_Poses;
+            const auto eventsBefore = m_Events;
+            RuntimePhysicsTopologyChange result;
+            try
+            {
+                for (const auto entity : entities)
+                {
+                    if (!m_Scene.Contains(entity))
+                        throw std::out_of_range(
+                            "Cannot activate runtime physics for an unknown scene entity.");
+                    if (m_BodiesByEntity.contains(entity.Value)) continue;
+                    if (AddEntityToWorld(entity)) ++result.ActivatedBodies;
+                }
+            }
+            catch (...)
+            {
+                RestoreTopologyTransaction(snapshot, bodiesBefore,
+                    entitiesBefore, posesBefore, eventsBefore);
+                throw;
+            }
+            return result;
+        }
+
+        /// Deactivates only bodies owned by the supplied entities. PhysicsWorld
+        /// keeps stable inactive IDs, while all surviving bodies retain their
+        /// exact poses, velocities, sleep state, contacts, and warm-start data.
+        /// Entity-level events involving removed entities are discarded so an
+        /// unloaded cell cannot emit stale gameplay contacts on the next frame.
+        [[nodiscard]] RuntimePhysicsTopologyChange DeactivateEntities(
+            std::span<const kairo::engine::Entity> entities)
+        {
+            const auto snapshot = m_World.CaptureSnapshot();
+            const auto bodiesBefore = m_BodiesByEntity;
+            const auto entitiesBefore = m_EntitiesByBody;
+            const auto posesBefore = m_Poses;
+            const auto eventsBefore = m_Events;
+            RuntimePhysicsTopologyChange result;
+            try
+            {
+                for (const auto entity : entities)
+                {
+                    const auto found = m_BodiesByEntity.find(entity.Value);
+                    if (found == m_BodiesByEntity.end()) continue;
+                    const auto body = found->second;
+                    m_World.DestroyRigidBody(body);
+                    m_EntitiesByBody.erase(body);
+                    m_BodiesByEntity.erase(found);
+                    m_Poses.erase(entity.Value);
+                    ++result.DeactivatedBodies;
+                }
+
+                m_Events.erase(std::remove_if(m_Events.begin(), m_Events.end(),
+                    [&](const RuntimeContactEvent& event)
+                    {
+                        return std::ranges::find(entities, event.EntityA) != entities.end() ||
+                            std::ranges::find(entities, event.EntityB) != entities.end();
+                    }), m_Events.end());
+            }
+            catch (...)
+            {
+                RestoreTopologyTransaction(snapshot, bodiesBefore,
+                    entitiesBefore, posesBefore, eventsBefore);
+                throw;
+            }
+            return result;
+        }
+
         /// Sets an entity's world position across the scene and physics world.
         /// Bodies retain rotation and velocity; pose history is reset to avoid
         /// interpolating from the pre-teleport location on the next frame.
@@ -285,41 +369,84 @@ export namespace kairo::player
         void BuildWorld()
         {
             for (const auto entity : m_Scene.Entities())
+                (void)AddEntityToWorld(entity);
+        }
+
+        [[nodiscard]] bool AddEntityToWorld(kairo::engine::Entity entity)
+        {
+            if (!m_Scene.IsActiveInHierarchy(entity)) return false;
+            const bool hasBody = m_Scene.HasRigidBody(entity);
+            const bool hasCollider = m_Scene.HasCollider(entity);
+            if (!hasBody && !hasCollider) return false;
+            if (hasBody && !hasCollider)
+                throw std::invalid_argument("A runtime rigid body requires an authored collider.");
+            if (m_BodiesByEntity.contains(entity.Value))
+                throw std::logic_error(
+                    "Runtime physics entity already owns an active body mapping.");
+
+            const auto worldTransform = m_Scene.WorldTransform(entity);
+            const auto collider = hasCollider
+                ? m_Scene.Collider(entity) : kairo::engine::ColliderComponent{};
+            const auto shape = MakeShape(collider, worldTransform.Scale);
+            const auto body = hasBody ? m_Scene.RigidBody(entity) : kairo::engine::RigidBodyComponent{
+                .Motion = kairo::engine::RigidBodyMotion::Static };
+
+            kairo::foundation::physics::RigidBodyDesc descriptor;
+            descriptor.Type = ToRuntimeMotion(body.Motion);
+            descriptor.State.Position = worldTransform.Translation;
+            descriptor.State.Rotation = worldTransform.Rotation;
+            descriptor.GravityScale = body.GravityScale;
+            descriptor.LinearDamping = body.LinearDamping;
+            descriptor.AngularDamping = body.AngularDamping;
+            if (descriptor.Type == kairo::foundation::physics::BodyType::Dynamic)
+                descriptor.Mass = MakeMass(shape, body.Density);
+
+            const auto bodyID = m_World.CreateRigidBody(descriptor);
+            try
             {
-                if (!m_Scene.IsActiveInHierarchy(entity)) continue;
-                const bool hasBody = m_Scene.HasRigidBody(entity);
-                const bool hasCollider = m_Scene.HasCollider(entity);
-                if (!hasBody && !hasCollider) continue;
-                if (hasBody && !hasCollider)
-                    throw std::invalid_argument("A runtime rigid body requires an authored collider.");
-
-                const auto worldTransform = m_Scene.WorldTransform(entity);
-                const auto collider = hasCollider
-                    ? m_Scene.Collider(entity) : kairo::engine::ColliderComponent{};
-                const auto shape = MakeShape(collider, worldTransform.Scale);
-                const auto body = hasBody ? m_Scene.RigidBody(entity) : kairo::engine::RigidBodyComponent{
-                    .Motion = kairo::engine::RigidBodyMotion::Static };
-
-                kairo::foundation::physics::RigidBodyDesc descriptor;
-                descriptor.Type = ToRuntimeMotion(body.Motion);
-                descriptor.State.Position = worldTransform.Translation;
-                descriptor.State.Rotation = worldTransform.Rotation;
-                descriptor.GravityScale = body.GravityScale;
-                descriptor.LinearDamping = body.LinearDamping;
-                descriptor.AngularDamping = body.AngularDamping;
-                if (descriptor.Type == kairo::foundation::physics::BodyType::Dynamic)
-                    descriptor.Mass = MakeMass(shape, body.Density);
-
-                const auto bodyID = m_World.CreateRigidBody(descriptor);
                 const kairo::foundation::physics::PhysicsMaterial material{
                     collider.Restitution, collider.Friction, collider.Friction };
                 const auto colliderID = m_World.AddCollider(bodyID, shape, material);
-                m_World.SetCollisionFilter(colliderID, collider.BelongsTo, collider.CollidesWith);
+                m_World.SetCollisionFilter(colliderID,
+                    collider.BelongsTo, collider.CollidesWith);
                 m_World.SetColliderTrigger(colliderID, collider.IsTrigger);
-                m_BodiesByEntity.emplace(entity.Value, bodyID);
-                m_EntitiesByBody.emplace(bodyID, entity);
-                m_Poses.emplace(entity.Value, PoseHistory{ worldTransform, worldTransform });
+                if (!m_BodiesByEntity.emplace(entity.Value, bodyID).second)
+                    throw std::logic_error(
+                        "Runtime physics entity mapping was inserted concurrently.");
+                if (!m_EntitiesByBody.emplace(bodyID, entity).second)
+                    throw std::logic_error(
+                        "Runtime physics body mapping was inserted concurrently.");
+                if (!m_Poses.emplace(entity.Value,
+                        PoseHistory{ worldTransform, worldTransform }).second)
+                    throw std::logic_error(
+                        "Runtime physics pose history was inserted concurrently.");
             }
+            catch (...)
+            {
+                if (m_World.IsValidBody(bodyID)) m_World.DestroyRigidBody(bodyID);
+                m_BodiesByEntity.erase(entity.Value);
+                m_EntitiesByBody.erase(bodyID);
+                m_Poses.erase(entity.Value);
+                throw;
+            }
+            return true;
+        }
+
+        void RestoreTopologyTransaction(
+            const kairo::foundation::physics::PhysicsWorldSnapshot& snapshot,
+            const std::unordered_map<std::uint32_t,
+                kairo::foundation::physics::BodyID>& bodies,
+            const std::unordered_map<kairo::foundation::physics::BodyID,
+                kairo::engine::Entity>& entities,
+            const std::unordered_map<std::uint32_t, PoseHistory>& poses,
+            const std::vector<RuntimeContactEvent>& events)
+        {
+            m_World.RestoreSnapshot(snapshot);
+            m_BodiesByEntity = bodies;
+            m_EntitiesByBody = entities;
+            m_Poses = poses;
+            m_Events = events;
+            InstallContactCallback();
         }
 
         void SynchronizeCurrentPoses()
