@@ -5,7 +5,7 @@ add_library(KairoPlayerRuntime)
 target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
     FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
-        RuntimeCharacterMotorBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeSaveGameBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
+        RuntimeCharacterMotorBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeLocomotionAnimationBridge.cppm RuntimeSaveGameBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
         RuntimeWorldStreamingBridge.cppm)
 target_link_libraries(KairoPlayerRuntime PUBLIC Kairo::GameEngine KairoRealtimeRenderBridge Kairo::AI)
 target_compile_features(KairoPlayerRuntime PUBLIC cxx_std_23)
@@ -47,6 +47,10 @@ if(BUILD_TESTING)
     add_executable(KairoPlayerCrowdNavigationBridgeTests tests/RuntimeCrowdNavigationBridgeTests.cpp)
     target_link_libraries(KairoPlayerCrowdNavigationBridgeTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerCrowdNavigationBridgeTests COMMAND KairoPlayerCrowdNavigationBridgeTests)
+
+    add_executable(KairoPlayerLocomotionAnimationBridgeTests tests/RuntimeLocomotionAnimationBridgeTests.cpp)
+    target_link_libraries(KairoPlayerLocomotionAnimationBridgeTests PRIVATE KairoPlayerRuntime)
+    add_test(NAME KairoPlayerLocomotionAnimationBridgeTests COMMAND KairoPlayerLocomotionAnimationBridgeTests)
 
     add_executable(KairoPlayerSaveGameBridgeTests tests/RuntimeSaveGameBridgeTests.cpp)
     target_link_libraries(KairoPlayerSaveGameBridgeTests PRIVATE KairoPlayerRuntime)
