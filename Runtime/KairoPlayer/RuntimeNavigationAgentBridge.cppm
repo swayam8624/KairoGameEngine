@@ -116,6 +116,12 @@ export namespace kairo::player
             return m_Agents.contains(entity.Value);
         }
 
+        [[nodiscard]] const RuntimeNavigationAgentSettings& Settings(
+            kairo::engine::Entity entity) const
+        {
+            return Require(entity).Settings;
+        }
+
         [[nodiscard]] const RuntimeNavigationAgentState& State(
             kairo::engine::Entity entity) const
         {
@@ -134,11 +140,6 @@ export namespace kairo::player
             return Require(entity).Intent;
         }
 
-        /// Replans immediately from the entity's current world transform. A false
-        /// return is a normal gameplay result: cognition may select another goal.
-        /// `AllowPartialPath` is preserved on the intent but a path is reported
-        /// available only when KairoSpatial can currently produce a valid corridor;
-        /// future tiled/streaming nav can enrich this with true partial corridors.
         [[nodiscard]] bool SetIntent(kairo::engine::Entity entity,
             kairo::ai::gameplay::NavigationIntent intent)
         {
@@ -158,8 +159,7 @@ export namespace kairo::player
                 record.Settings.WaypointRadius);
             UpdateRemainingDistance(entity, record);
             ResolveArrival(entity, record);
-            return record.State.Status !=
-                RuntimeNavigationAgentStatus::PathUnavailable;
+            return record.State.Status != RuntimeNavigationAgentStatus::PathUnavailable;
         }
 
         void ClearIntent(kairo::engine::Entity entity)
@@ -170,8 +170,6 @@ export namespace kairo::player
             record.State = {};
         }
 
-        /// Rebuilds the current path after streaming/navmesh changes while keeping
-        /// the cognition-owned destination. Returns false when no route exists.
         [[nodiscard]] bool Replan(kairo::engine::Entity entity)
         {
             auto& record = Require(entity);
@@ -181,32 +179,17 @@ export namespace kairo::player
             return SetIntent(entity, *record.Intent);
         }
 
-        [[nodiscard]] RuntimeNavigationAgentStep Step(
-            kairo::engine::Entity entity, float deltaSeconds)
+        /// Computes the world-space planar velocity requested by the current path
+        /// without moving the entity. This split is the insertion point for crowd
+        /// avoidance, animation steering and other velocity policies. It may advance
+        /// reached waypoints/arrival state, but never mutates physics or transforms.
+        [[nodiscard]] kairo::foundation::math::Vec3f PreferredPlanarVelocity(
+            kairo::engine::Entity entity)
         {
             auto& record = Require(entity);
-            if (!std::isfinite(deltaSeconds) || deltaSeconds <= 0.0f ||
-                deltaSeconds > 0.25f)
-                throw std::invalid_argument(
-                    "Runtime navigation delta must be finite within (0, 0.25].");
-
-            if (!record.Intent.has_value() ||
-                record.State.Status == RuntimeNavigationAgentStatus::Idle ||
-                record.State.Status == RuntimeNavigationAgentStatus::PathUnavailable)
-                return { record.State, std::nullopt };
-
-            if (record.State.Status == RuntimeNavigationAgentStatus::Arrived)
-                return { record.State, std::nullopt };
-
-            AdvanceReachedWaypoints(entity, record);
-            if (ResolveArrival(entity, record))
-                return { record.State, std::nullopt };
-
-            if (record.State.WaypointIndex >= record.Path.Waypoints.size())
-            {
-                record.State.Status = RuntimeNavigationAgentStatus::PathUnavailable;
-                return { record.State, std::nullopt };
-            }
+            PrepareForMovement(entity, record);
+            if (record.State.Status != RuntimeNavigationAgentStatus::FollowingPath)
+                return kairo::foundation::math::Vec3f::Zero();
 
             const auto current = m_Scene.WorldTransform(entity).Translation;
             const auto waypoint = record.Path.Waypoints[record.State.WaypointIndex];
@@ -214,16 +197,46 @@ export namespace kairo::player
                 waypoint.x - current.x, 0.0f, waypoint.z - current.z };
             const float distance = std::sqrt(direction.x * direction.x +
                 direction.z * direction.z);
-            if (distance > 1.0e-6f)
-                direction *= record.Settings.MaximumSpeed / distance;
-            else
-                direction = kairo::foundation::math::Vec3f::Zero();
+            if (distance <= 1.0e-6f)
+                return kairo::foundation::math::Vec3f::Zero();
+            return direction * (record.Settings.MaximumSpeed / distance);
+        }
 
-            auto motorStep = m_Motor.Step(entity, direction, false, deltaSeconds);
+        /// Applies a planar velocity that has already passed through any higher-level
+        /// steering policy. Navigation retains ownership of path progress/arrival;
+        /// PhysicsEngine still resolves the actual displacement through the motor.
+        [[nodiscard]] RuntimeNavigationAgentStep StepResolvedVelocity(
+            kairo::engine::Entity entity,
+            const kairo::foundation::math::Vec3f& resolvedPlanarVelocity,
+            float deltaSeconds)
+        {
+            ValidateDelta(deltaSeconds);
+            auto& record = Require(entity);
+            PrepareForMovement(entity, record);
+            if (record.State.Status != RuntimeNavigationAgentStatus::FollowingPath)
+                return { record.State, std::nullopt };
+
+            if (!std::isfinite(resolvedPlanarVelocity.x) ||
+                !std::isfinite(resolvedPlanarVelocity.y) ||
+                !std::isfinite(resolvedPlanarVelocity.z) ||
+                std::abs(resolvedPlanarVelocity.y) > 1.0e-5f)
+                throw std::invalid_argument(
+                    "Resolved navigation velocity must be finite and planar.");
+
+            auto motorStep = m_Motor.Step(
+                entity, resolvedPlanarVelocity, false, deltaSeconds);
             AdvanceReachedWaypoints(entity, record);
             UpdateRemainingDistance(entity, record);
             ResolveArrival(entity, record);
             return { record.State, std::move(motorStep) };
+        }
+
+        [[nodiscard]] RuntimeNavigationAgentStep Step(
+            kairo::engine::Entity entity, float deltaSeconds)
+        {
+            ValidateDelta(deltaSeconds);
+            const auto preferred = PreferredPlanarVelocity(entity);
+            return StepResolvedVelocity(entity, preferred, deltaSeconds);
         }
 
     private:
@@ -231,6 +244,27 @@ export namespace kairo::player
         RuntimeCharacterMotorBridge& m_Motor;
         const kairo::foundation::spatial::NavMesh& m_NavMesh;
         std::unordered_map<std::uint32_t, AgentRecord> m_Agents;
+
+        static void ValidateDelta(float deltaSeconds)
+        {
+            if (!std::isfinite(deltaSeconds) || deltaSeconds <= 0.0f ||
+                deltaSeconds > 0.25f)
+                throw std::invalid_argument(
+                    "Runtime navigation delta must be finite within (0, 0.25].");
+        }
+
+        void PrepareForMovement(kairo::engine::Entity entity, AgentRecord& record)
+        {
+            if (!record.Intent.has_value() ||
+                record.State.Status == RuntimeNavigationAgentStatus::Idle ||
+                record.State.Status == RuntimeNavigationAgentStatus::PathUnavailable ||
+                record.State.Status == RuntimeNavigationAgentStatus::Arrived)
+                return;
+            AdvanceReachedWaypoints(entity, record);
+            if (ResolveArrival(entity, record)) return;
+            if (record.State.WaypointIndex >= record.Path.Waypoints.size())
+                record.State.Status = RuntimeNavigationAgentStatus::PathUnavailable;
+        }
 
         [[nodiscard]] AgentRecord& Require(kairo::engine::Entity entity)
         {
