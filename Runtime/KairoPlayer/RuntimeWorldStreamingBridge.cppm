@@ -16,6 +16,7 @@ export import Kairo.Player.RuntimeProject;
 export import Kairo.EngineCore.WorldStreaming;
 export import Kairo.EngineCore.SceneComposition;
 import Kairo.EngineCore.SceneSerialization;
+import Kairo.Player.RuntimePhysicsBridge;
 
 export namespace kairo::player
 {
@@ -38,6 +39,8 @@ export namespace kairo::player
         kairo::engine::WorldStreamingPlan Plan;
         std::size_t LoadedCells = 0u;
         std::size_t UnloadedCells = 0u;
+        std::size_t ActivatedPhysicsBodies = 0u;
+        std::size_t DeactivatedPhysicsBodies = 0u;
         std::vector<WorldStreamingFailure> Failures;
 
         [[nodiscard]] bool Succeeded() const noexcept
@@ -52,6 +55,11 @@ export namespace kairo::player
         explicit RuntimeWorldStreamingBridge(RuntimeProject& project,
             kairo::engine::WorldStreamingConfig config = {})
             : m_Project(project), m_Runtime(std::move(config)) {}
+
+        RuntimeWorldStreamingBridge(RuntimeProject& project,
+            RuntimePhysicsBridge& physics,
+            kairo::engine::WorldStreamingConfig config = {})
+            : m_Project(project), m_Runtime(std::move(config)), m_Physics(&physics) {}
 
         void RegisterCell(kairo::engine::WorldStreamingCellDescriptor descriptor)
         {
@@ -84,6 +92,11 @@ export namespace kairo::player
             return m_Ownership.size();
         }
 
+        [[nodiscard]] bool SynchronizesPhysics() const noexcept
+        {
+            return m_Physics != nullptr;
+        }
+
         [[nodiscard]] const kairo::engine::SceneAppendResult* Ownership(
             kairo::engine::WorldCellCoordinate coordinate) const noexcept
         {
@@ -107,6 +120,7 @@ export namespace kairo::player
     private:
         RuntimeProject& m_Project;
         kairo::engine::WorldStreamingRuntime m_Runtime;
+        RuntimePhysicsBridge* m_Physics = nullptr;
         std::map<kairo::engine::WorldCellCoordinate,
             kairo::engine::SceneAppendResult> m_Ownership;
 
@@ -130,6 +144,8 @@ export namespace kairo::player
         {
             kairo::engine::SceneAppendResult appended;
             bool appendedToWorld = false;
+            bool activatedPhysics = false;
+            RuntimePhysicsTopologyChange topology;
             try
             {
                 if (m_Ownership.contains(request.Coordinate))
@@ -147,10 +163,20 @@ export namespace kairo::player
                 appended = kairo::engine::AppendScene(m_Project.Scene(), fragment);
                 appendedToWorld = true;
 
+                const auto destinations = appended.DestinationEntities();
+                if (m_Physics != nullptr)
+                {
+                    topology = m_Physics->ActivateEntities(destinations);
+                    activatedPhysics = true;
+                }
+
                 try
                 {
+                    // Keep the local ownership token intact until commit so a
+                    // later allocation/insertion failure can roll back physics
+                    // and Scene with the exact same entity set.
                     const auto [entry, inserted] = m_Ownership.emplace(
-                        request.Coordinate, std::move(appended));
+                        request.Coordinate, appended);
                     (void)entry;
                     if (!inserted)
                         throw std::logic_error(
@@ -158,6 +184,8 @@ export namespace kairo::player
                 }
                 catch (...)
                 {
+                    if (activatedPhysics && m_Physics != nullptr)
+                        (void)m_Physics->DeactivateEntities(destinations);
                     if (appendedToWorld)
                         (void)kairo::engine::RemoveAppendedScene(
                             m_Project.Scene(), appended);
@@ -166,9 +194,26 @@ export namespace kairo::player
 
                 m_Runtime.CompleteLoad(request.Coordinate, true);
                 ++result.LoadedCells;
+                result.ActivatedPhysicsBodies += topology.ActivatedBodies;
             }
             catch (...)
             {
+                // ActivateEntities is internally transactional. If it failed,
+                // Scene composition is the only live mutation left to undo.
+                if (appendedToWorld && !activatedPhysics)
+                {
+                    try
+                    {
+                        (void)kairo::engine::RemoveAppendedScene(
+                            m_Project.Scene(), appended);
+                    }
+                    catch (...)
+                    {
+                        // Preserve the original cell failure below. Reaching
+                        // this path would indicate a broken scene-composition
+                        // rollback invariant and is covered by integration CI.
+                    }
+                }
                 const std::string message = CurrentExceptionMessage();
                 if (m_Runtime.State(request.Coordinate) ==
                     kairo::engine::WorldCellState::Loading)
@@ -192,11 +237,25 @@ export namespace kairo::player
                     throw std::logic_error(
                         "World streaming unload has no scene-composition ownership token.");
 
-                (void)kairo::engine::RemoveAppendedScene(
-                    m_Project.Scene(), found->second);
+                // Validate and construct the post-unload Scene before touching
+                // PhysicsWorld. This catches non-owned children and every other
+                // composition safety rule without leaving physics half-unloaded.
+                kairo::engine::Scene candidate = m_Project.Scene();
+                (void)kairo::engine::RemoveAppendedScene(candidate, found->second);
+                const auto destinations = found->second.DestinationEntities();
+
+                RuntimePhysicsTopologyChange topology;
+                if (m_Physics != nullptr)
+                    topology = m_Physics->DeactivateEntities(destinations);
+
+                // Scene's move assignment transfers STL-owned records and is the
+                // commit point after both candidate validation and transactional
+                // physics deactivation have succeeded.
+                m_Project.Scene() = std::move(candidate);
                 m_Ownership.erase(found);
                 m_Runtime.CompleteUnload(request.Coordinate, true);
                 ++result.UnloadedCells;
+                result.DeactivatedPhysicsBodies += topology.DeactivatedBodies;
             }
             catch (...)
             {
