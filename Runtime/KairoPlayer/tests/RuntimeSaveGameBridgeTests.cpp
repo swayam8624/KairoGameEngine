@@ -123,7 +123,8 @@ namespace
             "Captured save-game metadata is incorrect.");
         Require(archive.ContainsChunk(engine::SceneSaveChunkName) &&
             archive.ContainsChunk(engine::AudioSceneSaveChunkName) &&
-            archive.ContainsChunk(player::RuntimePhysicsSaveChunkName),
+            archive.ContainsChunk(player::RuntimePhysicsSaveChunkName) &&
+            archive.ContainsChunk(player::RuntimePhysicsBindingsSaveChunkName),
             "Captured save-game is missing a required runtime subsystem chunk.");
 
         const auto savePath = fixture.Root / "Saves/checkpoint.ksave";
@@ -163,8 +164,6 @@ namespace
         Require(math::NearlyEqual(sceneBall.Translation, restoredBall.Position, 1.0e-6f),
             "Restored physics pose was not republished into the runtime scene.");
 
-        // A zero-time render frame must remain exactly on the loaded pose. This
-        // catches stale interpolation history pulling the object toward pre-load state.
         (void)runtimePhysics.Advance(0.0f);
         Require(math::NearlyEqual(project.Scene().WorldTransform(fixture.Ball).Translation,
             restoredBall.Position, 1.0e-6f),
@@ -228,17 +227,21 @@ namespace
         Require(physics::PhysicsStateHash(runtimePhysics.World()) == originalHash,
             "Rejected physics schema mutated PhysicsWorld.");
 
+        // Explicitly remove the portable binding table to exercise the legacy
+        // same-topology restore contract. New-format archives are allowed to carry
+        // runtime-spawned Scene topology as long as their persisted body mapping is valid.
         auto changedTopology = saveGames.Capture();
         engine::Scene savedScene = engine::ParseSceneSaveChunk(
             changedTopology.Chunk(engine::SceneSaveChunkName), project.Assets());
         const auto extra = savedScene.CreateEntity("Runtime-only extra entity");
         savedScene.Transform(extra).Local.Translation = { 1.0f, 2.0f, 3.0f };
         changedTopology.SetChunk(engine::MakeSceneSaveChunk(savedScene, project.Assets()));
+        changedTopology.RemoveChunk(player::RuntimePhysicsBindingsSaveChunkName);
         bool topologyRejected = false;
         try { saveGames.Restore(changedTopology); }
         catch (const std::invalid_argument&) { topologyRejected = true; }
         Require(topologyRejected,
-            "Save-game with incompatible scene topology was accepted.");
+            "Legacy save-game with incompatible scene topology was accepted.");
         Require(physics::PhysicsStateHash(runtimePhysics.World()) == originalHash &&
             project.Scene().Transform(fixture.Marker).Local.Translation == originalMarker &&
             project.Scene().HasAudioListener(fixture.Marker),

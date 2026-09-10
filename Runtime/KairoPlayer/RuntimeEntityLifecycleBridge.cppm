@@ -95,6 +95,20 @@ export namespace kairo::player
         std::size_t AnimatedAgents = 0u;
     };
 
+    inline constexpr std::uint32_t RuntimeEntityLifecycleSnapshotVersion = 1u;
+
+    struct RuntimeEntityLifecycleSnapshotEntry final
+    {
+        kairo::engine::Entity Entity{};
+        RuntimeEntityServiceProfile Profile{};
+    };
+
+    struct RuntimeEntityLifecycleSnapshot final
+    {
+        std::uint32_t Version = RuntimeEntityLifecycleSnapshotVersion;
+        std::vector<RuntimeEntityLifecycleSnapshotEntry> Entities;
+    };
+
     /// Transactional ownership boundary for dynamic runtime entities.
     ///
     /// EngineCore Scene owns persistent/authored component data. Physics, character
@@ -243,6 +257,83 @@ export namespace kairo::player
         [[nodiscard]] std::size_t ActiveEntityCount() const noexcept
         {
             return m_Entities.size();
+        }
+
+        [[nodiscard]] RuntimeEntityLifecycleSnapshot CaptureSnapshot() const
+        {
+            RuntimeEntityLifecycleSnapshot snapshot;
+            snapshot.Entities.reserve(m_Entities.size());
+            for (const auto& [entityValue, record] : m_Entities)
+            {
+                const kairo::engine::Entity entity{ entityValue };
+                RuntimeEntityServiceProfile profile = record.Profile;
+                if (profile.Navigation && m_Navigation.IsRegistered(entity))
+                    profile.InitialNavigationIntent = m_Navigation.Intent(entity);
+                snapshot.Entities.push_back({ entity, std::move(profile) });
+            }
+            std::ranges::sort(snapshot.Entities, {},
+                [](const RuntimeEntityLifecycleSnapshotEntry& entry)
+                {
+                    return entry.Entity.Value;
+                });
+            return snapshot;
+        }
+
+        /// Rebuilds process-local services against a Scene/Physics topology that
+        /// has already been restored by RuntimeSaveGameBridge. Existing service
+        /// registrations are discarded without touching Scene or Physics; saved
+        /// profiles are then reactivated in stable entity order. The current
+        /// navigation intent is captured as part of each profile so an NPC resumes
+        /// its destination rather than reverting to its registration-time target.
+        void RestoreSnapshot(const RuntimeEntityLifecycleSnapshot& snapshot)
+        {
+            ValidateSnapshot(snapshot);
+            const auto previous = CaptureSnapshot();
+            ResetServicesForRestore();
+            try
+            {
+                for (const auto& entry : snapshot.Entities)
+                    (void)ActivateEntity(entry.Entity, entry.Profile);
+            }
+            catch (...)
+            {
+                const std::exception_ptr original = std::current_exception();
+                ResetServicesForRestore();
+                try
+                {
+                    for (const auto& entry : previous.Entities)
+                        if (m_Scene.Contains(entry.Entity))
+                            (void)ActivateEntity(entry.Entity, entry.Profile);
+                }
+                catch (...)
+                {
+                    throw std::runtime_error(
+                        "Runtime lifecycle restore failed and previous service registrations could not be reconstructed.");
+                }
+                std::rethrow_exception(original);
+            }
+        }
+
+        /// Save-game restore replaces Scene and Physics independently from these
+        /// process-local services. This reset deliberately does not deactivate any
+        /// physics bodies or destroy Scene entities. Fragment ownership tokens are
+        /// session-local; the restored entities remain valid Scene entities and may
+        /// be adopted into new gameplay/streaming ownership after the cold load.
+        void ResetServicesForRestore() noexcept
+        {
+            std::vector<std::uint32_t> entities;
+            entities.reserve(m_Entities.size());
+            for (const auto& [entity, record] : m_Entities)
+            {
+                (void)record;
+                entities.push_back(entity);
+            }
+            std::ranges::sort(entities, std::greater<>{});
+            for (const auto entity : entities)
+                UnregisterServicesNoexcept(kairo::engine::Entity{ entity });
+            m_Entities.clear();
+            m_Fragments.clear();
+            m_NextFragmentToken = 1u;
         }
 
         /// Appends a complete Scene fragment and activates authored physics for all
@@ -402,6 +493,27 @@ export namespace kairo::player
         std::unordered_map<std::uint32_t, EntityRecord> m_Entities;
         std::unordered_map<std::uint64_t, FragmentRecord> m_Fragments;
         std::uint64_t m_NextFragmentToken = 1u;
+
+        static void ValidateSnapshot(const RuntimeEntityLifecycleSnapshot& snapshot)
+        {
+            if (snapshot.Version != RuntimeEntityLifecycleSnapshotVersion)
+                throw std::invalid_argument(
+                    "Runtime lifecycle snapshot version is unsupported.");
+            std::uint32_t previous = 0u;
+            bool havePrevious = false;
+            for (const auto& entry : snapshot.Entities)
+            {
+                if (entry.Entity.Value == 0u)
+                    throw std::invalid_argument(
+                        "Runtime lifecycle snapshot contains an invalid entity ID.");
+                if (havePrevious && entry.Entity.Value <= previous)
+                    throw std::invalid_argument(
+                        "Runtime lifecycle snapshot entities must be unique and sorted by stable ID.");
+                entry.Profile.Validate();
+                previous = entry.Entity.Value;
+                havePrevious = true;
+            }
+        }
 
         static void ValidateSourceProfiles(
             const kairo::engine::Scene& fragment,
