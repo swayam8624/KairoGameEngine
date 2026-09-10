@@ -15,6 +15,7 @@ module;
 
 export module Kairo.Player.RuntimeWorldSaveBridge;
 
+import Kairo.AI.Gameplay;
 import Kairo.EngineCore;
 import Kairo.Player.RuntimeEntityLifecycleBridge;
 import Kairo.Player.RuntimePhysicsBridge;
