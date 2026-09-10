@@ -40,6 +40,10 @@ if(BUILD_TESTING)
     target_link_libraries(KairoPlayerPhysicsTopologyTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerPhysicsTopologyTests COMMAND KairoPlayerPhysicsTopologyTests)
 
+    add_executable(KairoPlayerWorldStreamingPhysicsTests tests/RuntimeWorldStreamingPhysicsTests.cpp)
+    target_link_libraries(KairoPlayerWorldStreamingPhysicsTests PRIVATE KairoPlayerRuntime)
+    add_test(NAME KairoPlayerWorldStreamingPhysicsTests COMMAND KairoPlayerWorldStreamingPhysicsTests)
+
     add_executable(KairoPlayerCharacterMotorBridgeTests tests/RuntimeCharacterMotorBridgeTests.cpp)
     target_link_libraries(KairoPlayerCharacterMotorBridgeTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerCharacterMotorBridgeTests COMMAND KairoPlayerCharacterMotorBridgeTests)
