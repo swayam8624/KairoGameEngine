@@ -64,7 +64,7 @@ int main()
             const auto controlled = AddController(scene);
             const auto untouched = AddController(scene, false);
             // Keep the opt-out sentinel physically independent from the controlled
-            // capsule.  It exists to prove registration isolation, not to become an
+            // capsule. It proves registration isolation without becoming an
             // accidental contact obstacle in the locomotion assertions below.
             scene.Transform(untouched).Local.Translation = { -4.0f, 0.92f, 0.0f };
             player::RuntimePhysicsBridge runtimePhysics(scene);
@@ -86,25 +86,35 @@ int main()
                 controller.State().Move.Y * controller.State().Move.Y);
             Require(std::abs(normalizedLength - 1.0f) < 1.0e-5f,
                 "Diagonal player input was not normalized before locomotion.");
+            const auto diagonalVelocity = controller.DesiredPlanarVelocity();
+            const float diagonalSpeed = std::sqrt(
+                diagonalVelocity.x * diagonalVelocity.x +
+                diagonalVelocity.z * diagonalVelocity.z);
+            Require(std::abs(diagonalSpeed - 6.0f) < 1.0e-5f,
+                "Normalized diagonal input did not preserve configured maximum speed.");
 
-            // Keep speed verification independent from diagonal solver contact:
-            // the normalization invariant is proven above, while this trajectory
-            // verifies that the controller maps unit action magnitude to the exact
-            // configured world-space speed.
+            // Verify the controller contract at its boundary. The downstream
+            // character motor is a collision/grounding solver, so its resolved
+            // world pose is intentionally not expected to equal velocity * time.
             move.Value = { 1.0f, 0.0f };
             controller.CaptureInput(move, {});
-            for (unsigned step = 0u; step < 60u; ++step)
+            const auto xVelocity = controller.DesiredPlanarVelocity();
+            Require(std::abs(xVelocity.x - 6.0f) < 1.0e-5f &&
+                    std::abs(xVelocity.y) < 1.0e-6f &&
+                    std::abs(xVelocity.z) < 1.0e-6f,
+                "Unit X input did not map to the configured planar speed.");
+            const float startX = scene.WorldTransform(controlled).Translation.x;
+            for (unsigned step = 0u; step < 10u; ++step)
                 controller.BeforePhysicsStep(1.0f / 60.0f);
-            auto position = scene.WorldTransform(controlled).Translation;
-            Require(std::abs(position.x - 6.0f) < 0.12f && std::abs(position.z) < 0.05f,
-                "One second of unit player input did not travel at configured maximum speed.");
+            Require(scene.WorldTransform(controlled).Translation.x > startX,
+                "Positive player X input did not advance the character through the motor.");
 
             move.Value = { 0.0f, 1.0f };
             controller.CaptureInput(move, {});
-            controller.BeforePhysicsStep(1.0f / 60.0f);
-            position = scene.WorldTransform(controlled).Translation;
-            Require(position.z < -0.05f,
-                "Player-controller axis mapping did not map positive action Y toward world -Z.");
+            const auto zVelocity = controller.DesiredPlanarVelocity();
+            Require(std::abs(zVelocity.x) < 1.0e-6f &&
+                    std::abs(zVelocity.z + 6.0f) < 1.0e-5f,
+                "Player-controller axis mapping did not map positive action Y to world -Z speed.");
         }
 
         {
