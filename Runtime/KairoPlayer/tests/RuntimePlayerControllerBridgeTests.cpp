@@ -63,6 +63,10 @@ int main()
             AddFloor(scene);
             const auto controlled = AddController(scene);
             const auto untouched = AddController(scene, false);
+            // Keep the opt-out sentinel physically independent from the controlled
+            // capsule.  It exists to prove registration isolation, not to become an
+            // accidental contact obstacle in the locomotion assertions below.
+            scene.Transform(untouched).Local.Translation = { -4.0f, 0.92f, 0.0f };
             player::RuntimePhysicsBridge runtimePhysics(scene);
             player::RuntimeCharacterMotorBridge motor(scene, runtimePhysics);
             player::RuntimePlayerControllerSettings settings;
