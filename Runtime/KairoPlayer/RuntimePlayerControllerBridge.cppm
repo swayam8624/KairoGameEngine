@@ -83,6 +83,22 @@ export namespace kairo::player
             return m_State;
         }
 
+        /// The exact world-space planar velocity command produced by the current
+        /// normalized action state. Collision resolution belongs to
+        /// RuntimeCharacterMotorBridge; exposing this boundary makes controller
+        /// speed/axis semantics deterministic and directly testable without
+        /// assuming the collision solver must integrate to an exact final pose.
+        [[nodiscard]] kairo::foundation::math::Vec3f DesiredPlanarVelocity() const noexcept
+        {
+            const float worldZ = (m_Settings.InvertMoveYForWorldZ ? -1.0f : 1.0f) *
+                m_State.Move.Y * m_Settings.MaximumSpeed;
+            return {
+                m_State.Move.X * m_Settings.MaximumSpeed,
+                0.0f,
+                worldZ
+            };
+        }
+
         /// Latch platform-neutral action states after RuntimeInputBridge polls the
         /// native window. The axis is normalized so diagonal WASD/gamepad input
         /// cannot exceed MaximumSpeed.
@@ -108,10 +124,7 @@ export namespace kairo::player
 
         void BeforePhysicsStep(float fixedDeltaSeconds) override
         {
-            const float worldZ = (m_Settings.InvertMoveYForWorldZ ? -1.0f : 1.0f) *
-                m_State.Move.Y * m_Settings.MaximumSpeed;
-            const kairo::foundation::math::Vec3f desiredVelocity{
-                m_State.Move.X * m_Settings.MaximumSpeed, 0.0f, worldZ };
+            const auto desiredVelocity = DesiredPlanarVelocity();
             const bool jump = m_State.JumpQueued;
             for (const auto entity : m_Controllers)
             {
