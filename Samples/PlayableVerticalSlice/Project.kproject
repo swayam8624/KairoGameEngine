@@ -1,0 +1,10 @@
+kairo-project 2
+name "Kairo Playable Vertical Slice"
+engine-version "0.1.0"
+assets "Assets.kassets"
+startup-scene "Scenes/PlayableArena.kscene"
+input-map "Config/Input.kinput"
+rendering-profile "desktop"
+graphics-backend "auto"
+build-profile "Development" development "Build/Development"
+build-profile "Release" release "Build/Release"

@@ -1,0 +1,130 @@
+kairo-scene 4
+entity 1 "Player"
+enabled true
+layer 0
+tag "player"
+tag "kairo.player-controller"
+transform 0 0.92 3.4 0 0 0 1 1 1 1
+rigid-body kinematic 1 0 0 0
+collider capsule 0.30 0.60 0.75 0 1 4294967295 false
+end
+entity 2 "Arena Floor"
+enabled true
+layer 0
+tag "ground"
+transform 0 -0.25 0 0 0 0 1 8 0.5 8
+mesh-renderer 20000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.8 0 2 4294967295 false
+end
+entity 3 "Center Plinth"
+enabled true
+layer 0
+transform 0 0.35 0 0 0 0 1 1.6 0.35 1.6
+mesh-renderer 20000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 4 "Left Pillar"
+enabled true
+layer 0
+transform -3.5 1.2 -1.8 0 0 0 1 0.65 2.4 0.65
+mesh-renderer 20000000-0000-4000-8000-000000000004 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 5 "Right Pillar"
+enabled true
+layer 0
+transform 3.5 1.2 -1.8 0 0 0 1 0.65 2.4 0.65
+mesh-renderer 20000000-0000-4000-8000-000000000004 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 6 "Jump Block A"
+enabled true
+layer 0
+transform -2 0.45 1.0 0 0 0 1 1.0 0.45 1.0
+mesh-renderer 20000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 7 "Jump Block B"
+enabled true
+layer 0
+transform 2 0.75 -0.4 0 0 0 1 1.0 0.75 1.0
+mesh-renderer 20000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 8 "North Wall"
+enabled true
+layer 0
+transform 0 1 -7.75 0 0 0 1 8 2 0.25
+mesh-renderer 20000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 9 "South Wall"
+enabled true
+layer 0
+transform 0 1 7.75 0 0 0 1 8 2 0.25
+mesh-renderer 20000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 10 "West Wall"
+enabled true
+layer 0
+transform -7.75 1 0 0 0 0 1 0.25 2 8
+mesh-renderer 20000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 11 "East Wall"
+enabled true
+layer 0
+transform 7.75 1 0 0 0 0 1 0.25 2 8
+mesh-renderer 20000000-0000-4000-8000-000000000001 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+collider box 0.5 0.5 0.5 0.7 0 2 4294967295 false
+end
+entity 12 "Beacon A"
+enabled true
+layer 0
+transform -4.6 0.65 3.8 0 0 0 1 0.45 0.45 0.45
+mesh-renderer 20000000-0000-4000-8000-000000000003 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+end
+entity 13 "Beacon B"
+enabled true
+layer 0
+transform 4.6 0.65 3.8 0 0 0 1 0.45 0.45 0.45
+mesh-renderer 20000000-0000-4000-8000-000000000003 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+end
+entity 14 "Player Visual"
+parent 1
+enabled true
+layer 0
+transform 0 0 0 0 0 0 1 0.58 0.90 0.58
+mesh-renderer 20000000-0000-4000-8000-000000000004 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000010
+end
+entity 20 "Gameplay Camera"
+enabled true
+layer 0
+transform 0 7.0 12.5 -0.21643961 0 0 0.97629601 1 1 1
+camera perspective 0.87266463 10 0.1 250 0 true environment 0.025 0.035 0.06 1 18446744073709551615
+end
+entity 21 "Key Sun"
+enabled true
+layer 0
+transform 0 8 4 -0.38268343 0 0 0.9238795 1 1 1
+light directional 1 0.94 0.82 65000 lux 100 0.34906585 0.52359878 1 1 soft 0.001 0.01 18446744073709551615
+end
+entity 22 "Blue Fill"
+enabled true
+layer 0
+transform -4 3 4 0 0 0 1 1 1 1
+light point 0.25 0.55 1 1200 candela 18 0.34906585 0.52359878 1 1 disabled 0.001 0.01 18446744073709551615
+end
+entity 23 "Warm Fill"
+enabled true
+layer 0
+transform 4 2.5 1 0 0 0 1 1 1 1
+light point 1 0.4 0.15 950 candela 15 0.34906585 0.52359878 1 1 disabled 0.001 0.01 18446744073709551615
+end
+entity 24 "World"
+enabled true
+layer 0
+transform 0 0 0 0 0 0 1 1 1 1
+environment true 10 0.012 0.02 0.045 none 0.18 1 disabled 0.5 0.5 0.5 0.01 0 1000 0.8 aces global
+end

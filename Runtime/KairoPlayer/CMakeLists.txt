@@ -5,7 +5,7 @@ add_library(KairoPlayerRuntime)
 target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
     FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
-        RuntimeCharacterMotorBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeLocomotionAnimationBridge.cppm RuntimeEntityLifecycleBridge.cppm RuntimeSaveGameBridge.cppm RuntimeWorldSaveBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
+        RuntimeCharacterMotorBridge.cppm RuntimePlayerControllerBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeLocomotionAnimationBridge.cppm RuntimeEntityLifecycleBridge.cppm RuntimeSaveGameBridge.cppm RuntimeWorldSaveBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
         RuntimeWorldStreamingBridge.cppm)
 target_link_libraries(KairoPlayerRuntime PUBLIC Kairo::GameEngine KairoRealtimeRenderBridge Kairo::AI)
 target_compile_features(KairoPlayerRuntime PUBLIC cxx_std_23)
@@ -48,6 +48,10 @@ if(BUILD_TESTING)
     target_link_libraries(KairoPlayerCharacterMotorBridgeTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerCharacterMotorBridgeTests COMMAND KairoPlayerCharacterMotorBridgeTests)
 
+    add_executable(KairoPlayerControllerBridgeTests tests/RuntimePlayerControllerBridgeTests.cpp)
+    target_link_libraries(KairoPlayerControllerBridgeTests PRIVATE KairoPlayerRuntime)
+    add_test(NAME KairoPlayerControllerBridgeTests COMMAND KairoPlayerControllerBridgeTests)
+
     add_executable(KairoPlayerNavigationAgentBridgeTests tests/RuntimeNavigationAgentBridgeTests.cpp)
     target_link_libraries(KairoPlayerNavigationAgentBridgeTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerNavigationAgentBridgeTests COMMAND KairoPlayerNavigationAgentBridgeTests)
@@ -80,6 +84,12 @@ if(BUILD_TESTING)
     target_link_libraries(KairoPlayerProductionSystemsTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerProductionSystemsTests COMMAND KairoPlayerProductionSystemsTests)
 
+    if(EXISTS "${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject")
+        add_test(NAME KairoPlayerPlayableVerticalSliceValidate COMMAND KairoPlayer
+            ${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject --validate)
+        set_tests_properties(KairoPlayerPlayableVerticalSliceValidate PROPERTIES TIMEOUT 20)
+    endif()
+
     if(NOT WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject")
         add_test(NAME KairoPlayerOpenGLSharedContentSmoke COMMAND KairoPlayer
             ${CMAKE_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject
@@ -94,11 +104,32 @@ if(BUILD_TESTING)
                 TIMEOUT 20 SKIP_RETURN_CODE 77)
         endif()
     endif()
+    if(NOT WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject")
+        add_test(NAME KairoPlayerOpenGLPlayableVerticalSliceSmoke COMMAND KairoPlayer
+            ${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject
+            --renderer opengl --smoke)
+        set_tests_properties(KairoPlayerOpenGLPlayableVerticalSliceSmoke PROPERTIES
+            TIMEOUT 20 SKIP_RETURN_CODE 77)
+        if(APPLE)
+            add_test(NAME KairoPlayerMetalPlayableVerticalSliceSmoke COMMAND KairoPlayer
+                ${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject
+                --renderer metal --smoke)
+            set_tests_properties(KairoPlayerMetalPlayableVerticalSliceSmoke PROPERTIES
+                TIMEOUT 20 SKIP_RETURN_CODE 77)
+        endif()
+    endif()
     if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject")
         add_test(NAME KairoPlayerDirect3D12SharedContentSmoke COMMAND KairoPlayer
             ${CMAKE_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject
             --renderer d3d12 --smoke)
         set_tests_properties(KairoPlayerDirect3D12SharedContentSmoke PROPERTIES
+            TIMEOUT 30 SKIP_RETURN_CODE 77)
+    endif()
+    if(WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject")
+        add_test(NAME KairoPlayerDirect3D12PlayableVerticalSliceSmoke COMMAND KairoPlayer
+            ${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject
+            --renderer d3d12 --smoke)
+        set_tests_properties(KairoPlayerDirect3D12PlayableVerticalSliceSmoke PROPERTIES
             TIMEOUT 30 SKIP_RETURN_CODE 77)
     endif()
 endif()
