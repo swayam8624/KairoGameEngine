@@ -38,7 +38,6 @@ set(KAIRO_WORKSPACE_COMPONENTS
     KairoECS
     KairoReflection
     KairoEngineCore
-    KairoSceneECSBridge
     KairoRenderer
     KairoEditor
     KairoRayTracer)
@@ -139,6 +138,7 @@ target_link_libraries(KairoGameEngine INTERFACE
     KairoECS
     KairoReflection
     KairoEngineCore
+    KairoSceneECSBridge
     KairoRenderer
     KairoPhysicsEngine)
 add_library(Kairo::GameEngine ALIAS KairoGameEngine)
