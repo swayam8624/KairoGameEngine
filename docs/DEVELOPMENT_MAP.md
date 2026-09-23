@@ -1,6 +1,6 @@
 # Kairo Development Map
 
-Status date: 2026-08-09. This map is an execution contract, not a marketing
+Status date: 2026-09-24. This map is an execution contract, not a marketing
 feature list. A capability is `verified` only when its owning component tests
 and the relevant cross-repository/native acceptance path have run.
 
@@ -11,6 +11,18 @@ and the relevant cross-repository/native acceptance path have run.
 | Verified | Implemented and executed on a supported host in the current workspace |
 | Platform-gated | Implemented and registered for its native host, but not executable on this machine |
 | Planned | Design direction only; users must not depend on it |
+
+## Wave A/B completion
+
+The frozen Wave-A foundation scope is source-complete at 95 for KairoMath,
+KairoGeometry, KairoPhysicsMath, KairoPipelineCore, and KairoBlender. Wave-B
+runtime infrastructure is source-complete at 80 for KairoECS, KairoReflection,
+KairoScheduler, and the deliberately bounded Metal-v1 KairoGPU scope.
+
+KairoGameEngine now owns `Kairo.SceneECSBridge`: persistent EngineCore Scene
+state is extracted into process-local ECS storage while retaining authored
+entity identity explicitly. Exact-head execution evidence remains a separate
+release gate; see `docs/WAVE_A_B_COMPLETION.md`.
 
 ## Stabilization Priorities
 
