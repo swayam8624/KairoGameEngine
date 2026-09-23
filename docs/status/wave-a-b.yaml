@@ -1,0 +1,34 @@
+schema: kairo.wave-completion.v1
+date: 2026-09-24
+waves:
+  A:
+    state: source_complete
+    target: 95
+    repositories:
+      KairoMath: 878187604d8d7ecc1af59f0c0e3988d80cccff0c
+      KairoGeometry: ddbdf3747d470890fc20d870528cb86d41be128f
+      KairoPhysicsMath: 4f9f9e07079490f43a252e7a36d752a0c457a8ab
+      KairoPipelineCore: ad9f836dd0fefd009cfeb8292338612c3c6792a2
+      KairoBlender: 166fd07b2000efca12670801308d1ed5f6bbaf06
+  B:
+    state: source_complete
+    target: 80
+    repositories:
+      KairoECS: f5af896ad6552350f2a43d9529be1f36d51403e9
+      KairoReflection: 1b6494a17146fc2d9404353bffb78efa2ef58c62
+      KairoScheduler: c1e39bfbce9196617c02ebf7d780610676a15aa1
+      KairoGPU: 8fa7253e1611ab1363be8440dfb9507050e37afb
+umbrella:
+  integration_commit: 1979fc9f4bde3f0fbc6b02e872d903aea5e8bc0b
+  scene_ecs_boundary: Kairo.SceneECSBridge
+research:
+  R2:
+    repo: KairoECS
+    state: hypothesis_locked
+  R7:
+    repo: KairoGPU
+    supporting: [KairoScheduler]
+    state: engineering_prerequisite
+execution_evidence:
+  exact_head_ci_visible_via_connector: false
+  required: true
