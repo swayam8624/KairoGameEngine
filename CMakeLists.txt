@@ -38,6 +38,7 @@ set(KAIRO_WORKSPACE_COMPONENTS
     KairoECS
     KairoReflection
     KairoEngineCore
+    KairoSceneECSBridge
     KairoRenderer
     KairoEditor
     KairoRayTracer)
@@ -79,6 +80,15 @@ add_subdirectory(KairoECS)
 add_subdirectory(KairoReflection)
 add_subdirectory(KairoEngineCore)
 add_subdirectory(KairoRenderer)
+
+add_library(KairoSceneECSBridge)
+add_library(Kairo::SceneECSBridge ALIAS KairoSceneECSBridge)
+target_sources(KairoSceneECSBridge PUBLIC FILE_SET CXX_MODULES
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/Runtime
+    FILES Runtime/KairoSceneECSBridge.cppm)
+target_link_libraries(KairoSceneECSBridge PUBLIC KairoECS KairoEngineCore)
+target_compile_features(KairoSceneECSBridge PUBLIC cxx_std_23)
+
 add_subdirectory(Runtime/KairoRealtimeRenderBridge)
 
 if(KAIRO_GAME_ENGINE_BUILD_EDITOR)
@@ -145,6 +155,10 @@ if(BUILD_TESTING)
             KAIRO_COMPATIBILITY_CONTENT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/TestContent/Compatibility")
         add_test(NAME KairoCompatibilityContentTests COMMAND KairoCompatibilityContentTests)
     endif()
+
+    add_executable(KairoSceneECSBridgeTests tests/SceneECSBridgeTests.cpp)
+    target_link_libraries(KairoSceneECSBridgeTests PRIVATE KairoSceneECSBridge)
+    add_test(NAME KairoSceneECSBridgeTests COMMAND KairoSceneECSBridgeTests)
 endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
