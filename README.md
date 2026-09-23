@@ -361,3 +361,20 @@ tests and platform coverage.
 ## License
 
 See [LICENSE](LICENSE).
+
+
+## Wave A + Wave B Completion
+
+The first completion campaign is locked. Foundation certification (Math,
+Geometry, PhysicsMath, PipelineCore, Blender) is at the frozen 95% scope;
+runtime infrastructure (ECS, Reflection, Scheduler, bounded Metal KairoGPU v1)
+is at the frozen 80% scope.
+
+The engine now has an explicit `Kairo.SceneECSBridge`: EngineCore Scene remains
+the persistent/editor source of truth, while KairoECS is a process-local
+execution layout with stable authored identity retained as data rather than
+serializing ECS handles.
+
+See [the Wave A/B completion ledger](docs/WAVE_A_B_COMPLETION.md) for exact
+component pins, evidence, research tracks, limitations and verification
+commands.
