@@ -177,6 +177,17 @@ if(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK)
     kairo_add_workspace_repo(KairoScheduler KairoScheduler KAIRO_SCHEDULER_SOURCE)
     kairo_add_workspace_repo(KairoONNX KairoONNX KAIRO_ONNX_SOURCE)
     kairo_add_workspace_repo(KairoTransformers KairoTransformers KAIRO_TRANSFORMERS_SOURCE)
+
+    if(BUILD_TESTING)
+        add_executable(KairoComputeStackIntegration
+            tests/ComputeStackIntegration.cpp)
+        target_link_libraries(KairoComputeStackIntegration PRIVATE
+            KairoSIMD KairoScheduler KairoGPU KairoONNX KairoTransformers)
+        set_property(TARGET KairoComputeStackIntegration
+            PROPERTY COMPILE_WARNING_AS_ERROR ON)
+        add_test(NAME KairoComputeStackIntegration
+            COMMAND KairoComputeStackIntegration)
+    endif()
 endif()
 
 add_library(KairoGameEngine INTERFACE)
