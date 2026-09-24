@@ -43,8 +43,8 @@ linker bundled with Xcode otherwise emits a large volume of debug-info parser
 warnings for upstream Clang 23 objects.
 
 Upstream Clang 23 also emits Objective-C selector stubs that expect matching
-linker synthesis. On Apple hosts using upstream Clang 23+, KAIRO's Objective-C++
-Metal translation units disable those selector stubs; AppleClang and older Clang
-are unaffected.
+linker synthesis. There are separate instance-message and class-message stub
+modes; on Apple hosts using upstream Clang 23+, KAIRO's Objective-C++ Metal
+translation units disable both. AppleClang and older Clang are unaffected.
 
 These are compatibility settings, not optimizations and not warning hiding.
