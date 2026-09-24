@@ -61,7 +61,8 @@ KairoGameEngine owns the integrated acceptance story:
 7. project validation, native smoke, screenshot/readback and runtime package tests;
 8. source-status verification across all 27 repositories;
 9. research ownership and falsification rules in `docs/RESEARCH_TRACKS.md`;
-10. the public maker/tutorial sequence in `docs/MAKER_VIDEO_PLAYLIST.md`.
+10. the public maker/tutorial sequence in `docs/MAKER_VIDEO_PLAYLIST.md`;
+11. the reproducible flagship capture sequence in `docs/FLAGSHIP_DEMO.md`.
 
 ## Post-v1 rule
 
