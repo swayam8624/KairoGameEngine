@@ -23,7 +23,7 @@ Capture the zero-warning pass and final CTest summary.
 Open the shared imported-content project:
 
 ```bash
-./build/dev-clang/KairoEditor/KairoEditorApp \
+./build/dev-clang/components/KairoEditor/KairoEditorApp \
   --project Samples/SharedContentShowcase/Project.kproject
 ```
 
@@ -97,9 +97,9 @@ must be atomic and validation must happen before publication.
 From KairoRayTracer:
 
 ```bash
-./build/KairoRayTracerCLI scenes/cornell.kairo \
+../KairoRayTracer/build/KairoRayTracerCLI scenes/cornell.kairo \
   --mode path --passes 32 --output outputs/flagship-path.png
-./build/KairoRayTracerCLI scenes/cornell.kairo \
+../KairoRayTracer/build/KairoRayTracerCLI scenes/cornell.kairo \
   --mode accel_diff --output outputs/flagship-accel-diff.png
 ```
 
