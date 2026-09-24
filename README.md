@@ -191,8 +191,8 @@ graphs remains allowed; this explicit build gate rejects graph diagnostics and
 publishes source-bound runtime artifacts:
 
 ```bash
-./build/dev-clang/KairoEditor/KairoProjectCompiler \
-  KairoEditor/examples/StarterProject/Project.kproject
+./build/dev-clang/components/KairoEditor/KairoProjectCompiler \
+  ../KairoEditor/examples/StarterProject/Project.kproject
 ```
 
 Validate a project without opening a native window. This is the stable contract
@@ -200,7 +200,7 @@ used by launchers, CI, recovery tools, and future packaging profiles:
 
 ```bash
 ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
-  KairoEditor/examples/StarterProject/Project.kproject --validate
+  ../KairoEditor/examples/StarterProject/Project.kproject --validate
 ```
 
 Run the same startup scene in the standalone player. The project descriptor's
@@ -210,11 +210,11 @@ native window/device creation:
 
 ```bash
 ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
-  KairoEditor/examples/StarterProject/Project.kproject \
+  ../KairoEditor/examples/StarterProject/Project.kproject \
   --renderer auto
 
 ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
-  KairoEditor/examples/StarterProject/Project.kproject \
+  ../KairoEditor/examples/StarterProject/Project.kproject \
   --renderer vulkan
 
 ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
@@ -226,11 +226,11 @@ Build one of the exact profiles authored in `Project.kproject` after publishing
 current logic artifacts:
 
 ```bash
-./build/dev-clang/KairoEditor/KairoProjectCompiler \
-  KairoEditor/examples/StarterProject/Project.kproject
+./build/dev-clang/components/KairoEditor/KairoProjectCompiler \
+  ../KairoEditor/examples/StarterProject/Project.kproject
 
 ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
-  KairoEditor/examples/StarterProject/Project.kproject \
+  ../KairoEditor/examples/StarterProject/Project.kproject \
   --package Release
 ```
 
@@ -240,7 +240,7 @@ An existing output is preserved unless replacement is explicit:
 
 ```bash
 ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
-  KairoEditor/examples/StarterProject/Project.kproject \
+  ../KairoEditor/examples/StarterProject/Project.kproject \
   --package Release --replace
 ```
 
@@ -256,8 +256,8 @@ dependency deployment and signing remain separate release-engineering gates.
 Validate or run the relocated project through its generated launcher:
 
 ```bash
-KairoEditor/examples/StarterProject/Build/Release/run.sh --validate
-KairoEditor/examples/StarterProject/Build/Release/run.sh
+../KairoEditor/examples/StarterProject/Build/Release/run.sh --validate
+../KairoEditor/examples/StarterProject/Build/Release/run.sh
 ```
 
 Render, read back, and verify a nonblank native frame without leaving the
@@ -266,7 +266,7 @@ visual acceptance evidence:
 
 ```bash
 ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
-  KairoEditor/examples/StarterProject/Project.kproject --smoke
+  ../KairoEditor/examples/StarterProject/Project.kproject --smoke
 ```
 
 `KairoPlayer` resolves all authored paths relative to the descriptor, rejects
@@ -298,8 +298,8 @@ opening a Vulkan window.
 Launch the native editor with its starter project:
 
 ```bash
-./build/dev-clang/KairoEditor/KairoEditorApp \
-  --project KairoEditor/examples/StarterProject/Project.kproject \
+./build/dev-clang/components/KairoEditor/KairoEditorApp \
+  --project ../KairoEditor/examples/StarterProject/Project.kproject \
   --renderer auto
 ```
 
@@ -311,8 +311,8 @@ cmake --build --preset dev-clang
 
 KAIRO_AI_API_KEY='...' \
 KAIRO_AI_MODEL='your-openai-compatible-model' \
-./build/dev-clang/KairoEditor/KairoEditorApp \
-  --project KairoEditor/examples/StarterProject/Project.kproject
+./build/dev-clang/components/KairoEditor/KairoEditorApp \
+  --project ../KairoEditor/examples/StarterProject/Project.kproject
 ```
 
 Ask and Plan cannot mutate the project. Agent changes appear as validated
@@ -323,13 +323,13 @@ credentials are never written to project or recovery data.
 Launch the interactive physics sandbox:
 
 ```bash
-./build/dev-clang/Foundation/KairoPhysicsEngine/KairoPhysicsGlfwSandbox
+./build/dev-clang/components/KairoPhysicsEngine/KairoPhysicsGlfwSandbox
 ```
 
 Render and preview a CPU ray-traced scene:
 
 ```bash
-./build/dev-clang/KairoRayTracer/KairoRayTracerPreview \
+./build/dev-clang/components/KairoRayTracer/KairoRayTracerPreview \
   KairoRayTracer/scenes/cornell.kairo --mode whitted
 ```
 
@@ -340,24 +340,24 @@ standalone build path.
 
 | Path | Repository | Responsibility | Tracked branch |
 | --- | --- | --- | --- |
-| `Foundation/KairoMath` | [KairoMath](https://github.com/swayam8624/KairoMath) | Vectors, matrices, transforms, numerical algorithms | `master` |
-| `Foundation/KairoGeometry` | [KairoGeometry](https://github.com/swayam8624/KairoGeometry) | Geometry value types and intersection primitives | `master` |
-| `Foundation/Spatial` | [KairoSpatial](https://github.com/swayam8624/KairoSpatial) | BVH, broadphase, partitioning, and spatial queries | `main` |
-| `Foundation/KairoPhysicsMath` | [KairoPhysicsMath](https://github.com/swayam8624/KairoPhysicsMath) | Reusable rigid-body formulas and integration math | `main` |
-| `Foundation/KairoPhysicsEngine` | [KairoPhysicsEngine](https://github.com/swayam8624/KairoPhysicsEngine) | Rigid-body world, collision, solver, and sandboxes | `main` |
-| `KairoAssets` | [KairoAssets](https://github.com/swayam8624/KairoAssets) | Identity, manifests, derived cache, importer registry, strict OBJ import, and portable mesh artifacts | `main` |
-| `KairoAI` | [KairoAI](https://github.com/swayam8624/KairoAI) | Bounded provider contracts, streaming, cancellation, structured tool calls, and deterministic mock inference | `main` |
-| `KairoECS` | [KairoECS](https://github.com/swayam8624/KairoECS) | Generational entities, sparse-set component storage, and runtime iteration | `main` |
-| `KairoReflection` | [KairoReflection](https://github.com/swayam8624/KairoReflection) | Stable type/property metadata and inspector-ready access adapters | `main` |
-| `KairoEngineCore` | [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore) | Scene/runtime services and application contracts | `main` |
-| `KairoRenderer` | [KairoRenderer](https://github.com/swayam8624/KairoRenderer) | Multi-backend Vulkan/Metal/D3D12/OpenGL renderer, portable scene adaptation, and debug drawing | `main` |
-| `KairoEditor` | [KairoEditor](https://github.com/swayam8624/KairoEditor) | Native docked authoring application | `main` |
-| `KairoRayTracer` | [KairoRayTracer](https://github.com/swayam8624/KairoRayTracer) | Offline CPU rendering and visual diagnostics | `main` |
-| `KairoGPU` | [KairoGPU](https://github.com/swayam8624/KairoGPU) | Compute-backend abstraction | `main` |
-| `KairoSIMD` | [KairoSIMD](https://github.com/swayam8624/KairoSIMD) | CPU vector kernels | `main` |
-| `KairoScheduler` | [KairoScheduler](https://github.com/swayam8624/KairoScheduler) | Deterministic task execution | `main` |
-| `KairoONNX` | [KairoONNX](https://github.com/swayam8624/KairoONNX) | Model import and graph IR | `main` |
-| `KairoTransformers` | [KairoTransformers](https://github.com/swayam8624/KairoTransformers) | Transformer model planning and runtime work | `main` |
+| `../KairoMath` | [KairoMath](https://github.com/swayam8624/KairoMath) | Vectors, matrices, transforms, numerical algorithms | `master` |
+| `../KairoGeometry` | [KairoGeometry](https://github.com/swayam8624/KairoGeometry) | Geometry value types and intersection primitives | `master` |
+| `../KairoSpatial` | [KairoSpatial](https://github.com/swayam8624/KairoSpatial) | BVH, broadphase, partitioning, and spatial queries | `main` |
+| `../KairoPhysicsMath` | [KairoPhysicsMath](https://github.com/swayam8624/KairoPhysicsMath) | Reusable rigid-body formulas and integration math | `main` |
+| `../KairoPhysicsEngine` | [KairoPhysicsEngine](https://github.com/swayam8624/KairoPhysicsEngine) | Rigid-body world, collision, solver, and sandboxes | `main` |
+| `../KairoAssets` | [KairoAssets](https://github.com/swayam8624/KairoAssets) | Identity, manifests, derived cache, importer registry, strict OBJ import, and portable mesh artifacts | `main` |
+| `../KairoAI` | [KairoAI](https://github.com/swayam8624/KairoAI) | Bounded provider contracts, streaming, cancellation, structured tool calls, and deterministic mock inference | `main` |
+| `../KairoECS` | [KairoECS](https://github.com/swayam8624/KairoECS) | Generational entities, sparse-set component storage, and runtime iteration | `main` |
+| `../KairoReflection` | [KairoReflection](https://github.com/swayam8624/KairoReflection) | Stable type/property metadata and inspector-ready access adapters | `main` |
+| `../KairoEngineCore` | [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore) | Scene/runtime services and application contracts | `main` |
+| `../KairoRenderer` | [KairoRenderer](https://github.com/swayam8624/KairoRenderer) | Multi-backend Vulkan/Metal/D3D12/OpenGL renderer, portable scene adaptation, and debug drawing | `main` |
+| `../KairoEditor` | [KairoEditor](https://github.com/swayam8624/KairoEditor) | Native docked authoring application | `main` |
+| `../KairoRayTracer` | [KairoRayTracer](https://github.com/swayam8624/KairoRayTracer) | Offline CPU rendering and visual diagnostics | `main` |
+| `../KairoGPU` | [KairoGPU](https://github.com/swayam8624/KairoGPU) | Compute-backend abstraction | `main` |
+| `../KairoSIMD` | [KairoSIMD](https://github.com/swayam8624/KairoSIMD) | CPU vector kernels | `main` |
+| `../KairoScheduler` | [KairoScheduler](https://github.com/swayam8624/KairoScheduler) | Deterministic task execution | `main` |
+| `../KairoONNX` | [KairoONNX](https://github.com/swayam8624/KairoONNX) | Model import and graph IR | `main` |
+| `../KairoTransformers` | [KairoTransformers](https://github.com/swayam8624/KairoTransformers) | Transformer model planning and runtime work | `main` |
 
 ## Build Options
 
