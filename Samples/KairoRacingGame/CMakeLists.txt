@@ -9,6 +9,14 @@ target_compile_features(KairoRacingGame PRIVATE cxx_std_23)
 target_compile_definitions(KairoRacingGame PRIVATE
     KAIRO_RACING_PROJECT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Project/Racing.kproject")
 
+set(_kairo_racing_play_dir "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development")
+set(_kairo_racing_play_executable "${_kairo_racing_play_dir}/KairoRacingGame")
+add_custom_command(TARGET KairoRacingGame POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_kairo_racing_play_dir}"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:KairoRacingGame>"
+        "${_kairo_racing_play_executable}"
+    COMMENT "Publishing KairoRacingGame for Editor/Hub Play")
+
 set(_kairo_racing_dev_runtime
     "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development/KairoRacingGame")
 add_custom_command(TARGET KairoRacingGame POST_BUILD
