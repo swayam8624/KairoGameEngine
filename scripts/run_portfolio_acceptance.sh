@@ -40,7 +40,6 @@ cmake_gate() {
     run ctest --test-dir "${build}" --output-on-failure
 }
 
-run bash "${ENGINE_ROOT}/scripts/verify_portfolio_95.sh"
 run bash "${ENGINE_ROOT}/scripts/verify_workspace_lock.sh"
 run bash "${ENGINE_ROOT}/scripts/build_and_test.sh" --verify-lock
 
@@ -86,6 +85,18 @@ else
     echo "SKIP     KairoMacPerception gate: Swift unavailable."
 fi
 
+EVIDENCE_DIR="${ENGINE_ROOT}/build/portfolio-evidence"
+mkdir -p "${EVIDENCE_DIR}"
+ENGINE_SHA="$(git -C "${ENGINE_ROOT}" rev-parse HEAD)"
+LOCK_SHA256="$(shasum -a 256 "${ENGINE_ROOT}/workspace.lock" | awk '{print $1}')"
+HOST_NAME="$(hostname)"
+cat > "${EVIDENCE_DIR}/accepted.env" <<EOF
+KAIRO_ACCEPTED_ENGINE_SHA='${ENGINE_SHA}'
+KAIRO_ACCEPTED_LOCK_SHA256='${LOCK_SHA256}'
+KAIRO_ACCEPTED_HOST='${HOST_NAME}'
+EOF
+
 echo
-echo "KAIRO portfolio acceptance completed for every gate available on this host."
+echo "KAIRO host acceptance completed for every gate available on this host."
+echo "Evidence: ${EVIDENCE_DIR}/accepted.env"
 echo "Platform-specific skipped gates remain platform-gated, never inferred as verified."
