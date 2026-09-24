@@ -42,6 +42,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Validate workspace shell scripts
+        shell: bash
+        run: |
+          bash -n scripts/materialize_workspace_lock.sh
+          bash -n scripts/verify_workspace_lock.sh
+          bash -n scripts/sync_workspace.sh
+          bash -n scripts/build_and_test.sh
+
       - name: Materialize locked engine workspace
         shell: bash
         run: |
