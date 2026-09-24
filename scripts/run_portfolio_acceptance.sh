@@ -92,8 +92,12 @@ if ! command -v npm >/dev/null 2>&1 || ! command -v cargo >/dev/null 2>&1; then
     echo "ERROR: KairoHub acceptance requires both npm and cargo." >&2
     exit 4
 fi
-(cd "${WORKSPACE_ROOT}/KairoHub" && run npm run build)
-run env RUSTFLAGS="-Dwarnings" cargo test \
+(
+    cd "${WORKSPACE_ROOT}/KairoHub"
+    run npm ci --ignore-scripts
+    run npm run build
+)
+run env RUSTFLAGS="-Dwarnings" cargo test --locked \
     --manifest-path "${WORKSPACE_ROOT}/KairoHub/src-tauri/Cargo.toml"
 
 # Prove the external-import claim end-to-end without network dependency:
