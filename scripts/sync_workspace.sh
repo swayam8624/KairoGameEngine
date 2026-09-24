@@ -34,33 +34,51 @@ default_branch_for_repo() {
     return 1
 }
 
-# First pass: ensure every sibling is a clean Git checkout.  Fetching remote
-# refs is safe and lets us resolve detached historical checkouts without losing
-# local work.
+# First pass: preflight the complete workspace before touching any remote refs.
+# A dirty repo must fail immediately without leaving a confusing half-fetched
+# transcript that looks like some repositories synchronized and others did not.
 for repo in "${repos[@]}"; do
     path="${WORKSPACE_ROOT}/${repo}"
     if [[ ! -e "${path}/.git" ]]; then
         echo "ERROR: missing Git checkout: ${path}" >&2
         exit 1
     fi
+
     status_output="$(git -C "${path}" status --porcelain --untracked-files=all)"
-    # macOS Finder metadata must never block a whole multi-repo workspace sync.
-    # Ignore only untracked .DS_Store files; tracked edits and every other
-    # untracked path remain a hard stop so local work cannot be overwritten.
+    # Finder metadata is disposable host noise. Ignore only untracked
+    # .DS_Store entries; tracked edits and every other untracked file remain
+    # a hard stop so sync can never silently destroy real work.
     meaningful_status="$(printf '%s\n' "${status_output}" |
         awk 'NF && !($1 == "??" && ($2 == ".DS_Store" || $2 ~ /\/.DS_Store$/))')"
+
     if [[ -n "${meaningful_status}" ]]; then
-        echo "ERROR: ${repo} has meaningful local changes; commit/stash them before workspace sync." >&2
+        echo "ERROR: ${repo} has meaningful local changes; workspace sync is read-only until they are resolved." >&2
         printf '%s\n' "${meaningful_status}" >&2
+
+        if [[ "${repo}" == "KairoBlender" ]] &&
+           [[ "${meaningful_status}" == " M docs/images/blender-asset-result.png" ||
+              "${meaningful_status}" == "M  docs/images/blender-asset-result.png" ]]; then
+            echo >&2
+            echo "This path is the reproducible Blender documentation render." >&2
+            echo "If you did not intentionally edit it, restore only that generated artifact with:" >&2
+            echo "  git -C \"${path}\" restore -- docs/images/blender-asset-result.png" >&2
+            echo "The portfolio-scene generator has been fixed so normal runs no longer rewrite it." >&2
+        fi
         exit 1
     fi
+done
 
+echo "Workspace cleanliness preflight: PASS"
+
+# Second pass: fetch every remote only after the entire workspace is known clean.
+for repo in "${repos[@]}"; do
+    path="${WORKSPACE_ROOT}/${repo}"
     printf '%-24s ' "${repo}"
     git -C "${path}" fetch --prune origin >/dev/null
     echo "fetched"
 done
 
-# Second pass: repair clean detached checkouts and verify tracking branches.
+# Third pass: repair clean detached checkouts and verify tracking branches.
 for repo in "${repos[@]}"; do
     path="${WORKSPACE_ROOT}/${repo}"
     branch="$(git -C "${path}" symbolic-ref --quiet --short HEAD || true)"
@@ -101,7 +119,7 @@ for repo in "${repos[@]}"; do
     fi
 done
 
-# Third pass: fast-forward every repository.  --ff-only protects local history.
+# Fourth pass: fast-forward every repository.  --ff-only protects local history.
 for repo in "${repos[@]}"; do
     path="${WORKSPACE_ROOT}/${repo}"
     printf '%-24s ' "${repo}"
