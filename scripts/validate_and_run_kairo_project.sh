@@ -28,15 +28,30 @@ if [[ ! -f "${PROJECT}" || "${PROJECT##*.}" != "kproject" ]]; then
     exit 2
 fi
 
-COMPILER="${ENGINE_ROOT}/build/dev-clang/KairoEditor/KairoProjectCompiler"
-PLAYER="${ENGINE_ROOT}/build/dev-clang/Runtime/KairoPlayer/KairoPlayer"
-
-for binary in "${COMPILER}" "${PLAYER}"; do
-    if [[ ! -x "${binary}" ]]; then
-        echo "Required built executable is missing: ${binary}" >&2
-        exit 3
+resolve_binary() {
+    local first="$1"
+    shift
+    if [[ -x "${first}" ]]; then
+        printf '%s\n' "${first}"
+        return 0
     fi
-done
+    for candidate in "$@"; do
+        if [[ -x "${candidate}" ]]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+COMPILER="$(resolve_binary     "${ENGINE_ROOT}/build/dev-clang/components/KairoEditor/KairoProjectCompiler"     "${ENGINE_ROOT}/build/dev-clang/KairoEditor/KairoProjectCompiler")" || {
+    echo "Built KairoProjectCompiler not found in current or legacy layout." >&2
+    exit 3
+}
+PLAYER="$(resolve_binary     "${ENGINE_ROOT}/build/dev-clang/Runtime/KairoPlayer/KairoPlayer")" || {
+    echo "Built KairoPlayer not found." >&2
+    exit 3
+}
 
 echo "Kairo project gate: ${PROJECT}"
 echo "1/2 compile attached project logic"
