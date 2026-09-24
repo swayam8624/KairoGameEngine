@@ -21,3 +21,7 @@
 
 # Historical local planning notes are not authoritative workspace status.
 /Foundation/ROADMAP.md
+
+
+# Runtime/editor derived-data caches are reproducible local artifacts.
+**/.kairo/derived-data/
