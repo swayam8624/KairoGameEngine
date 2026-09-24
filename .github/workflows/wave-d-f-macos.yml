@@ -1,0 +1,67 @@
+name: Wave D and F macOS Validation
+
+on:
+  push:
+    branches:
+      - validation/wave-d-f-macos
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flagship-macos:
+    name: Full Wave D/F Flagship Evidence
+    runs-on: macos-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Materialize exact locked workspace
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh
+          bash scripts/verify_workspace_lock.sh
+
+      - name: Install native toolchain and Blender
+        shell: bash
+        run: |
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          if [[ ! -x /Applications/Blender.app/Contents/MacOS/Blender ]]; then
+            brew install --cask blender
+          fi
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "CC=$(brew --prefix llvm)/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+          echo "KAIRO_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+
+      - name: Verify host toolchains
+        shell: bash
+        run: |
+          clang++ --version
+          cmake --version
+          ninja --version
+          node --version
+          npm --version
+          cargo --version
+          rustc --version
+          swift --version
+          /Applications/Blender.app/Contents/MacOS/Blender --version | head -n 1
+
+      - name: Run full flagship campaign
+        shell: bash
+        run: bash scripts/run_flagship_campaign.sh
+
+      - name: Upload flagship evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wave-d-f-macos-evidence
+          path: |
+            build/portfolio-evidence/
+            build/wave-c-scale/
+            build/wave-d-authoring/
+            build/wave-e-compute/
+            build/flagship-evidence/
+          if-no-files-found: warn
