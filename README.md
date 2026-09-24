@@ -41,9 +41,13 @@ targets so their dependencies do not leak into a shipped game runtime.
 builtin and imported meshes, textures, PBR materials, scene instances, lights,
 environments, layers, object IDs, and shadow policy.
 
-The current evidence-based work tracks and gates are maintained in
-[`docs/DEVELOPMENT_MAP.md`](docs/DEVELOPMENT_MAP.md). It distinguishes locally
-verified implementations, platform-gated implementations, and planned work.
+The complete KAIRO v1 portfolio is frozen at **95% source-complete across
+27 repositories**. Source completion and exact-head native verification are
+tracked separately; no platform-only result is inferred from source state.
+See [`docs/V1_95_COMPLETION.md`](docs/V1_95_COMPLETION.md),
+[`docs/DEVELOPMENT_MAP.md`](docs/DEVELOPMENT_MAP.md), and the machine-readable
+`STATUS.yaml` files. Research claims remain separate in
+[`docs/RESEARCH_TRACKS.md`](docs/RESEARCH_TRACKS.md).
 
 ## Workspace
 
@@ -106,6 +110,18 @@ For normal development:
 
 ```bash
 bash scripts/build_and_test.sh
+```
+
+Validate the full 27-repository source milestone:
+
+```bash
+bash scripts/verify_portfolio_95.sh
+```
+
+Run every acceptance gate available on the current host:
+
+```bash
+bash scripts/run_portfolio_acceptance.sh
 ```
 
 After changing workspace layout or compiler/toolchain state, force a clean
