@@ -55,7 +55,10 @@ if(APPLE)
     # 'can't parse dwarf compilation unit info' warnings for those objects.
     # DWARF4 remains fully adequate for LLDB source debugging and is understood
     # consistently by Apple's linker across supported Kairo macOS hosts.
-    set(CMAKE_C_FLAGS_DEBUG_INIT "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING "" FORCE)
-    set(CMAKE_CXX_FLAGS_DEBUG_INIT "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING "" FORCE)
-    set(CMAKE_OBJCXX_FLAGS_DEBUG_INIT "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING "" FORCE)
+    set(CMAKE_C_FLAGS_DEBUG "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING
+        "Kairo Debug C flags compatible with Apple's linker" FORCE)
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING
+        "Kairo Debug C++ flags compatible with Apple's linker" FORCE)
+    set(CMAKE_OBJCXX_FLAGS_DEBUG "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING
+        "Kairo Debug Objective-C++ flags compatible with Apple's linker" FORCE)
 endif()
