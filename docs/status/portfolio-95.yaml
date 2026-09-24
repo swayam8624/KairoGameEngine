@@ -1,0 +1,53 @@
+schema: kairo.portfolio-status.v1
+status_date: 2026-09-24
+portfolio: KAIRO
+repository_count: 27
+source_complete_count: 27
+minimum_completion_score: 95
+target_completion_score: 95
+source_gate: complete
+verification_gate: scripts/run_portfolio_acceptance.sh
+workspace_revision_manifest: workspace.lock
+warning_policy: zero-kairo-owned-warnings
+repository_hygiene:
+  open_pull_requests: 0
+  open_issues: 0
+waves:
+  A:
+    - KairoMath
+    - KairoGeometry
+    - KairoPhysicsMath
+    - KairoPipelineCore
+    - KairoBlender
+  B:
+    - KairoECS
+    - KairoReflection
+    - KairoScheduler
+    - KairoGPU
+  C:
+    - KairoSpatial
+    - KairoPhysicsEngine
+    - KairoAssets
+    - KairoRenderer
+    - KairoEngineCore
+    - KairoRayTracer
+  D:
+    - KairoEditor
+    - KairoProductionTools
+    - KairoHub
+    - KairoHoudini
+    - KairoMaya
+    - KairoNuke
+  E:
+    - KairoSIMD
+    - KairoONNX
+    - KairoTransformers
+    - KairoAI
+    - KairoMacPerception
+  F:
+    - KairoGameEngine
+verification_semantics:
+  source_complete_95: frozen_v1_implementation_contract_tests_docs_complete
+  verified: exact_head_gate_executed_successfully_on_supported_host
+  platform_gated: source_complete_but_native_host_or_license_required
+  post_v1: explicitly_excluded_from_frozen_v1_score
