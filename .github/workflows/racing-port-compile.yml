@@ -25,7 +25,17 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools
+          sudo apt-get install -y clang cmake ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools mesa-vulkan-drivers xvfb blender
+      - name: Prepare real PMNDRS racing assets
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/pmndrs/racing-game.git "$RUNNER_TEMP/racing-game"
+          KAIRO_RACING_UPSTREAM="$RUNNER_TEMP/racing-game" \
+          KAIRO_BLENDER="$(command -v blender)" \
+            bash Samples/KairoRacingGame/tools/prepare_assets.sh
+          test -s Samples/KairoRacingGame/Project/Content/Racing/track.glb
+          test -s Samples/KairoRacingGame/Project/Content/Racing/chassis.glb
+          test -s Samples/KairoRacingGame/Project/Content/Racing/wheel.glb
       - name: Configure
         shell: bash
         env:
@@ -36,9 +46,16 @@ jobs:
         shell: bash
         run: |
           cmake --build --preset ci-clang --target KairoEditorApp KairoPlayer KairoRacingGame --parallel
-      - name: Run non-asset Editor/Core regression tests
+      - name: Run Editor/Core regression tests
         shell: bash
         run: |
           ctest --test-dir build/ci-clang \
             -R 'KairoEngineCore|KairoEditorTests|KairoEditorPhase4Tests|KairoEditorUITests' \
             --output-on-failure
+      - name: Validate and smoke the real racing port
+        shell: bash
+        run: |
+          xvfb-run --auto-servernum --server-args="-screen 0 1600x900x24" \
+            ctest --test-dir build/ci-clang \
+              -R '^KairoRacing\.' \
+              --output-on-failure
