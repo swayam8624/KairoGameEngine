@@ -12,8 +12,8 @@ last-minute binary demo dependency.
 cd KairoGameEngine
 bash scripts/sync_workspace.sh
 bash scripts/verify_workspace_lock.sh
+bash scripts/run_portfolio_acceptance.sh
 bash scripts/verify_portfolio_95.sh
-bash scripts/build_and_test.sh --verify-lock
 ```
 
 Capture the zero-warning pass and final CTest summary.
