@@ -217,6 +217,12 @@ if(BUILD_TESTING)
     add_executable(KairoSceneECSBridgeTests tests/SceneECSBridgeTests.cpp)
     target_link_libraries(KairoSceneECSBridgeTests PRIVATE KairoSceneECSBridge)
     add_test(NAME KairoSceneECSBridgeTests COMMAND KairoSceneECSBridgeTests)
+
+    add_executable(KairoWaveCScaleBenchmark tests/WaveCScaleBenchmark.cpp)
+    target_link_libraries(KairoWaveCScaleBenchmark PRIVATE
+        KairoSpatial KairoPhysicsEngine KairoAssets KairoRenderer KairoEngineCore)
+    set_property(TARGET KairoWaveCScaleBenchmark
+        PROPERTY COMPILE_WARNING_AS_ERROR ON)
 endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
