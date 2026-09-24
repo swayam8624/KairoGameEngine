@@ -7,7 +7,7 @@ LOCK_FILE="${ENGINE_ROOT}/workspace.lock"
 
 mismatches=0
 while read -r repo expected extra; do
-    [[ -z "${repo}" || "${repo}" == #* ]] && continue
+    [[ -z "${repo}" || "${repo}" == \#* ]] && continue
     if [[ -n "${extra:-}" ]]; then
         echo "ERROR: malformed workspace.lock row for ${repo}" >&2
         exit 2
