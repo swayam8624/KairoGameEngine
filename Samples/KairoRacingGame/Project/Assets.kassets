@@ -9,3 +9,5 @@ asset 20000000-0000-4000-8000-000000000010 mesh builtin 1 "builtin/plane" "kairo
 end
 asset 20000000-0000-4000-8000-000000000011 material builtin 1 "builtin/default-material" "kairo.builtin"
 end
+asset 20000000-0000-4000-8000-000000000012 mesh builtin 1 "builtin/cube" "kairo.builtin.cube"
+end
