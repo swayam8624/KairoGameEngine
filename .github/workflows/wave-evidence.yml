@@ -24,14 +24,11 @@ jobs:
       - name: Materialize locked workspace
         shell: bash
         run: |
-          bash scripts/materialize_workspace_lock.sh \
-            KairoMath KairoGeometry KairoSpatial KairoPhysicsMath \
-            KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection \
-            KairoEngineCore KairoRenderer KairoEditor KairoRayTracer
-          bash scripts/verify_workspace_lock.sh \
-            KairoMath KairoGeometry KairoSpatial KairoPhysicsMath \
-            KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection \
-            KairoEngineCore KairoRenderer KairoEditor KairoRayTracer
+          # Wave C records evidence against the exact umbrella workspace lock,
+          # so materialize every locked repository before the campaign's own
+          # full-lock verification runs.
+          bash scripts/materialize_workspace_lock.sh
+          bash scripts/verify_workspace_lock.sh
 
       - name: Install toolchain
         shell: bash
