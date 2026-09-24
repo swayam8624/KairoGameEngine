@@ -1,0 +1,16 @@
+kairo-input 1
+action "Drive" axis2d
+action "Brake" button
+action "Reset" button
+action "Quit" button
+bind "Drive" key W 0 1 0
+bind "Drive" key S 0 -1 0
+bind "Drive" key A -1 0 0
+bind "Drive" key D 1 0 0
+bind "Drive" gamepad-axis LeftX 1 0 0.15
+bind "Drive" gamepad-axis LeftY 0 -1 0.15
+bind "Brake" key Space 1 0 0
+bind "Brake" gamepad-button A 1 0 0
+bind "Reset" key R 1 0 0
+bind "Reset" gamepad-button Y 1 0 0
+bind "Quit" key Escape 1 0 0
