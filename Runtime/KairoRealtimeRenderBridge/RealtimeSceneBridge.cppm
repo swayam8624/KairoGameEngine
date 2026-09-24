@@ -198,8 +198,19 @@ export namespace kairo::runtime::renderbridge
         }
         if (!selected.has_value()) return {};
         const auto transform = scene.WorldTransform(*selected);
-        return { transform.Translation,
-            transform.Translation + transform.Forward(), transform.Up() };
+        const auto& authored = scene.Camera(*selected);
+        return {
+            .Position = transform.Translation,
+            .Target = transform.Translation + transform.Forward(),
+            .Up = transform.Up(),
+            .Projection = authored.Projection == kairo::engine::CameraProjection::Orthographic
+                ? kairo::renderer::CameraProjectionMode::Orthographic
+                : kairo::renderer::CameraProjectionMode::Perspective,
+            .VerticalFovRadians = authored.VerticalFovRadians,
+            .OrthographicSize = authored.OrthographicSize,
+            .NearPlane = authored.NearPlane,
+            .FarPlane = authored.FarPlane
+        };
     }
 
     /// Process-local mapping from persistent KairoAssets identities to opaque
