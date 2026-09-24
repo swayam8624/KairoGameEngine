@@ -36,7 +36,78 @@ while read -r repo expected extra; do
         mismatches=$((mismatches + 1))
         continue
     fi
+    # Git-for-Windows/MSYS may expose a trailing carriage return either
+    # from workspace.lock or command output. Strip exactly that line-ending
+    # byte before comparing the otherwise strict 40-hex revision.
+    expected="${expected%    meaningful_status="$(printf '%s\n' "${status_output}" |
+        awk 'NF && !($1 == "??" && ($2 == ".DS_Store" || $2 ~ /\/.DS_Store$/))')"
+
+    if [[ "${actual}" != "${expected}" ]]; then
+        echo "DIFF      ${repo}"
+        echo "          expected ${expected}"
+        echo "          actual   ${actual}"
+        mismatches=$((mismatches + 1))
+        continue
+    fi
+    if [[ -n "${meaningful_status}" ]]; then
+        echo "DIRTY     ${repo} ${actual}"
+        printf '%s\n' "${meaningful_status}" | sed 's/^/          /'
+        mismatches=$((mismatches + 1))
+        continue
+    fi
+    echo "OK        ${repo} ${actual}"
+done < "${LOCK_FILE}"
+
+if (( ${#requested[@]} > 0 && checked != ${#requested[@]} )); then
+    echo "ERROR: requested ${#requested[@]} lock entries but matched ${checked}; check repository names." >&2
+    exit 2
+fi
+
+if [[ ${mismatches} -ne 0 ]]; then
+    echo
+    echo "Workspace differs from the recorded integration snapshot in ${mismatches} repo(s)." >&2
+    echo "That is valid during development; do not call it the locked integration state." >&2
+    exit 1
+fi
+
+echo
+echo "Workspace exactly matches workspace.lock and all locked trees are clean."
+\r'}"
     actual="$(git -C "${path}" rev-parse HEAD)"
+    actual="${actual%    meaningful_status="$(printf '%s\n' "${status_output}" |
+        awk 'NF && !($1 == "??" && ($2 == ".DS_Store" || $2 ~ /\/.DS_Store$/))')"
+
+    if [[ "${actual}" != "${expected}" ]]; then
+        echo "DIFF      ${repo}"
+        echo "          expected ${expected}"
+        echo "          actual   ${actual}"
+        mismatches=$((mismatches + 1))
+        continue
+    fi
+    if [[ -n "${meaningful_status}" ]]; then
+        echo "DIRTY     ${repo} ${actual}"
+        printf '%s\n' "${meaningful_status}" | sed 's/^/          /'
+        mismatches=$((mismatches + 1))
+        continue
+    fi
+    echo "OK        ${repo} ${actual}"
+done < "${LOCK_FILE}"
+
+if (( ${#requested[@]} > 0 && checked != ${#requested[@]} )); then
+    echo "ERROR: requested ${#requested[@]} lock entries but matched ${checked}; check repository names." >&2
+    exit 2
+fi
+
+if [[ ${mismatches} -ne 0 ]]; then
+    echo
+    echo "Workspace differs from the recorded integration snapshot in ${mismatches} repo(s)." >&2
+    echo "That is valid during development; do not call it the locked integration state." >&2
+    exit 1
+fi
+
+echo
+echo "Workspace exactly matches workspace.lock and all locked trees are clean."
+\r'}"
     status_output="$(git -C "${path}" status --porcelain --untracked-files=all)"
     meaningful_status="$(printf '%s\n' "${status_output}" |
         awk 'NF && !($1 == "??" && ($2 == ".DS_Store" || $2 ~ /\/.DS_Store$/))')"
