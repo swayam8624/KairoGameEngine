@@ -72,21 +72,95 @@
         "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF"
       }
+    },
+    {
+      "name": "compute-stack-clang",
+      "displayName": "Kairo integrated compute stack (Clang)",
+      "inherits": "dev-clang",
+      "binaryDir": "${sourceDir}/build/compute-stack-clang",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "OFF"
+      }
     }
   ],
   "buildPresets": [
-    { "name": "dev", "configurePreset": "dev" },
-    { "name": "dev-clang", "configurePreset": "dev-clang" },
-    { "name": "release", "configurePreset": "release" },
-    { "name": "ci-clang", "configurePreset": "ci-clang" },
-    { "name": "ci-sanitized", "configurePreset": "ci-sanitized" },
-    { "name": "ci-msvc", "configurePreset": "ci-msvc" }
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "dev-clang",
+      "configurePreset": "dev-clang"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "ci-clang",
+      "configurePreset": "ci-clang"
+    },
+    {
+      "name": "ci-sanitized",
+      "configurePreset": "ci-sanitized"
+    },
+    {
+      "name": "ci-msvc",
+      "configurePreset": "ci-msvc"
+    },
+    {
+      "name": "compute-stack-clang",
+      "configurePreset": "compute-stack-clang"
+    }
   ],
   "testPresets": [
-    { "name": "dev", "configurePreset": "dev", "output": { "outputOnFailure": true } },
-    { "name": "dev-clang", "configurePreset": "dev-clang", "output": { "outputOnFailure": true } },
-    { "name": "ci-clang", "configurePreset": "ci-clang", "output": { "outputOnFailure": true } },
-    { "name": "ci-sanitized", "configurePreset": "ci-sanitized", "output": { "outputOnFailure": true } },
-    { "name": "ci-msvc", "configurePreset": "ci-msvc", "output": { "outputOnFailure": true } }
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "dev-clang",
+      "configurePreset": "dev-clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-clang",
+      "configurePreset": "ci-clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-sanitized",
+      "configurePreset": "ci-sanitized",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-msvc",
+      "configurePreset": "ci-msvc",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "compute-stack-clang",
+      "configurePreset": "compute-stack-clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
   ]
 }
