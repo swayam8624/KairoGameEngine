@@ -13,6 +13,7 @@ run() {
 
 run bash "${ENGINE_ROOT}/scripts/run_portfolio_acceptance.sh"
 run bash "${ENGINE_ROOT}/scripts/verify_portfolio_95.sh"
+run bash "${ENGINE_ROOT}/scripts/run_wave_c_scale_campaign.sh"
 run bash "${ENGINE_ROOT}/scripts/run_authoring_workflow.sh"
 run bash "${ENGINE_ROOT}/scripts/run_compute_stack_campaign.sh"
 
