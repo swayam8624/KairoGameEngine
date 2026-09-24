@@ -72,7 +72,7 @@ jobs:
         run: |
           ./build/dev-clang/Samples/KairoRacingGame/KairoRacingGame \
             Samples/KairoRacingGame/Project/Racing.kproject \
-            --renderer metal --smoke
+            --renderer metal --smoke --screenshot build/kairo-racing-smoke.ppm
 
       - name: Run racing tests
         shell: bash
@@ -94,3 +94,13 @@ jobs:
           test -x Samples/KairoRacingGame/Project/Build/Development/KairoRacingGame
           grep -F 'play-executable "Build/Development/KairoRacingGame"' \
             Samples/KairoRacingGame/Project/Racing.kproject
+
+      - name: Upload racing visual evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: kairo-racing-macos-evidence
+          path: |
+            build/kairo-racing-smoke.ppm
+            Samples/KairoRacingGame/Project/Content/Racing/*.glb
+          if-no-files-found: warn
