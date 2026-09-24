@@ -34,16 +34,23 @@ for obj in bpy.context.scene.objects:
 if mesh_count == 0:
     raise RuntimeError(f"Runtime asset contains no mesh objects: {source}")
 
+# Blender evaluates imported glTF in its native Z-up coordinate system.
+# KAIRO and glTF use right-handed Y-up. Convert the world AABB back into
+# KAIRO/glTF coordinates before validating gameplay positions:
+#   Kx = Bx, Ky = Bz, Kz = -By.
+kairo_minimum = Vector((minimum.x, minimum.z, -maximum.y))
+kairo_maximum = Vector((maximum.x, maximum.z, -minimum.y))
+
 bounds_path = destination.with_suffix(".bounds.txt")
 bounds_path.write_text(
     f"mesh_count {mesh_count}\n"
-    f"min {minimum.x:.9g} {minimum.y:.9g} {minimum.z:.9g}\n"
-    f"max {maximum.x:.9g} {maximum.y:.9g} {maximum.z:.9g}\n"
+    f"min {kairo_minimum.x:.9g} {kairo_minimum.y:.9g} {kairo_minimum.z:.9g}\n"
+    f"max {kairo_maximum.x:.9g} {kairo_maximum.y:.9g} {kairo_maximum.z:.9g}\n"
 )
 print(
-    f"[KAIRO] bounds meshes={mesh_count} "
-    f"min=({minimum.x:.4f},{minimum.y:.4f},{minimum.z:.4f}) "
-    f"max=({maximum.x:.4f},{maximum.y:.4f},{maximum.z:.4f})"
+    f"[KAIRO] KAIRO-space bounds meshes={mesh_count} "
+    f"min=({kairo_minimum.x:.4f},{kairo_minimum.y:.4f},{kairo_minimum.z:.4f}) "
+    f"max=({kairo_maximum.x:.4f},{kairo_maximum.y:.4f},{kairo_maximum.z:.4f})"
 )
 
 print(f"[KAIRO] Re-exporting uncompressed runtime asset {destination}")
