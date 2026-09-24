@@ -9,6 +9,20 @@ target_compile_features(KairoRacingGame PRIVATE cxx_std_23)
 target_compile_definitions(KairoRacingGame PRIVATE
     KAIRO_RACING_PROJECT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Project/Racing.kproject")
 
+# The Editor's Play contract resolves project-owned runtimes from the
+# .kproject. Publish the just-built native game into that project-local
+# Development output so clicking Play launches this executable rather than
+# falling back to the generic KairoPlayer.
+set(_kairo_racing_development_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development")
+add_custom_command(TARGET KairoRacingGame POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${_kairo_racing_development_dir}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:KairoRacingGame>"
+        "${_kairo_racing_development_dir}/$<TARGET_FILE_NAME:KairoRacingGame>"
+    COMMENT "Publishing KairoRacingGame for Editor Play")
+
 set(_kairo_racing_play_dir "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development")
 set(_kairo_racing_play_executable "${_kairo_racing_play_dir}/KairoRacingGame")
 add_custom_command(TARGET KairoRacingGame POST_BUILD
