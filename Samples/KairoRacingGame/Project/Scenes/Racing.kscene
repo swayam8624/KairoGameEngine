@@ -75,8 +75,9 @@ entity 10 "World Collision Floor"
 enabled true
 layer 0
 tag "ground"
-transform 0 -0.45 0 0 0 0 1 1 1 1
-collider box 256 0.5 256 0.95 0.02 2 4294967295 false
+transform 0 -0.52 0 0 0 0 1 256 1 256
+mesh-renderer 20000000-0000-4000-8000-000000000010 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000011
+collider box 1 0.001953125 1 0.95 0.02 2 4294967295 false
 end
 
 entity 11 "North Boundary"
