@@ -45,12 +45,12 @@ jobs:
       - name: Compile Editor, Player, and native KAIRO racing game
         shell: bash
         run: |
-          cmake --build --preset ci-clang --target KairoRendererTests KairoEditorApp KairoPlayer KairoRacingGame --parallel
+          cmake --build --preset ci-clang --target KairoRendererTests KairoRealtimeRenderBridgeTests KairoEditorApp KairoPlayer KairoRacingGame --parallel
       - name: Run Renderer, Editor, and Core regression tests
         shell: bash
         run: |
           ctest --test-dir build/ci-clang \
-            -R 'KairoRenderer|KairoEngineCore|KairoEditorTests|KairoEditorPhase4Tests|KairoEditorUITests' \
+            -R 'KairoRenderer|KairoRealtimeRenderBridge|KairoEngineCore|KairoEditorTests|KairoEditorPhase4Tests|KairoEditorUITests' \
             --output-on-failure
       - name: Validate and smoke the real racing port
         shell: bash
