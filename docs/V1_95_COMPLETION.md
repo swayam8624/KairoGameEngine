@@ -43,8 +43,9 @@ A repo may be 95 only when all of the following are true for its frozen v1:
 - documentation states what is v1 and what is intentionally post-v1;
 - no future roadmap item is counted as missing v1 work merely because it could be useful later.
 
-The remaining five percent is release evidence, platform breadth, long-run
-performance history and post-v1 expansion. It is **not** a hidden feature list.
+The numeric target is not decomposed into invented percentage points. A future
+95% claim must be justified by the acceptance criteria and recorded evidence;
+documentation alone cannot manufacture the score.
 
 ## Wave F evidence
 
