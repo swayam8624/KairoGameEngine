@@ -61,7 +61,8 @@ for repo in "${repos[@]}"; do
             echo >&2
             echo "This path is the reproducible Blender documentation render." >&2
             echo "If you did not intentionally edit it, restore only that generated artifact with:" >&2
-            echo "  git -C \"${path}\" restore -- docs/images/blender-asset-result.png" >&2
+            echo "  bash \"${ENGINE_ROOT}/scripts/repair_legacy_generated_artifacts.sh\"" >&2
+            echo "The helper is allow-listed to that generated PNG only; it cannot discard source edits." >&2
             echo "The portfolio-scene generator has been fixed so normal runs no longer rewrite it." >&2
         fi
         exit 1
