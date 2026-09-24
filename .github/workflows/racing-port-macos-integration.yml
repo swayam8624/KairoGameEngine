@@ -1,0 +1,96 @@
+name: Racing Port macOS Integration
+
+on:
+  push:
+    branches:
+      - port/pmndrs-racing-kairo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: racing-port-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: Blender + Editor + Metal + Hub
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Materialize exact KAIRO workspace
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh
+          bash scripts/verify_workspace_lock.sh
+
+      - name: Install native toolchain and Blender
+        shell: bash
+        run: |
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          if [[ ! -x /Applications/Blender.app/Contents/MacOS/Blender ]]; then
+            brew install --cask blender
+          fi
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "CC=$(brew --prefix llvm)/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+
+      - name: Clone upstream racing source
+        shell: bash
+        run: |
+          mkdir -p ../ExternalGames
+          git clone --depth 1 https://github.com/pmndrs/racing-game.git ../ExternalGames/racing-game
+
+      - name: Export upstream assets and report bounds
+        shell: bash
+        run: |
+          KAIRO_RACING_UPSTREAM="$PWD/../ExternalGames/racing-game" \
+          KAIRO_BLENDER="/Applications/Blender.app/Contents/MacOS/Blender" \
+            bash Samples/KairoRacingGame/tools/prepare_assets.sh
+
+      - name: Configure KAIRO desktop stack
+        shell: bash
+        run: cmake --preset dev-clang -DKAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE=ON
+
+      - name: Build Editor, compiler, player, and racing game
+        shell: bash
+        run: |
+          cmake --build --preset dev-clang --parallel --target \
+            KairoEditorApp KairoProjectCompiler KairoPlayer KairoRacingGame
+
+      - name: Validate project
+        shell: bash
+        run: |
+          ./build/dev-clang/Runtime/KairoPlayer/KairoPlayer \
+            Samples/KairoRacingGame/Project/Racing.kproject --validate
+
+      - name: Run native Metal racing smoke
+        shell: bash
+        run: |
+          ./build/dev-clang/Samples/KairoRacingGame/KairoRacingGame \
+            Samples/KairoRacingGame/Project/Racing.kproject \
+            --renderer metal --smoke
+
+      - name: Run racing tests
+        shell: bash
+        run: |
+          ctest --test-dir build/dev-clang -R '^KairoRacing\.' --output-on-failure
+
+      - name: Build and test KairoHub
+        shell: bash
+        run: |
+          cd ../KairoHub
+          npm ci --ignore-scripts
+          npm run build
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          RUSTFLAGS="-Dwarnings" cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+      - name: Verify project Play artifact was published
+        shell: bash
+        run: |
+          test -x Samples/KairoRacingGame/Project/Build/Development/KairoRacingGame
+          grep -F 'play-executable "Build/Development/KairoRacingGame"' \
+            Samples/KairoRacingGame/Project/Racing.kproject
