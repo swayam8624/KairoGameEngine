@@ -53,8 +53,8 @@ entity 7 "Race Camera"
 enabled true
 layer 0
 tag "race-camera"
-transform -110 6 232 -0.17364818 0 0 0.98480775 1 1 1
-camera perspective 1.04719755 12 0.1 1000 0 true environment 0.01 0.015 0.025 1 18446744073709551615
+transform -110 12 242 -0.17364818 0 0 0.98480775 1 1 1
+camera perspective 1.04719755 12 0.1 1500 0 true environment 0.48 0.70 0.92 1 18446744073709551615
 end
 
 entity 8 "Sun"
@@ -68,7 +68,7 @@ entity 9 "Environment"
 enabled true
 layer 0
 transform 0 0 0 0 0 0 1 1 1 1
-environment true 10 0.05 0.08 0.12 none 0.2 1 exponential 0.65 0.72 0.82 0.0015 0 1000 0 aces global
+environment true 10 0.48 0.70 0.92 none 0.35 1 linear 0.78 0.84 0.90 0.002 120 500 0 aces global
 end
 
 entity 10 "World Collision Floor"
