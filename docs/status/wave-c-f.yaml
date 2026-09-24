@@ -1,0 +1,28 @@
+schema: kairo.wave-c-f.status.v1
+updated: 2026-09-24
+certified_baseline:
+  branch: certified/mac-95-2026-09-24
+  game_engine_sha: 7bca2bd121162301a2e4bfe94cf2c0d7d8ffa20f
+  workspace_lock_sha256: 20dbb8a33ec944385bbd5109131bd87c67b8940b750c57f5f3806a4e93eef3fd
+waves:
+  C:
+    state: implemented-awaiting-new-umbrella-acceptance
+    gates:
+      spatial_scale: implemented
+      physics_determinism: implemented
+      assets_ddc_scale: ci-green
+      render_graph_scale: implemented
+      world_streaming_scale: implemented
+  D:
+    state: executable-campaign-added
+    command: bash scripts/run_authoring_workflow.sh
+  E:
+    state: executable-campaign-added
+    command: bash scripts/run_compute_stack_campaign.sh
+    integrated_workload: tests/ComputeStackIntegration.cpp
+  F:
+    state: executable-campaign-added
+    command: bash scripts/run_flagship_campaign.sh
+notes:
+  - Main has advanced beyond the certified baseline, so the historical exact-head certificate remains valid only on the preservation branch.
+  - A new exact-head certificate must be produced after the updated workspace lock passes all gates.
