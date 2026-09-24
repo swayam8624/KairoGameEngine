@@ -80,6 +80,20 @@ mesh-renderer 20000000-0000-4000-8000-000000000010 true true true 18446744073709
 collider box 1 0.5 1 0.95 0.02 2 4294967295 false
 end
 
+entity 15 "Spawn Landmark Left"
+enabled true
+layer 0
+transform -116 1 208 0 0 0 1 1 2 1
+mesh-renderer 20000000-0000-4000-8000-000000000012 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000011
+end
+
+entity 16 "Spawn Landmark Right"
+enabled true
+layer 0
+transform -104 1 208 0 0 0 1 1 2 1
+mesh-renderer 20000000-0000-4000-8000-000000000012 true true true 18446744073709551615 1 20000000-0000-4000-8000-000000000011
+end
+
 entity 11 "North Boundary"
 enabled true
 layer 0
