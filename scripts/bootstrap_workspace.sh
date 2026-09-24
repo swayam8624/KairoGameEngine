@@ -12,6 +12,7 @@ repos=(
   KairoAssets KairoAI KairoECS KairoReflection KairoEngineCore KairoRenderer
   KairoEditor KairoRayTracer KairoGPU KairoSIMD KairoScheduler KairoONNX
   KairoTransformers KairoHub KairoMacPerception
+  KairoPipelineCore KairoBlender KairoProductionTools KairoHoudini KairoMaya KairoNuke
 )
 
 for repo in "${repos[@]}"; do
