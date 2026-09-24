@@ -40,9 +40,7 @@ jobs:
             preset: ci-msvc
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@v7
 
       - name: Materialize locked engine workspace
         shell: bash
@@ -125,7 +123,7 @@ jobs:
 
       - name: Upload build diagnostics
         if: failure() && steps.build.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: KairoGameEngine-build-${{ matrix.platform }}-${{ matrix.preset }}
           path: build-${{ matrix.preset }}.log
@@ -167,7 +165,7 @@ jobs:
 
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: KairoGameEngine-test-${{ matrix.platform }}-${{ matrix.preset }}
           path: test-${{ matrix.preset }}.log
@@ -180,7 +178,7 @@ jobs:
 
       - name: Upload source package
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: KairoGameEngine-source
           path: KairoGameEngine-*-Source.tar.gz
