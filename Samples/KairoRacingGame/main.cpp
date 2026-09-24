@@ -238,11 +238,13 @@ namespace
             forward, Vec3f::Forward());
 
         auto& cameraTransform = scene.Transform(camera).Local;
-        const Vec3f target = {
-            state.Position.x,
-            state.Position.y + 0.8f,
-            state.Position.z
-        };
+        const Vec3f target = overview
+            ? Vec3f{ state.Position.x, state.Position.y, state.Position.z }
+            : Vec3f{
+                state.Position.x + forward.x * 6.0f,
+                state.Position.y + 1.0f,
+                state.Position.z + forward.z * 6.0f
+            };
 
         if (overview)
         {
@@ -254,10 +256,12 @@ namespace
         }
         else
         {
+            // Wider than the original prototype camera so the KAIRO port
+            // always shows enough surrounding world to make motion obvious.
             cameraTransform.Translation = {
-                state.Position.x - forward.x * 10.0f,
-                state.Position.y + 4.5f,
-                state.Position.z - forward.z * 10.0f
+                state.Position.x - forward.x * 18.0f,
+                state.Position.y + 8.0f,
+                state.Position.z - forward.z * 18.0f
             };
         }
 
