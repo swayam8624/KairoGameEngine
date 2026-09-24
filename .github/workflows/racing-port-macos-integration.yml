@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           cmake --build --preset dev-clang --parallel --target \
-            KairoRendererTests KairoEditorApp KairoProjectCompiler KairoPlayer KairoRacingGame
+            KairoRendererTests KairoRealtimeRenderBridgeTests KairoEditorApp KairoProjectCompiler KairoPlayer KairoRacingGame
 
       - name: Validate project
         shell: bash
