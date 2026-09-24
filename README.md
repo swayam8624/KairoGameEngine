@@ -89,6 +89,15 @@ Synchronize clean sibling repositories with their current upstream branches:
 bash scripts/sync_workspace.sh
 ```
 
+If an older KairoBlender run left only
+`docs/images/blender-asset-result.png` dirty, repair that known generated
+artifact without touching source changes:
+
+```bash
+bash scripts/repair_legacy_generated_artifacts.sh
+bash scripts/sync_workspace.sh
+```
+
 `workspace.lock` records the exact integration snapshot without creating
 duplicate worktrees. Check it with `bash scripts/verify_workspace_lock.sh`.
 
