@@ -53,7 +53,7 @@ TEST_CASE("Shared real-time extraction preserves authored render semantics",
 
     kairo::engine::Scene scene;
     const auto mesh = scene.CreateEntity("Mesh");
-    scene.SetMeshRenderer(mesh, { { MeshID }, { MaterialID }, true });
+    scene.SetMeshRenderer(mesh, { { MeshID }, { MaterialID }, true, {} });
     scene.MeshRenderer(mesh).RenderLayers = 0x1u;
     scene.MeshRenderer(mesh).CastShadows = false;
     scene.Transform(mesh).Local.Translation = { 2.0f, 0.0f, 0.0f };
