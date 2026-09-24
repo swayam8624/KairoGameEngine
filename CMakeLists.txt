@@ -15,7 +15,42 @@ option(KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX "Build physics terminal and GLFW 
 option(KAIRO_GAME_ENGINE_BUILD_AI_CLOUD "Build the optional CPR OpenAI-compatible transport" OFF)
 option(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK "Build experimental GPU/SIMD/scheduler/ONNX/transformer modules" OFF)
 option(KAIRO_GAME_ENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
-option(KAIRO_GAME_ENGINE_ENABLE_PACKAGING "Enable CPack source-package configuration" ON)
+option(KAIRO_GAME_ENGINE_ENABLE_PACKAGING "Enable CPack source-package configuration" OFF)
+
+# KairoGameEngine is an integration repository inside a sibling-repository
+# workspace.  The default layout is:
+#
+#   Kairo/
+#     KairoGameEngine/
+#     KairoMath/
+#     KairoGeometry/
+#     KairoSpatial/
+#     ...
+#
+# Component source is never vendored or cloned again inside KairoGameEngine.
+set(KAIRO_WORKSPACE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." CACHE PATH
+    "Directory containing the sibling Kairo component repositories")
+
+function(kairo_require_workspace_repo out_variable repo_name)
+    set(_candidate "${KAIRO_WORKSPACE_ROOT}/${repo_name}")
+    if(NOT EXISTS "${_candidate}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "Missing sibling Kairo repository '${repo_name}' at '${_candidate}'. "
+            "Clone https://github.com/swayam8624/${repo_name}.git beside KairoGameEngine "
+            "or set KAIRO_WORKSPACE_ROOT to the directory containing the Kairo repos.")
+    endif()
+    set(${out_variable} "${_candidate}" PARENT_SCOPE)
+endfunction()
+
+function(kairo_add_workspace_repo target_name repo_name source_variable)
+    if(TARGET ${target_name})
+        return()
+    endif()
+    set(_source "${${source_variable}}")
+    add_subdirectory("${_source}" "${CMAKE_BINARY_DIR}/components/${repo_name}")
+endfunction()
+
+message(STATUS "Kairo sibling workspace root: ${KAIRO_WORKSPACE_ROOT}")
 
 if(KAIRO_GAME_ENGINE_ENABLE_SANITIZERS)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -27,28 +62,26 @@ if(KAIRO_GAME_ENGINE_ENABLE_SANITIZERS)
     endif()
 endif()
 
-set(KAIRO_WORKSPACE_COMPONENTS
-    Foundation/KairoMath
-    Foundation/KairoGeometry
-    Foundation/Spatial
-    Foundation/KairoPhysicsMath
-    Foundation/KairoPhysicsEngine
-    KairoAssets
-    KairoAI
-    KairoECS
-    KairoReflection
-    KairoEngineCore
-    KairoRenderer
-    KairoEditor
-    KairoRayTracer)
+# Resolve the source trees once.  Required repositories are siblings of this
+# integration repo; optional compute repositories are resolved only when enabled.
+kairo_require_workspace_repo(KAIRO_MATH_SOURCE KairoMath)
+kairo_require_workspace_repo(KAIRO_GEOMETRY_SOURCE KairoGeometry)
+kairo_require_workspace_repo(KAIRO_SPATIAL_SOURCE KairoSpatial)
+kairo_require_workspace_repo(KAIRO_PHYSICS_MATH_SOURCE KairoPhysicsMath)
+kairo_require_workspace_repo(KAIRO_PHYSICS_ENGINE_SOURCE KairoPhysicsEngine)
+kairo_require_workspace_repo(KAIRO_ASSETS_SOURCE KairoAssets)
+kairo_require_workspace_repo(KAIRO_AI_SOURCE KairoAI)
+kairo_require_workspace_repo(KAIRO_ECS_SOURCE KairoECS)
+kairo_require_workspace_repo(KAIRO_REFLECTION_SOURCE KairoReflection)
+kairo_require_workspace_repo(KAIRO_ENGINE_CORE_SOURCE KairoEngineCore)
+kairo_require_workspace_repo(KAIRO_RENDERER_SOURCE KairoRenderer)
 
-foreach(component IN LISTS KAIRO_WORKSPACE_COMPONENTS)
-    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${component}/CMakeLists.txt")
-        message(FATAL_ERROR
-            "Kairo component '${component}' is not initialized. "
-            "Run: git submodule update --init --recursive")
-    endif()
-endforeach()
+if(KAIRO_GAME_ENGINE_BUILD_EDITOR)
+    kairo_require_workspace_repo(KAIRO_EDITOR_SOURCE KairoEditor)
+endif()
+if(KAIRO_GAME_ENGINE_BUILD_RAYTRACER)
+    kairo_require_workspace_repo(KAIRO_RAYTRACER_SOURCE KairoRayTracer)
+endif()
 
 set(KAIRO_MATH_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_MATH_BUILD_VISUALIZER OFF CACHE BOOL "" FORCE)
@@ -72,13 +105,24 @@ set(KAIRO_EDITOR_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_EDITOR_BUILD_APP ${KAIRO_GAME_ENGINE_BUILD_EDITOR} CACHE BOOL "" FORCE)
 set(KAIRO_RAYTRACER_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_RAYTRACER_BUILD_PREVIEW ${KAIRO_GAME_ENGINE_BUILD_EDITOR} CACHE BOOL "" FORCE)
+set(KAIRO_EDITOR_SHARED_CONTENT_PROJECT
+    "${CMAKE_CURRENT_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject"
+    CACHE FILEPATH "" FORCE)
 
-add_subdirectory(Foundation/KairoPhysicsEngine)
-add_subdirectory(KairoAI)
-add_subdirectory(KairoECS)
-add_subdirectory(KairoReflection)
-add_subdirectory(KairoEngineCore)
-add_subdirectory(KairoRenderer)
+# Build foundational dependencies first so component CMake files reuse these
+# targets instead of recursively FetchContent-ing duplicate copies.
+kairo_add_workspace_repo(KairoMath KairoMath KAIRO_MATH_SOURCE)
+kairo_add_workspace_repo(KairoGeometry KairoGeometry KAIRO_GEOMETRY_SOURCE)
+kairo_add_workspace_repo(KairoSpatial KairoSpatial KAIRO_SPATIAL_SOURCE)
+kairo_add_workspace_repo(KairoPhysicsMath KairoPhysicsMath KAIRO_PHYSICS_MATH_SOURCE)
+kairo_add_workspace_repo(KairoPhysicsEngine KairoPhysicsEngine KAIRO_PHYSICS_ENGINE_SOURCE)
+
+kairo_add_workspace_repo(KairoAssets KairoAssets KAIRO_ASSETS_SOURCE)
+kairo_add_workspace_repo(KairoAI KairoAI KAIRO_AI_SOURCE)
+kairo_add_workspace_repo(KairoECS KairoECS KAIRO_ECS_SOURCE)
+kairo_add_workspace_repo(KairoReflection KairoReflection KAIRO_REFLECTION_SOURCE)
+kairo_add_workspace_repo(KairoEngineCore KairoEngineCore KAIRO_ENGINE_CORE_SOURCE)
+kairo_add_workspace_repo(KairoRenderer KairoRenderer KAIRO_RENDERER_SOURCE)
 
 add_library(KairoSceneECSBridge)
 add_library(Kairo::SceneECSBridge ALIAS KairoSceneECSBridge)
@@ -91,11 +135,11 @@ target_compile_features(KairoSceneECSBridge PUBLIC cxx_std_23)
 add_subdirectory(Runtime/KairoRealtimeRenderBridge)
 
 if(KAIRO_GAME_ENGINE_BUILD_EDITOR)
-    add_subdirectory(KairoEditor)
+    kairo_add_workspace_repo(KairoEditor KairoEditor KAIRO_EDITOR_SOURCE)
 endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_RAYTRACER)
-    add_subdirectory(KairoRayTracer)
+    kairo_add_workspace_repo(KairoRayTracer KairoRayTracer KAIRO_RAYTRACER_SOURCE)
     add_subdirectory(Runtime/KairoRenderBridge)
 
     # Homebrew LLVM 23.x on arm64 macOS has a 32-bit SourceLocation ceiling.
@@ -122,14 +166,17 @@ if(KAIRO_GAME_ENGINE_BUILD_RAYTRACER)
 endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK)
-    foreach(component IN ITEMS KairoGPU KairoSIMD KairoScheduler KairoONNX KairoTransformers)
-        if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${component}/CMakeLists.txt")
-            message(FATAL_ERROR
-                "Optional component '${component}' is not initialized. "
-                "Run: git submodule update --init --recursive")
-        endif()
-        add_subdirectory(${component})
-    endforeach()
+    kairo_require_workspace_repo(KAIRO_GPU_SOURCE KairoGPU)
+    kairo_require_workspace_repo(KAIRO_SIMD_SOURCE KairoSIMD)
+    kairo_require_workspace_repo(KAIRO_SCHEDULER_SOURCE KairoScheduler)
+    kairo_require_workspace_repo(KAIRO_ONNX_SOURCE KairoONNX)
+    kairo_require_workspace_repo(KAIRO_TRANSFORMERS_SOURCE KairoTransformers)
+
+    kairo_add_workspace_repo(KairoGPU KairoGPU KAIRO_GPU_SOURCE)
+    kairo_add_workspace_repo(KairoSIMD KairoSIMD KAIRO_SIMD_SOURCE)
+    kairo_add_workspace_repo(KairoScheduler KairoScheduler KAIRO_SCHEDULER_SOURCE)
+    kairo_add_workspace_repo(KairoONNX KairoONNX KAIRO_ONNX_SOURCE)
+    kairo_add_workspace_repo(KairoTransformers KairoTransformers KAIRO_TRANSFORMERS_SOURCE)
 endif()
 
 add_library(KairoGameEngine INTERFACE)
@@ -213,6 +260,8 @@ if(KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE)
 endif()
 
 if(KAIRO_GAME_ENGINE_ENABLE_PACKAGING)
+    # This package contains the integration repository only.  Component source
+    # lives in sibling repositories and is intentionally not duplicated here.
     set(CPACK_PACKAGE_NAME "KairoGameEngine")
     set(CPACK_PACKAGE_VENDOR "Kairo")
     set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
