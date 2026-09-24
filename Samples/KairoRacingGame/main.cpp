@@ -240,19 +240,12 @@ namespace
         if (!bodyID) return;
 
         const auto& state = physics.World().Bodies().at(*bodyID).State;
-        Vec3f forward = kairo::foundation::math::Forward(state.Rotation);
-        forward.y = 0.0f;
-        forward = kairo::foundation::math::SafeNormalize(
-            forward, Vec3f::Forward());
-
         auto& cameraTransform = scene.Transform(camera).Local;
-        const Vec3f target = overview
-            ? Vec3f{ state.Position.x, state.Position.y, state.Position.z }
-            : Vec3f{
-                state.Position.x + forward.x * 6.0f,
-                state.Position.y + 1.0f,
-                state.Position.z + forward.z * 6.0f
-            };
+        const Vec3f target = {
+            state.Position.x,
+            state.Position.y + 1.0f,
+            state.Position.z
+        };
 
         if (overview)
         {
@@ -264,12 +257,15 @@ namespace
         }
         else
         {
-            // Wider than the original prototype camera so the KAIRO port
-            // always shows enough surrounding world to make motion obvious.
+            // Preserve the upstream camera relationship exactly in vehicle
+            // local space instead of guessing from KAIRO's -Z forward axis.
+            // pmndrs/racing-game mounts the perspective camera at [0, 10, -20].
+            const Vec3f worldOffset = kairo::foundation::math::Rotate(
+                state.Rotation, Vec3f{ 0.0f, 10.0f, -20.0f });
             cameraTransform.Translation = {
-                state.Position.x - forward.x * 18.0f,
-                state.Position.y + 8.0f,
-                state.Position.z - forward.z * 18.0f
+                state.Position.x + worldOffset.x,
+                state.Position.y + worldOffset.y,
+                state.Position.z + worldOffset.z
             };
         }
 
