@@ -247,3 +247,27 @@ TEST_CASE("animation playback rejects generic static scene bindings",
     REQUIRE_THROWS_AS(BuildRenderScene(scene, assets, playback, 0x1u),
         std::invalid_argument);
 }
+
+TEST_CASE("Camera extraction preserves authored projection parameters",
+    "[KairoRealtimeRenderBridge][Camera]")
+{
+    kairo::engine::Scene scene;
+    const auto cameraEntity = scene.CreateEntity("Main Camera");
+    kairo::engine::CameraComponent camera;
+    camera.Primary = true;
+    camera.Projection = kairo::engine::CameraProjection::Orthographic;
+    camera.VerticalFovRadians = 0.8f;
+    camera.OrthographicSize = 28.0f;
+    camera.NearPlane = 0.25f;
+    camera.FarPlane = 2500.0f;
+    scene.SetCamera(cameraEntity, camera);
+    scene.Transform(cameraEntity).Local.Translation = { 4.0f, 6.0f, 8.0f };
+
+    const auto extracted = SelectRenderCamera(scene);
+    CHECK(extracted.Position == kairo::foundation::math::Vec3f{ 4.0f, 6.0f, 8.0f });
+    CHECK(extracted.Projection == kairo::renderer::CameraProjectionMode::Orthographic);
+    CHECK(extracted.VerticalFovRadians == camera.VerticalFovRadians);
+    CHECK(extracted.OrthographicSize == camera.OrthographicSize);
+    CHECK(extracted.NearPlane == camera.NearPlane);
+    CHECK(extracted.FarPlane == camera.FarPlane);
+}
