@@ -52,7 +52,7 @@ for mapping in "${COMPONENTS[@]}"; do
     nested_path="${ENGINE_ROOT}/${nested}"
     sibling_path="${WORKSPACE_ROOT}/${sibling}"
 
-    if [[ ! -d "${sibling_path}" || ! -f "${sibling_path}/CMakeLists.txt" ]]; then
+    if [[ ! -d "${sibling_path}" ]]; then
         echo "ERROR: missing sibling repository: ${sibling_path}" >&2
         failures=$((failures + 1))
         continue
