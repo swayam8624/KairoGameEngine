@@ -96,6 +96,30 @@ fi
 run env RUSTFLAGS="-Dwarnings" cargo test \
     --manifest-path "${WORKSPACE_ROOT}/KairoHub/src-tauri/Cargo.toml"
 
+# Prove the external-import claim end-to-end without network dependency:
+# take a non-Kairo directory containing a real GLB, generate the Kairo wrapper
+# through KairoHub's importer, then compile/validate/run it through the built
+# project compiler/player.
+EXTERNAL_IMPORT_TMP="$(mktemp -d "${TMPDIR:-/tmp}/kairo-external-import.XXXXXX")"
+trap 'rm -rf "${EXTERNAL_IMPORT_TMP}"' EXIT
+cp "${ENGINE_ROOT}/Samples/SharedContentShowcase/Content/ToyCar/ToyCar.glb" \
+    "${EXTERNAL_IMPORT_TMP}/ToyCar.glb"
+IMPORTED_PROJECT="$(
+    cd "${WORKSPACE_ROOT}/KairoHub"
+    RUSTFLAGS="-Dwarnings" cargo run --quiet \
+        --manifest-path src-tauri/Cargo.toml \
+        --bin kairo-hub-import -- \
+        "${EXTERNAL_IMPORT_TMP}" "External GLB Acceptance" "0.1.0" "ToyCar.glb"
+)"
+if [[ ! -f "${IMPORTED_PROJECT}" ]]; then
+    echo "ERROR: KairoHub external importer did not produce a project descriptor." >&2
+    exit 5
+fi
+run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh" \
+    "${IMPORTED_PROJECT}" --validate
+run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh" \
+    "${IMPORTED_PROJECT}" --smoke
+
 if [[ "${HOST_OS}" == "Darwin" ]]; then
     if ! command -v swift >/dev/null 2>&1; then
         echo "ERROR: KairoMacPerception acceptance requires Swift on macOS." >&2
