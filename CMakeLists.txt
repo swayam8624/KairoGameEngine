@@ -228,6 +228,11 @@ endif()
 
 if(KAIRO_GAME_ENGINE_BUILD_PLAYER)
     add_subdirectory(Runtime/KairoPlayer)
+    if(TARGET KairoEditorApp)
+        add_dependencies(KairoEditorApp KairoPlayer)
+        target_compile_definitions(KairoEditorApp PRIVATE
+            KAIRO_EDITOR_PLAYER_PATH="$<TARGET_FILE:KairoPlayer>")
+    endif()
     set(_kairo_shared_content_project
         "${CMAKE_CURRENT_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject")
     if(NOT EXISTS "${_kairo_shared_content_project}")
