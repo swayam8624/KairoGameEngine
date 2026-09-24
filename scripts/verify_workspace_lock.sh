@@ -4,10 +4,28 @@ set -euo pipefail
 ENGINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_ROOT="${KAIRO_WORKSPACE_ROOT:-$(cd "${ENGINE_ROOT}/.." && pwd)}"
 LOCK_FILE="${ENGINE_ROOT}/workspace.lock"
+requested=("$@")
+
+should_check_repo() {
+    local candidate="$1"
+    if (( ${#requested[@]} == 0 )); then
+        return 0
+    fi
+    local wanted
+    for wanted in "${requested[@]}"; do
+        if [[ "${candidate}" == "${wanted}" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
 
 mismatches=0
+checked=0
 while read -r repo expected extra; do
     [[ -z "${repo}" || "${repo}" == \#* ]] && continue
+    should_check_repo "${repo}" || continue
+    checked=$((checked + 1))
     if [[ -n "${extra:-}" ]]; then
         echo "ERROR: malformed workspace.lock row for ${repo}" >&2
         exit 2
@@ -38,6 +56,11 @@ while read -r repo expected extra; do
     fi
     echo "OK        ${repo} ${actual}"
 done < "${LOCK_FILE}"
+
+if (( ${#requested[@]} > 0 && checked != ${#requested[@]} )); then
+    echo "ERROR: requested ${#requested[@]} lock entries but matched ${checked}; check repository names." >&2
+    exit 2
+fi
 
 if [[ ${mismatches} -ne 0 ]]; then
     echo
