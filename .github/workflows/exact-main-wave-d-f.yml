@@ -1,0 +1,112 @@
+name: Exact Main Wave D/F macOS Validation
+
+on:
+  push:
+    branches:
+      - validation/exact-main-wave-d-f
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-main-flagship:
+    name: Exact-main Portfolio + Waves C/D/E/F
+    runs-on: macos-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout exact main revision
+        uses: actions/checkout@v7
+        with:
+          ref: 25b5c3f6577dfb5b5e9a079826c35f0734782c1e
+
+      - name: Materialize exact workspace lock
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh
+          bash scripts/verify_workspace_lock.sh
+
+      - name: Install native toolchain and Blender
+        shell: bash
+        run: |
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          if [[ ! -x /Applications/Blender.app/Contents/MacOS/Blender ]]; then
+            brew install --cask blender
+          fi
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "CC=$(brew --prefix llvm)/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+          echo "KAIRO_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+
+      - name: Verify host toolchains
+        shell: bash
+        run: |
+          clang++ --version
+          cmake --version
+          ninja --version
+          node --version
+          npm --version
+          cargo --version
+          rustc --version
+          swift --version
+          /Applications/Blender.app/Contents/MacOS/Blender --version | head -n 1
+
+      - name: Exact-head portfolio acceptance
+        shell: bash
+        run: |
+          bash scripts/run_portfolio_acceptance.sh
+          bash scripts/verify_portfolio_95.sh
+
+      - name: Wave C scale campaign
+        shell: bash
+        run: bash scripts/run_wave_c_scale_campaign.sh
+
+      - name: Wave D authoring campaign
+        shell: bash
+        run: bash scripts/run_authoring_workflow.sh
+
+      - name: Wave E compute campaign
+        shell: bash
+        run: bash scripts/run_compute_stack_campaign.sh
+
+      - name: Bind Wave F evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENGINE_SHA="$(git rev-parse HEAD)"
+          LOCK_SHA="$(shasum -a 256 workspace.lock | awk '{print $1}')"
+          [[ "$ENGINE_SHA" == "25b5c3f6577dfb5b5e9a079826c35f0734782c1e" ]]
+          for evidence in             build/wave-c-scale/summary.json             build/wave-d-authoring/accepted.env             build/wave-e-compute/summary.json; do
+            [[ -f "$evidence" ]]
+          done
+          mkdir -p build/flagship-evidence
+          C_SHA="$(shasum -a 256 build/wave-c-scale/summary.json | awk '{print $1}')"
+          D_SHA="$(shasum -a 256 build/wave-d-authoring/accepted.env | awk '{print $1}')"
+          E_SHA="$(shasum -a 256 build/wave-e-compute/summary.json | awk '{print $1}')"
+          cat > build/flagship-evidence/manifest.json <<EOF
+          {
+            "schema": "kairo.flagship.evidence.v2",
+            "engine_sha": "$ENGINE_SHA",
+            "workspace_lock_sha256": "$LOCK_SHA",
+            "host_os": "Darwin",
+            "portfolio_acceptance": "PASS",
+            "wave_c_scale": {"status":"PASS","evidence":"build/wave-c-scale/summary.json","sha256":"$C_SHA"},
+            "wave_d_authoring": {"status":"PASS","evidence":"build/wave-d-authoring/accepted.env","sha256":"$D_SHA"},
+            "wave_e_compute": {"status":"PASS","evidence":"build/wave-e-compute/summary.json","sha256":"$E_SHA"}
+          }
+          EOF
+          cat build/flagship-evidence/manifest.json
+
+      - name: Upload exact-main flagship evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: exact-main-wave-d-f-evidence
+          path: |
+            build/portfolio-evidence/
+            build/wave-c-scale/
+            build/wave-d-authoring/
+            build/wave-e-compute/
+            build/flagship-evidence/
+          if-no-files-found: warn
