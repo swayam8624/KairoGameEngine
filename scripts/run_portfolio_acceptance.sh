@@ -46,7 +46,7 @@ run bash "${ENGINE_ROOT}/scripts/build_and_test.sh" --verify-lock
 # Prove the supported import/run contract with actual Kairo projects and actual
 # built compiler/player binaries. This is not Unity/Unreal migration.
 run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh" \
-    "KairoEditor/examples/StarterProject/Project.kproject" --validate
+    "${WORKSPACE_ROOT}/KairoEditor/examples/StarterProject/Project.kproject" --validate
 run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh" \
     "Samples/SharedContentShowcase/Project.kproject" --smoke
 run "${ENGINE_ROOT}/build/dev-clang/Samples/Phase1Game/KairoPhase1Game" --smoke
