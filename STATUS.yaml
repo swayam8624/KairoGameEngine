@@ -2,12 +2,13 @@ schema: kairo.repo-status.v1
 repository: KairoGameEngine
 wave: D/F
 scope: integrated-game-engine-v1
-completion_score: 95
+completion_score: unverified
 target_score: 95
+claim_state: retracted_until_acceptance
 score_policy: frozen_scope_source_completeness
-source_gate: complete
+source_gate: pending_exact_head_acceptance
 portfolio_repository_count: 27
-portfolio_source_complete_count: 27
+portfolio_source_complete_count: unverified
 portfolio_status: docs/status/portfolio-95.yaml
 portfolio_verifier: scripts/verify_portfolio_95.sh
 portfolio_acceptance: scripts/run_portfolio_acceptance.sh
