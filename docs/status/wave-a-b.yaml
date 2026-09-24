@@ -17,7 +17,7 @@ waves:
       KairoECS: f5af896ad6552350f2a43d9529be1f36d51403e9
       KairoReflection: 1b6494a17146fc2d9404353bffb78efa2ef58c62
       KairoScheduler: c1e39bfbce9196617c02ebf7d780610676a15aa1
-      KairoGPU: 5b45af290bdde97cbc36ada706eb14835459c20a
+      KairoGPU: cfda41f18232b175fa8a89c2b923c134fa211cef
 umbrella:
   integration_commit: 1979fc9f4bde3f0fbc6b02e872d903aea5e8bc0b
   workspace_layout: sibling_repositories
