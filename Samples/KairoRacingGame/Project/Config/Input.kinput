@@ -3,6 +3,7 @@ action "Drive" axis2d
 action "Brake" button
 action "Reset" button
 action "Quit" button
+action "Camera" button
 bind "Drive" key W 0 1 0
 bind "Drive" key S 0 -1 0
 bind "Drive" key A -1 0 0
@@ -14,3 +15,5 @@ bind "Brake" gamepad-button A 1 0 0
 bind "Reset" key R 1 0 0
 bind "Reset" gamepad-button Y 1 0 0
 bind "Quit" key Escape 1 0 0
+bind "Camera" key C 1 0 0
+bind "Camera" gamepad-button X 1 0 0
