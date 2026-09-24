@@ -12,14 +12,14 @@ OUT="${SAMPLE_ROOT}/Project/Content/Racing"
 trap 'status=$?; echo; echo "[KAIRO Racing] FAILED at line ${LINENO}: ${BASH_COMMAND}" >&2; echo "[KAIRO Racing] exit status ${status}" >&2; exit ${status}' ERR
 
 for asset in track chassis wheel; do
-    test -f "${UPSTREAM}/assets/${asset}.blend"
+    test -f "${UPSTREAM}/public/models/${asset}-draco.glb"
 done
 test -x "${BLENDER}"
 
 mkdir -p "${OUT}"
 for asset in track chassis wheel; do
-    echo "[KAIRO Racing] exporting ${asset}.blend"
-    "${BLENDER}" --background --factory-startup         --python "${SCRIPT_DIR}/export_glb.py" --         "${UPSTREAM}/assets/${asset}.blend"         "${OUT}/${asset}.glb"
+    echo "[KAIRO Racing] decoding exact upstream runtime asset ${asset}-draco.glb"
+    "${BLENDER}" --background --factory-startup         --python "${SCRIPT_DIR}/export_glb.py" --         "${UPSTREAM}/public/models/${asset}-draco.glb"         "${OUT}/${asset}.glb"
 done
 
 echo
