@@ -78,6 +78,15 @@ bash scripts/migrate_from_submodules.sh --apply
 The first invocation is a safety dry-run and refuses migration if a nested copy
 contains uncommitted work. See [docs/WORKSPACE_LAYOUT.md](docs/WORKSPACE_LAYOUT.md).
 
+Synchronize clean sibling repositories with their current upstream branches:
+
+```bash
+bash scripts/sync_workspace.sh
+```
+
+`workspace.lock` records the exact integration snapshot without creating
+duplicate worktrees. Check it with `bash scripts/verify_workspace_lock.sh`.
+
 ## Prerequisites
 
 The checked-in developer preset targets the current macOS/Homebrew toolchain:
@@ -93,10 +102,28 @@ brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shader
 
 ## Build And Test
 
+For normal development:
+
+```bash
+bash scripts/build_and_test.sh
+```
+
+After changing workspace layout or compiler/toolchain state, force a clean
+configure and verify the exact recorded sibling revisions first:
+
+```bash
+bash scripts/build_and_test.sh --clean --verify-lock
+```
+
+The script is fail-fast: CTest is never run after a failed build, so one linker
+failure cannot turn into dozens of misleading "Not Run" test failures.
+
+The equivalent manual commands are:
+
 ```bash
 cmake --preset dev-clang
-cmake --build --preset dev-clang
-ctest --preset dev-clang
+cmake --build --preset dev-clang --parallel
+ctest --preset dev-clang --output-on-failure
 ```
 
 `dev-clang` uses the repository-owned portable Clang toolchain. On macOS it
