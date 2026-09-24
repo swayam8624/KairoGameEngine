@@ -9,10 +9,9 @@ target_compile_features(KairoRacingGame PRIVATE cxx_std_23)
 target_compile_definitions(KairoRacingGame PRIVATE
     KAIRO_RACING_PROJECT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Project/Racing.kproject")
 
-# The Editor's Play contract resolves project-owned runtimes from the
-# .kproject. Publish the just-built native game into that project-local
-# Development output so clicking Play launches this executable rather than
-# falling back to the generic KairoPlayer.
+# The Editor and Hub Play contracts resolve project-owned runtimes from the
+# .kproject. Publish exactly one development executable into that project-local
+# output after every successful build.
 set(_kairo_racing_development_dir
     "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development")
 add_custom_command(TARGET KairoRacingGame POST_BUILD
@@ -21,33 +20,7 @@ add_custom_command(TARGET KairoRacingGame POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:KairoRacingGame>"
         "${_kairo_racing_development_dir}/$<TARGET_FILE_NAME:KairoRacingGame>"
-    COMMENT "Publishing KairoRacingGame for Editor Play")
-
-set(_kairo_racing_play_dir "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development")
-set(_kairo_racing_play_executable "${_kairo_racing_play_dir}/KairoRacingGame")
-add_custom_command(TARGET KairoRacingGame POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${_kairo_racing_play_dir}"
-    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:KairoRacingGame>"
-        "${_kairo_racing_play_executable}"
     COMMENT "Publishing KairoRacingGame for Editor/Hub Play")
-
-set(_kairo_racing_dev_runtime
-    "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development/KairoRacingGame")
-add_custom_command(TARGET KairoRacingGame POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:KairoRacingGame>"
-        "${_kairo_racing_dev_runtime}"
-    COMMENT "Publishing KAIRO Racing development Play executable")
-
-add_custom_command(TARGET KairoRacingGame POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:KairoRacingGame>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development/$<TARGET_FILE_NAME:KairoRacingGame>"
-    COMMENT "Publishing KairoRacingGame for Editor Play")
 
 set(_kairo_racing_track "${CMAKE_CURRENT_SOURCE_DIR}/Project/Content/Racing/track.glb")
 set(_kairo_racing_chassis "${CMAKE_CURRENT_SOURCE_DIR}/Project/Content/Racing/chassis.glb")
