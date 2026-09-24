@@ -221,11 +221,12 @@ namespace
         scene.Transform(car).Local.Rotation = StartRotation();
     }
 
-    void UpdateChaseCamera(
+    void UpdateRaceCamera(
         kairo::engine::Scene& scene,
         kairo::player::RuntimePhysicsBridge& physics,
         Entity car,
-        Entity camera)
+        Entity camera,
+        bool overview)
     {
         const auto bodyID = physics.BodyFor(car);
         if (!bodyID) return;
@@ -237,16 +238,29 @@ namespace
             forward, Vec3f::Forward());
 
         auto& cameraTransform = scene.Transform(camera).Local;
-        cameraTransform.Translation = {
-            state.Position.x - forward.x * 10.0f,
-            state.Position.y + 4.5f,
-            state.Position.z - forward.z * 10.0f
-        };
         const Vec3f target = {
             state.Position.x,
             state.Position.y + 0.8f,
             state.Position.z
         };
+
+        if (overview)
+        {
+            cameraTransform.Translation = {
+                state.Position.x,
+                state.Position.y + 70.0f,
+                state.Position.z + 28.0f
+            };
+        }
+        else
+        {
+            cameraTransform.Translation = {
+                state.Position.x - forward.x * 10.0f,
+                state.Position.y + 4.5f,
+                state.Position.z - forward.z * 10.0f
+            };
+        }
+
         cameraTransform.Rotation = kairo::foundation::math::LookRotation(
             target - cameraTransform.Translation, Vec3f::Up());
     }
@@ -268,6 +282,7 @@ int main(int argc, char** argv)
         kairo::player::RuntimeProject project(arguments.Project);
         auto& scene = project.Scene();
 
+        const Entity track = RequireTagged(scene, "track");
         const Entity car = RequireTagged(scene, "player");
         const Entity camera = RequireTagged(scene, "race-camera");
         const Entity start = RequireTagged(scene, "start");
@@ -295,10 +310,32 @@ int main(int argc, char** argv)
             project.Descriptor().Name, 1600u, 900u, true, arguments.Backend });
         kairo::player::RuntimeRenderBridge renderBridge(renderer, project);
 
-        renderer.SubmitRenderScene(renderBridge.BuildScene());
+        const auto initialRenderScene = renderBridge.BuildScene();
+        const auto trackDraws = static_cast<std::size_t>(std::count_if(
+            initialRenderScene.Draws().begin(),
+            initialRenderScene.Draws().end(),
+            [track](const kairo::renderer::MeshDraw& draw)
+            {
+                return draw.ObjectID == track.Value;
+            }));
+        if (trackDraws == 0u)
+            throw std::runtime_error(
+                "PMNDRS track imported but produced zero KAIRO render draws.");
+
+        std::cout
+            << "KAIRO Racing render extraction: "
+            << initialRenderScene.Draws().size()
+            << " total draws, "
+            << trackDraws
+            << " track draws, "
+            << initialRenderScene.Lights().size()
+            << " lights.\n";
+
+        renderer.SubmitRenderScene(initialRenderScene);
         renderer.SetCameraPose(renderBridge.CameraPose());
         ResetCar(scene, physics, car);
 
+        bool overviewCamera = false;
         bool checkpointPassed = false;
         std::uint32_t lap = 0u;
         auto lapStart = std::chrono::steady_clock::now();
@@ -324,6 +361,15 @@ int main(int argc, char** argv)
                 ResetCar(scene, physics, car);
                 checkpointPassed = false;
                 lapStart = std::chrono::steady_clock::now();
+            }
+
+            if (input.Action("Camera").Pressed)
+            {
+                overviewCamera = !overviewCamera;
+                std::cout
+                    << "KAIRO Racing camera: "
+                    << (overviewCamera ? "overview" : "chase")
+                    << "\n";
             }
 
             const auto currentFrame = std::chrono::steady_clock::now();
@@ -370,7 +416,7 @@ int main(int argc, char** argv)
             if (scene.WorldTransform(car).Translation.y < -20.0f)
                 ResetCar(scene, physics, car);
 
-            UpdateChaseCamera(scene, physics, car, camera);
+            UpdateRaceCamera(scene, physics, car, camera, overviewCamera);
             renderer.SetCameraPose(renderBridge.CameraPose());
             renderer.SubmitRenderScene(renderBridge.BuildScene());
 
@@ -380,7 +426,9 @@ int main(int argc, char** argv)
                   << driver.SpeedMetresPerSecond() * 3.6f << " km/h"
                   << " | Lap " << (lap + 1u)
                   << " | "
-                  << (checkpointPassed ? "Checkpoint OK" : "Checkpoint pending");
+                  << (checkpointPassed ? "Checkpoint OK" : "Checkpoint pending")
+                  << " | "
+                  << (overviewCamera ? "Overview" : "Chase");
             glfwSetWindowTitle(
                 renderer.NativeWindow().NativeHandle(), title.str().c_str());
 
