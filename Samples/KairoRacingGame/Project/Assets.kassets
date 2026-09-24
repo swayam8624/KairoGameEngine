@@ -1,0 +1,7 @@
+kairo-assets 1
+asset 20000000-0000-4000-8000-000000000001 scene source 1 "Content/Racing/track.glb" "kairo.gltf.scene"
+end
+asset 20000000-0000-4000-8000-000000000002 scene source 1 "Content/Racing/chassis.glb" "kairo.gltf.scene"
+end
+asset 20000000-0000-4000-8000-000000000003 scene source 1 "Content/Racing/wheel.glb" "kairo.gltf.scene"
+end
