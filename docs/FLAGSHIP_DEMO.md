@@ -144,3 +144,14 @@ The flagship video should distinguish three labels on screen:
 
 That keeps the demonstration technically impressive without overstating
 evidence.
+
+## One-command evidence campaign
+
+For a revision intended for public demonstration, run:
+
+```bash
+bash scripts/run_flagship_campaign.sh
+```
+
+The command re-establishes exact-head portfolio acceptance, runs the end-to-end authoring/import/package campaign, runs the integrated compute campaign, and writes `build/flagship-evidence/manifest.json`. Record the flagship video only from a revision where this command passes.
+
