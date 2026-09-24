@@ -28,7 +28,7 @@ deliberate v2 proposal rather than feature-count expansion.
 | KairoECS | 80 | `f5af896ad6552350f2a43d9529be1f36d51403e9` | capacity control, smallest-pool 2/3-component joins, 100k runtime benchmark, Scene→ECS extraction boundary |
 | KairoReflection | 80 | `1b6494a17146fc2d9404353bffb78efa2ef58c62` | vectors/quaternions/enums/references plus bounded homogeneous V3 arrays and collection validation |
 | KairoScheduler | 80 | `c1e39bfbce9196617c02ebf7d780610676a15aa1` | cancellation-aware range execution, worker/task telemetry, deterministic benchmark |
-| KairoGPU | 80 | `5b45af290bdde97cbc36ada706eb14835459c20a` | frozen Metal-v1 scope, device-owned resource identity/lifetime, add/multiply/matmul, transfer/dispatch telemetry, regression benchmark |
+| KairoGPU | 80 | `cfda41f18232b175fa8a89c2b923c134fa211cef` | frozen Metal-v1 scope, device-owned resource identity/lifetime, add/multiply/matmul, transfer/dispatch telemetry, regression benchmark |
 
 KairoGPU's 80 score applies to the explicitly frozen **Metal compute v1** scope.
 Vulkan/CUDA/WebGPU, generic resource binding, asynchronous queues and hardware
