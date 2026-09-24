@@ -1,0 +1,93 @@
+name: Wave C and E Evidence
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wave-c-scale:
+    name: Wave C Scale Evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Materialize locked workspace
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh \
+            KairoMath KairoGeometry KairoSpatial KairoPhysicsMath \
+            KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection \
+            KairoEngineCore KairoRenderer KairoEditor KairoRayTracer
+          bash scripts/verify_workspace_lock.sh \
+            KairoMath KairoGeometry KairoSpatial KairoPhysicsMath \
+            KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection \
+            KairoEngineCore KairoRenderer KairoEditor KairoRayTracer
+
+      - name: Install toolchain
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build cmake libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb
+
+      - name: Run Wave C scale campaign
+        shell: bash
+        env:
+          CC: clang
+          CXX: clang++
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" bash scripts/run_wave_c_scale_campaign.sh
+
+      - name: Upload Wave C evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: wave-c-scale-evidence
+          path: build/wave-c-scale/
+          if-no-files-found: error
+
+  wave-e-compute:
+    name: Wave E Compute Evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Materialize locked compute workspace
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh \
+            KairoMath KairoGeometry KairoSpatial KairoPhysicsMath \
+            KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection \
+            KairoEngineCore KairoRenderer KairoEditor KairoRayTracer \
+            KairoGPU KairoSIMD KairoScheduler KairoONNX KairoTransformers
+          bash scripts/verify_workspace_lock.sh \
+            KairoMath KairoGeometry KairoSpatial KairoPhysicsMath \
+            KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection \
+            KairoEngineCore KairoRenderer KairoEditor KairoRayTracer \
+            KairoGPU KairoSIMD KairoScheduler KairoONNX KairoTransformers
+
+      - name: Install toolchain
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build cmake libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools
+          echo "KAIRO_CXX_COMPILER=$(command -v clang++)" >> "$GITHUB_ENV"
+
+      - name: Run Wave E compute campaign
+        shell: bash
+        run: bash scripts/run_compute_stack_campaign.sh
+
+      - name: Upload Wave E evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: wave-e-compute-evidence
+          path: build/wave-e-compute/
+          if-no-files-found: error
