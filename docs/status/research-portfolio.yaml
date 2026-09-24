@@ -1,0 +1,78 @@
+schema: kairo.research-portfolio.v1
+updated: 2026-09-24
+policy:
+  engineering_completion_independent_of_research: true
+  novelty_must_be_falsifiable: true
+  negative_results_retained: true
+  raw_results_machine_readable: true
+
+tracks:
+  R1:
+    title: Telemetry-adaptive render graph
+    owners: [KairoRenderer]
+    state: hypothesis
+    tracker: KairoRenderer/research/telemetry_adaptive_render_graph.yaml
+  R2:
+    title: MORPH-ECS
+    owners: [KairoECS, KairoEngineCore]
+    state: hypothesis
+    tracker: KairoECS/research/morph_ecs.yaml
+  R3:
+    title: Transactional heterogeneous worlds
+    owners: [KairoGameEngine, KairoEngineCore, KairoAssets]
+    state: hypothesis
+    tracker: KairoGameEngine/research/transactional_heterogeneous_worlds.yaml
+  R4:
+    title: Adaptive collision pipeline
+    owners: [KairoPhysicsEngine, KairoSpatial]
+    state: hypothesis
+    tracker: KairoPhysicsEngine/research/adaptive_collision_pipeline.yaml
+  R5:
+    title: Reversible AI-native authoring
+    owners: [KairoEditor, KairoAI, KairoMacPerception]
+    state: hypothesis
+    tracker: KairoEditor/research/reversible_ai_authoring.yaml
+  R6:
+    title: Cross-backend semantic differential rendering
+    owners: [KairoRenderer, KairoRayTracer]
+    state: hypothesis
+    tracker: KairoRenderer/research/cross_backend_differential_rendering.yaml
+  R7:
+    title: Frame-budget-aware heterogeneous inference
+    owners: [KairoScheduler, KairoSIMD, KairoGPU, KairoONNX, KairoTransformers]
+    state: hypothesis
+    tracker: KairoScheduler/research/frame_budget_heterogeneous_inference.yaml
+
+repositories:
+  KairoMath: {role: engineering-foundation, research_claim: null}
+  KairoGeometry: {role: engineering-foundation, research_claim: null}
+  KairoSpatial: {role: research-support, research_claim: R4}
+  KairoPhysicsMath: {role: engineering-foundation, research_claim: null}
+  KairoPhysicsEngine: {role: research-owner, research_claim: R4}
+  KairoAssets: {role: research-support, research_claim: R3}
+  KairoAI: {role: research-support, research_claim: R5}
+  KairoECS: {role: research-owner, research_claim: R2}
+  KairoReflection: {role: engineering-foundation, research_claim: null}
+  KairoEngineCore: {role: research-support, research_claim: [R2, R3]}
+  KairoRenderer: {role: research-owner, research_claim: [R1, R6]}
+  KairoEditor: {role: research-owner, research_claim: R5}
+  KairoRayTracer: {role: research-support, research_claim: R6}
+  KairoGPU: {role: research-support, research_claim: R7}
+  KairoSIMD: {role: research-support, research_claim: R7}
+  KairoScheduler: {role: research-owner, research_claim: R7}
+  KairoONNX: {role: research-support, research_claim: R7}
+  KairoTransformers: {role: research-support, research_claim: R7}
+  KairoHub: {role: product-integration, research_claim: null}
+  KairoMacPerception: {role: research-support, research_claim: R5}
+  KairoPipelineCore: {role: production-infrastructure, research_claim: null}
+  KairoBlender: {role: production-integration, research_claim: null}
+  KairoProductionTools: {role: production-infrastructure, research_claim: null}
+  KairoHoudini: {role: production-integration, research_claim: null}
+  KairoMaya: {role: production-integration, research_claim: null}
+  KairoNuke: {role: production-integration, research_claim: null}
+
+wave_evidence:
+  C: scripts/run_wave_c_scale_campaign.sh
+  D: scripts/run_authoring_workflow.sh
+  E: scripts/run_compute_stack_campaign.sh
+  F: scripts/run_flagship_campaign.sh
