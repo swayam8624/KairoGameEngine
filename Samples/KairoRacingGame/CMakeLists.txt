@@ -9,6 +9,14 @@ target_compile_features(KairoRacingGame PRIVATE cxx_std_23)
 target_compile_definitions(KairoRacingGame PRIVATE
     KAIRO_RACING_PROJECT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/Project/Racing.kproject")
 
+add_custom_command(TARGET KairoRacingGame POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:KairoRacingGame>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Project/Build/Development/$<TARGET_FILE_NAME:KairoRacingGame>"
+    COMMENT "Publishing KairoRacingGame for Editor Play")
+
 set(_kairo_racing_track "${CMAKE_CURRENT_SOURCE_DIR}/Project/Content/Racing/track.glb")
 set(_kairo_racing_chassis "${CMAKE_CURRENT_SOURCE_DIR}/Project/Content/Racing/chassis.glb")
 set(_kairo_racing_wheel "${CMAKE_CURRENT_SOURCE_DIR}/Project/Content/Racing/wheel.glb")
