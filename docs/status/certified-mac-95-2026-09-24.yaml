@@ -1,0 +1,12 @@
+schema: kairo.certified-baseline.v1
+date: 2026-09-24
+scope: mac-host-portfolio-95
+game_engine_sha: 7bca2bd121162301a2e4bfe94cf2c0d7d8ffa20f
+workspace_lock_sha256: 20dbb8a33ec944385bbd5109131bd87c67b8940b750c57f5f3806a4e93eef3fd
+preservation_branch: certified/mac-95-2026-09-24
+status: accepted
+notes:
+  - Exact-head acceptance evidence passed on the Mac host.
+  - Every locked component has a preservation branch at its accepted revision.
+  - Later main-branch development does not alter this historical baseline.
+  - Windows and Linux host-specific certification must be established separately.
