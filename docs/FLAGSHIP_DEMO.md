@@ -97,9 +97,9 @@ must be atomic and validation must happen before publication.
 From KairoRayTracer:
 
 ```bash
-../KairoRayTracer/build/KairoRayTracerCLI scenes/cornell.kairo \
+./build/dev-clang/components/KairoRayTracer/KairoRayTracerCLI scenes/cornell.kairo \
   --mode path --passes 32 --output outputs/flagship-path.png
-../KairoRayTracer/build/KairoRayTracerCLI scenes/cornell.kairo \
+./build/dev-clang/components/KairoRayTracer/KairoRayTracerCLI scenes/cornell.kairo \
   --mode accel_diff --output outputs/flagship-accel-diff.png
 ```
 
