@@ -1,0 +1,32 @@
+schema: kairo.research-track.v1
+track: R3
+title: Transactional heterogeneous worlds
+state: hypothesis
+problem: Runtime worlds span scene identity, assets, physics, rendering and streaming; partial updates can leave subsystems inconsistent.
+hypothesis: Stable identity plus dependency-aware transactional world deltas can bound rollback cost and update locality while preserving cross-subsystem consistency.
+baselines:
+  - full_world_reload
+  - subsystem_local_reload
+  - naive_delta_apply
+workloads:
+  - asset_reimport
+  - streamed_cell_replace
+  - hierarchy_edit
+  - physics_shape_change
+  - material_and_mesh_change
+metrics:
+  - update_latency_ms
+  - touched_entity_count
+  - touched_asset_count
+  - rollback_latency_ms
+  - consistency_failures
+  - update_locality_ratio
+ablations:
+  - no_dependency_graph
+  - no_atomic_commit
+  - no_stable_identity
+failure_cases:
+  - cyclic_dependencies
+  - failed_asset_decode
+  - mid_transaction_runtime_failure
+falsification: Reject if transactional deltas do not reduce touched state or recovery cost versus full reload while maintaining exact post-state consistency.
