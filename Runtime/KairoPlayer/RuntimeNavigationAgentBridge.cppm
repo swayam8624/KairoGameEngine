@@ -158,7 +158,7 @@ export namespace kairo::player
             record.State.WaypointIndex = FirstUsefulWaypoint(entity, record.Path,
                 record.Settings.WaypointRadius);
             UpdateRemainingDistance(entity, record);
-            ResolveArrival(entity, record);
+            (void)ResolveArrival(entity, record);
             return record.State.Status != RuntimeNavigationAgentStatus::PathUnavailable;
         }
 
@@ -227,7 +227,7 @@ export namespace kairo::player
                 entity, resolvedPlanarVelocity, false, deltaSeconds);
             AdvanceReachedWaypoints(entity, record);
             UpdateRemainingDistance(entity, record);
-            ResolveArrival(entity, record);
+            (void)ResolveArrival(entity, record);
             return { record.State, std::move(motorStep) };
         }
 
