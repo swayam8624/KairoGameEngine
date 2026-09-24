@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -36,6 +37,7 @@ namespace
     {
         std::filesystem::path Project = KAIRO_RACING_PROJECT_PATH;
         std::optional<std::string> PackageProfile;
+        std::optional<std::filesystem::path> Screenshot;
         bool Replace = false;
         bool Smoke = false;
         kairo::renderer::GraphicsBackend Backend =
@@ -51,6 +53,12 @@ namespace
             const std::string_view argument = argv[index];
             if (argument == "--smoke")
                 result.Smoke = true;
+            else if (argument == "--screenshot")
+            {
+                if (++index >= argc)
+                    throw std::invalid_argument("--screenshot requires an output path.");
+                result.Screenshot = argv[index];
+            }
             else if (argument == "--replace")
                 result.Replace = true;
             else if (argument == "--package")
@@ -269,6 +277,24 @@ namespace
             target - cameraTransform.Translation, Vec3f::Up());
     }
 
+    void WriteCapture(
+        const std::filesystem::path& path,
+        const kairo::renderer::ViewportCapture& capture)
+    {
+        if (!capture.IsVisuallyNonUniform())
+            throw std::runtime_error("KAIRO Racing screenshot rejected a blank or uniform render target.");
+        if (!path.parent_path().empty())
+            std::filesystem::create_directories(path.parent_path());
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        if (!output)
+            throw std::runtime_error("Cannot create KAIRO Racing screenshot: " + path.string());
+        output << "P6\n" << capture.Width << ' ' << capture.Height << "\n255\n";
+        for (std::size_t index = 0u; index < capture.RGBA.size(); index += 4u)
+            output.write(reinterpret_cast<const char*>(capture.RGBA.data() + index), 3);
+        if (!output)
+            throw std::runtime_error("Failed while writing KAIRO Racing screenshot: " + path.string());
+    }
+
     [[nodiscard]] Entity OtherEntity(
         const kairo::player::RuntimeContactEvent& contact, Entity car)
     {
@@ -346,7 +372,8 @@ int main(int argc, char** argv)
         auto previousFrame = std::chrono::steady_clock::now();
         unsigned smokeFrames = 0u;
 
-        if (arguments.Smoke) renderer.RequestViewportCapture();
+        if (arguments.Smoke || arguments.Screenshot.has_value())
+            renderer.RequestViewportCapture();
 
         while (!renderer.NativeWindow().ShouldClose())
         {
@@ -438,13 +465,19 @@ int main(int argc, char** argv)
 
             renderer.DrawFrame();
 
-            if (arguments.Smoke)
+            if (arguments.Smoke || arguments.Screenshot.has_value())
             {
                 if (const auto capture = renderer.TakeViewportCapture(); capture)
                 {
                     if (!capture->IsVisuallyNonUniform())
                         throw std::runtime_error(
                             "KAIRO Racing smoke frame was blank or visually uniform.");
+                    if (arguments.Screenshot.has_value())
+                    {
+                        WriteCapture(*arguments.Screenshot, *capture);
+                        std::cout << "KAIRO Racing screenshot: "
+                                  << arguments.Screenshot->string() << "\n";
+                    }
                     std::cout << "KAIRO Racing native smoke passed at "
                               << capture->Width << 'x' << capture->Height << ".\n";
                     return 0;
