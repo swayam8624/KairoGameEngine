@@ -13,6 +13,7 @@ run() {
 }
 
 run bash "${ENGINE_ROOT}/scripts/verify_workspace_lock.sh"
+run cmake --preset dev-clang
 run cmake --build --preset dev-clang --parallel
 
 run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh"     "${WORKSPACE_ROOT}/KairoEditor/examples/StarterProject/Project.kproject" --validate
