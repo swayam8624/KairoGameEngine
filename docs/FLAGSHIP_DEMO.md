@@ -134,11 +134,11 @@ End on:
 bash scripts/verify_portfolio_95.sh
 ```
 
-and the 27-repository matrix in `docs/V1_95_COMPLETION.md`.
+and the 27-repository target/acceptance matrix in `docs/V1_95_COMPLETION.md`.
 
 The flagship video should distinguish three labels on screen:
 
-- **95% SOURCE-COMPLETE**
+- **TARGET 95 / ACCEPTED ONLY WITH MATCHING EVIDENCE**
 - **VERIFIED ON THIS HOST**
 - **PLATFORM-GATED / POST-v1**
 
