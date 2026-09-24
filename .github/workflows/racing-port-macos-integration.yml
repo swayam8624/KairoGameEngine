@@ -53,13 +53,13 @@ jobs:
 
       - name: Configure KAIRO desktop stack
         shell: bash
-        run: cmake --preset dev-clang -DKAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE=ON
+        run: cmake --preset dev-clang -DKAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE=ON -DKAIRO_RENDERER_BUILD_TESTS=ON
 
       - name: Build Editor, compiler, player, and racing game
         shell: bash
         run: |
           cmake --build --preset dev-clang --parallel --target \
-            KairoEditorApp KairoProjectCompiler KairoPlayer KairoRacingGame
+            KairoRendererTests KairoEditorApp KairoProjectCompiler KairoPlayer KairoRacingGame
 
       - name: Validate project
         shell: bash
