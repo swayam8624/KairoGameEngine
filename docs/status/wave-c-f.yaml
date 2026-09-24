@@ -1,28 +1,82 @@
-schema: kairo.wave-c-f.status.v1
+schema: kairo.wave-c-f.status.v2
 updated: 2026-09-24
+
 certified_baseline:
   branch: certified/mac-95-2026-09-24
   game_engine_sha: 7bca2bd121162301a2e4bfe94cf2c0d7d8ffa20f
   workspace_lock_sha256: 20dbb8a33ec944385bbd5109131bd87c67b8940b750c57f5f3806a4e93eef3fd
+  state: preserved
+  note: Historical Mac-host certificate; later main commits require new exact-head acceptance.
+
+current_main:
+  state: active-wave-development
+  exact_head_acceptance: required-after-wave-repins
+  evidence_ci:
+    workflow: .github/workflows/wave-evidence.yml
+    wave_c: enabled
+    wave_e: enabled
+
 waves:
   C:
-    state: implemented-awaiting-new-umbrella-acceptance
-    gates:
-      spatial_scale: implemented
-      physics_determinism: implemented
-      assets_ddc_scale: ci-green
-      render_graph_scale: implemented
-      world_streaming_scale: implemented
+    objective: scale_failure_resistance
+    implementation: complete
+    verification:
+      spatial_scale_regression: component-ci
+      physics_determinism_regression: component-ci
+      assets_ddc_scale_regression: component-ci
+      render_graph_scale_regression: component-ci
+      world_streaming_scale_regression: component-ci
+      integrated_scale_evidence: workflow-enabled
+    campaign: bash scripts/run_wave_c_scale_campaign.sh
+    evidence: build/wave-c-scale/summary.json
+
   D:
-    state: executable-campaign-added
-    command: bash scripts/run_authoring_workflow.sh
+    objective: end_to_end_authoring
+    implementation: complete
+    verification:
+      editor_transactions: campaign-gated
+      document_compilation: campaign-gated
+      save_and_world_save: campaign-gated
+      external_glb_import: campaign-gated
+      package_and_relocation: campaign-gated
+      blender_native_publish: mac-host-gated
+    campaign: bash scripts/run_authoring_workflow.sh
+    evidence: build/wave-d-authoring/accepted.env
+
   E:
-    state: executable-campaign-added
-    command: bash scripts/run_compute_stack_campaign.sh
-    integrated_workload: tests/ComputeStackIntegration.cpp
+    objective: integrated_heterogeneous_compute
+    implementation: complete
+    verification:
+      scheduler_simd_gpu_onnx_transformer_integration: ci-gated
+      subsystem_benchmarks: evidence-workflow-enabled
+      numerical_equivalence: mandatory
+    campaign: bash scripts/run_compute_stack_campaign.sh
+    evidence: build/wave-e-compute/summary.json
+
   F:
-    state: executable-campaign-added
-    command: bash scripts/run_flagship_campaign.sh
-notes:
-  - Main has advanced beyond the certified baseline, so the historical exact-head certificate remains valid only on the preservation branch.
-  - A new exact-head certificate must be produced after the updated workspace lock passes all gates.
+    objective: flagship_reproducible_proof
+    implementation: complete
+    verification:
+      portfolio_acceptance: required
+      wave_c: required
+      wave_d: required
+      wave_e: required
+      evidence_hash_binding: implemented
+    campaign: bash scripts/run_flagship_campaign.sh
+    evidence: build/flagship-evidence/manifest.json
+
+research:
+  state: hypotheses_only_until_baselines_run
+  registry: docs/RESEARCH_TRACKS.md
+  workload_manifest: research/workloads.yaml
+  rules:
+    - no research claim from engineering completeness
+    - every headline result requires fixed baselines and falsification
+    - negative results remain in the record
+    - platform-specific claims require that native host
+
+next_acceptance_rule:
+  - Wait for current component and umbrella CI to be green.
+  - Run exact-head Mac portfolio acceptance after syncing current workspace.lock.
+  - Run Wave C, D, E and F campaigns on the exact same revision.
+  - Publish measured values only from the resulting evidence files.
