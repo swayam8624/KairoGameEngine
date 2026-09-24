@@ -103,4 +103,5 @@ jobs:
           path: |
             build/kairo-racing-smoke.ppm
             Samples/KairoRacingGame/Project/Content/Racing/*.glb
+            Samples/KairoRacingGame/Project/Content/Racing/*.bounds.txt
           if-no-files-found: warn
