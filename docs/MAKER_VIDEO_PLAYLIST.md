@@ -64,3 +64,8 @@ the actual systems and reproduce evidence.
 
 Every video should link the exact repository/revision, reproduce its acceptance
 command, and distinguish measured evidence from planned or platform-gated work.
+
+## Recording rule
+
+Before recording any episode that claims a subsystem works on the current revision, run the narrowest corresponding gate. For the flagship, use `bash scripts/run_flagship_campaign.sh`. Store the produced JSON/env evidence beside the recording notes and quote measured values from those files rather than from memory.
+
