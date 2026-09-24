@@ -9,7 +9,7 @@ called verified only when its stated tests run on that exact commit.
 
 ## Wave A — 95% foundation certification
 
-| Repository | Frozen score | Final head / umbrella pin | Closing evidence |
+| Repository | Frozen score | Certified snapshot SHA | Closing evidence |
 | --- | ---: | --- | --- |
 | KairoMath | 95 | `878187604d8d7ecc1af59f0c0e3988d80cccff0c` | deterministic numerical certification, portable optional-dependency discovery, parent-target reuse |
 | KairoGeometry | 95 | `ddbdf3747d470890fc20d870528cb86d41be128f` | 25k seeded property certification and final certified Math pin |
@@ -23,12 +23,12 @@ deliberate v2 proposal rather than feature-count expansion.
 
 ## Wave B — 80% runtime infrastructure
 
-| Repository | Frozen score | Final head / umbrella pin | Closing evidence |
+| Repository | Frozen score | Certified snapshot SHA | Closing evidence |
 | --- | ---: | --- | --- |
 | KairoECS | 80 | `f5af896ad6552350f2a43d9529be1f36d51403e9` | capacity control, smallest-pool 2/3-component joins, 100k runtime benchmark, Scene→ECS extraction boundary |
 | KairoReflection | 80 | `1b6494a17146fc2d9404353bffb78efa2ef58c62` | vectors/quaternions/enums/references plus bounded homogeneous V3 arrays and collection validation |
 | KairoScheduler | 80 | `c1e39bfbce9196617c02ebf7d780610676a15aa1` | cancellation-aware range execution, worker/task telemetry, deterministic benchmark |
-| KairoGPU | 80 | `8fa7253e1611ab1363be8440dfb9507050e37afb` | frozen Metal-v1 scope, device-owned resource identity/lifetime, add/multiply/matmul, transfer/dispatch telemetry, regression benchmark |
+| KairoGPU | 80 | `5b45af290bdde97cbc36ada706eb14835459c20a` | frozen Metal-v1 scope, device-owned resource identity/lifetime, add/multiply/matmul, transfer/dispatch telemetry, regression benchmark |
 
 KairoGPU's 80 score applies to the explicitly frozen **Metal compute v1** scope.
 Vulkan/CUDA/WebGPU, generic resource binding, asynchronous queues and hardware
@@ -47,8 +47,9 @@ The final Wave-A/B umbrella integration commit is:
 
 `1979fc9f4bde3f0fbc6b02e872d903aea5e8bc0b`
 
-A subsequent documentation-only commit may advance `main`; the submodule SHAs
-above remain the authoritative Wave-A/B component pins.
+KairoGameEngine now consumes sibling repositories rather than Git submodules.
+The SHAs above are certification snapshots, and `workspace.lock` records the
+current exact integration snapshot without creating duplicate worktrees.
 
 ## Research tracks created during Wave B
 
@@ -89,3 +90,12 @@ requires an Apple Metal host.
 No current GitHub push-run status was exposed through the connected GitHub API
 for these direct-main commits, so this ledger does not fabricate a green
 exact-head CI run.
+
+
+## Workspace layout migration
+
+As of 2026-09-24 the integration repository no longer contains component
+submodules. The canonical layout is one sibling checkout per repository under
+the Kairo workspace. `scripts/migrate_from_submodules.sh` safely removes clean
+legacy nested copies, and `scripts/verify_workspace_lock.sh` provides exact-SHA
+integration verification without source duplication.
