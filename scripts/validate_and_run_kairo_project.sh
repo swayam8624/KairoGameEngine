@@ -15,7 +15,13 @@ if [[ "${MODE}" != "--validate" && "${MODE}" != "--smoke" ]]; then
 fi
 
 if [[ "${PROJECT}" != /* ]]; then
-    PROJECT="${ENGINE_ROOT}/${PROJECT}"
+    if [[ -f "${ENGINE_ROOT}/${PROJECT}" ]]; then
+        PROJECT="${ENGINE_ROOT}/${PROJECT}"
+    elif [[ -f "${ENGINE_ROOT}/../${PROJECT}" ]]; then
+        PROJECT="${ENGINE_ROOT}/../${PROJECT}"
+    else
+        PROJECT="${ENGINE_ROOT}/${PROJECT}"
+    fi
 fi
 if [[ ! -f "${PROJECT}" || "${PROJECT##*.}" != "kproject" ]]; then
     echo "Kairo project descriptor is missing or not a .kproject: ${PROJECT}" >&2
