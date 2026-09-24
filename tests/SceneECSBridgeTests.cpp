@@ -1,4 +1,5 @@
 #include <cassert>
+#include <string>
 
 import Kairo.SceneECSBridge;
 import Kairo.EngineCore;
