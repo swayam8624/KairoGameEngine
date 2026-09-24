@@ -1,13 +1,14 @@
 # KairoGameEngine
 
 `KairoGameEngine` is the integration repository for the Kairo engine workspace.
-It pins each independently versioned Kairo library and tool as a Git submodule,
-provides one CMake superbuild, and verifies that the complete stack compiles and
-tests together.
+It provides the CMake superbuild and end-to-end runtime/editor fixtures while
+consuming the independently versioned Kairo repositories as **sibling
+checkouts**.
 
-The component repositories remain usable on their own. This repository does not
-copy their source or merge their histories; each submodule commit is an explicit,
-reproducible engine dependency version.
+There is one physical working tree per component repository. KairoGameEngine no
+longer clones another KairoMath/KairoRenderer/etc. tree inside itself; standalone
+component builds remain supported, while the workspace superbuild reuses the
+same source trees you edit and commit directly.
 
 ## Architecture
 
@@ -44,20 +45,38 @@ The current evidence-based work tracks and gates are maintained in
 [`docs/DEVELOPMENT_MAP.md`](docs/DEVELOPMENT_MAP.md). It distinguishes locally
 verified implementations, platform-gated implementations, and planned work.
 
-## Clone
+## Workspace
 
-Clone recursively so every pinned component is checked out:
+Use one parent directory for all Kairo repositories:
+
+```text
+Kairo/
+├── KairoGameEngine/
+├── KairoMath/
+├── KairoGeometry/
+├── KairoSpatial/
+└── ...
+```
+
+For a fresh workspace:
 
 ```bash
-git clone --recurse-submodules https://github.com/swayam8624/KairoGameEngine.git
+mkdir -p Kairo
+cd Kairo
+git clone https://github.com/swayam8624/KairoGameEngine.git
 cd KairoGameEngine
+bash scripts/bootstrap_workspace.sh
 ```
 
-For an existing non-recursive clone:
+For a clone created with the historical nested-submodule layout:
 
 ```bash
-git submodule update --init --recursive
+bash scripts/migrate_from_submodules.sh
+bash scripts/migrate_from_submodules.sh --apply
 ```
+
+The first invocation is a safety dry-run and refuses migration if a nested copy
+contains uncommitted work. See [docs/WORKSPACE_LAYOUT.md](docs/WORKSPACE_LAYOUT.md).
 
 ## Prerequisites
 
@@ -98,31 +117,22 @@ The KairoMath and KairoSpatial visual laboratories remain available from their
 standalone repositories. The umbrella build excludes them because they are
 interactive developer tools, not runtime or integration-test artifacts.
 
-The superbuild fails during configuration with the repair command when a
-required submodule has not been initialized.
+The superbuild fails during configuration with the exact missing sibling path
+and repository clone URL when a required workspace repository is absent.
+`KAIRO_WORKSPACE_ROOT` may point at a different sibling-repository directory.
 
 ## Source Package
 
-The current package artifact is a source snapshot, not a binary SDK. Component
-repositories do not yet export installable package targets, so producing a
-binary archive would imply a supported redistributable surface that does not
-exist yet. After configuration, create a reproducible source archive with:
-
-```bash
-cpack --config build/dev-clang/CPackSourceConfig.cmake -G TGZ
-```
-
-The archive excludes local build output and Git metadata while retaining the
-pinned component source trees. Binary SDK packaging follows once each runtime
-component publishes install and package-config targets.
+Component source lives in sibling repositories, so KairoGameEngine no longer
+pretends that one source archive contains the entire engine workspace.
+`KAIRO_GAME_ENGINE_ENABLE_PACKAGING` is off by default. Runtime game packaging
+remains available through KairoPlayer's project packaging flow.
 
 ## Continuous Integration
 
-GitHub Actions performs recursive-supermodule Clang builds on Ubuntu and macOS,
-and an MSVC build on Windows, followed by tests and a source-package smoke
-check. Linux publishes the generated source archive as a workflow artifact.
-The workflow intentionally uses package-manager discovery rather than the machine-specific paths that
-older local presets required.
+Workspace CI checks out KairoGameEngine together with its required sibling
+repositories, then runs the same CMake presets and tests used locally. Component
+repositories continue to run their own standalone CI independently.
 
 ## Run
 
