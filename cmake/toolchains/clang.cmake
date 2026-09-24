@@ -35,3 +35,27 @@ else()
     set(CMAKE_CXX_COMPILER "${KAIRO_CLANG_CXX_COMPILER}" CACHE FILEPATH
         "C++ compiler selected by Kairo's Clang toolchain" FORCE)
 endif()
+
+# Keep C and Objective-C++ on the same LLVM installation as C++. Mixing
+# upstream Homebrew Clang objects with a different driver makes Darwin
+# diagnostics and ABI/toolchain behavior unnecessarily unpredictable.
+get_filename_component(_kairo_clang_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+if(EXISTS "${_kairo_clang_bin_dir}/clang")
+    set(CMAKE_C_COMPILER "${_kairo_clang_bin_dir}/clang" CACHE FILEPATH
+        "C compiler paired with Kairo's Clang toolchain" FORCE)
+endif()
+if(EXISTS "${_kairo_clang_bin_dir}/clang++")
+    set(CMAKE_OBJCXX_COMPILER "${_kairo_clang_bin_dir}/clang++" CACHE FILEPATH
+        "Objective-C++ compiler paired with Kairo's Clang toolchain" FORCE)
+endif()
+
+if(APPLE)
+    # Upstream LLVM 23 targets current macOS with newer DWARF by default, while
+    # the Apple ld shipped with the selected Xcode can emit thousands of
+    # 'can't parse dwarf compilation unit info' warnings for those objects.
+    # DWARF4 remains fully adequate for LLDB source debugging and is understood
+    # consistently by Apple's linker across supported Kairo macOS hosts.
+    set(CMAKE_C_FLAGS_DEBUG_INIT "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING "" FORCE)
+    set(CMAKE_CXX_FLAGS_DEBUG_INIT "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING "" FORCE)
+    set(CMAKE_OBJCXX_FLAGS_DEBUG_INIT "-g -gdwarf-4 -gstrict-dwarf" CACHE STRING "" FORCE)
+endif()
