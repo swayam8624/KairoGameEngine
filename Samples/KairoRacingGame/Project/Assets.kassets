@@ -5,3 +5,7 @@ asset 20000000-0000-4000-8000-000000000002 scene source 1 "Content/Racing/chassi
 end
 asset 20000000-0000-4000-8000-000000000003 scene source 1 "Content/Racing/wheel.glb" "kairo.gltf.scene"
 end
+asset 20000000-0000-4000-8000-000000000010 mesh builtin 1 "builtin/plane" "kairo.builtin.plane"
+end
+asset 20000000-0000-4000-8000-000000000011 material builtin 1 "builtin/default-material" "kairo.builtin"
+end
