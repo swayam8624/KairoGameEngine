@@ -44,6 +44,15 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Materialize locked engine workspace
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh \
+            KairoMath KairoGeometry KairoSpatial KairoPhysicsMath \
+            KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection \
+            KairoEngineCore KairoRenderer KairoEditor KairoRayTracer
+          bash scripts/verify_workspace_lock.sh
+
       - name: Initialize MSVC environment
         if: matrix.platform == 'windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -91,10 +100,17 @@ jobs:
           # Linux and Windows retain full offline-render superbuild coverage;
           # macOS still builds/tests the native editor, player, renderer, physics,
           # assets, AI, ECS, reflection, EngineCore, and realtime render bridge.
+          package_flag=OFF
+          if [[ "${{ matrix.platform }}" == "linux" && "${{ matrix.preset }}" == "ci-clang" ]]; then
+            package_flag=ON
+          fi
           if [[ "${{ matrix.platform }}" == "macos" ]]; then
-            cmake --preset ${{ matrix.preset }} -DKAIRO_GAME_ENGINE_BUILD_RAYTRACER=OFF
+            cmake --preset ${{ matrix.preset }} \
+              -DKAIRO_GAME_ENGINE_BUILD_RAYTRACER=OFF \
+              -DKAIRO_GAME_ENGINE_ENABLE_PACKAGING="${package_flag}"
           else
-            cmake --preset ${{ matrix.preset }}
+            cmake --preset ${{ matrix.preset }} \
+              -DKAIRO_GAME_ENGINE_ENABLE_PACKAGING="${package_flag}"
           fi
 
       - name: Build
