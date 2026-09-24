@@ -14,12 +14,18 @@ if [[ ! -f "${EVIDENCE}" ]]; then
     exit 1
 fi
 
-# shellcheck disable=SC1090
-source "${EVIDENCE}"
+read_evidence() {
+    local key="$1"
+    sed -n "s/^${key}='\\(.*\\)'$/\\1/p" "${EVIDENCE}" | head -n 1
+}
+
+KAIRO_ACCEPTED_ENGINE_SHA="$(read_evidence KAIRO_ACCEPTED_ENGINE_SHA)"
+KAIRO_ACCEPTED_LOCK_SHA256="$(read_evidence KAIRO_ACCEPTED_LOCK_SHA256)"
+KAIRO_ACCEPTED_HOST="$(read_evidence KAIRO_ACCEPTED_HOST)"
 CURRENT_ENGINE_SHA="$(git -C "${ENGINE_ROOT}" rev-parse HEAD)"
 CURRENT_LOCK_SHA256="$(shasum -a 256 "${ENGINE_ROOT}/workspace.lock" | awk '{print $1}')"
 
-if [[ "${KAIRO_ACCEPTED_ENGINE_SHA:-}" != "${CURRENT_ENGINE_SHA}" ]]; then
+if [[ "${KAIRO_ACCEPTED_ENGINE_SHA}" != "${CURRENT_ENGINE_SHA}" ]]; then
     echo "KAIRO acceptance evidence is stale: GameEngine revision changed." >&2
     echo "accepted: ${KAIRO_ACCEPTED_ENGINE_SHA:-missing}" >&2
     echo "current:  ${CURRENT_ENGINE_SHA}" >&2
