@@ -2,16 +2,16 @@
 
 Status date: 2026-09-24.
 
-KAIRO v1 is now frozen at **95% source-complete across all 27 repositories**.
-This map distinguishes that engineering/source milestone from exact-head native
-execution. The source milestone does not imply that every platform-gated smoke
-has run on every supported host.
+KAIRO v1 has a **95% target across 27 repositories**, but the portfolio is
+currently unverified. The earlier blanket source-complete claim was retracted:
+scope freeze and documentation are not completion evidence. Exact-head build,
+test, runtime and host gates determine acceptance.
 
 ## Evidence levels
 
 | State | Meaning |
 | --- | --- |
-| Source-complete 95 | Frozen v1 implementation/contract/tests/docs are complete |
+| Target 95 | Frozen v1 target; not an achieved state without acceptance evidence |
 | Verified | The relevant exact-head gate executed successfully on a supported host |
 | Platform-gated | Source exists but requires another native host/license/device |
 | Post-v1 | Explicitly excluded from the frozen v1 score |
@@ -23,12 +23,12 @@ complete portfolio with `scripts/verify_portfolio_95.sh`.
 
 | Wave | Repositories | Source state |
 | --- | --- | --- |
-| A | Math, Geometry, PhysicsMath, PipelineCore, Blender | 95 |
-| B | ECS, Reflection, Scheduler, GPU | 95 |
-| C | Spatial, PhysicsEngine, Assets, Renderer, EngineCore, RayTracer | 95 |
-| D | Editor, ProductionTools, Hub, Houdini, Maya, Nuke | 95 |
-| E | SIMD, ONNX, Transformers, AI, MacPerception | 95 |
-| F | GameEngine integration/release evidence | 95 |
+| A | Math, Geometry, PhysicsMath, PipelineCore, Blender | unverified |
+| B | ECS, Reflection, Scheduler, GPU | unverified |
+| C | Spatial, PhysicsEngine, Assets, Renderer, EngineCore, RayTracer | unverified |
+| D | Editor, ProductionTools, Hub, Houdini, Maya, Nuke | unverified |
+| E | SIMD, ONNX, Transformers, AI, MacPerception | unverified |
+| F | GameEngine integration/release evidence | unverified |
 
 See `docs/V1_95_COMPLETION.md` for the exact scope and post-v1 rule.
 
