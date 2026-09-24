@@ -57,6 +57,40 @@ export namespace kairo::runtime::renderbridge
     /// Complete CPU-side glTF import needed by animation-aware runtime binding.
     /// Keep the validated source artifact beside the renderer adaptation so node,
     /// skin, rest-pose, and clip metadata are not discarded after mesh upload.
+    /// Decode one image embedded in a glTF/GLB material through the same
+    /// KairoAssets STB importer used by registered project textures. Embedded
+    /// bytes are intentionally not registered as standalone persistent assets:
+    /// their identity and lifetime belong to the parent scene artifact.
+    [[nodiscard]] inline kairo::assets::TextureArtifactData DecodeEmbeddedGltfTexture(
+        const kairo::assets::GltfTextureBinding& binding,
+        kairo::assets::TextureSemantic semantic)
+    {
+        if (binding.EmbeddedBytes.empty())
+            throw std::invalid_argument(
+                "Embedded glTF texture resolver requires non-empty image bytes.");
+
+        kairo::assets::TextureImportSettings settings;
+        settings.ColorSpace = semantic == kairo::assets::TextureSemantic::Color
+            ? kairo::assets::TextureColorSpace::SRGB
+            : kairo::assets::TextureColorSpace::Linear;
+        settings.NormalMap = semantic == kairo::assets::TextureSemantic::Normal;
+
+        kairo::assets::StbTextureImporter importer;
+        kairo::assets::ImportRecord record;
+        record.Importer = importer.Identifier();
+        record.ImporterVersion = importer.Version();
+        record.CanonicalSettings =
+            kairo::assets::CanonicalTextureImportSettings(settings);
+
+        const auto artifact = importer.Import({
+            record,
+            kairo::assets::AssetType::Texture2D,
+            binding.EmbeddedBytes,
+            {}
+        });
+        return kairo::assets::ParseTextureDerivedArtifact(artifact);
+    }
+
     struct RenderGltfSceneImport final
     {
         kairo::assets::GltfSceneArtifactData Source;
@@ -71,7 +105,8 @@ export namespace kairo::runtime::renderbridge
         const kairo::assets::AssetRegistry& registry,
         kairo::assets::ImportDatabase& imports,
         const kairo::assets::DerivedDataCache& cache,
-        const kairo::renderer::GltfTextureResolver& resolveTexture = {})
+        const kairo::renderer::GltfTextureResolver& resolveTexture = {},
+        const kairo::renderer::GltfEmbeddedTextureResolver& resolveEmbeddedTexture = {})
     {
         const auto metadata = registry.Resolve(asset);
         kairo::assets::GltfSceneImporter importer;
@@ -84,7 +119,8 @@ export namespace kairo::runtime::renderbridge
         auto outcome = kairo::assets::ImportSourceAsset(projectRoot, std::move(record),
             importer, registry, imports, cache);
         auto source = kairo::assets::ParseGltfSceneDerivedArtifact(outcome.Artifact);
-        auto renderAsset = kairo::renderer::MakeGltfRenderAsset(source, resolveTexture);
+        auto renderAsset = kairo::renderer::MakeGltfRenderAsset(
+            source, resolveTexture, resolveEmbeddedTexture);
         return { std::move(source), std::move(renderAsset), outcome.Key,
             outcome.CacheHit };
     }
@@ -96,10 +132,11 @@ export namespace kairo::runtime::renderbridge
         const kairo::assets::AssetRegistry& registry,
         kairo::assets::ImportDatabase& imports,
         const kairo::assets::DerivedDataCache& cache,
-        const kairo::renderer::GltfTextureResolver& resolveTexture = {})
+        const kairo::renderer::GltfTextureResolver& resolveTexture = {},
+        const kairo::renderer::GltfEmbeddedTextureResolver& resolveEmbeddedTexture = {})
     {
         return ImportRenderGltfSceneWithSource(projectRoot, asset, registry,
-            imports, cache, resolveTexture).RenderAsset;
+            imports, cache, resolveTexture, resolveEmbeddedTexture).RenderAsset;
     }
 
     /// Task: import a texture with explicit color/data semantics. Those
