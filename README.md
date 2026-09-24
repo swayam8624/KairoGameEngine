@@ -116,7 +116,9 @@ bash scripts/build_and_test.sh --clean --verify-lock
 ```
 
 The script is fail-fast: CTest is never run after a failed build, so one linker
-failure cannot turn into dozens of misleading "Not Run" test failures.
+failure cannot turn into dozens of misleading "Not Run" test failures. A
+successful compile/link must also pass the zero-warning log gate before tests
+start. See [docs/BUILD_HYGIENE.md](docs/BUILD_HYGIENE.md).
 
 The equivalent manual commands are:
 
