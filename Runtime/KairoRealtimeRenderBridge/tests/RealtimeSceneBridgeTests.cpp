@@ -110,6 +110,30 @@ TEST_CASE("Shared extraction expands scene instances and honors layer masks",
     CHECK(BuildRenderScene(scene, assets, 0x2u).Draws().empty());
 }
 
+TEST_CASE("Shared camera extraction preserves authored projection contract",
+    "[KairoRealtimeRenderBridge][Camera]")
+{
+    kairo::engine::Scene scene;
+    const auto entity = scene.CreateEntity("Camera");
+    kairo::engine::CameraComponent camera;
+    camera.Primary = true;
+    camera.Projection = kairo::engine::CameraProjection::Orthographic;
+    camera.VerticalFovRadians = 0.7853981634f;
+    camera.OrthographicSize = 42.0f;
+    camera.NearPlane = 0.25f;
+    camera.FarPlane = 1500.0f;
+    scene.SetCamera(entity, camera);
+    scene.Transform(entity).Local.Translation = { 3.0f, 4.0f, 5.0f };
+
+    const auto extracted = SelectRenderCamera(scene);
+    CHECK(extracted.Position == kairo::foundation::math::Vec3f{ 3.0f, 4.0f, 5.0f });
+    CHECK(extracted.Projection == kairo::renderer::CameraProjectionMode::Orthographic);
+    CHECK(extracted.VerticalFovRadians == camera.VerticalFovRadians);
+    CHECK(extracted.OrthographicSize == camera.OrthographicSize);
+    CHECK(extracted.NearPlane == camera.NearPlane);
+    CHECK(extracted.FarPlane == camera.FarPlane);
+}
+
 
 namespace
 {
