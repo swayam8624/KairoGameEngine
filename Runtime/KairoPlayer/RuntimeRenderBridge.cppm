@@ -6,6 +6,7 @@ module;
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -311,6 +312,7 @@ export namespace kairo::player
             }
             m_OwnedMeshes.clear();
             m_OwnedTextures.clear();
+            m_EmbeddedTextures.clear();
         }
 
         [[nodiscard]] kairo::renderer::TextureHandle EnsureTexture(
@@ -333,6 +335,32 @@ export namespace kairo::player
             m_TextureSettings.emplace(asset.ID, settings);
             m_Assets.BindTexture(asset, handle);
             m_OwnedTextures.push_back(handle);
+            return handle;
+        }
+
+        [[nodiscard]] kairo::renderer::TextureHandle EnsureEmbeddedTexture(
+            const kairo::assets::GltfTextureBinding& binding,
+            kairo::assets::TextureSemantic semantic)
+        {
+            if (binding.EmbeddedBytes.empty())
+                throw std::invalid_argument(
+                    "Embedded glTF texture contains no image bytes.");
+
+            const auto fingerprint =
+                kairo::assets::FingerprintBytes(binding.EmbeddedBytes);
+            const std::string key = fingerprint.ToHex() + ":" +
+                std::to_string(static_cast<unsigned>(semantic));
+
+            if (const auto found = m_EmbeddedTextures.find(key);
+                found != m_EmbeddedTextures.end())
+                return found->second;
+
+            const auto texture =
+                kairo::runtime::renderbridge::DecodeEmbeddedGltfTexture(
+                    binding, semantic);
+            const auto handle = m_Renderer.CreateTexture(texture);
+            m_OwnedTextures.push_back(handle);
+            m_EmbeddedTextures.emplace(key, handle);
             return handle;
         }
 
@@ -420,10 +448,17 @@ export namespace kairo::player
                     return EnsureTexture({ texture->ID }, settings);
                 };
 
+                const auto resolveEmbeddedTexture = [this](
+                    const kairo::assets::GltfTextureBinding& binding,
+                    kairo::assets::TextureSemantic semantic)
+                {
+                    return EnsureEmbeddedTexture(binding, semantic);
+                };
+
                 auto imported =
                     kairo::runtime::renderbridge::ImportRenderGltfSceneWithSource(
                         m_Project.Root(), { metadata.ID }, m_Project.Assets(),
-                        m_Imports, m_Cache, resolveTexture);
+                        m_Imports, m_Cache, resolveTexture, resolveEmbeddedTexture);
                 std::vector<kairo::renderer::MeshHandle> handles;
                 handles.reserve(imported.RenderAsset.Primitives.size());
                 for (const auto& primitive : imported.RenderAsset.Primitives)
@@ -448,6 +483,8 @@ export namespace kairo::player
         std::unordered_map<kairo::assets::AssetID,
             kairo::assets::TextureImportSettings, kairo::assets::AssetIDHash>
             m_TextureSettings;
+        std::unordered_map<std::string, kairo::renderer::TextureHandle>
+            m_EmbeddedTextures;
         std::vector<kairo::renderer::MeshHandle> m_OwnedMeshes;
         std::vector<kairo::renderer::TextureHandle> m_OwnedTextures;
     };
