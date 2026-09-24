@@ -1,0 +1,37 @@
+name: Racing Port Compile
+
+on:
+  push:
+    branches:
+      - port/pmndrs-racing-kairo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    name: Ubuntu Clang Racing Target
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Materialize locked KAIRO workspace
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh
+          bash scripts/verify_workspace_lock.sh
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools
+      - name: Configure
+        shell: bash
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake --preset ci-clang -DKAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE=ON
+      - name: Compile native KAIRO racing game
+        shell: bash
+        run: cmake --build --preset ci-clang --target KairoRacingGame --parallel
