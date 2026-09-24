@@ -57,14 +57,12 @@ run "${ENGINE_ROOT}/build/dev-clang/Samples/Phase1Game/KairoPhase1Game" --smoke
 
 CXX_COMPILER="$(resolve_clang)"
 if [[ -z "${CXX_COMPILER}" ]]; then
-    echo "SKIP     Standalone C++ repo gates: no clang++ found."
-else
-    # These repos are optional or not fully exercised by the default umbrella
-    # configuration. Standalone gates prove their own CMake/test contracts.
-    for repo in KairoSIMD KairoScheduler KairoGPU KairoONNX KairoTransformers; do
-        cmake_gate "${repo}" "${CXX_COMPILER}"
-    done
+    echo "ERROR: clang++ is required for standalone compute/ML acceptance." >&2
+    exit 4
 fi
+for repo in KairoSIMD KairoScheduler KairoGPU KairoONNX KairoTransformers; do
+    cmake_gate "${repo}" "${CXX_COMPILER}"
+done
 
 # Host-neutral production-pipeline gates. Treat Python warnings as failures so
 # deprecations and resource issues do not become permanent background noise.
@@ -75,26 +73,38 @@ for repo in KairoHoudini KairoMaya KairoNuke; do
 done
 
 # Blender native gate when the standard macOS installation exists.
+HOST_OS="$(uname -s)"
 BLENDER="/Applications/Blender.app/Contents/MacOS/Blender"
-if [[ -x "${BLENDER}" ]]; then
-    run "${BLENDER}" --background --factory-startup         --python "${WORKSPACE_ROOT}/KairoBlender/tests/run_blender_tests.py"
+if [[ "${HOST_OS}" == "Darwin" ]]; then
+    if [[ ! -x "${BLENDER}" ]]; then
+        echo "ERROR: Blender native gate is required on macOS but Blender is missing: ${BLENDER}" >&2
+        exit 4
+    fi
+    run "${BLENDER}" --background --factory-startup \
+        --python "${WORKSPACE_ROOT}/KairoBlender/tests/run_blender_tests.py"
 else
-    echo "SKIP     Blender native gate: ${BLENDER} not installed."
+    echo "PLATFORM  Blender native gate not executed on ${HOST_OS}."
 fi
 
 # Hub and Mac perception are independent host stacks and enforce warning-clean
 # compilation at their language toolchain boundaries too.
-if command -v npm >/dev/null 2>&1 && command -v cargo >/dev/null 2>&1; then
-    (cd "${WORKSPACE_ROOT}/KairoHub" && run npm run build)
-    run env RUSTFLAGS="-Dwarnings" cargo test         --manifest-path "${WORKSPACE_ROOT}/KairoHub/src-tauri/Cargo.toml"
-else
-    echo "SKIP     KairoHub native gate: npm and/or cargo unavailable."
+if ! command -v npm >/dev/null 2>&1 || ! command -v cargo >/dev/null 2>&1; then
+    echo "ERROR: KairoHub acceptance requires both npm and cargo." >&2
+    exit 4
 fi
+(cd "${WORKSPACE_ROOT}/KairoHub" && run npm run build)
+run env RUSTFLAGS="-Dwarnings" cargo test \
+    --manifest-path "${WORKSPACE_ROOT}/KairoHub/src-tauri/Cargo.toml"
 
-if command -v swift >/dev/null 2>&1; then
-    (cd "${WORKSPACE_ROOT}/KairoMacPerception" &&         run swift test -Xswiftc -warnings-as-errors)
+if [[ "${HOST_OS}" == "Darwin" ]]; then
+    if ! command -v swift >/dev/null 2>&1; then
+        echo "ERROR: KairoMacPerception acceptance requires Swift on macOS." >&2
+        exit 4
+    fi
+    (cd "${WORKSPACE_ROOT}/KairoMacPerception" && \
+        run swift test -Xswiftc -warnings-as-errors)
 else
-    echo "SKIP     KairoMacPerception gate: Swift unavailable."
+    echo "PLATFORM  KairoMacPerception native gate not executed on ${HOST_OS}."
 fi
 
 ENGINE_SHA="$(git -C "${ENGINE_ROOT}" rev-parse HEAD)"
@@ -104,6 +114,8 @@ cat > "${EVIDENCE_FILE}" <<EOF
 KAIRO_ACCEPTED_ENGINE_SHA='${ENGINE_SHA}'
 KAIRO_ACCEPTED_LOCK_SHA256='${LOCK_SHA256}'
 KAIRO_ACCEPTED_HOST='${HOST_NAME}'
+KAIRO_ACCEPTED_OS='${HOST_OS}'
+KAIRO_ACCEPTED_SCOPE='host-complete-plus-explicit-platform-gates'
 EOF
 
 echo
