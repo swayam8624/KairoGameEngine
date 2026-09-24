@@ -22,6 +22,8 @@ print(time.time_ns())
 PY
 )"
 run ctest --test-dir "${ENGINE_ROOT}/build/dev-clang"     -R "${TEST_REGEX}" --output-on-failure
+run "${ENGINE_ROOT}/build/dev-clang/KairoWaveCScaleBenchmark" \
+    "${EVIDENCE_DIR}/benchmark.json"
 END_NS="$(python3 - <<'PY'
 import time
 print(time.time_ns())
