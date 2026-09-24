@@ -48,7 +48,7 @@ waves:
   F:
     - KairoGameEngine
 verification_semantics:
-  source_complete_95: frozen_v1_implementation_contract_tests_docs_complete
-  verified: exact_head_gate_executed_successfully_on_supported_host
-  platform_gated: source_complete_but_native_host_or_license_required
-  post_v1: explicitly_excluded_from_frozen_v1_score
+  target_95: requested_target_only_not_an_achieved_state
+  accepted_on_host: exact_locked_heads_passed_the_host_acceptance_campaign
+  platform_gated: requires_another_native_host_license_or_device_and_is_not_inferred
+  post_v1: explicitly_outside_the_v1_target_scope
