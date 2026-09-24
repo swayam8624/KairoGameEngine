@@ -15,7 +15,8 @@ if (( $# > 0 )); then
 else
     repos=()
     while read -r repo sha extra; do
-        [[ -z "${repo}" || "${repo}" == #* ]] && continue
+        [[ -z "${repo}" ]] && continue
+        [[ "${repo}" == \#* ]] && continue
         if [[ -n "${extra:-}" || ! "${sha:-}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "ERROR: malformed workspace.lock row for ${repo}" >&2
             exit 2
