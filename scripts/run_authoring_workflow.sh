@@ -16,6 +16,14 @@ run bash "${ENGINE_ROOT}/scripts/verify_workspace_lock.sh"
 run cmake --preset dev-clang
 run cmake --build --preset dev-clang --parallel
 
+# Exercise the authored-data lifecycle, editor transactions and runtime
+# persistence explicitly. A launch-only demo is not sufficient evidence for
+# Wave D because save/recovery/package regressions can otherwise hide behind a
+# successful executable build.
+run ctest --test-dir "${ENGINE_ROOT}/build/dev-clang" \
+    -R 'KairoEditorTests|KairoEditorPhase4Tests|KairoEditorDocumentCompilerTests|KairoEditorUITests|KairoEditorSharedContentSmoke|KairoPlayerSaveGameBridgeTests|KairoPlayerWorldSaveBridgeTests|KairoPhase1.Package' \
+    --output-on-failure
+
 run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh"     "${WORKSPACE_ROOT}/KairoEditor/examples/StarterProject/Project.kproject" --validate
 run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh"     "${ENGINE_ROOT}/Samples/SharedContentShowcase/Project.kproject" --smoke
 run "${ENGINE_ROOT}/build/dev-clang/Samples/Phase1Game/KairoPhase1Game" --smoke
