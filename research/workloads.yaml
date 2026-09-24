@@ -1,0 +1,62 @@
+schema: kairo.workload-manifest.v1
+updated: 2026-09-24
+principle: Every claim must name the exact workload/fixture revision used to test it.
+
+canonical_checked_in:
+  shared_content:
+    owner: KairoGameEngine
+    path: Samples/SharedContentShowcase
+    purpose: imported GLB/glTF, material, lighting, editor/player semantic parity
+    examples:
+      - Content/ToyCar/ToyCar.glb
+      - Content/TexturedPanel/TexturedPanel.gltf
+  compatibility_content:
+    owner: KairoGameEngine
+    path: TestContent/Compatibility/committed
+    purpose: renderer/importer compatibility and malformed-input handling
+    examples:
+      - ToyCar/ToyCar.glb
+      - MetalRoughSpheresNoTextures/MetalRoughSpheresNoTextures.glb
+      - LightVisibility/LightVisibility.glb
+      - Malformed/invalid_json.gltf
+  physics_scenes:
+    owner: KairoPhysicsEngine
+    path: scenes
+    purpose: solver, collision, sleeping, projectile, trigger, buoyancy and stress coverage
+    examples:
+      - box_stack.kphys
+      - stress_500.kphys
+      - projectile_wall.kphys
+      - water_buoyancy.kphys
+  onnx_reference:
+    owner: KairoONNX
+    path: tests/fixtures
+    purpose: reference inference equivalence
+    examples:
+      - reference_mlp.onnx
+      - reference_cnn.onnx
+      - reference_transformer.onnx
+  transformer_deterministic:
+    owner: KairoTransformers
+    path: tests/benchmark.cpp
+    purpose: cached/full equivalence, quantization error and decode throughput
+    seed: 20260723
+  blender_native:
+    owner: KairoBlender
+    path: tests/run_blender_tests.py
+    purpose: real Blender glTF publish, immutable versions and validation
+  wave_c_generated:
+    purpose: deterministic scale regressions without external downloads
+    workloads:
+      spatial_primitives: 4096
+      spatial_queries: 128
+      dynamic_tree_proxies: 4096
+      physics_dynamic_bodies: 36
+      physics_steps_per_run: 360
+      asset_ddc_entries: 256
+      render_graph_passes: 256
+      world_streaming_cells: 4096
+
+external_research_datasets:
+  state: candidate-until-pinned
+  rule: Add source URL, license, version/hash and conversion script before using any external dataset in a paper claim.
