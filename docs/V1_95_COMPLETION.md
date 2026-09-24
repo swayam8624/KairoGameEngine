@@ -1,34 +1,34 @@
-# KAIRO v1 — 95% Source-Complete Portfolio
+# KAIRO v1 — 95% Target and Acceptance Contract
 
 Status date: 2026-09-24.
 
-This document is the final v1 scope contract. **95% means the repository's
-frozen v1 implementation, integration contract, tests/diagnostics surface and
-documentation are source-complete.** It does not mean that every native host has
-executed the exact head. Native execution remains a separate release-evidence
-field in each repository's `STATUS.yaml`.
+This document defines the 95% target; it does not certify that the target has
+been reached. The earlier blanket 95% claim was retracted. A frozen scope,
+tests existing in source, or a status file cannot establish completion. Exact
+locked heads must pass the acceptance campaign before a completion claim is
+valid.
 
 ## Waves
 
 | Wave | Repositories | Frozen v1 result |
 | --- | --- | --- |
-| A Foundation / DCC base | KairoMath, KairoGeometry, KairoPhysicsMath, KairoPipelineCore, KairoBlender | 95% |
-| B Runtime infrastructure | KairoECS, KairoReflection, KairoScheduler, KairoGPU | 95% |
-| C Engine systems | KairoSpatial, KairoPhysicsEngine, KairoAssets, KairoRenderer, KairoEngineCore, KairoRayTracer | 95% |
-| D Authoring / production | KairoEditor, KairoProductionTools, KairoHub, KairoHoudini, KairoMaya, KairoNuke | 95% |
-| E Compute / AI | KairoSIMD, KairoONNX, KairoTransformers, KairoAI, KairoMacPerception | 95% |
-| F Integration / release evidence | KairoGameEngine | 95% |
+| A Foundation / DCC base | KairoMath, KairoGeometry, KairoPhysicsMath, KairoPipelineCore, KairoBlender | unverified |
+| B Runtime infrastructure | KairoECS, KairoReflection, KairoScheduler, KairoGPU | unverified |
+| C Engine systems | KairoSpatial, KairoPhysicsEngine, KairoAssets, KairoRenderer, KairoEngineCore, KairoRayTracer | unverified |
+| D Authoring / production | KairoEditor, KairoProductionTools, KairoHub, KairoHoudini, KairoMaya, KairoNuke | unverified |
+| E Compute / AI | KairoSIMD, KairoONNX, KairoTransformers, KairoAI, KairoMacPerception | unverified |
+| F Integration / release evidence | KairoGameEngine | unverified |
 
-Machine-check the complete portfolio with:
-
-```bash
-bash scripts/verify_portfolio_95.sh
-```
-
-Run the host-available verification campaign with:
+Run the host-available acceptance campaign first:
 
 ```bash
 bash scripts/run_portfolio_acceptance.sh
+```
+
+Then validate that the generated evidence still matches the exact current heads:
+
+```bash
+bash scripts/verify_portfolio_95.sh
 ```
 
 ## Completion definition
