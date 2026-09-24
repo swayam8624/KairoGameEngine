@@ -43,9 +43,15 @@ for repo in "${repos[@]}"; do
         echo "ERROR: missing Git checkout: ${path}" >&2
         exit 1
     fi
-    if [[ -n "$(git -C "${path}" status --porcelain --untracked-files=all)" ]]; then
-        echo "ERROR: ${repo} has local changes; commit/stash them before workspace sync." >&2
-        git -C "${path}" status --short >&2
+    status_output="$(git -C "${path}" status --porcelain --untracked-files=all)"
+    # macOS Finder metadata must never block a whole multi-repo workspace sync.
+    # Ignore only untracked .DS_Store files; tracked edits and every other
+    # untracked path remain a hard stop so local work cannot be overwritten.
+    meaningful_status="$(printf '%s\n' "${status_output}" |
+        awk 'NF && !($1 == "??" && ($2 == ".DS_Store" || $2 ~ /\/.DS_Store$/))')"
+    if [[ -n "${meaningful_status}" ]]; then
+        echo "ERROR: ${repo} has meaningful local changes; commit/stash them before workspace sync." >&2
+        printf '%s\n' "${meaningful_status}" >&2
         exit 1
     fi
 
