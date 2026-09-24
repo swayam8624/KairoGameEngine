@@ -3,6 +3,10 @@ set -euo pipefail
 
 ENGINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_ROOT="${KAIRO_WORKSPACE_ROOT:-$(cd "${ENGINE_ROOT}/.." && pwd)}"
+EVIDENCE_DIR="${ENGINE_ROOT}/build/portfolio-evidence"
+EVIDENCE_FILE="${EVIDENCE_DIR}/accepted.env"
+mkdir -p "${EVIDENCE_DIR}"
+rm -f "${EVIDENCE_FILE}"
 
 run() {
     echo
@@ -93,12 +97,10 @@ else
     echo "SKIP     KairoMacPerception gate: Swift unavailable."
 fi
 
-EVIDENCE_DIR="${ENGINE_ROOT}/build/portfolio-evidence"
-mkdir -p "${EVIDENCE_DIR}"
 ENGINE_SHA="$(git -C "${ENGINE_ROOT}" rev-parse HEAD)"
 LOCK_SHA256="$(shasum -a 256 "${ENGINE_ROOT}/workspace.lock" | awk '{print $1}')"
 HOST_NAME="$(hostname)"
-cat > "${EVIDENCE_DIR}/accepted.env" <<EOF
+cat > "${EVIDENCE_FILE}" <<EOF
 KAIRO_ACCEPTED_ENGINE_SHA='${ENGINE_SHA}'
 KAIRO_ACCEPTED_LOCK_SHA256='${LOCK_SHA256}'
 KAIRO_ACCEPTED_HOST='${HOST_NAME}'
@@ -106,5 +108,5 @@ EOF
 
 echo
 echo "KAIRO host acceptance completed for every gate available on this host."
-echo "Evidence: ${EVIDENCE_DIR}/accepted.env"
+echo "Evidence: ${EVIDENCE_FILE}"
 echo "Platform-specific skipped gates remain platform-gated, never inferred as verified."
