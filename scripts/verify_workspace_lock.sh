@@ -19,14 +19,24 @@ while read -r repo expected extra; do
         continue
     fi
     actual="$(git -C "${path}" rev-parse HEAD)"
-    if [[ "${actual}" == "${expected}" ]]; then
-        echo "OK        ${repo} ${actual}"
-    else
+    status_output="$(git -C "${path}" status --porcelain --untracked-files=all)"
+    meaningful_status="$(printf '%s\n' "${status_output}" |
+        awk 'NF && !($1 == "??" && ($2 == ".DS_Store" || $2 ~ /\/.DS_Store$/))')"
+
+    if [[ "${actual}" != "${expected}" ]]; then
         echo "DIFF      ${repo}"
         echo "          expected ${expected}"
         echo "          actual   ${actual}"
         mismatches=$((mismatches + 1))
+        continue
     fi
+    if [[ -n "${meaningful_status}" ]]; then
+        echo "DIRTY     ${repo} ${actual}"
+        printf '%s\n' "${meaningful_status}" | sed 's/^/          /'
+        mismatches=$((mismatches + 1))
+        continue
+    fi
+    echo "OK        ${repo} ${actual}"
 done < "${LOCK_FILE}"
 
 if [[ ${mismatches} -ne 0 ]]; then
@@ -37,4 +47,4 @@ if [[ ${mismatches} -ne 0 ]]; then
 fi
 
 echo
-echo "Workspace exactly matches workspace.lock."
+echo "Workspace exactly matches workspace.lock and all locked trees are clean."
