@@ -9,6 +9,7 @@ repos=(
   KairoAssets KairoAI KairoECS KairoReflection KairoEngineCore KairoRenderer
   KairoEditor KairoRayTracer KairoGPU KairoSIMD KairoScheduler KairoONNX
   KairoTransformers KairoHub KairoMacPerception
+  KairoPipelineCore KairoBlender KairoProductionTools KairoHoudini KairoMaya KairoNuke
 )
 
 default_branch_for_repo() {
