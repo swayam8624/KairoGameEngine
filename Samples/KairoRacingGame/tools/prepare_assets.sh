@@ -38,7 +38,7 @@ done
 # Record exact public source bytes and transformed scene bytes. This records
 # provenance without assuming Blender output is bit-identical across versions.
 {
-    printf 'upstream_commit %s\\n' "${ACTUAL_SHA}"
+    printf 'upstream_commit %s\n' "${ACTUAL_SHA}"
     "${BLENDER}" --version | head -n 1
     for asset in track chassis wheel; do
         (cd "${UPSTREAM}" && shasum -a 256 "public/models/${asset}-draco.glb")
