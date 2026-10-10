@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
 #include <vector>
@@ -65,12 +66,27 @@ export namespace kairo::player
                     continue;
                 m_Motor.Register(entity, m_Settings.Motor);
                 m_Controllers.push_back(entity);
+                m_SpawnWorldPositions.push_back(m_Scene.WorldTransform(entity).Translation);
             }
         }
 
         [[nodiscard]] std::size_t ControllerCount() const noexcept
         {
             return m_Controllers.size();
+        }
+
+        /// Offset of the first active controlled player from its authored
+        /// spawn pose, used by explicitly tagged follow-cameras. Projects with
+        /// cinematic/scripted cameras opt out by omitting the camera tag.
+        [[nodiscard]] std::optional<kairo::foundation::math::Vec3f>
+        PrimaryWorldDisplacement() const
+        {
+            if (m_Controllers.empty()) return std::nullopt;
+            const auto entity = m_Controllers.front();
+            if (!m_Scene.Contains(entity) || !m_Scene.IsActiveInHierarchy(entity))
+                return std::nullopt;
+            return m_Scene.WorldTransform(entity).Translation -
+                m_SpawnWorldPositions.front();
         }
 
         [[nodiscard]] bool Controls(kairo::engine::Entity entity) const noexcept
@@ -140,6 +156,7 @@ export namespace kairo::player
         RuntimeCharacterMotorBridge& m_Motor;
         RuntimePlayerControllerSettings m_Settings;
         std::vector<kairo::engine::Entity> m_Controllers;
+        std::vector<kairo::foundation::math::Vec3f> m_SpawnWorldPositions;
         RuntimePlayerControllerState m_State;
     };
 }
