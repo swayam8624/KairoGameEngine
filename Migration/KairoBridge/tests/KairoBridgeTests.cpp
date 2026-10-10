@@ -243,3 +243,25 @@ TEST_CASE("Migration manifest supports deterministic incremental upserts and cov
     REQUIRE(coverage.Runnable() == 2u);
     REQUIRE(coverage.RunnablePercent() == 100.0);
 }
+
+TEST_CASE("Unity discovery never reads metadata linked outside the project")
+{
+    using namespace kairo::bridge;
+    TemporaryProject project("kairo_bridge_unity_linked_meta");
+    TemporaryProject external("kairo_bridge_unity_external_meta");
+    std::filesystem::create_directories(project.Root / "Assets");
+    project.Write("ProjectSettings/ProjectVersion.txt",
+        "m_EditorVersion: 2022.3.48f1\\n");
+    project.Write("Assets/Local.prefab.meta",
+        "guid: 00112233445566778899aabbccddeeff\\n");
+    external.Write("Foreign.meta",
+        "guid: 11112222333344445555666677778888\\n");
+    std::error_code error;
+    std::filesystem::create_symlink(external.Root / "Foreign.meta",
+        project.Root / "Assets/Foreign.prefab.meta", error);
+    if (error) SKIP("filesystem did not permit symlink creation");
+    const auto scan = ScanUnityProject(DetectSourceProject(project.Root));
+    REQUIRE(scan.Assets.size() == 1u);
+    REQUIRE(scan.Assets.front().Source.SourcePath ==
+        std::filesystem::path("Assets/Local.prefab"));
+}
