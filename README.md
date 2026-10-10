@@ -114,6 +114,31 @@ The checked-in developer preset targets the current macOS/Homebrew toolchain:
 brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
 ```
 
+## Play a Kairo game from one command
+
+After cloning `KairoGameEngine`, from the repository root run:
+
+```bash
+bash scripts/play_kairo_project.sh
+```
+
+The script clones missing sibling repositories without overwriting existing
+work, performs the native build and tests, compiles the project descriptor,
+and opens the real interactive KairoPlayer with the PlayableVerticalSlice
+fixture (WASD/left stick to move, Space/gamepad A to jump, Escape to quit).
+A graphical desktop session and the platform's C++23 rendering prerequisites
+are required. This is a native Kairo project, not full Unity/Unreal migration.
+
+Use any compatible authored project and select a renderer:
+
+```bash
+bash scripts/play_kairo_project.sh /absolute/path/to/Game/Project.kproject --renderer metal
+```
+
+For repeated local launches after a successful native build, use
+`bash scripts/play_kairo_project.sh --skip-build`. If the compiler or player
+binary is missing, the script refuses to launch rather than claiming success.
+
 ## Build And Test
 
 For normal development:
