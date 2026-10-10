@@ -7,11 +7,14 @@
 #include <stdexcept>
 #include <string_view>
 
+import Kairo.EngineCore.InputMap;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
 import Kairo.Player.RuntimeAudioBridge;
 import Kairo.Player.RuntimeSceneAudioBridge;
 import Kairo.Player.RuntimePhysicsBridge;
+import Kairo.Player.RuntimeCharacterMotorBridge;
+import Kairo.Player.RuntimePlayerControllerBridge;
 import Kairo.Player.RuntimeInputBridge;
 import Kairo.Player.RuntimeLogicBridge;
 import Kairo.Player.RuntimeNativeGameplayBridge;
@@ -35,17 +38,20 @@ namespace
     class RuntimeFixedStepFanout final : public kairo::player::RuntimeFixedStepListener
     {
     public:
-        RuntimeFixedStepFanout(kairo::player::RuntimeLogicBridge& logic,
+        RuntimeFixedStepFanout(kairo::player::RuntimePlayerControllerBridge& playerController,
+            kairo::player::RuntimeLogicBridge& logic,
             kairo::player::RuntimeNativeGameplayBridge& native)
-            : m_Logic(logic), m_Native(native) {}
+            : m_PlayerController(playerController), m_Logic(logic), m_Native(native) {}
 
         void BeforePhysicsStep(float fixedDeltaSeconds) override
         {
+            m_PlayerController.BeforePhysicsStep(fixedDeltaSeconds);
             m_Logic.BeforePhysicsStep(fixedDeltaSeconds);
             m_Native.BeforePhysicsStep(fixedDeltaSeconds);
         }
 
     private:
+        kairo::player::RuntimePlayerControllerBridge& m_PlayerController;
         kairo::player::RuntimeLogicBridge& m_Logic;
         kairo::player::RuntimeNativeGameplayBridge& m_Native;
     };
@@ -105,12 +111,19 @@ int main(int argc, char** argv)
         kairo::player::RuntimeAudioBridge audio(project);
         kairo::player::RuntimeSceneAudioBridge sceneAudio(project.Scene(), audio);
         kairo::player::RuntimeInputBridge input(project.InputMap());
+        kairo::player::RuntimeCharacterMotorBridge characterMotor(project.Scene(), physics);
+        kairo::player::RuntimePlayerControllerBridge playerController(
+            project.Scene(), characterMotor);
+        if (playerController.ControllerCount() != 0u && !input.HasAction("Move"))
+            throw std::invalid_argument(
+                "A kairo.player-controller entity requires a project input action named 'Move'.");
         kairo::player::RuntimeLogicBridge logic(project, physics);
         kairo::player::RuntimeNativeGameplayBridge nativeGameplay(
             project, kairo::player::PlayerNativeGameplayRegistry());
         kairo::player::RuntimeProductionSystemsBridge production(project);
         kairo::player::RuntimeShippingBridge shipping(project);
         std::cout << "  audio clips: " << audio.LoadedClipCount() << '\n'
+                  << "  player controllers: " << playerController.ControllerCount() << '\n'
                   << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
                   << "  production systems: " << (production.Enabled() ? "enabled" : "disabled") << '\n';
         if (arguments.ValidateOnly) return 0;
@@ -132,7 +145,7 @@ int main(int argc, char** argv)
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true,
             backend });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
-        RuntimeFixedStepFanout fixedSteps(logic, nativeGameplay);
+        RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay);
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
         sceneAudio.BeginPlay();
@@ -147,6 +160,13 @@ int main(int argc, char** argv)
             input.Poll(renderer.NativeWindow());
             if (input.HasAction("Quit") && input.Action("Quit").Pressed)
                 renderer.NativeWindow().RequestClose();
+
+            if (playerController.ControllerCount() != 0u)
+            {
+                const auto jump = input.HasAction("Jump")
+                    ? input.Action("Jump") : kairo::engine::InputActionState{};
+                playerController.CaptureInput(input.Action("Move"), jump);
+            }
             for (const auto& action : project.InputMap().Actions())
                 logic.DispatchInput(action.Name, input.Action(action.Name));
             const auto currentFrame = std::chrono::steady_clock::now();
@@ -165,6 +185,7 @@ int main(int argc, char** argv)
             (void)sceneAudio.Advance(static_cast<double>(elapsedSeconds));
 
             renderer.SubmitRenderScene(bridge.BuildScene());
+            renderer.SetCameraPose(bridge.CameraPose());
             renderer.DrawFrame();
             if (arguments.SmokeTest)
             {
