@@ -53,6 +53,12 @@ run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh" \
     "${WORKSPACE_ROOT}/KairoEditor/examples/StarterProject/Project.kproject" --validate
 run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh" \
     "Samples/SharedContentShowcase/Project.kproject" --smoke
+# Exercise generic authored gameplay (real input, character motor, physics,
+# runtime player, and renderer) instead of only the legacy sample-specific host.
+run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh" \
+    "Samples/PlayableVerticalSlice/Project.kproject" --validate
+run bash "${ENGINE_ROOT}/scripts/validate_and_run_kairo_project.sh" \
+    "Samples/PlayableVerticalSlice/Project.kproject" --smoke
 run "${ENGINE_ROOT}/build/dev-clang/Samples/Phase1Game/KairoPhase1Game" --smoke
 
 CXX_COMPILER="$(resolve_clang)"
