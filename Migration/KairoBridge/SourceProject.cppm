@@ -29,9 +29,19 @@ export namespace kairo::bridge
                 throw std::invalid_argument("Source project root cannot be empty.");
             if (!Root.is_absolute())
                 throw std::invalid_argument("Source project root must be absolute.");
-            if (Engine != SourceEngine::Unknown && ProjectFile.empty())
-                throw std::invalid_argument(
-                    "Recognized source projects require a project marker file.");
+            if (Engine != SourceEngine::Unknown)
+            {
+                if (ProjectFile.empty() || !ProjectFile.is_absolute())
+                    throw std::invalid_argument(
+                        "Recognized source projects require an absolute project marker file.");
+                const auto canonicalRoot = std::filesystem::weakly_canonical(Root);
+                const auto canonicalMarker = std::filesystem::weakly_canonical(ProjectFile);
+                const auto relative = canonicalMarker.lexically_relative(canonicalRoot);
+                if (relative.empty() || relative.is_absolute() ||
+                    *relative.begin() == ".." || std::filesystem::is_symlink(ProjectFile))
+                    throw std::invalid_argument(
+                        "Source project marker must be owned by the source project root.");
+            }
         }
     };
 
@@ -45,7 +55,7 @@ export namespace kairo::bridge
 
             for (const auto& entry : std::filesystem::directory_iterator(root))
             {
-                if (!entry.is_regular_file()) continue;
+                if (entry.is_symlink() || !entry.is_regular_file()) continue;
                 if (entry.path().extension() == ".uproject")
                     files.push_back(entry.path().filename());
             }
@@ -71,10 +81,14 @@ export namespace kairo::bridge
             root / "ProjectSettings" / "ProjectVersion.txt";
         const std::filesystem::path unityAssets = root / "Assets";
         const bool unity = std::filesystem::is_regular_file(unityMarker) &&
-            std::filesystem::is_directory(unityAssets);
+            !std::filesystem::is_symlink(unityMarker) &&
+            !std::filesystem::is_symlink(unityMarker.parent_path()) &&
+            std::filesystem::is_directory(unityAssets) &&
+            !std::filesystem::is_symlink(unityAssets);
 
         const std::filesystem::path godotMarker = root / "project.godot";
-        const bool godot = std::filesystem::is_regular_file(godotMarker);
+        const bool godot = std::filesystem::is_regular_file(godotMarker) &&
+            !std::filesystem::is_symlink(godotMarker);
 
         const auto unrealFiles = detail::FindUnrealProjectFiles(root);
         if (unrealFiles.size() > 1u)
