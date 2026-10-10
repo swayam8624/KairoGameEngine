@@ -3,7 +3,13 @@ name: Racing Port Compile
 on:
   push:
     branches:
-      - port/pmndrs-racing-kairo
+      - 'port/**'
+  pull_request:
+    paths:
+      - 'Samples/KairoRacingGame/**'
+      - '.github/workflows/racing-port-*.yml'
+      - 'CMakeLists.txt'
+      - 'Runtime/KairoPlayer/**'
   workflow_dispatch:
 
 permissions:
