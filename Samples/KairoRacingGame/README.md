@@ -22,6 +22,11 @@ cloned beside the KAIRO workspace at `ExternalGames/racing-game`:
 bash Samples/KairoRacingGame/tools/prepare_assets.sh
 ```
 
+The source repository must be checked out at the commit recorded in
+[`upstream.lock`](upstream.lock); the preparation step rejects a moving
+upstream HEAD. It emits `Project/Content/Racing/provenance.txt` with the source
+commit, Blender version, source GLB hashes and converted GLB hashes.
+
 Override locations with `KAIRO_RACING_UPSTREAM` or `KAIRO_BLENDER` if needed.
 
 ## Controls

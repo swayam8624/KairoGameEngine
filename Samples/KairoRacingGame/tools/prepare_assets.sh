@@ -11,6 +11,19 @@ OUT="${SAMPLE_ROOT}/Project/Content/Racing"
 
 trap 'status=$?; echo; echo "[KAIRO Racing] FAILED at line ${LINENO}: ${BASH_COMMAND}" >&2; echo "[KAIRO Racing] exit status ${status}" >&2; exit ${status}' ERR
 
+SOURCE_LOCK="${SAMPLE_ROOT}/upstream.lock"
+EXPECTED_SHA="$(awk '$1 == "commit" {print $2}' "${SOURCE_LOCK}")"
+if [[ ! "${EXPECTED_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "[KAIRO Racing] missing or invalid upstream source commit pin" >&2
+    exit 2
+fi
+ACTUAL_SHA="$(git -C "${UPSTREAM}" rev-parse HEAD 2>/dev/null || true)"
+if [[ "${ACTUAL_SHA}" != "${EXPECTED_SHA}" ]]; then
+    echo "[KAIRO Racing] refusing unpinned upstream source revision:" >&2
+    echo "  expected: ${EXPECTED_SHA}" >&2
+    echo "  actual:   ${ACTUAL_SHA:-no Git checkout}" >&2
+    exit 2
+fi
 for asset in track chassis wheel; do
     test -f "${UPSTREAM}/public/models/${asset}-draco.glb"
 done
@@ -22,9 +35,21 @@ for asset in track chassis wheel; do
     "${BLENDER}" --background --factory-startup         --python "${SCRIPT_DIR}/export_glb.py" --         "${UPSTREAM}/public/models/${asset}-draco.glb"         "${OUT}/${asset}.glb"
 done
 
+# Record exact public source bytes and transformed scene bytes. This records
+# provenance without assuming Blender output is bit-identical across versions.
+{
+    printf 'upstream_commit %s\n' "${ACTUAL_SHA}"
+    "${BLENDER}" --version | head -n 1
+    for asset in track chassis wheel; do
+        (cd "${UPSTREAM}" && shasum -a 256 "public/models/${asset}-draco.glb")
+        (cd "${OUT}" && shasum -a 256 "${asset}.glb")
+    done
+} > "${OUT}/provenance.txt"
+
 echo
 echo "[KAIRO Racing] runtime assets ready:"
 ls -lh "${OUT}"/*.glb
+cat "${OUT}/provenance.txt"
 
 echo
 echo "[KAIRO Racing] validating imported runtime-space bounds"
