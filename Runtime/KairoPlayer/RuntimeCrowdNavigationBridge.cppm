@@ -137,6 +137,29 @@ export namespace kairo::player
             m_Obstacles = std::move(obstacles);
         }
 
+        /// Insert or replace one authored blocker without rebuilding the whole
+        /// static-obstacle snapshot. Dynamic doors and temporary cover can
+        /// update their own stable obstacle IDs between simulation steps.
+        void SetObstacle(kairo::foundation::spatial::CrowdObstacle obstacle)
+        {
+            ValidateObstacle(obstacle);
+            const auto match = std::find_if(m_Obstacles.begin(), m_Obstacles.end(),
+                [id = obstacle.ID](const auto& existing) { return existing.ID == id; });
+            if (match == m_Obstacles.end())
+                m_Obstacles.push_back(std::move(obstacle));
+            else
+                *match = std::move(obstacle);
+        }
+
+        /// Remove a blocker by stable ID. A missing ID is a harmless no-op.
+        bool RemoveObstacle(kairo::foundation::spatial::CrowdObstacleID id)
+        {
+            const auto oldSize = m_Obstacles.size();
+            std::erase_if(m_Obstacles,
+                [id](const auto& obstacle) { return obstacle.ID == id; });
+            return m_Obstacles.size() != oldSize;
+        }
+
         [[nodiscard]] const std::vector<kairo::foundation::spatial::CrowdObstacle>&
         StaticObstacles() const noexcept
         {
@@ -259,6 +282,20 @@ export namespace kairo::player
         RuntimeNavigationAgentBridge& m_Navigation;
         std::unordered_map<std::uint32_t, AgentRecord> m_Agents;
         std::vector<kairo::foundation::spatial::CrowdObstacle> m_Obstacles;
+
+        static void ValidateObstacle(
+            const kairo::foundation::spatial::CrowdObstacle& obstacle)
+        {
+            if (obstacle.ID == kairo::foundation::spatial::InvalidCrowdObstacleID)
+                throw std::invalid_argument(
+                    "Runtime crowd obstacle requires a valid ID.");
+            if (!std::isfinite(obstacle.Position.x) ||
+                !std::isfinite(obstacle.Position.y) ||
+                !std::isfinite(obstacle.Position.z) ||
+                !std::isfinite(obstacle.Radius) || obstacle.Radius <= 0.0f)
+                throw std::invalid_argument(
+                    "Runtime crowd obstacle position/radius is invalid.");
+        }
 
         [[nodiscard]] AgentRecord& Require(kairo::engine::Entity entity)
         {
