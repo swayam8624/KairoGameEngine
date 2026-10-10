@@ -6,6 +6,7 @@ module;
 #include <cstdint>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -131,10 +132,43 @@ export namespace kairo::player
         void SetStaticObstacles(
             std::vector<kairo::foundation::spatial::CrowdObstacle> obstacles)
         {
-            // The solver performs full validation and deterministic ID ordering on
-            // the next StepAll. Keeping the authored list here allows moving/static
-            // gameplay blockers to be replaced transactionally once per frame.
+            // Validate the authored snapshot before replacing the live one.
+            // Otherwise a malformed blocker poisons every subsequent StepAll
+            // until the caller replaces the list again. Duplicate IDs are
+            // equally ambiguous for incremental obstacle upsert/removal.
+            std::unordered_set<kairo::foundation::spatial::CrowdObstacleID> ids;
+            ids.reserve(obstacles.size());
+            for (const auto& obstacle : obstacles)
+            {
+                ValidateObstacle(obstacle);
+                if (!ids.insert(obstacle.ID).second)
+                    throw std::invalid_argument(
+                        "Runtime crowd obstacle IDs must be unique.");
+            }
             m_Obstacles = std::move(obstacles);
+        }
+
+        /// Insert or replace one authored blocker without rebuilding the whole
+        /// static-obstacle snapshot. Dynamic doors and temporary cover can
+        /// update their own stable obstacle IDs between simulation steps.
+        void SetObstacle(kairo::foundation::spatial::CrowdObstacle obstacle)
+        {
+            ValidateObstacle(obstacle);
+            const auto match = std::find_if(m_Obstacles.begin(), m_Obstacles.end(),
+                [id = obstacle.ID](const auto& existing) { return existing.ID == id; });
+            if (match == m_Obstacles.end())
+                m_Obstacles.push_back(std::move(obstacle));
+            else
+                *match = std::move(obstacle);
+        }
+
+        /// Remove a blocker by stable ID. A missing ID is a harmless no-op.
+        bool RemoveObstacle(kairo::foundation::spatial::CrowdObstacleID id)
+        {
+            const auto oldSize = m_Obstacles.size();
+            std::erase_if(m_Obstacles,
+                [id](const auto& obstacle) { return obstacle.ID == id; });
+            return m_Obstacles.size() != oldSize;
         }
 
         [[nodiscard]] const std::vector<kairo::foundation::spatial::CrowdObstacle>&
@@ -259,6 +293,20 @@ export namespace kairo::player
         RuntimeNavigationAgentBridge& m_Navigation;
         std::unordered_map<std::uint32_t, AgentRecord> m_Agents;
         std::vector<kairo::foundation::spatial::CrowdObstacle> m_Obstacles;
+
+        static void ValidateObstacle(
+            const kairo::foundation::spatial::CrowdObstacle& obstacle)
+        {
+            if (obstacle.ID == kairo::foundation::spatial::InvalidCrowdObstacleID)
+                throw std::invalid_argument(
+                    "Runtime crowd obstacle requires a valid ID.");
+            if (!std::isfinite(obstacle.Position.x) ||
+                !std::isfinite(obstacle.Position.y) ||
+                !std::isfinite(obstacle.Position.z) ||
+                !std::isfinite(obstacle.Radius) || obstacle.Radius <= 0.0f)
+                throw std::invalid_argument(
+                    "Runtime crowd obstacle position/radius is invalid.");
+        }
 
         [[nodiscard]] AgentRecord& Require(kairo::engine::Entity entity)
         {

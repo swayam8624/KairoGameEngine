@@ -6,6 +6,7 @@ import Kairo.AI.Gameplay;
 import Kairo.EngineCore;
 import Kairo.Foundation.PhysicsEngine;
 import Kairo.Foundation.Spatial.NavMesh;
+import Kairo.Foundation.Spatial.CrowdAvoidance;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
 import Kairo.Player.RuntimeNavigationAgentBridge;
@@ -178,6 +179,68 @@ int main()
         } });
         Require(crowd.StaticObstacles().size() == 1u,
             "Crowd static-obstacle replacement was not retained transactionally.");
+
+        // Replacing the whole snapshot must reject malformed blockers and
+        // duplicate IDs without changing previously accepted live state.
+        bool duplicateSnapshotRejected = false;
+        try
+        {
+            crowd.SetStaticObstacles({
+                { .ID = 4u, .Position = { 0.0f, 0.0f, 0.0f }, .Radius = 0.5f },
+                { .ID = 4u, .Position = { 1.0f, 0.0f, 0.0f }, .Radius = 0.5f }
+            });
+        }
+        catch (const std::invalid_argument&)
+        {
+            duplicateSnapshotRejected = true;
+        }
+        Require(duplicateSnapshotRejected &&
+                crowd.StaticObstacles().size() == 1u &&
+                crowd.StaticObstacles().front().ID == 7u,
+            "Invalid crowd obstacle batch replaced the last valid snapshot.");
+
+        bool malformedSnapshotRejected = false;
+        try
+        {
+            crowd.SetStaticObstacles({
+                { .ID = 9u, .Position = { 0.0f, 0.0f, 0.0f }, .Radius = -1.0f }
+            });
+        }
+        catch (const std::invalid_argument&)
+        {
+            malformedSnapshotRejected = true;
+        }
+        Require(malformedSnapshotRejected &&
+                crowd.StaticObstacles().size() == 1u &&
+                crowd.StaticObstacles().front().ID == 7u,
+            "Malformed obstacle snapshot mutated valid simulation state.");
+
+        // Incremental obstacle updates must preserve stable IDs, replace
+        // rather than duplicate, and make removal observable before StepAll.
+        crowd.SetObstacle({ .ID = 7u, .Position = { 1.0f, 0.0f, 0.0f }, .Radius = 1.25f });
+        Require(crowd.StaticObstacles().size() == 1u &&
+                crowd.StaticObstacles().front().Radius == 1.25f,
+            "Updating an existing crowd obstacle created a duplicate or ignored the value.");
+        crowd.SetObstacle({ .ID = 8u, .Position = { -1.0f, 0.0f, 0.0f }, .Radius = 0.5f });
+        Require(crowd.StaticObstacles().size() == 2u,
+            "Incremental crowd obstacle insertion was lost.");
+        bool invalidObstacleRejected = false;
+        try
+        {
+            crowd.SetObstacle({ .ID = spatial::InvalidCrowdObstacleID,
+                .Position = { 0.0f, 0.0f, 0.0f }, .Radius = 0.5f });
+        }
+        catch (const std::invalid_argument&)
+        {
+            invalidObstacleRejected = true;
+        }
+        Require(invalidObstacleRejected && crowd.StaticObstacles().size() == 2u,
+            "Invalid crowd obstacle changed the valid live obstacle set.");
+        Require(crowd.RemoveObstacle(7u) && !crowd.RemoveObstacle(7u),
+            "Crowd obstacle removal is not idempotent.");
+        Require(crowd.StaticObstacles().size() == 1u &&
+                crowd.StaticObstacles().front().ID == 8u,
+            "Crowd obstacle removal erased or changed the wrong ID.");
 
         bool missingNavigationRejected = false;
         motor.Register(third);
