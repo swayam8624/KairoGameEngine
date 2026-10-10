@@ -6,6 +6,7 @@ module;
 #include <cstdint>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -131,9 +132,19 @@ export namespace kairo::player
         void SetStaticObstacles(
             std::vector<kairo::foundation::spatial::CrowdObstacle> obstacles)
         {
-            // The solver performs full validation and deterministic ID ordering on
-            // the next StepAll. Keeping the authored list here allows moving/static
-            // gameplay blockers to be replaced transactionally once per frame.
+            // Validate the authored snapshot before replacing the live one.
+            // Otherwise a malformed blocker poisons every subsequent StepAll
+            // until the caller replaces the list again. Duplicate IDs are
+            // equally ambiguous for incremental obstacle upsert/removal.
+            std::unordered_set<kairo::foundation::spatial::CrowdObstacleID> ids;
+            ids.reserve(obstacles.size());
+            for (const auto& obstacle : obstacles)
+            {
+                ValidateObstacle(obstacle);
+                if (!ids.insert(obstacle.ID).second)
+                    throw std::invalid_argument(
+                        "Runtime crowd obstacle IDs must be unique.");
+            }
             m_Obstacles = std::move(obstacles);
         }
 
