@@ -35,11 +35,20 @@ jobs:
       - name: Compile Editor, Player, and native KAIRO racing game
         shell: bash
         run: |
-          cmake --build --preset ci-clang --target KairoRendererTests KairoRealtimeRenderBridgeTests KairoEditorApp KairoPlayer KairoRacingGame --parallel
+          cmake --build --preset ci-clang --parallel 2 --target \
+            KairoEngineCoreTests KairoEngineCorePhase3Tests \
+            KairoRendererTests KairoRendererOpenGLSkinningSmoke \
+            KairoRendererVulkanSkinningSmoke KairoRendererPhysicsDebugTests \
+            KairoRealtimeRenderBridgeTests KairoEditorTests \
+            KairoEditorPhase4Tests KairoEditorUITests \
+            KairoEditorApp KairoPlayer KairoRacingGame
       - name: Run Renderer, Editor, and Core regression tests
         shell: bash
         run: |
-          ctest --test-dir build/ci-clang \
+          # GLFW/OpenGL tests require an X server on headless Ubuntu CI.
+          # Build all selected CTest executables above: a registered but
+          # unbuilt test otherwise appears as 'Not Run' and masks the cause.
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ctest --test-dir build/ci-clang \
             -R 'KairoRenderer|KairoRealtimeRenderBridge|KairoEngineCore|KairoEditorTests|KairoEditorPhase4Tests|KairoEditorUITests' \
             --output-on-failure
       - name: Verify asset-gated racing tests are not registered without third-party GLBs
