@@ -255,6 +255,15 @@ export namespace kairo::bridge
         while (iterator != end)
         {
             const auto entry = *iterator;
+            // Directory iterators do not follow symlinked directories by
+            // default, but entry.is_regular_file() follows symlinked files.
+            // Never read or assign an in-project identity to external bytes.
+            if (entry.is_symlink())
+            {
+                iterator.disable_recursion_pending();
+                ++iterator;
+                continue;
+            }
             if (entry.is_directory() && godot_detail::ShouldSkipDirectory(entry.path()))
             {
                 iterator.disable_recursion_pending();
