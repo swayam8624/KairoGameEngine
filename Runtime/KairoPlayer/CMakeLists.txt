@@ -105,11 +105,17 @@ if(BUILD_TESTING)
         endif()
     endif()
     if(NOT WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject")
-        add_test(NAME KairoPlayerOpenGLPlayableVerticalSliceSmoke COMMAND KairoPlayer
-            ${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject
-            --renderer opengl --smoke)
-        set_tests_properties(KairoPlayerOpenGLPlayableVerticalSliceSmoke PROPERTIES
-            TIMEOUT 20 SKIP_RETURN_CODE 77)
+        # Headless macOS CI cannot reliably create an OpenGL GLFW window even
+        # when Metal windows work. Keep OpenGL coverage on Linux/Xvfb, Metal
+        # coverage on native macOS, and D3D12 coverage on Windows. Do not turn
+        # an actual GLFW error into a passing smoke test.
+        if(NOT APPLE)
+            add_test(NAME KairoPlayerOpenGLPlayableVerticalSliceSmoke COMMAND KairoPlayer
+                ${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject
+                --renderer opengl --smoke)
+            set_tests_properties(KairoPlayerOpenGLPlayableVerticalSliceSmoke PROPERTIES
+                TIMEOUT 20 SKIP_RETURN_CODE 77)
+        endif()
         if(APPLE)
             add_test(NAME KairoPlayerMetalPlayableVerticalSliceSmoke COMMAND KairoPlayer
                 ${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject
