@@ -1,0 +1,66 @@
+name: Migration Bridge Native Tests
+
+on:
+  push:
+    branches: ['feature/migration-bridge-*']
+  pull_request:
+    paths:
+      - 'Migration/KairoBridge/**'
+      - '.github/workflows/bridge-native-tests.yml'
+      - 'CMakeLists.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-bridge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bridge:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Ubuntu Clang, os: ubuntu-latest, platform: linux }
+          - { name: macOS LLVM, os: macos-latest, platform: macos }
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Materialize pinned Kairo workspace
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh
+          bash scripts/verify_workspace_lock.sh
+      - name: Install Linux build toolchain
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools
+          echo "CC=$(command -v clang)" >> "$GITHUB_ENV"
+          echo "CXX=$(command -v clang++)" >> "$GITHUB_ENV"
+      - name: Install macOS build toolchain
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          echo "CC=$(brew --prefix llvm)/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+      - name: Configure optional migration modules
+        shell: bash
+        run: |
+          cmake -S . -B build/bridge -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER="$CXX" -DKAIRO_GAME_ENGINE_BUILD_MIGRATION=ON \
+            -DKAIRO_GAME_ENGINE_BUILD_EDITOR=OFF -DKAIRO_GAME_ENGINE_BUILD_RAYTRACER=OFF \
+            -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DKAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX=OFF
+      - name: Build migration tests
+        shell: bash
+        run: cmake --build build/bridge --parallel 2 --target KairoBridgeTests
+      - name: Run migration regression tests
+        shell: bash
+        run: ctest --test-dir build/bridge -R '^KairoBridgeTests$' --output-on-failure
