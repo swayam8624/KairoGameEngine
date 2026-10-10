@@ -75,6 +75,9 @@ int main()
 
             Require(controller.ControllerCount() == 1u && controller.Controls(controlled),
                 "Player-controller opt-in tag did not register exactly the intended entity.");
+            Require(controller.PrimaryController() == controlled,
+                "The opt-in character must be the deterministic camera-follow target.");
+            const auto cameraSpawn = scene.WorldTransform(controlled).Translation;
             Require(!controller.Controls(untouched) && !motor.IsRegistered(untouched),
                 "Player controller touched an entity that did not explicitly opt in.");
 
@@ -108,6 +111,12 @@ int main()
                 controller.BeforePhysicsStep(1.0f / 60.0f);
             Require(scene.WorldTransform(controlled).Translation.x > startX,
                 "Positive player X input did not advance the character through the motor.");
+            const auto cameraDelta = controller.CameraFollowDelta(cameraSpawn);
+            Require(std::abs(cameraDelta.x -
+                    (scene.WorldTransform(controlled).Translation.x - cameraSpawn.x)) < 1.0e-5f &&
+                    std::abs(cameraDelta.y -
+                    (scene.WorldTransform(controlled).Translation.y - cameraSpawn.y)) < 1.0e-5f,
+                "Camera follow must be the resolved physics displacement from spawn.");
 
             move.Value = { 0.0f, 1.0f };
             controller.CaptureInput(move, {});
