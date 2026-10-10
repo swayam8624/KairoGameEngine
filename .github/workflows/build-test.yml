@@ -98,8 +98,26 @@ jobs:
           }
           & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
           & "$vcpkg\vcpkg.exe" install glfw3 vulkan-headers vulkan-loader --triplet x64-windows
-          $glslangValidator = Get-ChildItem -Path "C:\VulkanSDK" -Filter glslangValidator.exe -Recurse | Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $glslangValidator) { throw "The Vulkan SDK did not provide glslangValidator.exe" }
+          # Never recurse indiscriminately from the SDK junction: GitHub
+          # Windows runners can traverse ACL-protected Defender directories
+          # and terminate PowerShell even though the SDK is installed.
+          $sdkRoots = @()
+          if ($env:VULKAN_SDK -and (Test-Path -LiteralPath $env:VULKAN_SDK -PathType Container)) {
+            $sdkRoots += $env:VULKAN_SDK
+          }
+          if (Test-Path -LiteralPath "C:\VulkanSDK" -PathType Container) {
+            $sdkRoots += @(Get-ChildItem -LiteralPath "C:\VulkanSDK" -Directory -ErrorAction SilentlyContinue |
+              Sort-Object Name -Descending | ForEach-Object { $_.FullName })
+          }
+          $glslangValidator = $null
+          foreach ($sdkRoot in $sdkRoots) {
+            $candidate = Join-Path $sdkRoot 'Bin\glslangValidator.exe'
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+              $glslangValidator = Get-Item -LiteralPath $candidate
+              break
+            }
+          }
+          if (-not $glslangValidator) { throw "Vulkan SDK glslangValidator.exe was not found in the SDK Bin directories" }
           "CMAKE_PREFIX_PATH=$vcpkg\installed\x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Append
           "$vcpkg\installed\x64-windows\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           $glslangValidator.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append
