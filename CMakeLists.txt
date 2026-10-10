@@ -219,8 +219,12 @@ if(BUILD_TESTING)
     add_test(NAME KairoSceneECSBridgeTests COMMAND KairoSceneECSBridgeTests)
 
     add_executable(KairoWaveCScaleBenchmark tests/WaveCScaleBenchmark.cpp)
+    # KairoPhysicsEngine already exposes KairoSpatial, while both
+    # KairoRenderer and KairoEngineCore expose KairoAssets. Do not list these
+    # static archives again: Apple ld warns about duplicate input archives,
+    # which breaks the portfolio's deliberate zero-warning acceptance gate.
     target_link_libraries(KairoWaveCScaleBenchmark PRIVATE
-        KairoSpatial KairoPhysicsEngine KairoAssets KairoRenderer KairoEngineCore)
+        KairoPhysicsEngine KairoRenderer KairoEngineCore)
     set_property(TARGET KairoWaveCScaleBenchmark
         PROPERTY COMPILE_WARNING_AS_ERROR ON)
 endif()
