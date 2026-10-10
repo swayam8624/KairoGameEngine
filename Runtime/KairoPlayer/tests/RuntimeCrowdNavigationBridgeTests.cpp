@@ -179,6 +179,33 @@ int main()
         Require(crowd.StaticObstacles().size() == 1u,
             "Crowd static-obstacle replacement was not retained transactionally.");
 
+        // Incremental obstacle updates must preserve stable IDs, replace
+        // rather than duplicate, and make removal observable before StepAll.
+        crowd.SetObstacle({ .ID = 7u, .Position = { 1.0f, 0.0f, 0.0f }, .Radius = 1.25f });
+        Require(crowd.StaticObstacles().size() == 1u &&
+                crowd.StaticObstacles().front().Radius == 1.25f,
+            "Updating an existing crowd obstacle created a duplicate or ignored the value.");
+        crowd.SetObstacle({ .ID = 8u, .Position = { -1.0f, 0.0f, 0.0f }, .Radius = 0.5f });
+        Require(crowd.StaticObstacles().size() == 2u,
+            "Incremental crowd obstacle insertion was lost.");
+        bool invalidObstacleRejected = false;
+        try
+        {
+            crowd.SetObstacle({ .ID = spatial::InvalidCrowdObstacleID,
+                .Position = { 0.0f, 0.0f, 0.0f }, .Radius = 0.5f });
+        }
+        catch (const std::invalid_argument&)
+        {
+            invalidObstacleRejected = true;
+        }
+        Require(invalidObstacleRejected && crowd.StaticObstacles().size() == 2u,
+            "Invalid crowd obstacle changed the valid live obstacle set.");
+        Require(crowd.RemoveObstacle(7u) && !crowd.RemoveObstacle(7u),
+            "Crowd obstacle removal is not idempotent.");
+        Require(crowd.StaticObstacles().size() == 1u &&
+                crowd.StaticObstacles().front().ID == 8u,
+            "Crowd obstacle removal erased or changed the wrong ID.");
+
         bool missingNavigationRejected = false;
         motor.Register(third);
         try { crowd.Register(third); }
