@@ -75,6 +75,10 @@ int main()
 
             Require(controller.ControllerCount() == 1u && controller.Controls(controlled),
                 "Player-controller opt-in tag did not register exactly the intended entity.");
+            Require(controller.PrimaryWorldDisplacement().has_value(),
+                "Primary player must expose a world displacement for follow cameras.");
+            Require(controller.PrimaryWorldDisplacement()->LengthSquared() < 1.0e-8f,
+                "Player camera displacement must begin at authored spawn pose.");
             Require(!controller.Controls(untouched) && !motor.IsRegistered(untouched),
                 "Player controller touched an entity that did not explicitly opt in.");
 
@@ -108,6 +112,9 @@ int main()
                 controller.BeforePhysicsStep(1.0f / 60.0f);
             Require(scene.WorldTransform(controlled).Translation.x > startX,
                 "Positive player X input did not advance the character through the motor.");
+            const auto afterMove = controller.PrimaryWorldDisplacement();
+            Require(afterMove.has_value() && afterMove->x > 0.0f,
+                "Follow camera must receive positive X displacement after player movement.");
 
             move.Value = { 0.0f, 1.0f };
             controller.CaptureInput(move, {});
