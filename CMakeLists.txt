@@ -14,6 +14,7 @@ option(KAIRO_GAME_ENGINE_BUILD_RAYTRACER "Build the offline CPU ray tracer" ON)
 option(KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX "Build physics terminal and GLFW sandboxes" ON)
 option(KAIRO_GAME_ENGINE_BUILD_AI_CLOUD "Build the optional CPR OpenAI-compatible transport" OFF)
 option(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK "Build experimental GPU/SIMD/scheduler/ONNX/transformer modules" OFF)
+option(KAIRO_GAME_ENGINE_BUILD_MIGRATION "Build Unity/Unreal/Godot migration framework" OFF)
 option(KAIRO_GAME_ENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(KAIRO_GAME_ENGINE_ENABLE_PACKAGING "Enable CPack source-package configuration" OFF)
 
@@ -124,6 +125,12 @@ kairo_add_workspace_repo(KairoReflection KairoReflection KAIRO_REFLECTION_SOURCE
 kairo_add_workspace_repo(KairoEngineCore KairoEngineCore KAIRO_ENGINE_CORE_SOURCE)
 kairo_add_workspace_repo(KairoRenderer KairoRenderer KAIRO_RENDERER_SOURCE)
 
+# Optional migration tools do not participate in the shipped runtime or alter
+# normal engine builds. Dedicated migration CI enables and tests this target.
+if(KAIRO_GAME_ENGINE_BUILD_MIGRATION)
+    add_subdirectory(Migration/KairoBridge)
+endif()
+
 add_library(KairoSceneECSBridge)
 add_library(Kairo::SceneECSBridge ALIAS KairoSceneECSBridge)
 target_sources(KairoSceneECSBridge PUBLIC FILE_SET CXX_MODULES
@@ -199,6 +206,9 @@ target_link_libraries(KairoGameEngine INTERFACE
     KairoSceneECSBridge
     KairoRenderer
     KairoPhysicsEngine)
+if(TARGET KairoBridge)
+    target_link_libraries(KairoGameEngine INTERFACE KairoBridge)
+endif()
 add_library(Kairo::GameEngine ALIAS KairoGameEngine)
 
 if(BUILD_TESTING)
