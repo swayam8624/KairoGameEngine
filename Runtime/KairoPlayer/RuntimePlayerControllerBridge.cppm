@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
 #include <vector>
@@ -71,6 +72,26 @@ export namespace kairo::player
         [[nodiscard]] std::size_t ControllerCount() const noexcept
         {
             return m_Controllers.size();
+        }
+
+        /// A fixed, deterministic camera-follow target. Other game projects
+        /// remain free to provide their own camera systems.
+        [[nodiscard]] std::optional<kairo::engine::Entity> PrimaryController() const noexcept
+        {
+            if (m_Controllers.empty()) return std::nullopt;
+            return m_Controllers.front();
+        }
+
+        /// Measured world-space displacement since an authored spawn anchor.
+        /// A game camera may translate by this amount while retaining the
+        /// designer's original angle, distance, FOV and projection settings.
+        [[nodiscard]] kairo::foundation::math::Vec3f CameraFollowDelta(
+            const kairo::foundation::math::Vec3f& spawnAnchor) const
+        {
+            const auto entity = PrimaryController();
+            if (!entity.has_value() || !m_Scene.Contains(*entity))
+                return {};
+            return m_Scene.WorldTransform(*entity).Translation - spawnAnchor;
         }
 
         [[nodiscard]] bool Controls(kairo::engine::Entity entity) const noexcept
