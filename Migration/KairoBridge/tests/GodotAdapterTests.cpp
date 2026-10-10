@@ -172,3 +172,21 @@ TEST_CASE("Godot adapter rejects malformed explicit UIDs and missing config vers
         REQUIRE_THROWS_AS(ScanGodotProject(descriptor), std::invalid_argument);
     }
 }
+
+TEST_CASE("Godot discovery does not ingest symlinked external resources")
+{
+    using namespace kairo::bridge;
+    TemporaryGodotProject project("kairo_bridge_godot_linked_asset");
+    TemporaryGodotProject external("kairo_bridge_godot_external_asset");
+    project.Write("project.godot", "config_version=5\\n");
+    project.Write("local.tscn", "[gd_scene format=3 uid=\\\"uid://local\\\"]\\n");
+    external.Write("stolen.tscn", "[gd_scene format=3 uid=\\\"uid://external\\\"]\\n");
+    std::error_code error;
+    std::filesystem::create_symlink(external.Root / "stolen.tscn",
+        project.Root / "outside.tscn", error);
+    if (error) SKIP("filesystem did not permit symlink creation");
+    const auto scan = ScanGodotProject(DetectSourceProject(project.Root));
+    REQUIRE(scan.Resources.size() == 1u);
+    REQUIRE(scan.Resources.front().Source.SourcePath ==
+        std::filesystem::path("local.tscn"));
+}
