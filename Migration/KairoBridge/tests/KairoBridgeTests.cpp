@@ -90,6 +90,45 @@ TEST_CASE("KairoBridge refuses ambiguous engine roots")
     REQUIRE_THROWS_AS(DetectSourceProject(project.Root), std::invalid_argument);
 }
 
+TEST_CASE("Source project markers cannot escape their authored source root")
+{
+    using namespace kairo::bridge;
+    TemporaryProject project("kairo_bridge_marker_project");
+    TemporaryProject external("kairo_bridge_marker_external");
+    external.Touch("Foreign.uproject");
+    project.Touch("project.godot");
+
+    const auto desc = DetectSourceProject(project.Root);
+    REQUIRE(desc.Engine == SourceEngine::Godot);
+
+    SourceProjectDescriptor forged = desc;
+    forged.ProjectFile = external.Root / "Foreign.uproject";
+    REQUIRE_THROWS_AS(forged.Validate(), std::invalid_argument);
+
+    // A symlinked project marker must not turn unrelated external project
+    // bytes into a project discovery result.
+    std::filesystem::remove(project.Root / "project.godot");
+    std::error_code ec;
+    std::filesystem::create_symlink(
+        external.Root / "Foreign.uproject", project.Root / "project.godot", ec);
+    if (ec) SKIP("filesystem did not permit symlink creation");
+    REQUIRE(DetectSourceProject(project.Root).Engine == SourceEngine::Unknown);
+}
+
+TEST_CASE("Source discovery never adopts symlinked Unity asset directories")
+{
+    using namespace kairo::bridge;
+    TemporaryProject project("kairo_bridge_unity_linked_assets_root");
+    TemporaryProject external("kairo_bridge_unity_external_assets_root");
+    project.Touch("ProjectSettings/ProjectVersion.txt");
+    std::filesystem::create_directories(external.Root / "Assets");
+    std::error_code ec;
+    std::filesystem::create_directory_symlink(
+        external.Root / "Assets", project.Root / "Assets", ec);
+    if (ec) SKIP("filesystem did not permit directory symlink creation");
+    REQUIRE(DetectSourceProject(project.Root).Engine == SourceEngine::Unknown);
+}
+
 TEST_CASE("Unity adapter discovers stable GUID identities and canonical kinds")
 {
     using namespace kairo::bridge;
