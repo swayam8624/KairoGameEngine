@@ -6,6 +6,7 @@ import Kairo.AI.Gameplay;
 import Kairo.EngineCore;
 import Kairo.Foundation.PhysicsEngine;
 import Kairo.Foundation.Spatial.NavMesh;
+import Kairo.Foundation.Spatial.CrowdAvoidance;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
 import Kairo.Player.RuntimeNavigationAgentBridge;
