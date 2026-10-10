@@ -135,7 +135,10 @@ export namespace kairo::bridge
         std::unordered_set<std::string> guids;
         for (const auto& entry : std::filesystem::recursive_directory_iterator(assetsRoot))
         {
-            if (!entry.is_regular_file() || entry.path().extension() != ".meta") continue;
+            // A linked .meta can refer outside the authored project and its
+            // canonical relative path may escape the root. Never follow it.
+            if (entry.is_symlink() || !entry.is_regular_file() ||
+                entry.path().extension() != ".meta") continue;
 
             const auto guidValue = unity_detail::ReadKey(entry.path(), "guid");
             if (!guidValue.has_value() || !unity_detail::IsUnityGuid(*guidValue))
