@@ -180,6 +180,41 @@ int main()
         Require(crowd.StaticObstacles().size() == 1u,
             "Crowd static-obstacle replacement was not retained transactionally.");
 
+        // Replacing the whole snapshot must reject malformed blockers and
+        // duplicate IDs without changing previously accepted live state.
+        bool duplicateSnapshotRejected = false;
+        try
+        {
+            crowd.SetStaticObstacles({
+                { .ID = 4u, .Position = { 0.0f, 0.0f, 0.0f }, .Radius = 0.5f },
+                { .ID = 4u, .Position = { 1.0f, 0.0f, 0.0f }, .Radius = 0.5f }
+            });
+        }
+        catch (const std::invalid_argument&)
+        {
+            duplicateSnapshotRejected = true;
+        }
+        Require(duplicateSnapshotRejected &&
+                crowd.StaticObstacles().size() == 1u &&
+                crowd.StaticObstacles().front().ID == 7u,
+            "Invalid crowd obstacle batch replaced the last valid snapshot.");
+
+        bool malformedSnapshotRejected = false;
+        try
+        {
+            crowd.SetStaticObstacles({
+                { .ID = 9u, .Position = { 0.0f, 0.0f, 0.0f }, .Radius = -1.0f }
+            });
+        }
+        catch (const std::invalid_argument&)
+        {
+            malformedSnapshotRejected = true;
+        }
+        Require(malformedSnapshotRejected &&
+                crowd.StaticObstacles().size() == 1u &&
+                crowd.StaticObstacles().front().ID == 7u,
+            "Malformed obstacle snapshot mutated valid simulation state.");
+
         // Incremental obstacle updates must preserve stable IDs, replace
         // rather than duplicate, and make removal observable before StepAll.
         crowd.SetObstacle({ .ID = 7u, .Position = { 1.0f, 0.0f, 0.0f }, .Radius = 1.25f });
