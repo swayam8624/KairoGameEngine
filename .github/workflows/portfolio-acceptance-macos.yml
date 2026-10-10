@@ -6,6 +6,14 @@ on:
       - '.github/workflows/portfolio-acceptance-macos.yml'
       - 'scripts/run_portfolio_acceptance.sh'
       - 'scripts/verify_portfolio_95.sh'
+      - 'workspace.lock'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/portfolio-acceptance-macos.yml'
+      - 'scripts/run_portfolio_acceptance.sh'
+      - 'scripts/verify_portfolio_95.sh'
+      - 'workspace.lock'
   workflow_dispatch:
 
 permissions:
