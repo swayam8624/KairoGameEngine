@@ -75,7 +75,8 @@ int main()
 
             Require(controller.ControllerCount() == 1u && controller.Controls(controlled),
                 "Player-controller opt-in tag did not register exactly the intended entity.");
-            Require(controller.PrimaryController() == controlled,
+            Require(controller.PrimaryController().has_value() &&
+                *controller.PrimaryController() == controlled,
                 "The opt-in character must be the deterministic camera-follow target.");
             const auto cameraSpawn = scene.WorldTransform(controlled).Translation;
             Require(!controller.Controls(untouched) && !motor.IsRegistered(untouched),
