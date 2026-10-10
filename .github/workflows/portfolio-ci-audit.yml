@@ -1,0 +1,36 @@
+name: Portfolio Exact-Head CI Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 3 * * 1'
+  pull_request:
+    paths:
+      - scripts/audit_ecosystem_ci.py
+      - scripts/tests/test_audit_ecosystem_ci.py
+      - .github/workflows/portfolio-ci-audit.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test exact-head classification without network
+        run: python3 -m unittest discover -s scripts/tests -p test_audit_ecosystem_ci.py -v
+      - name: Audit the 27 current default-branch heads
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/audit_ecosystem_ci.py --output build/portfolio-ci-audit.json
+      - name: Upload machine-readable evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kairo-portfolio-ci-audit
+          path: build/portfolio-ci-audit.json
+          if-no-files-found: warn
+          retention-days: 30
