@@ -1,0 +1,63 @@
+name: Racing Port Compile
+
+on:
+  push:
+    branches:
+      - 'port/**'
+  pull_request:
+    paths:
+      - 'Samples/KairoRacingGame/**'
+      - '.github/workflows/racing-port-*.yml'
+      - 'CMakeLists.txt'
+      - 'Runtime/KairoPlayer/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    name: Ubuntu Clang Racing Target
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Materialize locked KAIRO workspace
+        shell: bash
+        run: |
+          bash scripts/materialize_workspace_lock.sh
+          bash scripts/verify_workspace_lock.sh
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools mesa-vulkan-drivers xvfb
+      - name: Configure
+        shell: bash
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake --preset ci-clang -DKAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE=ON -DKAIRO_RENDERER_BUILD_TESTS=ON
+      - name: Compile Editor, Player, and native KAIRO racing game
+        shell: bash
+        run: |
+          cmake --build --preset ci-clang --parallel 2 --target \
+            KairoEngineCoreTests KairoEngineCorePhase3Tests \
+            KairoRendererTests KairoRendererOpenGLSkinningSmoke \
+            KairoRendererVulkanSkinningSmoke KairoRendererPhysicsDebugTests \
+            KairoRealtimeRenderBridgeTests KairoEditorTests \
+            KairoEditorPhase4Tests KairoEditorUITests \
+            KairoEditorApp KairoPlayer KairoRacingGame
+      - name: Run Renderer, Editor, and Core regression tests
+        shell: bash
+        run: |
+          # GLFW/OpenGL tests require an X server on headless Ubuntu CI.
+          # Build all selected CTest executables above: a registered but
+          # unbuilt test otherwise appears as 'Not Run' and masks the cause.
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ctest --test-dir build/ci-clang \
+            -R 'KairoRenderer|KairoRealtimeRenderBridge|KairoEngineCore|KairoEditorTests|KairoEditorPhase4Tests|KairoEditorUITests' \
+            --output-on-failure
+      - name: Verify asset-gated racing tests are not registered without third-party GLBs
+        shell: bash
+        run: |
+          ! ctest --test-dir build/ci-clang -N | grep -q '^  Test .*KairoRacing\.'
