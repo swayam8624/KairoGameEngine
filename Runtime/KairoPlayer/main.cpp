@@ -146,11 +146,31 @@ int main(int argc, char** argv)
             backend });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
         RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay);
+        // Only cameras explicitly tagged for automatic following inherit the
+        // built-in player's displacement. Scripted/cinematic cameras are never
+        // modified, and all authored orientation/projection values are retained.
+        const auto primaryCamera = project.Scene().PrimaryCamera();
+        const bool followPlayer = primaryCamera.has_value() &&
+            project.Scene().HasTag(*primaryCamera, "kairo.follow-player-camera");
+        const auto gameplayCamera = [&]()
+        {
+            auto camera = bridge.CameraPose();
+            if (followPlayer)
+            {
+                if (const auto displacement =
+                    playerController.PrimaryWorldDisplacement(); displacement.has_value())
+                {
+                    camera.Position = camera.Position + *displacement;
+                    camera.Target = camera.Target + *displacement;
+                }
+            }
+            return camera;
+        };
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
         sceneAudio.BeginPlay();
         renderer.SubmitRenderScene(bridge.BuildScene());
-        renderer.SetCameraPose(bridge.CameraPose());
+        renderer.SetCameraPose(gameplayCamera());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
         unsigned smokeFrames = 0u;
         auto previousFrame = std::chrono::steady_clock::now();
@@ -185,7 +205,7 @@ int main(int argc, char** argv)
             (void)sceneAudio.Advance(static_cast<double>(elapsedSeconds));
 
             renderer.SubmitRenderScene(bridge.BuildScene());
-            renderer.SetCameraPose(bridge.CameraPose());
+            renderer.SetCameraPose(gameplayCamera());
             renderer.DrawFrame();
             if (arguments.SmokeTest)
             {
