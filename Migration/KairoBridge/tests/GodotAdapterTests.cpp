@@ -178,9 +178,9 @@ TEST_CASE("Godot discovery does not ingest symlinked external resources")
     using namespace kairo::bridge;
     TemporaryGodotProject project("kairo_bridge_godot_linked_asset");
     TemporaryGodotProject external("kairo_bridge_godot_external_asset");
-    project.Write("project.godot", "config_version=5\\n");
-    project.Write("local.tscn", "[gd_scene format=3 uid=\\\"uid://local\\\"]\\n");
-    external.Write("stolen.tscn", "[gd_scene format=3 uid=\\\"uid://external\\\"]\\n");
+    project.Write("project.godot", "config_version=5\n");
+    project.Write("local.tscn", "[gd_scene format=3 uid=\"uid://local\"]\n");
+    external.Write("stolen.tscn", "[gd_scene format=3 uid=\"uid://external\"]\n");
     std::error_code error;
     std::filesystem::create_symlink(external.Root / "stolen.tscn",
         project.Root / "outside.tscn", error);
