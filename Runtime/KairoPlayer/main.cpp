@@ -8,6 +8,7 @@
 #include <string_view>
 
 import Kairo.EngineCore.InputMap;
+import Kairo.Foundation.Math;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
 import Kairo.Player.RuntimeAudioBridge;
@@ -145,12 +146,36 @@ int main(int argc, char** argv)
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true,
             backend });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
+
+        // Camera follow is an authored opt-in, not a hidden global behaviour.
+        // An ordinary imported or hand-authored camera remains completely
+        // under the game's control unless tagged "kairo.player-follow-camera".
+        const auto controlledEntity = playerController.PrimaryController();
+        const auto primaryCamera = project.Scene().PrimaryCamera();
+        const bool followPlayer = controlledEntity.has_value() &&
+            primaryCamera.has_value() &&
+            project.Scene().HasTag(*primaryCamera, "kairo.player-follow-camera");
+        const auto followAnchor = controlledEntity.has_value()
+            ? project.Scene().WorldTransform(*controlledEntity).Translation
+            : kairo::foundation::math::Vec3f{};
+        const auto activeCameraPose = [&]()
+        {
+            auto pose = bridge.CameraPose();
+            if (followPlayer)
+            {
+                const auto displacement = playerController.CameraFollowDelta(followAnchor);
+                pose.Position += displacement;
+                pose.Target += displacement;
+            }
+            return pose;
+        };
+
         RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay);
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
         sceneAudio.BeginPlay();
         renderer.SubmitRenderScene(bridge.BuildScene());
-        renderer.SetCameraPose(bridge.CameraPose());
+        renderer.SetCameraPose(activeCameraPose());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
         unsigned smokeFrames = 0u;
         auto previousFrame = std::chrono::steady_clock::now();
@@ -185,7 +210,7 @@ int main(int argc, char** argv)
             (void)sceneAudio.Advance(static_cast<double>(elapsedSeconds));
 
             renderer.SubmitRenderScene(bridge.BuildScene());
-            renderer.SetCameraPose(bridge.CameraPose());
+            renderer.SetCameraPose(activeCameraPose());
             renderer.DrawFrame();
             if (arguments.SmokeTest)
             {

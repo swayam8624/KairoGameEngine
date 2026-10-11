@@ -101,6 +101,7 @@ end
 entity 20 "Gameplay Camera"
 enabled true
 layer 0
+tag "kairo.player-follow-camera"
 transform 0 7.0 12.5 -0.21643961 0 0 0.97629601 1 1 1
 camera perspective 0.87266463 10 0.1 250 0 true environment 0.025 0.035 0.06 1 18446744073709551615
 end
