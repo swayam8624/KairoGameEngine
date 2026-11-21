@@ -1,3 +1,11 @@
+// TEACHING MAP: Runtime/KairoPlayer/main.cpp
+// Executable composition root for the native game player. It parses CLI parameters, loads RuntimeProject,
+// and assembles the input, logic, native gameplay, physics, rendering, audio and packaging bridges.
+// RuntimeFixedStepFanout sends the same fixed-step notification to controller, script and native gameplay
+// so their physics-facing mutations happen before the solver advances. Read RuntimePhysicsBridge.cppm and
+// RuntimeRenderBridge.cppm for the downstream ownership boundaries.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 #include <exception>
 #include <chrono>
 #include <filesystem>
