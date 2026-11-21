@@ -65,6 +65,9 @@ namespace
         kairo::player::RuntimeNativeGameplayBridge& m_Native;
     };
 
+    // Study the CLI boundary before the game loop: these switches choose
+    // *operations* (validate, smoke, package, normal play), not all composable
+    // modes. Validation errors are reported before project or GPU allocation.
     [[nodiscard]] Arguments ParseArguments(int count, char** values)
     {
         if (count < 2)
@@ -106,6 +109,10 @@ namespace
     }
 }
 
+// Executable control path: ParseArguments -> RuntimeProject -> physics/audio/
+// input/gameplay bridges -> optional early validate/package exit -> renderer
+// creation -> native window polling -> fixed-step simulation -> RenderScene.
+// The C++ module imports above identify the actual implementation boundaries.
 int main(int argc, char** argv)
 {
     try
@@ -116,6 +123,9 @@ int main(int argc, char** argv)
                   << "  assets: " << project.Assets().Size() << "\n"
                   << "  entities: " << project.Scene().Size() << "\n"
                   << "  startup scene: " << project.Descriptor().StartupScene.generic_string() << '\n';
+        // Scene owns authoring-facing Entity/component data; this bridge owns
+        // PhysicsWorld body/collider IDs and supplies reversible mappings.
+        // Physics construction precedes gameplay callbacks that may use it.
         kairo::player::RuntimePhysicsBridge physics(project.Scene());
         kairo::player::RuntimeAudioBridge audio(project);
         kairo::player::RuntimeSceneAudioBridge sceneAudio(project.Scene(), audio);
@@ -135,6 +145,8 @@ int main(int argc, char** argv)
                   << "  player controllers: " << playerController.ControllerCount() << '\n'
                   << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
                   << "  production systems: " << (production.Enabled() ? "enabled" : "disabled") << '\n';
+        // --validate checks the project/bridge initialization path and exits
+        // without creating a native graphics device or entering the frame loop.
         if (arguments.ValidateOnly) return 0;
         if (arguments.PackageProfile.has_value())
         {
@@ -178,6 +190,9 @@ int main(int argc, char** argv)
             return pose;
         };
 
+        // Every physics substep calls these listeners before the world solver
+        // advances. Calling gameplay callbacks only once per render frame
+        // would make controller/logic behavior depend on display frame rate.
         RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay);
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
@@ -205,6 +220,9 @@ int main(int argc, char** argv)
             const auto currentFrame = std::chrono::steady_clock::now();
             const float elapsedSeconds = std::chrono::duration<float>(currentFrame - previousFrame).count();
             previousFrame = currentFrame;
+            // The render delta is clamped/accumulated by RuntimePhysicsBridge;
+            // it may execute several fixed steps and interpolate poses. Contact
+            // notifications are dispatched only after that advance finishes.
             (void)physics.Advance(elapsedSeconds, &fixedSteps);
             logic.DispatchContacts();
             nativeGameplay.Update(static_cast<double>(elapsedSeconds));
@@ -217,6 +235,9 @@ int main(int argc, char** argv)
             // preserving the returned stereo PCM boundary for native device output.
             (void)sceneAudio.Advance(static_cast<double>(elapsedSeconds));
 
+            // Convert live scene/asset identities to renderer-facing objects
+            // each frame, then issue a backend-specific draw. The render bridge
+            // owns GPU handles; the project manifest owns durable asset IDs.
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.SetCameraPose(activeCameraPose());
             renderer.DrawFrame();
