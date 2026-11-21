@@ -1,3 +1,5 @@
+> **Documentation progress:** [TEACHING_DOCUMENTATION_STATUS.md](docs/TEACHING_DOCUMENTATION_STATUS.md) tracks the 31 open teaching/license PRs, per-repository source coverage, and explicitly unfinished function-level review.
+>
 > **Learn Kairo systematically:** [READING_ORDER.md](READING_ORDER.md) gives a linked, cross-repository study path from Math/Assets/EngineCore to Renderer, Physics, Editor and shipped Player. [SOURCE_CATALOG.md](docs/SOURCE_CATALOG.md) indexes all files in this integration repository.
 >
 > **Open source:** the integrated repository already uses [MIT](LICENSE) for its original code; individual sibling repositories and third-party assets retain their respective terms. Learning, modification and further development are welcome within those licenses.
