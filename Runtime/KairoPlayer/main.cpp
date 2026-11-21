@@ -1,3 +1,4 @@
+// TEACHING MAP: PLAYER COMPOSITION ROOT: Parse .kproject arguments and compose runtime bridges for renderer, physics, input, audio, logic and gameplay. KairoEngineCore defines portable scene state; KairoRenderer owns native graphics resources; KairoPhysicsEngine advances fixed steps. Other implementations are in Runtime; integration tests and workspace.lock define reproducible acceptance.
 #include <exception>
 #include <chrono>
 #include <filesystem>
@@ -36,6 +37,8 @@ namespace
         std::optional<kairo::renderer::GraphicsBackend> BackendOverride;
     };
 
+// Calls the same fixed time step on controllers, logic and native gameplay hooks; timing must
+// agree with the physics bridge.
     class RuntimeFixedStepFanout final : public kairo::player::RuntimeFixedStepListener
     {
     public:
