@@ -30,7 +30,7 @@ Transform the Kairo engine ecosystem, NES emulator, Maveb, Vulkax and MLLibrary 
 | KairoGameEngine | Player entry-point/composition explanation | Runtime bridges, samples, tests, packaging and exact-head integration |
 | Maveb | CapturedWorldRevisionGraph CBRC evidence adapter | Hundreds of other implementation, test, shader and research automation files |
 | Vulkax | Result certificate state machine | Counterfactual pipeline, solvers, models, experiments and wider tests |
-| Other Kairo components + MLLibrary | Initial source-file ownership and dependency maps | Most public and internal functions require detailed method annotations |
+| KairoECS | All 7 current first-party code/build/test files contain teaching annotations; 26 Registry and 15 SparseSet method notes, all 8 Catch2 test cases, benchmark and build guidance; [full walkthrough](https://github.com/swayam8624/KairoECS/blob/docs/teaching-walkthrough-20261121/docs/ECS_WALKTHROUGH.md) | Run CMake/CTest/benchmark, complete native integration and independent accuracy review before declaring accepted |\n| Other Kairo components + MLLibrary | Initial source-file ownership and dependency maps | Most public and internal functions require detailed method annotations |
 
 **Progress semantics:** source inventory completed is not source annotation completed. Comment counts are not tests or correctness evidence. A comment describing an assumption does not make the assumption true.
 
@@ -47,7 +47,7 @@ Transform the Kairo engine ecosystem, NES emulator, Maveb, Vulkax and MLLibrary 
 ## Remaining stages, in execution order
 
 1. Finish NES internal helper clarity, identify upstream attribution, create bounded parser/mapper/CPU/PPU tests in behavior-focused commits.
-2. Complete KairoMath, KairoGeometry, KairoPhysicsMath, ECS, Reflection, Scheduler and Spatial foundation API comments, with equations, coordinate conventions and explicit consumers.
+2. Complete KairoMath, KairoGeometry, KairoPhysicsMath, Reflection, Scheduler and Spatial foundation API comments, with equations, coordinate conventions and explicit consumers. KairoECS has file-level teaching coverage but its build/CTest acceptance remains open.
 3. Complete KairoAssets and EngineCore schemas, importers, persistence, state and asset-lifetime contracts.
 4. Complete KairoRenderer and RayTracer render-graph, shaders, native backend interfaces, lighting, sampling and test explanations.
 5. Complete KairoPhysicsEngine and KairoEditor execution flows; connect Editor/Player/Hub/samples to first-party engine contracts.
