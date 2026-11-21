@@ -1,5 +1,7 @@
 # Cross-repository source-learning curriculum
 
+**Implementation status:** [Progress and verification ledger](ANNOTATION_PROGRESS.md) · [Teaching comment standard](ANNOTATION_STYLE_GUIDE.md). Read these before interpreting guide coverage as completion.
+
 This is the **portfolio-level** reading order. Each repository has a finer-grained, clickable `docs/SOURCE_READING_ORDER.md`. This index is an educational itinerary, **not** a claim that every function is annotated, that every project compiles, or that every research result reproduces.
 
 ## Foundations: math and data
