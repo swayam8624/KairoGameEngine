@@ -1,5 +1,7 @@
 # KairoGameEngine
 
+> **Teaching-first source walkthrough:** Start with [docs/SOURCE_READING_ORDER.md](docs/SOURCE_READING_ORDER.md). It links the sibling Kairo libraries and follows a project descriptor through the native player, input, physics, rendering, streaming, saving and optional migration. The listed paths are a conceptual learning sequence, not a claim that every optional integration is enabled by default.
+
 `KairoGameEngine` is the integration repository for the Kairo engine workspace.
 It provides the CMake superbuild and end-to-end runtime/editor fixtures while
 consuming the independently versioned Kairo repositories as **sibling
