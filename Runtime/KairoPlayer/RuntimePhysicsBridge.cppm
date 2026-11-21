@@ -1,3 +1,9 @@
+// TEACHING MAP — Player/PhysicsEngine adapter. Reads scene rigid-body and
+// collider descriptors from EngineCore, constructs a separate physics world,
+// advances bounded fixed 60-Hz steps, and writes interpolated transforms back
+// for rendering. Do not couple physics time directly to window frame rate.
+// See READING_ORDER.md and PhysicsEngine tests for the solver contract.
+
 module;
 
 #include <algorithm>
@@ -13,6 +19,8 @@ module;
 #include <variant>
 #include <vector>
 
+// Adapter boundary, not the rigid-body solver itself: physical calculations
+// live in the sibling KairoPhysicsEngine repository.
 export module Kairo.Player.RuntimePhysicsBridge;
 
 import Kairo.EngineCore;
