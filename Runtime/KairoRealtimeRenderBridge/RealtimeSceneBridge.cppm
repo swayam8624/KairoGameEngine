@@ -1,3 +1,9 @@
+// TEACHING MAP — Shared Editor/Player content conversion boundary.
+// KairoAssets provides validated mesh/material/texture identity and content;
+// this bridge builds renderer-specific draw resources consistently so the
+// editor view and shipped runtime do not silently disagree on authored data.
+// See READING_ORDER.md and SharedContentShowcase for contract tests.
+
 module;
 
 #include <algorithm>
@@ -13,6 +19,8 @@ module;
 #include <utility>
 #include <vector>
 
+// Shared module for converting stable authored source artifacts into
+// transient Renderer structs, used by both Editor and Player.
 export module Kairo.Runtime.RealtimeSceneBridge;
 
 import Kairo.Assets;
