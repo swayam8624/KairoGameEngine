@@ -1,3 +1,9 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeAudioBridge.cppm
+// Audio resource and playback integration. Read EngineCore audio scene components and
+// RuntimeSceneAudioBridge to distinguish imported audio artifact identities from transient playback
+// objects; inspect player startup/shutdown order for lifetime rules.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <cstddef>
