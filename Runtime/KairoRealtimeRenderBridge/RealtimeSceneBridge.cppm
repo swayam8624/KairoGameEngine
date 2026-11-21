@@ -1,3 +1,9 @@
+// TEACHING MAP:
+// Canonical realtime scene-to-renderer translation layer. Both editor and player use this conversion
+// for mesh/material/texture/light/instance semantics; KairoRenderer owns device handles. Compare
+// RuntimeRenderBridge for project asset caching.
+// See docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <algorithm>
