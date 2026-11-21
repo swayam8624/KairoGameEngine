@@ -111,6 +111,11 @@ export namespace kairo::player
         /// Task: bound debugger/window stalls, execute deterministic substeps,
         /// discard an unrecoverable backlog at the explicit substep cap, and
         /// publish interpolated body poses into the runtime scene.
+        /// Time model: frame elapsed seconds feed an accumulator, and each
+        /// fixed substep invokes gameplay listeners then PhysicsWorld::Step.
+        /// After the configured substep cap, excess backlog is dropped so a
+        /// debugging pause cannot trigger an unbounded catch-up spiral.
+        /// Published transforms are interpolated at the residual alpha.
         [[nodiscard]] RuntimePhysicsAdvance Advance(float elapsedSeconds,
             RuntimeFixedStepListener* listener = nullptr)
         {
@@ -155,6 +160,9 @@ export namespace kairo::player
         /// The snapshot must therefore describe the same active body topology.
         /// Pose history is collapsed onto the restored state so the first frame
         /// after a load never interpolates from the pre-load position.
+        /// Snapshot restores *solver* state, not scene identity. Validate that
+        /// every restored active body matches the already-running Entity↔BodyID
+        /// topology; clear elapsed-time history and contact events afterwards.
         void RestoreSnapshot(const kairo::foundation::physics::PhysicsWorldSnapshot& snapshot)
         {
             kairo::foundation::physics::PhysicsWorld validated;
@@ -373,12 +381,19 @@ export namespace kairo::player
                 [this](const auto& event) { CaptureContact(event); });
         }
 
+        /// Initial scene extraction: visit authored entities and register
+        /// active rigid bodies/colliders. A collider-only entity becomes an
+        /// implicit static body; scene parent transforms are resolved first.
         void BuildWorld()
         {
             for (const auto entity : m_Scene.Entities())
                 (void)AddEntityToWorld(entity);
         }
 
+        /// Convert an authored Entity and ColliderComponent to one PhysicsWorld
+        /// body/collider. This is transactional: on registration failure, undo
+        /// solver allocations and both Entity/BodyID maps so no partial object
+        /// survives. The body ID is a session-local key, not a save-game ID.
         [[nodiscard]] bool AddEntityToWorld(kairo::engine::Entity entity)
         {
             if (!m_Scene.IsActiveInHierarchy(entity)) return false;
@@ -456,6 +471,9 @@ export namespace kairo::player
             InstallContactCallback();
         }
 
+        /// Pull solved physics positions/orientations into current pose history,
+        /// retaining previous poses for render-frame interpolation. Geometry
+        /// transforms are not saved as rigid-body IDs in the authored scene.
         void SynchronizeCurrentPoses()
         {
             for (auto& [entityValue, pose] : m_Poses)
@@ -467,6 +485,9 @@ export namespace kairo::player
             }
         }
 
+        /// The hierarchy must be processed parent-first before writing local
+        /// transforms, because converting world->local uses current parent
+        /// state. RootEntities/Children establish the safe traversal order.
         void PublishInterpolatedPoses(float alpha)
         {
             // Parent-first order is required because ToLocal reads the current
@@ -487,6 +508,9 @@ export namespace kairo::player
             for (const auto child : m_Scene.Children(entity)) PublishSubtree(child, alpha);
         }
 
+        /// Translate solver body IDs into authored scene entities before the
+        /// rest of KairoPlayer sees an event; callers must not depend on the
+        /// PhysicsWorld's internal index allocation/recycling choices.
         void CaptureContact(const kairo::foundation::physics::PhysicsContactEvent& event)
         {
             const auto entityA = EntityFor(event.BodyA);
