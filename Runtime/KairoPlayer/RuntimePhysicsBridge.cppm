@@ -1,3 +1,10 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimePhysicsBridge.cppm
+// Fixed-step physics adapter between EngineCore scene entities and Kairo.Foundation.PhysicsEngine objects.
+// The host frame may produce zero or multiple fixed solver steps; contact events expose stable
+// entity-facing semantics rather than leaking session-local body/collider IDs. Read
+// RuntimeCharacterMotorBridge and RuntimePlayerControllerBridge to trace pre-step movement.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <algorithm>
