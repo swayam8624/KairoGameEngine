@@ -1,3 +1,10 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeRenderBridge.cppm
+// Converts persistent project asset IDs into process-local renderer handles and manages their release.
+// Assets, EngineCore scene state, and the RealtimeSceneBridge feed Kairo.Renderer; renderer handles must
+// not be written back as durable project IDs. Consult RuntimeProject for source paths and Renderer for
+// GPU-side lifecycle.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <algorithm>
