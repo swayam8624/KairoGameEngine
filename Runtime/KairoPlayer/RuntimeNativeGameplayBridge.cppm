@@ -1,3 +1,8 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeNativeGameplayBridge.cppm
+// Native gameplay adapter. Runs compiled gameplay hooks against runtime entity/scene state; main.cpp
+// drives this alongside logic and player controls through RuntimeFixedStepFanout before physics substeps.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <filesystem>
