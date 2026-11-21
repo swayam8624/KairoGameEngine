@@ -16,12 +16,16 @@ Transform the Kairo engine ecosystem, NES emulator, Maveb, Vulkax and MLLibrary 
 - Curated links checked against all 31 GitHub trees: **0 missing**. Full inventories were generated directly from tracked tree paths.
 - Missing root permissive licenses were added while retaining existing Apache/MIT terms. The NES grant covers original contributions only and a separate third-party provenance audit is mandatory.
 - Portfolio entry: [PORTFOLIO_READING_ORDER.md](PORTFOLIO_READING_ORDER.md).
+- Connected foundation course: [FOUNDATIONS_STUDY_PATH.md](FOUNDATIONS_STUDY_PATH.md); all **65/65** indexed first-party files in KairoMath, KairoGeometry and KairoPhysicsMath now have introductory teaching comments (not complete individual API coverage).
 
 ## Detailed source annotation milestones
 
 | Repository | Current depth | Not yet completed |
 |---|---|---|
 | [NESEmulator](https://github.com/swayam8624/NESEmulator/tree/docs/teaching-walkthrough-20261121) | 186 `TEACHING API` comments across Bus, Cartridge, CPU, PPU, APU, host application and seven mapper files; 14 more diagnostic-demo method comments; teaching build commentary and [hardware walkthrough](https://github.com/swayam8624/NESEmulator/blob/docs/teaching-walkthrough-20261121/docs/NES_ARCHITECTURE_GUIDE.md) | Upstream PixelGameEngine attribution, tests/CI, correctness fixes and any remaining internal helper explanations |
+| KairoMath | **32/32** indexed source/build/test files carry an introductory teaching annotation; selected vector, matrix, quaternion, TRS, solve, Eigen/SVD, optimization, Tensor, autodiff and GPU methods have deeper explanations; [full walkthrough](https://github.com/swayam8624/KairoMath/blob/docs/teaching-walkthrough-20261121/docs/MATH_FOUNDATIONS_WALKTHROUGH.md) | Review the remaining individual algorithms/functions, run scalar and optional Scheduler/SIMD/Metal tests, certify numerical limits and release inverse behavior |
+| KairoGeometry | **20/20** indexed source/build/test files annotated; selected ray, line, segment, plane, triangle, sphere, capsule, AABB, OBB, frustum and SAT APIs explained; [full walkthrough](https://github.com/swayam8624/KairoGeometry/blob/docs/teaching-walkthrough-20261121/docs/GEOMETRY_WALKTHROUGH.md) | Deeper function-by-function review of intersection edge cases, native tests and numerical/visual cross-validation |
+| KairoPhysicsMath | **13/13** indexed source/build/test files annotated, with formula-specific comments on mass, inertia, impulse, constraints, integrators and Catch2 cases; [full walkthrough](https://github.com/swayam8624/KairoPhysicsMath/blob/docs/teaching-walkthrough-20261121/docs/PHYSICS_MATH_WALKTHROUGH.md) | Full function review, CMake/CTest on supported hosts and wider compound inertia/solver oracle validation |
 | KairoPhysicsEngine | Broadphase indexing, pair/filter/query method contracts | PhysicsWorld, narrowphase, solver, joints, controllers, engine/world tests |
 | KairoEditor | EditorState methods including state transitions and scene lifetime | Document compiler, undo/redo transaction core, EditorShell, runtime UI tests |
 | KairoRenderer | Backend-neutral RendererRuntime API and resource boundaries | Native GPU backends, synchronization, render graph, shaders, graphics tests |
@@ -30,7 +34,8 @@ Transform the Kairo engine ecosystem, NES emulator, Maveb, Vulkax and MLLibrary 
 | KairoGameEngine | Player entry-point/composition explanation | Runtime bridges, samples, tests, packaging and exact-head integration |
 | Maveb | CapturedWorldRevisionGraph CBRC evidence adapter | Hundreds of other implementation, test, shader and research automation files |
 | Vulkax | Result certificate state machine | Counterfactual pipeline, solvers, models, experiments and wider tests |
-| KairoECS | All 7 current first-party code/build/test files contain teaching annotations; 26 Registry and 15 SparseSet method notes, all 8 Catch2 test cases, benchmark and build guidance; [full walkthrough](https://github.com/swayam8624/KairoECS/blob/docs/teaching-walkthrough-20261121/docs/ECS_WALKTHROUGH.md) | Run CMake/CTest/benchmark, complete native integration and independent accuracy review before declaring accepted |\n| Other Kairo components + MLLibrary | Initial source-file ownership and dependency maps | Most public and internal functions require detailed method annotations |
+| KairoECS | All 7 current first-party code/build/test files contain teaching annotations; 26 Registry and 15 SparseSet method notes, all 8 Catch2 test cases, benchmark and build guidance; [full walkthrough](https://github.com/swayam8624/KairoECS/blob/docs/teaching-walkthrough-20261121/docs/ECS_WALKTHROUGH.md) | Run CMake/CTest/benchmark, complete native integration and independent accuracy review before declaring accepted |
+| Other Kairo components + MLLibrary | Initial source-file ownership and dependency maps | Most public and internal functions require detailed method annotations |
 
 **Progress semantics:** source inventory completed is not source annotation completed. Comment counts are not tests or correctness evidence. A comment describing an assumption does not make the assumption true.
 
@@ -43,11 +48,13 @@ Transform the Kairo engine ecosystem, NES emulator, Maveb, Vulkax and MLLibrary 
 5. **Kairo acceptance:** 95% remains an unverified target. All 27 locked repository SHAs and native host smoke tests require a complete acceptance pass.
 6. **MAVEB:** frozen calibrated-work reductions are not equivalent to measured full-runtime speedup. Nonzero-residual claims use separate evidence.
 7. **VULKAX:** preserve both successful pendulum and failed free-fall validation; do not silently broaden trust-state claims.
+8. **KairoMath fixed inverse:** singular fixed-size matrices can hit an assert and fall back to identity when assertions are disabled; identity is not a valid inverse. Transform inverse also requires supported uniform nonzero scale.
+9. **Foundation native execution:** KairoMath's GPU/Scheduler bridges are optional; their source existence does not prove native performance or cross-platform GPU layout compatibility.
 
 ## Remaining stages, in execution order
 
 1. Finish NES internal helper clarity, identify upstream attribution, create bounded parser/mapper/CPU/PPU tests in behavior-focused commits.
-2. Complete KairoMath, KairoGeometry, KairoPhysicsMath, Reflection, Scheduler and Spatial foundation API comments, with equations, coordinate conventions and explicit consumers. KairoECS has file-level teaching coverage but its build/CTest acceptance remains open.
+2. Review all remaining internal/math/geometry/physics methods beyond the now-complete **file-level** introductory teaching coverage, then finish Reflection, Scheduler and Spatial foundation API comments. KairoECS also has file-level coverage, but its CMake/CTest acceptance remains open.
 3. Complete KairoAssets and EngineCore schemas, importers, persistence, state and asset-lifetime contracts.
 4. Complete KairoRenderer and RayTracer render-graph, shaders, native backend interfaces, lighting, sampling and test explanations.
 5. Complete KairoPhysicsEngine and KairoEditor execution flows; connect Editor/Player/Hub/samples to first-party engine contracts.
