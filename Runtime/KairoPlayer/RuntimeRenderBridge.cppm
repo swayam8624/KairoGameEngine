@@ -1,3 +1,9 @@
+// TEACHING MAP — Player ownership of process-local GPU handles.
+// KairoAssets defines stable asset identities and imported portable artifacts;
+// KairoRuntime.RealtimeSceneBridge converts them to KairoRenderer objects.
+// The player bridge owns GPU resource lifetime; EngineCore scenes do not.
+// See READING_ORDER.md for the full Player/Renderer/Editor contract.
+
 module;
 
 #include <algorithm>
@@ -12,6 +18,9 @@ module;
 #include <utility>
 #include <vector>
 
+// Public C++23 module imported by the Player and gameplay fixtures.
+// It imports EngineCore/Assets/Renderer but does not expose raw GPU ownership
+// through persistent project data.
 export module Kairo.Player.RuntimeRenderBridge;
 
 import Kairo.Assets;
