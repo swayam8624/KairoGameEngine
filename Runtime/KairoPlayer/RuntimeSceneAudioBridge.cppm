@@ -1,3 +1,8 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeSceneAudioBridge.cppm
+// Maps scene audio components onto runtime audio channels/emitters; compare RuntimeAudioBridge for
+// resources and Kairo.EngineCore audio persistence for durable authored state.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <cmath>

@@ -1,3 +1,10 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeRenderBridge.cppm
+// Converts persistent project asset IDs into process-local renderer handles and manages their release.
+// Assets, EngineCore scene state, and the RealtimeSceneBridge feed Kairo.Renderer; renderer handles must
+// not be written back as durable project IDs. Consult RuntimeProject for source paths and Renderer for
+// GPU-side lifecycle.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <algorithm>
@@ -171,6 +178,9 @@ export namespace kairo::player
         /// Advances explicit gameplay clocks and compatibility clip-zero clocks.
         /// Animation sampling stays inside the shared RealtimeSceneBridge so
         /// Player, Editor and migration-imported glTF data use one evaluator.
+        /// Per-frame animation clocks are gameplay-facing state; the shared
+        /// RealtimeSceneBridge samples authored glTF animations. Invalid/absent
+        /// scene instances remove their cached playback state to avoid leaks.
         void StepAnimations(float deltaSeconds)
         {
             if (!std::isfinite(deltaSeconds) || deltaSeconds < 0.0f ||
@@ -239,6 +249,9 @@ export namespace kairo::player
             return m_AnimationStates.size();
         }
 
+        /// Pure scene-extraction boundary from live EngineCore scene objects,
+        /// bound asset handles and sampled animation poses to renderer input.
+        /// Native backends own actual draw submission and GPU resource state.
         [[nodiscard]] kairo::renderer::RenderScene BuildScene() const
         {
             return kairo::runtime::renderbridge::BuildRenderScene(
@@ -296,6 +309,9 @@ export namespace kairo::player
             return found->second;
         }
 
+        /// Idempotent best-effort GPU cleanup in reverse acquisition order.
+        /// The renderer must outlive this bridge; its owning main.cpp scope
+        /// constructs RendererRuntime first and destroys it last.
         void ReleaseResources() noexcept
         {
             for (auto iterator = m_OwnedMeshes.rbegin(); iterator != m_OwnedMeshes.rend(); ++iterator)
@@ -313,6 +329,9 @@ export namespace kairo::player
             m_OwnedTextures.clear();
         }
 
+        /// A durable TextureAssetHandle maps to one session-local GPU handle.
+        /// The same asset must use compatible color-space/normal-map semantics;
+        /// mismatched interpretation throws instead of silently reusing data.
         [[nodiscard]] kairo::renderer::TextureHandle EnsureTexture(
             kairo::assets::TextureAssetHandle asset,
             const kairo::assets::TextureImportSettings& settings)
@@ -348,6 +367,10 @@ export namespace kairo::player
             (void)EnsureTexture(*texture, settings);
         }
 
+        /// Startup asset pipeline: load imported material definitions, resolve
+        /// referenced textures with correct SRGB/linear semantics, import or
+        /// generate meshes, then bind resulting resources in the bridge cache.
+        /// RuntimeProject supplies validated persistent asset metadata.
         void LoadAssets()
         {
             for (const auto& metadata : m_Project.Assets().Snapshot())

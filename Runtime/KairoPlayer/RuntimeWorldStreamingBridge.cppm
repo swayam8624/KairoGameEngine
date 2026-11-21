@@ -1,3 +1,9 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeWorldStreamingBridge.cppm
+// Streaming scene lifecycle adapter. World regions/entities can enter and leave the active runtime;
+// coordinate physics body activation and rendering resources rather than retaining stale handles after
+// unload.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <cstddef>

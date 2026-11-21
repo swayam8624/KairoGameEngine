@@ -1,3 +1,10 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeInputBridge.cppm
+// Host input adapter. Translate keyboard/other platform inputs into authored actions from RuntimeProject's
+// InputMap; downstream RuntimePlayerControllerBridge, logic and native gameplay subscribe to action state.
+// Compare EngineCore Input/InputMap modules for the semantic contract, rather than hardcoding key codes
+// into simulation.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <GLFW/glfw3.h>
