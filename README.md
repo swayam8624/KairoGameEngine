@@ -1,3 +1,9 @@
+> **Learn Kairo systematically:** [READING_ORDER.md](READING_ORDER.md) gives a linked, cross-repository study path from Math/Assets/EngineCore to Renderer, Physics, Editor and shipped Player. [SOURCE_CATALOG.md](docs/SOURCE_CATALOG.md) indexes all files in this integration repository.
+>
+> **Open source:** the integrated repository already uses [MIT](LICENSE) for its original code; individual sibling repositories and third-party assets retain their respective terms. Learning, modification and further development are welcome within those licenses.
+>
+> **Verification status:** the 95% portfolio score is an **unverified target**. See [STATUS.md](STATUS.md) and the exact-head acceptance scripts; a green weekly audit is not full native multi-repository verification.
+
 # KairoGameEngine
 
 `KairoGameEngine` is the integration repository for the Kairo engine workspace.
