@@ -1,3 +1,9 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeLogicBridge.cppm
+// Gameplay logic bridge between loaded scene/project declarations and the runtime step. Inspect
+// RuntimeNativeGameplayBridge and RuntimeFixedStepFanout in main.cpp to see when logic mutates entity
+// state relative to physics.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <iostream>
