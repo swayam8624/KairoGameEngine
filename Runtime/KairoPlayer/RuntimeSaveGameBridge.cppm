@@ -1,3 +1,9 @@
+// TEACHING MAP:
+// Save/load boundary between durable project/world data and transient runtime state. Stable entity
+// identity must survive serialization; physics bodies and GPU handles are session-local. Read
+// RuntimeWorldStreamingBridge and EngineCore scene persistence alongside this interface.
+// See docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <algorithm>
