@@ -23,6 +23,9 @@ export namespace kairo::player
     /// Task: establish one deterministic project root before resolving any
     /// portable path from authored data. Symlinks are resolved by the host
     /// filesystem so subsequent containment checks operate on real locations.
+    /// Trust boundary 1/2: canonicalize the supplied descriptor and ensure
+    /// it is a readable .kproject *file*, not a directory. The resulting parent
+    /// becomes the root for all subsequent referenced resource paths.
     [[nodiscard]] inline std::filesystem::path ResolveProjectDescriptorPath(
         const std::filesystem::path& requested)
     {
@@ -42,6 +45,10 @@ export namespace kairo::player
     class RuntimeProject final
     {
     public:
+        /// Trust boundary 2/2: read the versioned EngineCore project descriptor
+        /// and resolve referenced manifest, scene and input map *under* the
+        /// canonical root before parser calls. This class has no GPU handles;
+        /// RuntimeRenderBridge constructs those after validation succeeds.
         explicit RuntimeProject(const std::filesystem::path& requestedDescriptor)
             : m_DescriptorPath(ResolveProjectDescriptorPath(requestedDescriptor)),
               m_Root(m_DescriptorPath.parent_path()),
@@ -67,6 +74,9 @@ export namespace kairo::player
         /// Output: canonical regular file contained by this project root.
         /// Degeneracy: missing files, directories, and symlink escapes fail
         /// before a parser receives bytes from outside the project boundary.
+        /// Normalize a portable relative path, weakly canonicalize it, then
+        /// reject symlink escapes and nonregular files. A normalized asset
+        /// path is not sufficient without the resolved-root containment check.
         [[nodiscard]] std::filesystem::path RequireProjectFile(
             const std::filesystem::path& relative, const char* role) const
         {
@@ -81,6 +91,9 @@ export namespace kairo::player
         }
 
     private:
+        /// Compare canonical path *components*, not string prefixes (where
+        /// /games/foo could be confused with /games/foobar). Both the root and
+        /// resolved path are derived from canonical filesystem lookups.
         [[nodiscard]] bool IsWithinRoot(const std::filesystem::path& path) const noexcept
         {
             auto root = m_Root.begin();
