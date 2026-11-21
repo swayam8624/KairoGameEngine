@@ -422,3 +422,12 @@ The former Wave A/B percentages are historical planning milestones only. They
 must not be read as current completion evidence. Current acceptance is governed
 by `workspace.lock`, `scripts/run_portfolio_acceptance.sh`, and the matching
 exact-head evidence stamp.
+
+
+## Learn this repository from source
+
+The [Teaching source map](docs/SOURCE_READING_ORDER.md) gives a linked reading sequence, subsystem interactions, public API boundaries, and verification questions. Begin with the public contract and entry point, trace one real operation through its implementation, and use the linked tests to distinguish expected behavior from observed evidence.
+
+**Current scope and limitations.** The 95% figure in planning documents is an unverified target. The exact-head sibling-workspace acceptance runner, not a periodic non-strict CI audit, determines integrated verification.
+
+**Learning and reuse.** Project-authored code is intended for study, modification and further development under the repository's applicable license. See [LICENSE](LICENSE) where present. Third-party libraries, borrowed source, assets, test data, models and media remain under their own terms; do not treat a top-level license as permission to redistribute restricted content.
