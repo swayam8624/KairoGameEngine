@@ -1,5 +1,7 @@
 # Kairo workspace — source reading order
 
+For a complete narrative of the runtime's startup, fixed timestep, identity domains, rendering and save-game boundaries, read [PLAYER_EXECUTION_EXPLAINED.md](PLAYER_EXECUTION_EXPLAINED.md) after this guide.
+
 This is a **concept-first, executable-path-first study plan**, not an instruction to read every repository alphabetically. KairoGameEngine is a superbuild over sibling repositories: its CMake configuration uses `KAIRO_WORKSPACE_ROOT` and can enable or omit editor, player, physics sandbox, migration, and compute targets. Follow [README](../README.md) and [CMakeLists](../CMakeLists.txt) to understand which dependencies are actually required in your chosen configuration.
 
 All links to other repositories below point at their default GitHub branches; check out matching revisions for a reproducible workspace build.
