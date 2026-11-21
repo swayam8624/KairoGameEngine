@@ -1,3 +1,10 @@
+// TEACHING MAP: Runtime/KairoPlayer/RuntimeProject.cppm
+// Validated project-loading boundary: convert the user-supplied .kproject path into a canonical on-disk
+// descriptor, resolve referenced files beneath the project root, then load Kairo.Assets manifests and
+// Kairo.EngineCore scenes/input maps. RuntimeRenderBridge and other runtime adapters consume this
+// validated project state; keep raw paths and untrusted asset paths out of GPU/physics constructors.
+// Related entry points and exercises: docs/SOURCE_READING_ORDER.md.
+
 module;
 
 #include <filesystem>
