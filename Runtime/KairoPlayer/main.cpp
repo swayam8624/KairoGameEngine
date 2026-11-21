@@ -1,3 +1,8 @@
+// TEACHING MAP — KairoPlayer native executable. Reads a validated .kproject,
+// composes EngineCore with Renderer/Physics/Audio/Input/Gameplay bridges,
+// chooses a backend, runs the shipping host loop or validation/package mode.
+// See READING_ORDER.md to trace project bootstrap through each imported module.
+
 #include <exception>
 #include <chrono>
 #include <filesystem>
@@ -98,6 +103,8 @@ namespace
     }
 }
 
+// Command-line integration boundary: validation, packaging and interactive
+// runtime have different side effects. Study RuntimeProject before bridges.
 int main(int argc, char** argv)
 {
     try

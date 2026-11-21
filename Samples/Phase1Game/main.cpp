@@ -1,3 +1,9 @@
+// TEACHING MAP — Small playable integration fixture for end-to-end engine
+// behavior: project input, scene, fixed-step physics, rendering, gameplay
+// state, packaging and save/load. This sample is an acceptance case, not proof
+// that all 27 Kairo repositories are 95% complete (STATUS.md is unverified).
+// See READING_ORDER.md and the locked portfolio acceptance scripts.
+
 #include <GLFW/glfw3.h>
 
 #include <chrono>
@@ -193,6 +199,8 @@ namespace
     }
 }
 
+// This sample exercises multiple sibling modules together; check its
+// tests/Phase1GameStateTests.cpp and the workspace exact-head acceptance gate.
 int main(int argc, char** argv)
 {
     try
