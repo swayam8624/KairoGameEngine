@@ -16,6 +16,7 @@ Transform the Kairo engine ecosystem, NES emulator, Maveb, Vulkax and MLLibrary 
 - Curated links checked against all 31 GitHub trees: **0 missing**. Full inventories were generated directly from tracked tree paths.
 - Missing root permissive licenses were added while retaining existing Apache/MIT terms. The NES grant covers original contributions only and a separate third-party provenance audit is mandatory.
 - Portfolio entry: [PORTFOLIO_READING_ORDER.md](PORTFOLIO_READING_ORDER.md).
+- Reflection + Scheduler extension: **9/9** first-party source/build/test files now have first-pass teaching notes and new walkthroughs; compiler and CI acceptance remain pending.
 - Connected foundation course: [FOUNDATIONS_STUDY_PATH.md](FOUNDATIONS_STUDY_PATH.md); all **65/65** indexed first-party files in KairoMath, KairoGeometry and KairoPhysicsMath now have introductory teaching comments (not complete individual API coverage).
 
 ## Detailed source annotation milestones
@@ -26,6 +27,8 @@ Transform the Kairo engine ecosystem, NES emulator, Maveb, Vulkax and MLLibrary 
 | KairoMath | **32/32** indexed source/build/test files carry an introductory teaching annotation; selected vector, matrix, quaternion, TRS, solve, Eigen/SVD, optimization, Tensor, autodiff and GPU methods have deeper explanations; [full walkthrough](https://github.com/swayam8624/KairoMath/blob/docs/teaching-walkthrough-20261121/docs/MATH_FOUNDATIONS_WALKTHROUGH.md) | Review the remaining individual algorithms/functions, run scalar and optional Scheduler/SIMD/Metal tests, certify numerical limits and release inverse behavior |
 | KairoGeometry | **20/20** indexed source/build/test files annotated; selected ray, line, segment, plane, triangle, sphere, capsule, AABB, OBB, frustum and SAT APIs explained; [full walkthrough](https://github.com/swayam8624/KairoGeometry/blob/docs/teaching-walkthrough-20261121/docs/GEOMETRY_WALKTHROUGH.md) | Deeper function-by-function review of intersection edge cases, native tests and numerical/visual cross-validation |
 | KairoPhysicsMath | **13/13** indexed source/build/test files annotated, with formula-specific comments on mass, inertia, impulse, constraints, integrators and Catch2 cases; [full walkthrough](https://github.com/swayam8624/KairoPhysicsMath/blob/docs/teaching-walkthrough-20261121/docs/PHYSICS_MATH_WALKTHROUGH.md) | Full function review, CMake/CTest on supported hosts and wider compound inertia/solver oracle validation |
+| KairoReflection | **5/5** first-party code/build/test files annotated; metadata kinds, type registry read/write, member adapters and six Catch2 cases explained; [walkthrough](https://github.com/swayam8624/KairoReflection/blob/docs/teaching-walkthrough-20261121/docs/REFLECTION_WALKTHROUGH.md) | Execute CMake/CTest; review remaining private validation helpers and mutation rollback behavior |
+| KairoScheduler | **4/4** first-party code/build/test files annotated; range arithmetic, thread pool, TaskGroup, topological TaskGraph and cooperative stop behavior explained; [walkthrough](https://github.com/swayam8624/KairoScheduler/blob/docs/teaching-walkthrough-20261121/docs/SCHEDULER_WALKTHROUGH.md) | Run smoke/benchmark, inspect cancellation/oversubscription edge cases on supported hosts |
 | KairoPhysicsEngine | Broadphase indexing, pair/filter/query method contracts | PhysicsWorld, narrowphase, solver, joints, controllers, engine/world tests |
 | KairoEditor | EditorState methods including state transitions and scene lifetime | Document compiler, undo/redo transaction core, EditorShell, runtime UI tests |
 | KairoRenderer | Backend-neutral RendererRuntime API and resource boundaries | Native GPU backends, synchronization, render graph, shaders, graphics tests |
@@ -54,7 +57,7 @@ Transform the Kairo engine ecosystem, NES emulator, Maveb, Vulkax and MLLibrary 
 ## Remaining stages, in execution order
 
 1. Finish NES internal helper clarity, identify upstream attribution, create bounded parser/mapper/CPU/PPU tests in behavior-focused commits.
-2. Review all remaining internal/math/geometry/physics methods beyond the now-complete **file-level** introductory teaching coverage, then finish Reflection, Scheduler and Spatial foundation API comments. KairoECS also has file-level coverage, but its CMake/CTest acceptance remains open.
+2. Review all remaining internal/math/geometry/physics methods beyond the now-complete **file-level** introductory teaching coverage, then finish Spatial foundation API comments. Reflection and Scheduler now have file-level teaching coverage but no new test acceptance. KairoECS also has file-level coverage, but its CMake/CTest acceptance remains open.
 3. Complete KairoAssets and EngineCore schemas, importers, persistence, state and asset-lifetime contracts.
 4. Complete KairoRenderer and RayTracer render-graph, shaders, native backend interfaces, lighting, sampling and test explanations.
 5. Complete KairoPhysicsEngine and KairoEditor execution flows; connect Editor/Player/Hub/samples to first-party engine contracts.
