@@ -1,3 +1,12 @@
+// TEACHING MODULE: One-way authored EngineCore Scene -> process-local
+// KairoECS extraction. Runtime ECS entity index/generation is not a
+// persistent identifier and should not enter saved .kscene files.
+//
+// Extract first creates runtime ECS records for every authored Entity,
+// then resolves parent references after all IDs exist. This two-pass
+// process supports forward references without requiring input ordering.
+// Editor and Player must explicitly synchronize/re-extract if authored
+// Scene changes; this is not an automatic bidirectional editor adapter.
 module;
 
 #include <cstddef>
@@ -48,6 +57,8 @@ export namespace kairo::runtime
     /// KairoECS is the process-local execution layout. Stable authored IDs are
     /// retained explicitly so save/load, diagnostics, physics, rendering and
     /// future replication never serialize or infer ECS slot generations.
+    // Owns KairoECS storage and authored-to-ECS identity mapping,
+    // but not the original EngineCore Scene or native renderer objects.
     class SceneECSMirror final
     {
     public:
