@@ -115,6 +115,61 @@ int main()
             [&](Handle) { throw std::runtime_error("unexpected destruction"); }) == 0u,
             "Cleanup on an empty journal was not idempotent");
 
+        using kairo::player::detail::ReleaseSceneResources;
+        std::vector<Handle> meshJournal{ 101u, 102u };
+        std::vector<Handle> textureJournal{ 201u };
+        bool submittedSceneStillReferencesHandles = true;
+        std::vector<std::string> releaseOrder;
+
+        // The current RenderScene must be cleared before any backend is
+        // asked to destroy its native mesh or texture allocations.
+        const auto successfulTeardown = ReleaseSceneResources(
+            meshJournal, textureJournal,
+            [&]
+            {
+                releaseOrder.push_back("unbind");
+                submittedSceneStillReferencesHandles = false;
+            },
+            [&](Handle handle)
+            {
+                Check(!submittedSceneStillReferencesHandles,
+                    "Mesh destruction preceded submitted scene unbind");
+                releaseOrder.push_back("mesh" + std::to_string(handle));
+            },
+            [&](Handle handle)
+            {
+                Check(!submittedSceneStillReferencesHandles,
+                    "Texture destruction preceded submitted scene unbind");
+                releaseOrder.push_back("texture" + std::to_string(handle));
+            });
+        Check(successfulTeardown == 0u && meshJournal.empty() &&
+              textureJournal.empty(), "Successful teardown retained handles");
+        Check(releaseOrder == std::vector<std::string>{
+            "unbind", "mesh102", "mesh101", "texture201" },
+            "Unbind-first release sequencing changed");
+
+        // A rejected or failed scene-unbind must prevent destruction of ALL
+        // resources, leaving both journals for a safe later recovery attempt.
+        meshJournal = { 301u };
+        textureJournal = { 401u };
+        bool destroyedWhileBound = false;
+        const auto clearFailures = ReleaseSceneResources(
+            meshJournal, textureJournal,
+            [] { throw std::runtime_error("injected unbind failure"); },
+            [&](Handle) { destroyedWhileBound = true; },
+            [&](Handle) { destroyedWhileBound = true; });
+        Check(clearFailures == 3u && !destroyedWhileBound &&
+              meshJournal == std::vector<Handle>{ 301u } &&
+              textureJournal == std::vector<Handle>{ 401u },
+            "Unbind failure lost or destroyed still-submitted resources");
+
+        // Simulated device recovery allows an explicit later retry, with
+        // release order still deterministic and both journals emptied.
+        const auto recovered = ReleaseSceneResources(meshJournal, textureJournal,
+            [] {}, [](Handle) {}, [](Handle) {});
+        Check(recovered == 0u && meshJournal.empty() &&
+              textureJournal.empty(), "Failed teardown recovery retry");
+
         std::puts("KairoPlayer renderer resource tracking tests passed");
         return 0;
     }
