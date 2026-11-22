@@ -2,6 +2,8 @@
 
 **Cross-repository integration status:** [31 historic documentation PR reconciliation ledger](DOCUMENTATION_MERGE_RECONCILIATION_20261122.md). This distinguishes already-integrated mainline teaching from unresolved protected/conflicting PRs.
 
+**Cross-repository integration lab:** [Asset/scene-to-GPU handle ownership, glTF animation and test evidence](ASSET_SCENE_TO_GPU_LIFETIME_LAB.md). Read the authored/CPU contracts before following the native GPU backend; source inspection is not a native test result.
+
 **Recovered deep tutorial:** [KairoPlayer launch-to-frame execution](PLAYER_EXECUTION_EXPLAINED.md) — source-linked teaching, not a verified test result.
 
 **Historical full source inventory:** [92 linked first-party source/build paths](SOURCE_CATALOG.md) (November 21, 2026 snapshot; verify changed paths against current main).
