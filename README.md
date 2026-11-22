@@ -1,8 +1,8 @@
 # KairoGameEngine
 
-**Quick C++23 regression runner:** `bash scripts/run_renderer_resource_lifetime_regressions.sh` now compiles **five** CPU-only programs: Player GPU-handle tracking, renderer native-publication rollback, Vulkan frame recovery, transactional Vulkan descriptor generations, and material file-size validation; [source](scripts/run_renderer_resource_lifetime_regressions.sh).
+**Quick C++23 regression runner:** `bash scripts/run_renderer_resource_lifetime_regressions.sh` now compiles **six** CPU-only programs: Player GPU-handle tracking, renderer native-publication rollback, Vulkan frame recovery, transactional Vulkan descriptor generations, texture mip upload staging, and material file-size validation; [source](scripts/run_renderer_resource_lifetime_regressions.sh).
 
-**Portable CI:** [GCC/Clang Player handle + material-length regression workflow](.github/workflows/cpu-player-resource-guards.yml) · [five-test standalone C++23 runner](scripts/run_renderer_resource_lifetime_regressions.sh). Native GPU testing remains a separate gate.
+**Portable CI:** [GCC/Clang Player handle + material-length regression workflow](.github/workflows/cpu-player-resource-guards.yml) · [six-test standalone C++23 runner](scripts/run_renderer_resource_lifetime_regressions.sh). Native GPU testing remains a separate gate.
 
 **Bounded material import:** [fixed-schema material file limit, pre-allocation validation and regression test](docs/MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md). **Vulkan frame recovery:** [acquire semaphore drain and fence/submit recovery](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_FRAME_FAILURE_RECOVERY_LAB.md).
 
