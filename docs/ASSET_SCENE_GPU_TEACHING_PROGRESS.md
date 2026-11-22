@@ -59,7 +59,7 @@ An `AssetID` is durable; a `DerivedDataKey` identifies a content+recipe cached a
 
 1. **Upload-to-binding rollback:** `RuntimeRenderBridge::EnsureTexture` and `LoadAssets` may create a GPU handle before the corresponding binding/map/vector bookkeeping completes. Failure injection should confirm the new handle is not stranded.
 2. **Noexcept cleanup visibility:** `ReleaseResources` catches and discards renderer destruction errors. Test a submitted scene that still references a destroyed texture and verify the bridge reports/handles failure and retires it.
-3. **Importer file size:** `LoadRenderMaterial` reads a registered path into a size-derived vector without an explicit pre-allocation size budget comparable to the generic 1 GiB import source cap. Add a malicious/oversized file test.
+3. **Importer file size (source fix committed):** `LoadRenderMaterial` now runs a [1 MiB fixed-schema size gate](MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md) *before* allocating a byte vector; a CPU test covers negative, exact-limit and over-limit lengths. Full filesystem/parser integration testing remains outstanding.
 4. **Device recreation:** old renderer handles and descriptors are not durable across native device rebuild; rebind from stable asset IDs and reconstruct all native resources.
 5. **glTF and selection:** add native GPU reference-image tests for animated skinning, stable ObjectID pixel readback, and generation-aware entity deletion between submission/readback.
 6. **Source-level test ≠ execution:** existing CTest names and Catch2 assertions have been read; exact-head C++23 superbuild, native shader validation, GPU driver tests, sanitizers and import stress trials remain separate.
