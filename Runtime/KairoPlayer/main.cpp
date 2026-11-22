@@ -1,4 +1,18 @@
-// TEACHING MAP: PLAYER COMPOSITION ROOT: Parse .kproject arguments and compose runtime bridges for renderer, physics, input, audio, logic and gameplay. KairoEngineCore defines portable scene state; KairoRenderer owns native graphics resources; KairoPhysicsEngine advances fixed steps. Other implementations are in Runtime; integration tests and workspace.lock define reproducible acceptance.
+// TEACHING MAP: Player is the composition root, not a monolithic engine.
+// Parse CLI and validate portable RuntimeProject before native device creation;
+// then construct physics, audio, input, gameplay/logic and RendererRuntime
+// adapters from the same authoritative EngineCore scene.
+//
+// Frame order: poll OS/window input, capture named actions, advance bounded
+// fixed physics substeps (controller/logic hooks), deliver contact events,
+// update gameplay/animation/audio, extract RenderScene, submit camera and
+// draw the native frame. RuntimePhysicsBridge maps authored Entity to BodyID;
+// RealtimeSceneBridge maps AssetID to transient renderer handles.
+//
+// --validate-only skips native window creation. --smoke requests a bounded
+// capture and tests nonuniform pixels, not complete graphics correctness or
+// mathematical certification of physics.
+
 #include <exception>
 #include <chrono>
 #include <filesystem>
@@ -101,6 +115,8 @@ namespace
     }
 }
 
+// Build runtime services from one validated project. The exception
+// boundary reports errors; each owner remains responsible for RAII cleanup.
 int main(int argc, char** argv)
 {
     try
@@ -130,6 +146,7 @@ int main(int argc, char** argv)
                   << "  player controllers: " << playerController.ControllerCount() << '\n'
                   << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
                   << "  production systems: " << (production.Enabled() ? "enabled" : "disabled") << '\n';
+        // Headless validation stops before graphics initialization.
         if (arguments.ValidateOnly) return 0;
         if (arguments.PackageProfile.has_value())
         {
