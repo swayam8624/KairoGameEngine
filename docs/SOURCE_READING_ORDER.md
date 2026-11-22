@@ -1,5 +1,8 @@
 # Teaching source map — KairoGameEngine
 
+**Historical full source inventory:** [92 linked first-party source/build paths](SOURCE_CATALOG.md) (November 21, 2026 snapshot; verify changed paths against current main).
+
+
 > A guided source-reading itinerary. It is not a test result or claim that every file is documented yet.
 
 ## How to use this guide
