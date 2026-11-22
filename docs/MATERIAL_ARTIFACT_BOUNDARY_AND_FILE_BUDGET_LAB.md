@@ -56,6 +56,8 @@ The test is registered in [the shared bridge CMake file](../Runtime/KairoRealtim
 
 These tests prove only the *numeric gate's behavior*. The existing KairoAssets serialization/parser tests remain responsible for the actual typed binary representation. An integration test must still register a material AssetID, write a real canonical derived file, load it, then confirm altered/truncated/oversized files fail at the intended stage.
 
+**Automated guard:** the [Player/asset CPU workflow](../.github/workflows/cpu-player-resource-guards.yml) runs `MaterialFileSizeBudgetTests.cpp` and the Player handle-journal regression with GCC and Clang on relevant repository pushes/PRs. The [manual standalone runner](../scripts/run_renderer_resource_lifetime_regressions.sh) can also test the renderer's frame-state journal and native-publication helper when the sibling checkout is present.
+
 ## 5. Deeper lessons
 
 A file-size cap is not just a memory-usage optimization. It is part of the trust boundary between authored/editor-controlled storage and runtime allocations.
