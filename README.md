@@ -1,5 +1,10 @@
 # KairoGameEngine
 
+**Learn by following execution:** [Linked source-reading order](docs/SOURCE_READING_ORDER.md) · [One project → full game-frame integration walkthrough](docs/ENGINE_INTEGRATION_WALKTHROUGH.md).
+
+The walkthrough separates stable authored identities from runtime PhysicsWorld
+body IDs, ECS slots, renderer GPU handles and exact-head verification evidence.
+
 `KairoGameEngine` is the integration repository for the Kairo engine workspace.
 It provides the CMake superbuild and end-to-end runtime/editor fixtures while
 consuming the independently versioned Kairo repositories as **sibling
