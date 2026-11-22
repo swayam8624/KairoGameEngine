@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fast, GPU-free build and execution of six exact checked-in KairoPlayer,
+# Fast, GPU-free build and execution of seven exact checked-in KairoPlayer,
 # KairoRenderer and shared asset-bridge C++23 regression programs. No CMake superbuild, GLFW, Vulkan loader, GPU
 # device, shader tools or C++23 module dependency scanner is needed.
 #
@@ -24,6 +24,7 @@ renderer_test="$renderer_root/tests/NativeResourcePublicationTests.cpp"
 frame_test="$renderer_root/tests/VulkanFrameRecoveryJournalTests.cpp"
 transaction_test="$renderer_root/tests/TransactionalResourceGenerationTests.cpp"
 texture_test="$renderer_root/tests/TextureMipUploadPlanTests.cpp"
+upload_retirement_test="$renderer_root/tests/VulkanUploadRetirementPolicyTests.cpp"
 material_test="$game_root/Runtime/KairoRealtimeRenderBridge/tests/MaterialFileSizeBudgetTests.cpp"
 
 if ! command -v "$cxx" >/dev/null 2>&1; then
@@ -31,9 +32,9 @@ if ! command -v "$cxx" >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ ! -f "$player_test" || ! -f "$renderer_test" || ! -f "$frame_test" || ! -f "$transaction_test" || ! -f "$texture_test" || ! -f "$material_test" ]]; then
+if [[ ! -f "$player_test" || ! -f "$renderer_test" || ! -f "$frame_test" || ! -f "$transaction_test" || ! -f "$texture_test" || ! -f "$upload_retirement_test" || ! -f "$material_test" ]]; then
   printf 'Expected sibling KairoGameEngine and KairoRenderer source trees.\n' >&2
-  printf 'Missing CPU regression source:\n%s\n%s\n%s\n%s\n%s\n%s\n' "$player_test" "$renderer_test" "$frame_test" "$transaction_test" "$texture_test" "$material_test" >&2
+  printf 'Missing CPU regression source:\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' "$player_test" "$renderer_test" "$frame_test" "$transaction_test" "$texture_test" "$upload_retirement_test" "$material_test" >&2
   exit 1
 fi
 
@@ -68,10 +69,15 @@ printf '%s\n' '=== Validated Vulkan mip staging layout and payload offsets ==='
   "$texture_test" -o "$output_dir/kairo-texture-upload-plan-test"
 "$output_dir/kairo-texture-upload-plan-test"
 
+printf '%s\n' '=== Vulkan upload queue completion and loss-state fault injection ==='
+"$cxx" -std=c++23 -O0 -g -Wall -Wextra -Werror -pedantic \
+  "$upload_retirement_test" -o "$output_dir/kairo-vulkan-upload-retirement-test"
+"$output_dir/kairo-vulkan-upload-retirement-test"
+
 printf '%s\n' '=== Bounded material artifact file pre-allocation validation ==='
 "$cxx" -std=c++23 -O0 -g -Wall -Wextra -Werror -pedantic \
   "$material_test" -o "$output_dir/kairo-material-budget-test"
 "$output_dir/kairo-material-budget-test"
 
-printf '%s\n' 'PASS: all six checked-in CPU-only C++23 regression programs compiled and ran.'
+printf '%s\n' 'PASS: all seven checked-in CPU-only C++23 regression programs compiled and ran.'
 printf '%s\n' 'NOTE: these checks do not prove native Vulkan/Metal/OpenGL/D3D12 GPU execution.'
