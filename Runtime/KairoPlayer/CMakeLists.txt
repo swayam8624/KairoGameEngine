@@ -20,6 +20,14 @@ foreach(native_target IN LISTS KAIRO_PLAYER_NATIVE_GAMEPLAY_TARGETS)
 endforeach()
 
 if(BUILD_TESTING)
+    # These callbacks exercise the SAME handle-adoption/cleanup helper used in
+    # RuntimeRenderBridge.cppm. A native GPU/window is not required.
+    add_executable(KairoPlayerRenderResourceTrackingTests
+        tests/RuntimeRenderResourceTrackingTests.cpp)
+    target_compile_features(KairoPlayerRenderResourceTrackingTests PRIVATE cxx_std_23)
+    add_test(NAME KairoPlayerRenderResourceTrackingTests
+        COMMAND KairoPlayerRenderResourceTrackingTests)
+
     add_executable(KairoPlayerRuntimeTests tests/RuntimeProjectTests.cpp)
     target_link_libraries(KairoPlayerRuntimeTests PRIVATE KairoPlayerRuntime)
     add_test(NAME KairoPlayerRuntimeTests COMMAND KairoPlayerRuntimeTests)
