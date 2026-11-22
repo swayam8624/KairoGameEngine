@@ -68,6 +68,10 @@ export namespace kairo::runtime
         SceneECSMirror(SceneECSMirror&&) noexcept = default;
         SceneECSMirror& operator=(SceneECSMirror&&) noexcept = default;
 
+        // This is a *one-way* snapshot/extraction from authored Scene to process-local
+        // ECS. Reserve dense storage, create runtime Entities for every stable
+        // authored ID, then resolve parent handles in a second pass. Do not serialize
+        // runtime generations.
         [[nodiscard]] static SceneECSMirror Extract(const kairo::engine::Scene& scene)
         {
             SceneECSMirror result;
@@ -83,6 +87,10 @@ export namespace kairo::runtime
 
             // First pass creates all runtime identities so parent references may
             // point forward without depending on authored file/entity order.
+            // Pass one creates all runtime identities and attaches identity, local
+            // transform, name, enabled/layer/tags. Stable authored Entity ID is stored
+            // explicitly in AuthoredEntityIdentity so a local ECS handle is never mistaken
+            // for authored identity.
             for (const kairo::engine::Entity entity : authored)
             {
                 const kairo::ecs::Entity runtime = result.m_registry.Create();
@@ -107,6 +115,9 @@ export namespace kairo::runtime
 
             // Second pass resolves hierarchy to process-local handles only after
             // every authored identity exists.
+            // Pass two translates authored parent IDs to their new ECS handles. Parent IDs
+            // may point to records encountered later; checking the full map here avoids
+            // relying on insertion order.
             for (const auto& [authoredEntity, runtimeEntity] : result.m_ordered)
             {
                 const std::optional<kairo::engine::Entity> parent =
@@ -122,6 +133,9 @@ export namespace kairo::runtime
                     found->second;
             }
 
+            // Extraction creates many synthetic Created/ComponentAdded journal entries.
+            // Clear this bootstrap history so later systems observe only runtime changes,
+            // not initialization events.
             result.m_registry.ClearStructuralChanges();
             return result;
         }
@@ -141,6 +155,9 @@ export namespace kairo::runtime
             return m_ordered.size();
         }
 
+        // Authoring-to-runtime resolution is a checked lookup. A missing mapping is an
+        // integration error, not permission to fabricate another ECS slot, since that
+        // would lose the original component relationships.
         [[nodiscard]] kairo::ecs::Entity RuntimeEntity(
             kairo::engine::Entity authored) const
         {
@@ -151,6 +168,9 @@ export namespace kairo::runtime
             return found->second;
         }
 
+        // Runtime-to-authoring identity goes through AuthoredEntityIdentity stored on
+        // the ECS entity. Registry generation checks reject stale slots before
+        // exposing a stable scene ID.
         [[nodiscard]] kairo::engine::Entity AuthoredEntity(
             kairo::ecs::Entity runtime) const
         {
@@ -160,6 +180,10 @@ export namespace kairo::runtime
         /// Synchronizes authoring-owned fields that are safe to update without
         /// rebuilding runtime-only component topology. Runtime systems remain
         /// free to own additional ECS components independently.
+        // Refresh only authoring-owned name, local transform, flags, tags and parent
+        // from Scene. This does not rebuild the ECS topology or update arbitrary
+        // runtime-only components; additions/deletions require a distinct
+        // reconciliation/extraction path.
         void RefreshAuthoredState(
             const kairo::engine::Scene& scene,
             kairo::engine::Entity authored)
