@@ -1,3 +1,15 @@
+// TEACHING MODULE: Adapter from authored EngineCore Scene descriptors to
+// live PhysicsEngine rigid bodies. This bridge owns bidirectional
+// Entity <-> BodyID maps, PhysicsWorld, contact callbacks and pose history.
+//
+// PhysicsWorld owns collision/solver caches; Scene owns persisted authored
+// IDs. Advance runs fixed-dt substeps with a cap, reports dropped backlog,
+// and publishes *interpolated* poses for render frames. Interpolation is not
+// a second physics solve. Topology changes must restore both the world
+// snapshot and entity/body maps if a transaction fails.
+//
+// A Player fixed-step listener can run control/gameplay logic before each
+// physics step while retaining this bridge as the single integrator.
 module;
 
 #include <algorithm>
@@ -82,6 +94,8 @@ export namespace kairo::player
     /// are authored in local space and multiplied by absolute world scale.
     /// Dynamic body poses are interpolated back into local scene transforms so
     /// rendering remains smooth without changing deterministic fixed stepping.
+    // Noncopyable: PhysicsWorld's callback captures this object's
+    // address, and the borrowed Scene must outlive the bridge.
     class RuntimePhysicsBridge final
     {
     public:
@@ -366,6 +380,8 @@ export namespace kairo::player
                 [this](const auto& event) { CaptureContact(event); });
         }
 
+        // Convert active authored body/collider records to runtime shapes,
+        // mass/inertia, collision filters and entity/body mappings.
         void BuildWorld()
         {
             for (const auto entity : m_Scene.Entities())
@@ -432,6 +448,8 @@ export namespace kairo::player
             return true;
         }
 
+        // Undo failed topology edits across physics snapshot, Entity maps,
+        // pose interpolation and contact event collections together.
         void RestoreTopologyTransaction(
             const kairo::foundation::physics::PhysicsWorldSnapshot& snapshot,
             const std::unordered_map<std::uint32_t,
