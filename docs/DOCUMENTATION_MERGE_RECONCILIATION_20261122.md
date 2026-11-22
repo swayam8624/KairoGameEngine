@@ -13,7 +13,7 @@ At this snapshot, the 31 historic `docs/teaching-source-map-2026-11` PRs remaine
 | Repository | Historical documentation PR | Active default branch | Status at audit |
 | --- | --- | --- | --- |
 | NESEmulator | [#1](https://github.com/swayam8624/NESEmulator/pull/1) | main | Open; reconcile versus newer source teaching |
-| Maveb | [#125](https://github.com/swayam8624/Maveb/pull/125) | main | Open; protected branch, see PR #129 |
+| Maveb | [#125](https://github.com/swayam8624/Maveb/pull/125) | main | Historical #125 still open; reconciled content merged through [#129](https://github.com/swayam8624/Maveb/pull/129) |
 | Vulkax | [#102](https://github.com/swayam8624/Vulkax/pull/102) | main | Open; historical catalog/tutorial forwarded |
 | KairoGameEngine | [#40](https://github.com/swayam8624/KairoGameEngine/pull/40) | main | Open; historical catalog/tutorial forwarded |
 | KairoRenderer | [#19](https://github.com/swayam8624/KairoRenderer/pull/19) | main | Open; compare to existing source map |
@@ -50,7 +50,7 @@ At this snapshot, the 31 historic `docs/teaching-source-map-2026-11` PRs remaine
 - **KairoTransformers/main:** enriched the source learning order and first-party function comments for cached generation, attention, packed weights, training, and two distinct checkpoint mechanisms.
 - **Vulkax/main:** forwarded [455-source catalog](https://github.com/swayam8624/Vulkax/blob/main/docs/SOURCE_CATALOG.md) to its own repository and restored `SIMULATION_TO_VERIFIED_WORLD_TUTORIAL.md`. The catalog is explicitly identified as a historical snapshot.
 - **KairoGameEngine/main:** restored this repository's [92-file source catalog](SOURCE_CATALOG.md) and [KairoPlayer launch/frame walkthrough](PLAYER_EXECUTION_EXPLAINED.md).
-- **Maveb:** [PR #129](https://github.com/swayam8624/Maveb/pull/129) contains historical 655-source catalog, TSDF/local world-edit tutorial, and updated reading order. **Not merged**: main requires five successful checks, and auto-merge is disabled.
+- **Maveb/main:** [PR #129](https://github.com/swayam8624/Maveb/pull/129) **merged** as commit `0d0b8f21663c9238fc6240c3197fb7eb49e22b68` after its AetherStudio Compile and CI workflows succeeded. The historical 655-source catalog, TSDF/local world-edit tutorial, and current reading-order links are now on `main`. Historical #125 is still separate and should not be wholesale merged.
 - Current Kairo foundation library licenses were checked on their active default branches. Existing MIT files were retained, not replaced with stale branch copies.
 
 ## Practical next merge-and-teach passes
