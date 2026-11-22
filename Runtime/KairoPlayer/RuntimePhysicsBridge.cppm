@@ -118,6 +118,10 @@ export namespace kairo::player
         /// Task: bound debugger/window stalls, execute deterministic substeps,
         /// discard an unrecoverable backlog at the explicit substep cap, and
         /// publish interpolated body poses into the runtime scene.
+        // One variable render-frame elapsed time is clamped and accumulated. Each
+        // fixed substep saves previous poses, calls optional gameplay listener, steps
+        // PhysicsWorld, and captures current poses. Overload drops whole excess steps;
+        // interpolation only changes displayed Scene transforms.
         [[nodiscard]] RuntimePhysicsAdvance Advance(float elapsedSeconds,
             RuntimeFixedStepListener* listener = nullptr)
         {
@@ -136,6 +140,9 @@ export namespace kairo::player
                 m_Accumulator -= m_Settings.FixedDeltaSeconds;
                 ++result.Steps;
             }
+            // Substep cap reached with >=one step still queued: reduce backlog to
+            // fractional remainder and mark DroppedExcessTime. This makes responsiveness
+            // bounded but sacrifices exact real-time catch-up.
             if (m_Accumulator >= m_Settings.FixedDeltaSeconds)
             {
                 m_Accumulator = std::fmod(m_Accumulator, m_Settings.FixedDeltaSeconds);
@@ -162,6 +169,10 @@ export namespace kairo::player
         /// The snapshot must therefore describe the same active body topology.
         /// Pose history is collapsed onto the restored state so the first frame
         /// after a load never interpolates from the pre-load position.
+        // Validate snapshot into a temporary PhysicsWorld, check every active BodyID
+        // maps to the current authored Scene, then restore and reset interpolation
+        // history. A different streaming topology cannot be restored by pretending IDs
+        // still align.
         void RestoreSnapshot(const kairo::foundation::physics::PhysicsWorldSnapshot& snapshot)
         {
             kairo::foundation::physics::PhysicsWorld validated;
@@ -227,6 +238,10 @@ export namespace kairo::player
         /// was constructed, such as world-streaming cells. The operation is
         /// transactional: a malformed entity restores the exact previous world,
         /// mappings, pose history, and pending entity-level contact events.
+        // Topology changes are transactional: capture world snapshot plus both
+        // identity maps, pose history and contact events before adding streamed
+        // authored descriptors. On failure RestoreTopologyTransaction must roll all of
+        // them back.
         [[nodiscard]] RuntimePhysicsTopologyChange ActivateEntities(
             std::span<const kairo::engine::Entity> entities)
         {
@@ -261,6 +276,9 @@ export namespace kairo::player
         /// exact poses, velocities, sleep state, contacts, and warm-start data.
         /// Entity-level events involving removed entities are discarded so an
         /// unloaded cell cannot emit stale gameplay contacts on the next frame.
+        // Unload selected runtime bodies without erasing authored Scene data. Remove
+        // both BodyID mappings and stale pending Entity-level contact events; restore
+        // whole snapshot/maps if any removal step throws.
         [[nodiscard]] RuntimePhysicsTopologyChange DeactivateEntities(
             std::span<const kairo::engine::Entity> entities)
         {
@@ -382,12 +400,19 @@ export namespace kairo::player
 
         // Convert active authored body/collider records to runtime shapes,
         // mass/inertia, collision filters and entity/body mappings.
+        // At bridge construction, inspect Scene's active authored RigidBody/Collider
+        // descriptors and create PhysicsWorld bodies. Rendering/Editor ownership
+        // remains outside this bridge.
         void BuildWorld()
         {
             for (const auto entity : m_Scene.Entities())
                 (void)AddEntityToWorld(entity);
         }
 
+        // An authored collider-only entity becomes a static physics body; dynamic
+        // mass/inertia is built from the scaled primitive shape and density. Construct
+        // shape, body, filter, trigger and both ID maps with rollback on partial
+        // failure.
         [[nodiscard]] bool AddEntityToWorld(kairo::engine::Entity entity)
         {
             if (!m_Scene.IsActiveInHierarchy(entity)) return false;
@@ -450,6 +475,9 @@ export namespace kairo::player
 
         // Undo failed topology edits across physics snapshot, Entity maps,
         // pose interpolation and contact event collections together.
+        // Rollback a topology transaction across world solver state and *all* external
+        // mappings. Reinstall contact callback after snapshot restoration because
+        // PhysicsWorld data does not serialize host function pointers.
         void RestoreTopologyTransaction(
             const kairo::foundation::physics::PhysicsWorldSnapshot& snapshot,
             const std::unordered_map<std::uint32_t,
@@ -467,6 +495,9 @@ export namespace kairo::player
             InstallContactCallback();
         }
 
+        // Copy the resolved PhysicsWorld position/rotation into per-Entity Current
+        // pose. Previous pose remains from before the fixed step so rendering can
+        // interpolate without an extra physics solve.
         void SynchronizeCurrentPoses()
         {
             for (auto& [entityValue, pose] : m_Poses)
@@ -478,6 +509,9 @@ export namespace kairo::player
             }
         }
 
+        // Hierarchy must be processed parent-first because converting a physics world
+        // pose to local TRS reads its parent's current world transform. Sorted Entity
+        // IDs alone are not topological order.
         void PublishInterpolatedPoses(float alpha)
         {
             // Parent-first order is required because ToLocal reads the current
@@ -486,6 +520,9 @@ export namespace kairo::player
             for (const auto root : m_Scene.RootEntities()) PublishSubtree(root, alpha);
         }
 
+        // Interpolate previous and current world TRS, convert back to Scene local
+        // using current parent, then visit children recursively. This changes the
+        // render-facing Scene pose but not the authoritative solver body's state.
         void PublishSubtree(kairo::engine::Entity entity, float alpha)
         {
             const auto found = m_Poses.find(entity.Value);
@@ -498,6 +535,9 @@ export namespace kairo::player
             for (const auto child : m_Scene.Children(entity)) PublishSubtree(child, alpha);
         }
 
+        // Translate solver BodyIDs back to authored Entity IDs before publishing
+        // gameplay events. Missing mappings are an integration invariant violation,
+        // not a valid contact to pass through with zero IDs.
         void CaptureContact(const kairo::foundation::physics::PhysicsContactEvent& event)
         {
             const auto entityA = EntityFor(event.BodyA);
