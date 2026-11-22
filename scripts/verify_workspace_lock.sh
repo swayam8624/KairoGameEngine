@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# TEACHING SCRIPT: Check sibling repository revisions against exact SHA
+# entries in workspace.lock. It detects out-of-sync component trees before
+# integration tests, but does not build, run or certify any native backend.
+# Optional repo names narrow the check; KAIRO_WORKSPACE_ROOT sets the parent
+# directory containing sibling checkouts.
 set -euo pipefail
 
 ENGINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
