@@ -4,6 +4,10 @@
 
 **Runnable CPU regression:** [`scripts/run_renderer_resource_lifetime_regressions.sh`](../scripts/run_renderer_resource_lifetime_regressions.sh). It builds both connected repositories' ownership-policy tests directly with your C++23 compiler, without a GPU.
 
+**Material input trust boundary:** [one-MiB pre-allocation gate and strict derived material parsing](MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md). Source: [`MaterialFileSizeBudget.hpp`](../Runtime/KairoRealtimeRenderBridge/MaterialFileSizeBudget.hpp) and [CPU regression](../Runtime/KairoRealtimeRenderBridge/tests/MaterialFileSizeBudgetTests.cpp).
+
+**Vulkan frame continuation:** [lost-fence recovery, WSI binary-semaphore drain and native validation plan](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_FRAME_FAILURE_RECOVERY_LAB.md). [Standalone runner](../scripts/run_renderer_resource_lifetime_regressions.sh) now includes four independent CPU tests.
+
 **Native resource exception-safety continuation:** [Player handle journals, Metal/D3D12/OpenGL rollback and GPU-lifetime test plan](GPU_RESOURCE_ROLLBACK_AND_RENDERER_TEARDOWN_LAB.md). New source: [`RuntimeRenderResourceTracking.hpp`](../Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp) and [`RuntimeRenderResourceTrackingTests.cpp`](../Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp).
 
 **Latest integration teaching pass:** [asset/scene-to-GPU annotations and test evidence ledger](ASSET_SCENE_GPU_TEACHING_PROGRESS.md).
