@@ -2,6 +2,8 @@
 
 **Date:** 2026-11-22. **Integration target:** active default `main` branches. This ledger records completed **comment/documentation commits**, not a native build, an asset-cook, validation-layer evidence, or a merge of historic divergent PRs.
 
+**CI guardrail committed:** [CPU-only Player/asset workflow](../.github/workflows/cpu-player-resource-guards.yml) compiles the checked-in fault-injection and size-budget tests under GCC and Clang, without a GPU. This is a workflow configuration, not a claim that exact-head GitHub Actions jobs have already finished.
+
 **Later input and WSI update:** [material file size is now bounded before allocation](MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md) and [Vulkan frame recovery source changes](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_FRAME_FAILURE_RECOVERY_LAB.md) are committed. Four CPU-only tests are registered or provided in [the standalone runner](../scripts/run_renderer_resource_lifetime_regressions.sh). Exact-head GPU/device tests remain outstanding.
 
 ## Subsequent functional correctness update
