@@ -31,6 +31,8 @@ Read each phase in order. Every link goes to a source file or directory in this 
 4. [`scripts/run_portfolio_acceptance.sh`](../scripts/run_portfolio_acceptance.sh)
 5. [`scripts/verify_portfolio_95.sh`](../scripts/verify_portfolio_95.sh)
 
+**Follow one entity all the way through:** [Project bootstrap, persistent IDs, ECS extraction, fixed physics, streaming fragments, glTF skinning and rendered frame](AUTHORED_ENTITY_TO_PLAYER_FRAME_LAB.md). This is a source trace and exercise, not native-host verification.
+
 ## 3. Runtime and gameplay
 
 1. [`Runtime`](../Runtime)
