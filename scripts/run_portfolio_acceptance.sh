@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# TEACHING SCRIPT: Exact-head portfolio build/test acceptance driver.
+# The prior evidence stamp is removed before attempting a new campaign,
+# so stale results cannot be presented as accepted for changed source.
+# Workspace lock validation and applicable CMake build/test steps are
+# separate from native host gates; unsupported-host skips are not passes.
+# The 95% target remains unverified without matching exact-head evidence.
 set -euo pipefail
 
 ENGINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
