@@ -38,6 +38,10 @@ namespace
     }
 }
 
+// TEACHING TEST: CPU-only test: bind fake renderer handles to typed AssetIDs; check
+// stable ObjectID=Entity.Value, shadow flag, 500 candela -> 5 intensity units,
+// ambient scaling, environment texture and empty-layer rejection. No native GPU
+// upload is exercised.
 TEST_CASE("Shared real-time extraction preserves authored render semantics",
     "[KairoRealtimeRenderBridge][Scene]")
 {
@@ -86,6 +90,9 @@ TEST_CASE("Shared real-time extraction preserves authored render semantics",
     REQUIRE_THROWS_AS(BuildRenderScene(scene, assets, 0u), std::invalid_argument);
 }
 
+// TEACHING TEST: One authored SceneInstance expands two primitive bindings. Parent
+// entity +3,+4,+5 plus primitive local Y+2 produces world Y+6; both draws retain the
+// single scene Entity pick ID. Another layer mask excludes them.
 TEST_CASE("Shared extraction expands scene instances and honors layer masks",
     "[KairoRealtimeRenderBridge][SceneInstance]")
 {
@@ -190,6 +197,10 @@ namespace
     }
 }
 
+// TEACHING TEST: Compare rest pose to t=0.5 animated glTF: static child world X
+// becomes 5 after scene+node+joint composition, while skinned draw Model remains
+// outer X=3 and joint palette X becomes 1. This detects double-applying the node
+// transform.
 TEST_CASE("glTF scene extraction evaluates static nodes and skin palettes",
     "[KairoRealtimeRenderBridge][Animation][Skinning]")
 {
@@ -231,6 +242,9 @@ TEST_CASE("glTF scene extraction evaluates static nodes and skin palettes",
     CHECK(animated.Draws()[1].Skinning.JointMatrices[0](0u, 3u) == 1.0f);
 }
 
+// TEACHING TEST: A prebound list of static primitives has no glTF node/clip source.
+// Requesting playback is an error, not an implicit empty palette or fabricated
+// animation.
 TEST_CASE("animation playback rejects generic static scene bindings",
     "[KairoRealtimeRenderBridge][Animation][Validation]")
 {
@@ -248,6 +262,9 @@ TEST_CASE("animation playback rejects generic static scene bindings",
         std::invalid_argument);
 }
 
+// TEACHING TEST: Use an active primary orthographic camera; SelectRenderCamera must
+// copy world translation and near/far/size/FOV parameters into backend-neutral
+// CameraPose.
 TEST_CASE("Camera extraction preserves authored projection parameters",
     "[KairoRealtimeRenderBridge][Camera]")
 {
