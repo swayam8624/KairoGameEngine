@@ -125,9 +125,7 @@ AssetRegistry metadata
 
 The word “owns” is used at **two levels**: `RuntimeRenderBridge` tracks *which handles it created and should release*, while the selected Vulkan/Metal backend **actually owns native resource memory**. Destroying the binding map alone does not deallocate VkBuffers. Destroying the RendererRuntime before the Player bridge makes its borrowed renderer reference invalid.
 
-The constructor wraps `LoadAssets` in a catch and calls `ReleaseResources` on failure. The latter walks created mesh and texture handles in reverse order and asks the renderer to destroy each one. But it is `noexcept` and silently swallows destruction exceptions. Therefore, a failure to destroy a texture referenced by a submitted scene can be hidden. Also, a new texture or mesh is created **before** the handle is appended to its owned vector; if `BindTexture` / `BindMesh` or bookkeeping throws in between, that handle may not be tracked for rollback.
-
-Those are **failure-path audit targets**, not claims of measured GPU leaks. A robust follow-up needs a staged ownership guard for the newly created handle, explicit retirement of submitted draws, correct teardown order, and tests injecting map allocation/validation exceptions.
+**Follow-on repair update:** [GPU resource rollback and renderer teardown laboratory](GPU_RESOURCE_ROLLBACK_AND_RENDERER_TEARDOWN_LAB.md) documents the actual correction to this historical failure path. `RuntimeRenderBridge` now uses `CreateTrackBind` to reserve a journal slot and record each newly created mesh/texture handle **before** binding maps can throw. `ReleaseResources` first submits an empty RenderScene, then destroys journaled handles in reverse order, retaining failures for potential retry and reporting nonzero counts through constructor rollback or the noexcept destructor. Native Metal/D3D12 and OpenGL publication-after-upload error paths were also repaired separately. These are source-level changes plus CPU fault-injection tests; they do not establish native GPU/device-loss recovery.
 
 ## 6. SceneInstance: one authored entity can generate many GPU draws
 
