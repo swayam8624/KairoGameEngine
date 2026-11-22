@@ -62,6 +62,14 @@ This path explains why `AssetID`, EngineCore Entity ID, ECS entity (slot/generat
 
 Blender or Maya produces an authored mesh; Houdini can produce a cache; Nuke can consume rendered or cached outputs. Each host's native adapter extracts a scene snapshot. Host-neutral preflight produces typed diagnostics. KairoPipelineCore normalizes filenames, fingerprints bytes, writes a versioned manifest, stages and publishes, and Nuke/KairoAssets checks those bytes again on the *consumer's* host. A screenshot or successful report generator proves neither native DCC compatibility nor independent data integrity.
 
+## Licensing before publishing
+
+The audited repositories have differing top-level terms—MIT, GPL-3.0-or-later
+for KairoBlender, Apache 2.0 for MAVEB/Vulkax, and an explicit
+original-contributions-only limitation for the NES emulator. Read the
+[portfolio license and third-party asset provenance audit](OPEN_SOURCE_AND_ASSET_PROVENANCE.md)
+before distributing code, a compiled application, models, images or data.
+
 ## Four evidence levels
 
 | Label | Meaning | What it does **not** mean |
