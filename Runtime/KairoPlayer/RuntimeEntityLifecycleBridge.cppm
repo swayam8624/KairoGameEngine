@@ -38,6 +38,9 @@ export namespace kairo::player
         RuntimeLocomotionAnimationSettings LocomotionAnimationSettings{};
         std::optional<kairo::ai::gameplay::NavigationIntent> InitialNavigationIntent;
 
+        // Optional gameplay services form a dependency ladder: navigation needs a
+        // motor, crowd needs navigation, animation needs crowd. Reject impossible
+        // profiles before mutating any service and validate nested settings/intent.
         void Validate() const
         {
             if (Navigation && !CharacterMotor)
@@ -151,6 +154,10 @@ export namespace kairo::player
               m_Crowd(crowd),
               m_LocomotionAnimation(locomotionAnimation) {}
 
+        // Register process-local services in dependency order: physics if this bridge
+        // must own it, character motor, navigation, crowd, locomotion animation.
+        // Record which registrations succeeded so a failure can unwind in reverse
+        // without removing externally owned physics.
         [[nodiscard]] RuntimeEntityActivation ActivateEntity(
             kairo::engine::Entity entity,
             RuntimeEntityServiceProfile profile = {})
@@ -234,6 +241,9 @@ export namespace kairo::player
         /// entity alive. Physics is removed only when this lifecycle bridge was the
         /// owner that activated it; startup/world-streaming physics remains owned by
         /// its original subsystem.
+        // Unload transient services while preserving the authored Scene entity. Only
+        // deactivate PhysicsWorld body if this bridge itself activated it;
+        // startup/streaming physics may have a different owner.
         bool DeactivateEntity(kairo::engine::Entity entity)
         {
             const auto found = m_Entities.find(entity.Value);
@@ -259,6 +269,9 @@ export namespace kairo::player
             return m_Entities.size();
         }
 
+        // Serialize stable authored Entity IDs and validated service profiles,
+        // including current navigation intent, sorted by ID. Runtime fragment tokens
+        // and native service pointers are intentionally session-local.
         [[nodiscard]] RuntimeEntityLifecycleSnapshot CaptureSnapshot() const
         {
             RuntimeEntityLifecycleSnapshot snapshot;
@@ -285,6 +298,9 @@ export namespace kairo::player
         /// profiles are then reactivated in stable entity order. The current
         /// navigation intent is captured as part of each profile so an NPC resumes
         /// its destination rather than reverting to its registration-time target.
+        // Validate schema and sorted identities, capture previous registrations, reset
+        // services, then reactivate in stable order. On failure attempt to reconstruct
+        // previous service state and surface if rollback itself fails.
         void RestoreSnapshot(const RuntimeEntityLifecycleSnapshot& snapshot)
         {
             ValidateSnapshot(snapshot);
@@ -319,6 +335,9 @@ export namespace kairo::player
         /// physics bodies or destroy Scene entities. Fragment ownership tokens are
         /// session-local; the restored entities remain valid Scene entities and may
         /// be adopted into new gameplay/streaming ownership after the cold load.
+        // Detach transient animation/crowd/navigation/motor registrations without
+        // erasing authored Scene or PhysicsWorld. Fragment ownership tokens are
+        // invalid after a cold save-game restore.
         void ResetServicesForRestore() noexcept
         {
             std::vector<std::uint32_t> entities;
@@ -340,6 +359,10 @@ export namespace kairo::player
         /// of its entities before registering optional gameplay services. The source
         /// entity IDs in profiles are resolved through SceneAppendResult, which is
         /// also retained as the destruction/ownership token.
+        // Append a reusable Scene fragment with remapped stable IDs, then activate its
+        // physics and optional gameplay services; return an ownership token only when
+        // every stage succeeds. Catch rolls back completed service/physics/scene
+        // changes.
         [[nodiscard]] RuntimeSpawnedFragment SpawnFragment(
             const kairo::engine::Scene& fragment,
             std::vector<std::pair<kairo::engine::Entity,
@@ -413,6 +436,10 @@ export namespace kairo::player
         /// Once validation succeeds, physics deactivation is transactional and every
         /// remaining teardown operation is noexcept; therefore a blocked hierarchy
         /// cannot leave an NPC half-unloaded.
+        // Validate RemoveAppendedScene on a candidate copy before altering live
+        // services, deactivate physics transactionally, unregister dependent gameplay
+        // services in reverse, then publish scene replacement and erase ownership
+        // token.
         bool DestroyFragment(std::uint64_t token)
         {
             const auto found = m_Fragments.find(token);
@@ -468,6 +495,9 @@ export namespace kairo::player
         /// Executes the canonical crowd batch once and then binds physically
         /// realized motion to animation for every lifecycle-managed animated agent.
         /// This is the first single-call NPC frame boundary in KairoPlayer.
+        // Update crowd agent motion first, then feed those step results to registered
+        // locomotion animation consumers. No new Scene or PhysicsWorld entity is
+        // allocated by this per-frame operation.
         [[nodiscard]] RuntimeEntityLifecycleStep StepAgents(float deltaSeconds)
         {
             RuntimeEntityLifecycleStep result;
@@ -494,6 +524,9 @@ export namespace kairo::player
         std::unordered_map<std::uint64_t, FragmentRecord> m_Fragments;
         std::uint64_t m_NextFragmentToken = 1u;
 
+        // Reject unknown version, invalid ID zero, unsorted/duplicate Entity IDs and
+        // invalid profiles. Snapshot ordering is part of deterministic restore
+        // behavior, not cosmetic file layout.
         static void ValidateSnapshot(const RuntimeEntityLifecycleSnapshot& snapshot)
         {
             if (snapshot.Version != RuntimeEntityLifecycleSnapshotVersion)
@@ -515,6 +548,9 @@ export namespace kairo::player
             }
         }
 
+        // Normalize source fragment profiles into increasing Entity IDs and ensure
+        // every source exists and appears once. Later AppendScene remapping relies on
+        // these stable original IDs.
         static void ValidateSourceProfiles(
             const kairo::engine::Scene& fragment,
             std::vector<std::pair<kairo::engine::Entity,
@@ -541,6 +577,10 @@ export namespace kairo::player
             }
         }
 
+        // Unwind only the registration stages reported successful by
+        // RuntimeEntityActivation, in reverse of their dependency order. Physics
+        // rollback is handled separately by ActivateEntity because ownership may
+        // belong elsewhere.
         void RollbackServices(
             kairo::engine::Entity entity,
             const RuntimeEntityActivation& activation) noexcept
