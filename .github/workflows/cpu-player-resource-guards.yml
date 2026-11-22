@@ -1,0 +1,59 @@
+name: CPU-only Player and asset input guards
+
+# Focused fault-injection checks for code actually used by Player/Bridge.
+# No renderer window, GPU SDK, sibling repository, or large C++23 module
+# superbuild is necessary. Platform-native smoke tests remain separate.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp"
+      - "Runtime/KairoPlayer/RuntimeRenderBridge.cppm"
+      - "Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp"
+      - "Runtime/KairoRealtimeRenderBridge/MaterialFileSizeBudget.hpp"
+      - "Runtime/KairoRealtimeRenderBridge/RealtimeSceneBridge.cppm"
+      - "Runtime/KairoRealtimeRenderBridge/tests/MaterialFileSizeBudgetTests.cpp"
+      - "scripts/run_renderer_resource_lifetime_regressions.sh"
+      - ".github/workflows/cpu-player-resource-guards.yml"
+  pull_request:
+    paths:
+      - "Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp"
+      - "Runtime/KairoPlayer/RuntimeRenderBridge.cppm"
+      - "Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp"
+      - "Runtime/KairoRealtimeRenderBridge/MaterialFileSizeBudget.hpp"
+      - "Runtime/KairoRealtimeRenderBridge/RealtimeSceneBridge.cppm"
+      - "Runtime/KairoRealtimeRenderBridge/tests/MaterialFileSizeBudgetTests.cpp"
+      - ".github/workflows/cpu-player-resource-guards.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-regressions:
+    name: "${{ matrix.compiler }} / Player ownership + material budget"
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run Player ownership + fixed material-budget checks
+        env:
+          CXX: ${{ matrix.compiler }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/kairo-cpu"
+          "$CXX" -std=c++23 -O0 -g -Wall -Wextra -Werror -pedantic \
+            Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp \
+            -o "$RUNNER_TEMP/kairo-cpu/player-ownership"
+          "$RUNNER_TEMP/kairo-cpu/player-ownership"
+
+          "$CXX" -std=c++23 -O0 -g -Wall -Wextra -Werror -pedantic \
+            Runtime/KairoRealtimeRenderBridge/tests/MaterialFileSizeBudgetTests.cpp \
+            -o "$RUNNER_TEMP/kairo-cpu/material-budget"
+          "$RUNNER_TEMP/kairo-cpu/material-budget"
+
+          echo "GPU-independent Player/asset regressions passed; native renderer tests remain separate."
