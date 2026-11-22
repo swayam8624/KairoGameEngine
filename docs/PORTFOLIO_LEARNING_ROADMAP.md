@@ -93,6 +93,36 @@ The learning maps and initial comments are broad, but **function-by-function cov
 - Desktop Pets still draws its pet procedurally; source-linked sprite atlas/Godot/Pomodoro integration and platform packaging require distinct work and validation.
 - Third-party models, sprites, fonts, ROMs, DCC plugins and output media keep upstream rights even where the original code/documentation uses MIT.
 
+## Documentation QA available in the superbuild
+
+The source tree now includes an offline local-target link checker:
+[`scripts/audit_teaching_links.py`](../scripts/audit_teaching_links.py)
+and standard-library fixture tests:
+[`tests/test_audit_teaching_links.py`](../tests/test_audit_teaching_links.py).
+
+From a checked-out repository, run:
+
+```bash
+python3 scripts/audit_teaching_links.py .
+python3 -m unittest discover -s tests -p 'test_audit_teaching_links.py'
+```
+
+The checker resolves local Markdown targets relative to the referencing file,
+while ignoring fenced examples and remote HTTPS links. It does **not** certify
+remote URLs or heading anchors, nor is a green result evidence of C++/Rust/
+Python compilation. Its tests were added to the branch but have **not** been
+executed in this chat's isolated runtime, so the QA gate remains pending.
+
+### Manual link review accomplished
+
+The **31 primary guide paths** in this portfolio roadmap were fetched and
+confirmed present on their respective GitHub teaching branches. Within
+representative deeper walkthroughs, relative source links were compared to
+their repository source inventories. Additional non-inventory exceptions
+were checked: NES `THIRD_PARTY_NOTICES.md` exists, and the two GameEngine
+runtime/migration links point to directories that exist. Full remote link,
+heading-anchor and cross-repository rendered-page auditing remains open.
+
 ## Editing rules for future passes
 
 Keep comments explanatory and accurate to actual control flow. Avoid altering program statements during documentation edits. Compare non-comment source with the prior commit, run language syntax checks and appropriate tests when possible, and keep native host verification separate. Prefer committing focused files in the existing teaching branch, recording the commit SHA and source scope. After source maps and comments stabilize, merge only through ordinary review/test gates.
