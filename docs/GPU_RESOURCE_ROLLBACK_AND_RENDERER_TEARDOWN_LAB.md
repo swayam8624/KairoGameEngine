@@ -137,17 +137,18 @@ OpenGL's context is made current before these operations. As with other backends
 In a configured sibling-repository C++23 Kairo workspace:
 
 ```bash
-# The Player, Renderer, Vulkan frame journal and material length gate.
+# Seven portable ownership, Vulkan frame/upload and material input checks.
 cmake --build build/kairo --parallel 4 --target \
   KairoPlayerRenderResourceTrackingTests \
   KairoRendererNativeResourcePublicationTests \
   KairoRendererVulkanFrameRecoveryJournalTests \
   KairoRendererTransactionalGenerationTests \
   KairoRendererTextureMipUploadPlanTests \
+  KairoRendererVulkanUploadRetirementPolicyTests \
   KairoMaterialFileSizeBudgetTests
 
 ctest --test-dir build/kairo --output-on-failure -R \
-  'KairoPlayerRenderResourceTrackingTests|KairoRendererNativeResourcePublicationTests|KairoRendererVulkanFrameRecoveryJournalTests|KairoRendererTransactionalGenerationTests|KairoRendererTextureMipUploadPlanTests|KairoMaterialFileSizeBudgetTests'
+  'KairoPlayerRenderResourceTrackingTests|KairoRendererNativeResourcePublicationTests|KairoRendererVulkanFrameRecoveryJournalTests|KairoRendererTransactionalGenerationTests|KairoRendererTextureMipUploadPlanTests|KairoRendererVulkanUploadRetirementPolicyTests|KairoMaterialFileSizeBudgetTests'
 ```
 
 The **seven** regression binaries are CPU-only: two cover create/bind/destroy ownership callbacks, one covers Vulkan frame state, one fault-injects [transactional descriptor generation](https://github.com/swayam8624/KairoRenderer/blob/main/docs/TRANSACTIONAL_VULKAN_DESCRIPTOR_GENERATIONS_LAB.md), one validates [texture mip staging and offsets](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_TEXTURE_MIP_UPLOAD_PLAN_AND_FAILURE_LAB.md), one [classifies queue upload retirement and lost-device cleanup](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_UPLOAD_QUEUE_RETIREMENT_AND_DEVICE_LOSS_LAB.md), and one validates material input length. The [standalone direct compiler runner](../scripts/run_renderer_resource_lifetime_regressions.sh) invokes all seven without a GPU or CMake superbuild. They do not require a window or native graphics device. **The Kairo superbuild configuration** may still require Vulkan/GLFW, a C++23 modules compiler and other sibling repositories. A standalone C++23 algorithm smoke test was also compiled locally with GCC 14 and Clang 17, but this does not certify either exact-head repository target.
