@@ -2,6 +2,8 @@
 
 **Quick C++23 regression runner:** `bash scripts/run_renderer_resource_lifetime_regressions.sh` compiles and executes the Player and renderer fault-injection tests without launching any graphics device; [source](scripts/run_renderer_resource_lifetime_regressions.sh).
 
+**Bounded material import:** [fixed-schema material file limit, pre-allocation validation and regression test](docs/MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md). **Vulkan frame recovery:** [acquire semaphore drain and fence/submit recovery](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_FRAME_FAILURE_RECOVERY_LAB.md).
+
 **GPU resource correctness:** [C++23 exception-safe handle adoption, native map-publication rollback, and unbind-before-delete teardown](docs/GPU_RESOURCE_ROLLBACK_AND_RENDERER_TEARDOWN_LAB.md). The new CPU-only CTest helpers are not native GPU-driver verification.
 
 **Source-teaching evidence ledger:** [67 implementation annotations, 19 test explanations and unresolved native verification](docs/ASSET_SCENE_GPU_TEACHING_PROGRESS.md).
