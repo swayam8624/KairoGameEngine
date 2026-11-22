@@ -1,5 +1,7 @@
 # Teaching source map — KairoGameEngine
 
+**Recovered deep tutorial:** [KairoPlayer launch-to-frame execution](PLAYER_EXECUTION_EXPLAINED.md) — source-linked teaching, not a verified test result.
+
 **Historical full source inventory:** [92 linked first-party source/build paths](SOURCE_CATALOG.md) (November 21, 2026 snapshot; verify changed paths against current main).
 
 
