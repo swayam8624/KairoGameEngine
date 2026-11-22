@@ -1,3 +1,12 @@
+// TEACHING MODULE: Validate a user-supplied .kproject descriptor and
+// construct the portable RuntimeProject before native graphics, physics
+// or audio bridges are instantiated. The filesystem root is canonicalized
+// so project-relative asset/scene paths can be checked for containment.
+//
+// EngineCore provides shared descriptor and scene schemas, while
+// KairoAssets provides the stable registry. This file is not a renderer
+// allocator or a gameplay update loop; KairoPlayer/main.cpp composes
+// those services only after validation succeeds.
 module;
 
 #include <filesystem>
@@ -32,6 +41,8 @@ export namespace kairo::player
     /// Fully validated project bootstrap state shared by headless validation
     /// and the native player. Runtime-only GPU and physics handles are
     /// deliberately absent; their owning adapters are constructed afterwards.
+    // Owns validated portable bootstrap/scene/asset state; device and
+    // solver lifetimes are created separately by the Player host.
     class RuntimeProject final
     {
     public:
