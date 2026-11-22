@@ -1,3 +1,16 @@
+// TEACHING MODULE: Shared Editor/Player conversion from EngineCore Scene
+// and KairoAssets identities into KairoRenderer RenderScene.
+//
+// RenderAssetBindings maps persistent authored AssetIDs to process-local
+// renderer mesh/texture handles. It does not allocate, destroy, or own GPU
+// resources; the selected RendererRuntime backend retains that lifetime.
+//
+// BuildRenderScene extracts visible draw objects/lights, resolves renderer
+// handles, composes authored world transforms and assigns picking ObjectID
+// from Entity ID. glTF skin palette math is evaluated via EngineCore.
+// This shared module prevents Editor and Player from diverging in scene
+// extraction, material bindings and photometric conversion.
+// KairoEditor's SceneRenderBridge is a compatibility re-export.
 module;
 
 #include <algorithm>
@@ -216,6 +229,8 @@ export namespace kairo::runtime::renderbridge
     /// Process-local mapping from persistent KairoAssets identities to opaque
     /// KairoRenderer handles. The bridge owns no GPU resources; the host that
     /// created each handle remains responsible for destruction.
+    // Maps authored IDs -> existing native renderer handles/materials.
+    // These process-local maps must be refreshed on GPU device rebuild.
     class RenderAssetBindings final
     {
     public:
@@ -239,6 +254,8 @@ export namespace kairo::runtime::renderbridge
         explicit RenderAssetBindings(const kairo::assets::AssetRegistry& registry) noexcept
             : m_Registry(registry) {}
 
+        // Resolve the typed AssetID first, then attach a valid GPU handle.
+        // Upload and destruction remain the native renderer's job.
         void BindMesh(kairo::assets::MeshAssetHandle asset, kairo::renderer::MeshHandle handle)
         {
             (void)m_Registry.Resolve(asset);
@@ -486,6 +503,9 @@ export namespace kairo::runtime::renderbridge
         return result;
     }
 
+    // Render extraction is CPU-side; the renderer backend will upload/
+    // draw using already-bound native handles. Stable Entity IDs become
+    // ObjectIDs for picking, not GPU resource identities.
     /// Input: one EngineCore scene, complete process-local asset bindings, and
     /// a non-zero camera/viewport layer mask.
     /// Output: stable renderer draws, lights, and environment shared by Editor
