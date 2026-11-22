@@ -1,0 +1,159 @@
+# GPU resource rollback and renderer teardown: exception-safety across four ownership layers
+
+This is the follow-on **correctness pass** after [from a saved scene to a GPU draw](ASSET_SCENE_TO_GPU_LIFETIME_LAB.md). It includes implementation changes and new CPU-only fault-injection tests, not just explanatory comments.
+
+**Scope actually repaired:** Player-owned handle tracking and unbind-before-delete; post-native-allocation C++ map-publication failures in Metal, Direct3D12 and OpenGL. **Not repaired or verified here:** a lost GPU device, native driver/device errors, Vulkan fence recovery, asynchronous upload batching, or general hot-reload of an already bound scene.
+
+Study the production code in this order:
+
+1. [`RuntimeRenderResourceTracking.hpp`](../Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp) and [`RuntimeRenderBridge.cppm`](../Runtime/KairoPlayer/RuntimeRenderBridge.cppm)
+2. [Player fault-injection test](../Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp)
+3. [KairoRenderer `detail/NativeResourcePublication.hpp`](https://github.com/swayam8624/KairoRenderer/blob/main/detail/NativeResourcePublication.hpp) and [renderer fault-injection test](https://github.com/swayam8624/KairoRenderer/blob/main/tests/NativeResourcePublicationTests.cpp)
+4. [`MetalRenderer.cppm`](https://github.com/swayam8624/KairoRenderer/blob/main/MetalRenderer.cppm), [`Direct3D12Renderer.cppm`](https://github.com/swayam8624/KairoRenderer/blob/main/Direct3D12Renderer.cppm) and [`OpenGLRenderer.cppm`](https://github.com/swayam8624/KairoRenderer/blob/main/OpenGLRenderer.cppm)
+5. [`Renderer.cppm`](https://github.com/swayam8624/KairoRenderer/blob/main/Renderer.cppm) and [`VulkanRenderer.cppm`](https://github.com/swayam8624/KairoRenderer/blob/main/VulkanRenderer.cppm) for the contract that native resources outlive submitted draws
+
+## 1. The original failure: C++ can forget a real GPU allocation
+
+Consider this simplified historical pattern:
+
+```cpp
+const auto handle = renderer.CreateTexture(texture); // Native GPU image exists
+textureSettings.emplace(assetID, settings);           // Allocation may throw
+bindings.BindTexture(assetID, handle);                 // Allocation may throw
+ownedTextureHandles.push_back(handle);                 // Allocation may throw
+```
+
+If any later insertion throws, no `handle` has reached the cleanup journal. The enclosing constructor catches and runs `ReleaseResources()`, but it can only destroy handles it **knows exist**. A backend image can therefore be live while the Player has lost its identity.
+
+This is a C++ *strong exception-safety* problem, not a shader algorithm or GPU throughput issue. The root is the sequence “acquire external resource, then do potentially throwing bookkeeping.”
+
+## 2. The repaired acquisition sequence
+
+The new [`CreateTrackBind`](../Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp) helper implements:
+
+```text
+owned.reserve(size+1)      // May throw, but native allocation has NOT occurred
+handle = createGPU()       // May throw without returning a handle
+owned.push_back(handle)    // For uint64_t handles and reserved capacity: no alloc/throw
+bind(assetID,handle)       // May throw, but owner journal ALREADY has handle
+return handle
+```
+
+This is used by both `EnsureTexture` and the ordinary mesh/glTF primitive upload loops in `RuntimeRenderBridge::LoadAssets`. The helper requires no-throw-copyable/move-assignable handles. The actual renderer `MeshHandle` is an unsigned 64-bit integer; the texture handle is likewise a simple renderer value handle.
+
+The associated [CPU regression test](../Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp) injects a binding exception and checks the resource handle remains in the ownership vector. A separate creation exception must leave the vector unchanged.
+
+A subtle remaining boundary: on binding failure, `CreateTrackBind` leaves the handle tracked **on purpose**. The current use is during `RuntimeRenderBridge` construction, whose outer catch calls `ReleaseResources`. The same algorithm cannot be used as an arbitrary runtime hot-reload transaction without an explicit undo plan for partially inserted bindings.
+
+## 3. Submitted draw references must be removed before destruction
+
+Before this fix, `RuntimeRenderBridge::~RuntimeRenderBridge()` iterated handles and asked `RendererRuntime::DestroyMesh/DestroyTexture` to delete them, but the renderer still had the most recently **submitted RenderScene**. Native backends can and do refuse destruction of referenced resources. In particular, Vulkan, Metal, OpenGL and D3D12 reject destroying a texture currently bound to an active submitted draw or environment.
+
+The destructor suppressed every deletion exception and then cleared its tracking vectors. Even if a backend properly refused an unsafe delete, the Player lost its opportunity to retry and could report a quiet shutdown.
+
+The repaired [`ReleaseSceneResources`](../Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp) contract is:
+
+```text
+if no tracked native resources: return success
+
+renderer.SubmitRenderScene(RenderScene{})   // Drop future draw/material references
+   if this throws:
+      skip ALL destruction
+      KEEP both resource journals
+      return nonzero failure count
+
+ReleaseReverse(meshHandles, renderer.DestroyMesh)
+ReleaseReverse(textureHandles, renderer.DestroyTexture)
+   on success: remove exactly that released handle from its journal
+   on failure: retain exactly that handle for potential retry; count failure
+```
+
+The renderer's native destruction path is still responsible for GPU retirement: for example, Vulkan waits for device idle before destroying GPU buffer/image owners, and Metal waits on its most recent command buffer when deleting native meshes/textures. **Clearing a CPU scene alone does not establish GPU completion.** It only prevents a *new* scene reference from invalidating a later deletion.
+
+The Player's destructor remains `noexcept`: it reports nonzero cleanup failures to standard error without throwing through destruction. Constructor rollback likewise reports failed cleanup while rethrowing the original load error. If renderer unbinding itself fails, the helper refuses to attempt potentially invalid native destruction. Unreleased native handles remain the responsibility of the enclosing backend's ultimate device destruction; this is diagnostic best effort, not proof of graceful recovery after device loss.
+
+This contract assumes the bridge is the owner of the currently submitted Player scene and the renderer outlives the bridge. An unrelated client must not concurrently reuse the same renderer scene while the bridge closes.
+
+## 4. Why a native backend can leak even when the Player tracks handles
+
+Now go a layer lower. Previously, the Metal and D3D12 adapters had this pattern:
+
+```cpp
+const auto handle = nativeBackend.CreateMesh(vertices, indices, skinning);
+m_Meshes.emplace(handle, jointCount); // Map allocation can throw
+return handle;
+```
+
+If `emplace` threw, the native backend still owned the uploaded `MTLBuffer` or D3D12 resource, but the renderer's handle table was not updated. Player-side tracking cannot fix this because the enclosing `CreateMesh` function never successfully returned a handle to its caller.
+
+The new [`CreateAndPublishNativeResource`](https://github.com/swayam8624/KairoRenderer/blob/main/detail/NativeResourcePublication.hpp) helper stages this boundary:
+
+```text
+nativeHandle = Create()                   // Native allocation
+try:
+    Publish(nativeHandle)                 // std::unordered_map/set insertion
+catch:
+    try Rollback(nativeHandle)            // Call native DestroyMesh/Texture
+    if rollback fails:
+        throw explicit combined-failure diagnostic
+    else:
+        rethrow the ORIGINAL map-insertion failure
+return nativeHandle
+```
+
+`MetalRendererRuntime` and `Direct3D12RendererRuntime` now use this for both mesh and texture publication. The helper is intentionally constrained to a **new, not-yet-submitted resource**. It is not a generic deferred GPU destruction queue and cannot recover from a driver that has lost its device.
+
+The [KairoRenderer CPU-only test](https://github.com/swayam8624/KairoRenderer/blob/main/tests/NativeResourcePublicationTests.cpp) checks four cases: success; a thrown map insertion with successful native rollback; a native creation throw with no published handle; and a double failure that reports the rollback failure instead of silently claiming cleanup succeeded.
+
+## 5. The corresponding OpenGL issue
+
+OpenGL already had explicit catch-and-delete around initial VAO/VBO or texture uploads. But `NextHandle` and `m_Meshes.emplace` / `m_Textures.emplace` occurred **after** that catch. If handle allocation or C++ map insertion then failed, the GL names created earlier were outside the cleanup path.
+
+[`OpenGLRenderer.cppm`](https://github.com/swayam8624/KairoRenderer/blob/main/OpenGLRenderer.cppm) now wraps these final publication steps in their own try/catch. A failure deletes the not-yet-published VAO and vertex/index/skin buffers via `DeleteMesh(gpu)`, or deletes the newly created `GL_TEXTURE_2D` name. These are real native-resource cleanup changes; no OpenGL driver test is claimed from inspecting source.
+
+OpenGL's context is made current before these operations. As with other backends, this does not solve context loss, concurrent rendering, or device-reset policy.
+
+## 6. Why Vulkan's situation is different
+
+[`VulkanTriangle.cppm`](https://github.com/swayam8624/KairoRenderer/blob/main/VulkanTriangle.cppm) constructs `std::unique_ptr<VulkanHostBuffer>` and `std::unique_ptr<VulkanTexture2D>` objects and moves them into its maps. That gives map-insertion failure a different RAII cleanup path from Metal/D3D12's backend-owned numeric handles.
+
+However, `VulkanHostBuffer` and other lower-level Vulkan wrappers still have constructor-failure paths that can leak partially created native allocations, and the frame fence can be reset before recording/submission errors. Those are **separate** issues documented in [native synchronization and lifetime audit](https://github.com/swayam8624/KairoRenderer/blob/main/docs/NATIVE_GPU_SYNCHRONIZATION_AND_LIFETIMES_LAB.md). This pass does **not** claim they have been repaired or tested.
+
+## 7. Cross-layer lifetime table
+
+| Stage | What can throw? | Owner's protection after this pass |
+| --- | --- | --- |
+| Asset importer / derived cache | parser, file I/O, settings, cache publish | CPU-only typed artifact transaction in KairoAssets |
+| Native CreateMesh/CreateTexture | driver, native allocation, buffer upload | Native create contract; existing backend-specific guards |
+| Metal/D3D12: publish handle | C++ map/set allocation | Newly added publish→rollback helper |
+| OpenGL: publish GL name | numeric handle exhaustion, C++ map allocation | Newly added catch→DeleteMesh/glDeleteTextures |
+| Player: publish AssetID binding | map/vector allocations | reserve journal first; record returned handle before binding |
+| Player: release submitted scene | backend validation / device state | clear the submitted RenderScene; on failure skip unsafe cleanup |
+| Player: native destroy | driver failure / still-in-flight reference | backend retirement plus reverse release; keep failed handle entries |
+| Device loss/recreation | irrecoverable backend state | **Not implemented in this pass** |
+
+## 8. Run the two CTest targets
+
+In a configured sibling-repository C++23 Kairo workspace:
+
+```bash
+# Build the Player resource-adoption test and the renderer's publication test.
+cmake --build build/kairo --parallel 4 --target \
+  KairoPlayerRenderResourceTrackingTests \
+  KairoRendererNativeResourcePublicationTests
+
+ctest --test-dir build/kairo --output-on-failure -R \
+  'KairoPlayerRenderResourceTrackingTests|KairoRendererNativeResourcePublicationTests'
+```
+
+The regression binaries themselves are CPU-only and use mock create/bind/destroy callbacks; they do not need a window or a native GPU. **The Kairo superbuild configuration** may still require Vulkan/GLFW, a C++23 modules compiler and other sibling repositories. A standalone C++23 algorithm smoke test was also compiled locally with GCC 14 and Clang 17, but this does not certify either exact-head repository target.
+
+Before declaring the backend fix production-verified, separately run the native OpenGL, Vulkan, Metal or Direct3D12 smoke tests for the target platform; use fault-injection allocators or targeted native validation for the very rare map-allocation failure branches. Record the repo commit SHA, selected backend, GPU/driver, compiler, fault injected and GPU resource-leak evidence.
+
+## 9. Next engineering tasks, not quietly assumed complete
+
+The remaining high-priority correctness work is to give Vulkan partial-constructor allocation failures scoped rollback, cover Vulkan fence-reset-before-submit recovery, make device-loss handling an explicit state machine, and introduce an explicit public Player bridge shutdown result for applications that cannot afford destructor-only error reporting.
+
+A true resource hot-reload needs a generation-tagged renderer-handle mapping or transactional replacement: allocate new native objects, build a complete new binding set and scene, publish together at a safe frame boundary, and retire old generations only after queue completion. Reusing a numeric handle across device rebuilds without generation checks risks stale scene references even if every individual texture allocation succeeds.
+
+**Teaching principle:** a native resource exists before a C++ map insertion finishes; a C++ handle existing does not prove a GPU operation has completed; and releasing a referenced resource requires changing the submitted scene and waiting for in-flight GPU work. The correct ownership proof spans all three boundaries.
