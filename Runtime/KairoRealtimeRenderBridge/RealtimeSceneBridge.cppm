@@ -19,6 +19,7 @@ module;
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include "MaterialFileSizeBudget.hpp"
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -156,8 +157,10 @@ export namespace kairo::runtime::renderbridge
     // Resolve stable typed ID -> registered project-local material path,
     // parse a full derived-artifact binary file, and require inner material
     // validity. This routine is CPU-only; it does not bind a descriptor set.
-    // AUDIT: unlike the derived cache reader, file size here has no explicit
-    // pre-allocation limit; consider applying the canonical artifact budget.
+    // A fixed-schema material cannot require unbounded file allocation.
+    // CheckedMaterialFileBytes rejects oversized input BEFORE vector resize;
+    // the standard derived-artifact and material parsers still validate the
+    // complete binary envelope, semantic type and trailing bytes.
     [[nodiscard]] inline kairo::assets::MaterialArtifactData LoadRenderMaterial(
         const std::filesystem::path& projectRoot,
         kairo::assets::MaterialAssetHandle asset,
@@ -172,11 +175,15 @@ export namespace kairo::runtime::renderbridge
         std::ifstream input(path, std::ios::binary | std::ios::ate);
         if (!input) throw std::runtime_error("Cannot open material artifact: " + path.string());
         const auto length = input.tellg();
-        if (length < 0)
-            throw std::runtime_error("Cannot measure material artifact: " + path.string());
-        std::vector<std::byte> bytes(static_cast<std::size_t>(length));
+        // Require bounded input before heap allocation. MaterialArtifactData
+        // has a fixed schema; even the largest canonical envelope is tiny.
+        const std::size_t fileBytes = detail::CheckedMaterialFileBytes(
+            static_cast<std::streamoff>(length));
+        std::vector<std::byte> bytes(fileBytes);
         input.seekg(0);
-        if (!bytes.empty()) input.read(reinterpret_cast<char*>(bytes.data()), length);
+        if (!bytes.empty())
+            input.read(reinterpret_cast<char*>(bytes.data()),
+                static_cast<std::streamsize>(bytes.size()));
         if (!input) throw std::runtime_error("Cannot read material artifact: " + path.string());
         return kairo::assets::ParseMaterialDerivedArtifact(
             kairo::assets::ParseDerivedArtifact(bytes));
