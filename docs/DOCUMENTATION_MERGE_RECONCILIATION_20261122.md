@@ -48,7 +48,7 @@ At this snapshot, the 31 historic `docs/teaching-source-map-2026-11` PRs remaine
 
 - **KairoONNX/main:** restored `THIRD_PARTY_NOTICES.md`, enriched `docs/SOURCE_READING_ORDER.md`, and added function-level parser/runtime/optimizer explanations; preserved more recent mainline API docs.
 - **KairoTransformers/main:** enriched the source learning order and first-party function comments for cached generation, attention, packed weights, training, and two distinct checkpoint mechanisms.
-- **Vulkax/main:** forwarded [455-source catalog](SOURCE_CATALOG.md) to its own repository and restored `SIMULATION_TO_VERIFIED_WORLD_TUTORIAL.md`. The catalog is explicitly identified as a historical snapshot.
+- **Vulkax/main:** forwarded [455-source catalog](https://github.com/swayam8624/Vulkax/blob/main/docs/SOURCE_CATALOG.md) to its own repository and restored `SIMULATION_TO_VERIFIED_WORLD_TUTORIAL.md`. The catalog is explicitly identified as a historical snapshot.
 - **KairoGameEngine/main:** restored this repository's [92-file source catalog](SOURCE_CATALOG.md) and [KairoPlayer launch/frame walkthrough](PLAYER_EXECUTION_EXPLAINED.md).
 - **Maveb:** [PR #129](https://github.com/swayam8624/Maveb/pull/129) contains historical 655-source catalog, TSDF/local world-edit tutorial, and updated reading order. **Not merged**: main requires five successful checks, and auto-merge is disabled.
 - Current Kairo foundation library licenses were checked on their active default branches. Existing MIT files were retained, not replaced with stale branch copies.
