@@ -76,4 +76,34 @@ namespace kairo::player::detail
         }
         return failures;
     }
+
+    // Scene submissions hold references to every currently drawn mesh and
+    // material texture, even after a CPU frame callback returns. Vulkan,
+    // Metal, OpenGL and D3D12 all reject deleting submitted textures.
+    // First publish an EMPTY scene through the real renderer facade; only
+    // then request native resource destruction in reverse creation order.
+    // If scene clearing throws, leave BOTH journals intact to avoid unsafe
+    // deletion of resources that might still be referenced by a draw.
+    template<class MeshHandle, class TextureHandle,
+        class ClearScene, class DestroyMesh, class DestroyTexture>
+    [[nodiscard]] std::size_t ReleaseSceneResources(
+        std::vector<MeshHandle>& meshes,
+        std::vector<TextureHandle>& textures,
+        ClearScene&& clearScene, DestroyMesh&& destroyMesh,
+        DestroyTexture&& destroyTexture) noexcept
+    {
+        if (meshes.empty() && textures.empty()) return 0u;
+        try { std::invoke(std::forward<ClearScene>(clearScene)); }
+        catch (...)
+        {
+            // One unbind failure plus unretired handles. Nothing is lost.
+            return 1u + meshes.size() + textures.size();
+        }
+
+        const std::size_t meshFailures = ReleaseReverse(meshes,
+            std::forward<DestroyMesh>(destroyMesh));
+        const std::size_t textureFailures = ReleaseReverse(textures,
+            std::forward<DestroyTexture>(destroyTexture));
+        return meshFailures + textureFailures;
+    }
 }
