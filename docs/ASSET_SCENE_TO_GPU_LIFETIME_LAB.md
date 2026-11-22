@@ -105,7 +105,7 @@ material's typed TextureAssetHandle
 
 The KairoRenderer converter translates metallic/roughness, color/alpha and other PBR scalar factors, and it resolves each present typed texture. An **absent optional** channel can become an invalid handle and later a neutral fallback; an **explicitly referenced but unresolvable** texture is an error. These are different situations.
 
-`LoadRenderMaterial` reads a derived artifact file using the registered project path and parses the envelope plus material payload. **Source-audit candidate:** that routine sizes its input vector directly from `tellg()` without a separate explicit upper bound before allocation. Compare the budget used in KairoAssets' binary readers and cover oversized or malicious files in a future test.
+`LoadRenderMaterial` reads the registered derived material artifact with a **new pre-allocation limit of 1 MiB**. The size gate checks signed `tellg()` output before constructing the byte vector; the existing derived and material parsers then validate the actual envelope and fixed-size record. See the [material input trust-boundary laboratory](MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md) and its GPU-free length regression test. Hostile path containment and full filesystem/parser integration remain separate validation tasks.
 
 ## 5. Native mesh uploads are owned by the renderer, not by the binding map
 
