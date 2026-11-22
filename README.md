@@ -1,6 +1,6 @@
 # KairoGameEngine
 
-**Learn by following execution:** [31-repository portfolio curriculum](docs/PORTFOLIO_LEARNING_ROADMAP.md) · [license and third-party asset audit](docs/OPEN_SOURCE_AND_ASSET_PROVENANCE.md) · [Linked source-reading order](docs/SOURCE_READING_ORDER.md) · [One project → full game-frame integration walkthrough](docs/ENGINE_INTEGRATION_WALKTHROUGH.md).
+**Learn by following execution:** [31-repository portfolio curriculum](docs/PORTFOLIO_LEARNING_ROADMAP.md) · [license and third-party asset audit](docs/OPEN_SOURCE_AND_ASSET_PROVENANCE.md) · [Linked source-reading order](docs/SOURCE_READING_ORDER.md) · [One project → full game-frame integration walkthrough](docs/ENGINE_INTEGRATION_WALKTHROUGH.md) · [Worked authored Entity → ECS → Physics → animation → GPU frame laboratory](docs/AUTHORED_ENTITY_TO_PLAYER_FRAME_LAB.md).
 
 The walkthrough separates stable authored identities from runtime PhysicsWorld
 body IDs, ECS slots, renderer GPU handles and exact-head verification evidence.
