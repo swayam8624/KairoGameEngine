@@ -152,7 +152,7 @@ Before declaring the backend fix production-verified, separately run the native 
 
 ## 9. Next engineering tasks, not quietly assumed complete
 
-The remaining high-priority correctness work is to give Vulkan partial-constructor allocation failures scoped rollback, cover Vulkan fence-reset-before-submit recovery, make device-loss handling an explicit state machine, and introduce an explicit public Player bridge shutdown result for applications that cannot afford destructor-only error reporting.
+**Subsequent Vulkan update:** [five wrappers now have explicit partial-construction rollback](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_PARTIAL_CONSTRUCTION_ROLLBACK_LAB.md) for command buffers, mapped host buffers, frame semaphores/fences, swapchain views, and depth attachments. Their native failure-injection verification remains outstanding. The remaining higher-risk functional work is Vulkan fence-reset-before-submit recovery, device-loss handling as an explicit state machine, asynchronous transfer error cleanup, and an explicit public Player bridge shutdown result for applications that cannot afford destructor-only reporting.
 
 A true resource hot-reload needs a generation-tagged renderer-handle mapping or transactional replacement: allocate new native objects, build a complete new binding set and scene, publish together at a safe frame boundary, and retire old generations only after queue completion. Reusing a numeric handle across device rebuilds without generation checks risks stale scene references even if every individual texture allocation succeeds.
 
