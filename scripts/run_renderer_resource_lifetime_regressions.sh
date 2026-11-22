@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Fast, GPU-free build and execution of the exact KairoPlayer and KairoRenderer
-# resource-publication tests. No CMake superbuild, GLFW, Vulkan loader, GPU
+# Fast, GPU-free build and execution of five exact checked-in KairoPlayer,
+# KairoRenderer and shared asset-bridge C++23 regression programs. No CMake superbuild, GLFW, Vulkan loader, GPU
 # device, shader tools or C++23 module dependency scanner is needed.
 #
 # Usage (KairoGameEngine and KairoRenderer are sibling repositories):
