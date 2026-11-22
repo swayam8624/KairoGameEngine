@@ -25,6 +25,9 @@ export namespace kairo::player
     /// Task: establish one deterministic project root before resolving any
     /// portable path from authored data. Symlinks are resolved by the host
     /// filesystem so subsequent containment checks operate on real locations.
+    // The user-supplied .kproject path is a filesystem trust boundary. Resolve
+    // symlinks with weakly_canonical, require an existing regular file and exact
+    // extension before loading any authored manifest bytes.
     [[nodiscard]] inline std::filesystem::path ResolveProjectDescriptorPath(
         const std::filesystem::path& requested)
     {
@@ -46,6 +49,9 @@ export namespace kairo::player
     class RuntimeProject final
     {
     public:
+        // Bootstrap in dependency order: parse versioned ProjectDescriptor,
+        // constrain manifest/scene/input paths to the canonical project root, then
+        // load AssetRegistry before Scene so typed asset references can be checked.
         explicit RuntimeProject(const std::filesystem::path& requestedDescriptor)
             : m_DescriptorPath(ResolveProjectDescriptorPath(requestedDescriptor)),
               m_Root(m_DescriptorPath.parent_path()),
@@ -71,6 +77,10 @@ export namespace kairo::player
         /// Output: canonical regular file contained by this project root.
         /// Degeneracy: missing files, directories, and symlink escapes fail
         /// before a parser receives bytes from outside the project boundary.
+        // Normalize a portable authored relative path, canonicalize against project
+        // root to expose symlink traversal, verify root containment and require a
+        // regular file. A syntactically relative string alone is not proof of
+        // containment.
         [[nodiscard]] std::filesystem::path RequireProjectFile(
             const std::filesystem::path& relative, const char* role) const
         {
@@ -85,6 +95,9 @@ export namespace kairo::player
         }
 
     private:
+        // Compare path components, not raw string prefixes: /game cannot contain
+        // /game-evil simply because text starts alike. This assumes m_Root is
+        // canonical before any candidate check.
         [[nodiscard]] bool IsWithinRoot(const std::filesystem::path& path) const noexcept
         {
             auto root = m_Root.begin();
