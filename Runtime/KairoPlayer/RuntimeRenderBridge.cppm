@@ -41,6 +41,9 @@ export namespace kairo::player
     class RuntimeRenderBridge final
     {
     public:
+        // Borrow RendererRuntime and validated RuntimeProject; own only the native
+        // mesh/texture handles created during import. If loading throws, release
+        // already-created GPU handles before propagating the failure.
         RuntimeRenderBridge(kairo::renderer::RendererRuntime& renderer,
             const RuntimeProject& project)
             : m_Renderer(renderer),
@@ -90,6 +93,10 @@ export namespace kairo::player
         /// animation state. Re-selecting the already-active clip preserves time
         /// unless restart is requested, preventing locomotion selection from
         /// restarting walk/run every frame.
+        // An explicit gameplay clip selection validates glTF source, clip index and
+        // playback rate, then preserves current time when the same clip is selected
+        // unless restart is requested. This prevents walk/run animation restarting each
+        // frame.
         void SetAnimation(kairo::engine::Entity entity,
             std::uint32_t clipIndex,
             kairo::engine::AnimationTimeMode timeMode =
@@ -154,6 +161,9 @@ export namespace kairo::player
 
         /// Releases gameplay ownership. The next StepAnimations call returns the
         /// instance to the compatibility clip-zero looping policy.
+        // Release gameplay's explicit animation ownership. The next StepAnimations may
+        // recreate compatibility looping clip zero if the authored instance still has
+        // usable glTF animation.
         void ClearAnimationControl(kairo::engine::Entity entity) noexcept
         {
             m_AnimationStates.erase(entity.Value);
@@ -171,6 +181,9 @@ export namespace kairo::player
         /// Advances explicit gameplay clocks and compatibility clip-zero clocks.
         /// Animation sampling stays inside the shared RealtimeSceneBridge so
         /// Player, Editor and migration-imported glTF data use one evaluator.
+        // Advance each live scene instance's animation clock by delta*playbackRate,
+        // normalize according to Loop/Clamp and publish playback overrides for shared
+        // RealtimeSceneBridge sampling. Clear stale IDs after entity removal.
         void StepAnimations(float deltaSeconds)
         {
             if (!std::isfinite(deltaSeconds) || deltaSeconds < 0.0f ||
@@ -239,6 +252,9 @@ export namespace kairo::player
             return m_AnimationStates.size();
         }
 
+        // Delegate CPU scene extraction to the shared Editor/Player BuildRenderScene
+        // function. This keeps object IDs, glTF skinning, PBR and photometric
+        // conversion identical between authoring and shipped runtime.
         [[nodiscard]] kairo::renderer::RenderScene BuildScene() const
         {
             return kairo::runtime::renderbridge::BuildRenderScene(
@@ -252,6 +268,9 @@ export namespace kairo::player
         }
 
     private:
+        // Loop wraps time with fmod including a negative-time correction; Clamp pins
+        // time to [0,duration]. A zero-duration clip returns zero, avoiding division by
+        // zero.
         [[nodiscard]] static float NormalizeAnimationTime(float timeSeconds,
             float durationSeconds, kairo::engine::AnimationTimeMode mode)
         {
@@ -296,6 +315,9 @@ export namespace kairo::player
             return found->second;
         }
 
+        // Release owned MeshHandle and TextureHandle vectors in reverse creation order.
+        // Destructors cannot propagate GPU cleanup exceptions here; the renderer must
+        // outlive this bridge.
         void ReleaseResources() noexcept
         {
             for (auto iterator = m_OwnedMeshes.rbegin(); iterator != m_OwnedMeshes.rend(); ++iterator)
@@ -313,6 +335,10 @@ export namespace kairo::player
             m_OwnedTextures.clear();
         }
 
+        // Cache a texture asset ID's upload by its import color-space/normal-map
+        // semantics. The same persistent texture cannot safely act as sRGB albedo and
+        // linear normal map under one native handle without an explicit separate
+        // binding.
         [[nodiscard]] kairo::renderer::TextureHandle EnsureTexture(
             kairo::assets::TextureAssetHandle asset,
             const kairo::assets::TextureImportSettings& settings)
@@ -348,6 +374,9 @@ export namespace kairo::player
             (void)EnsureTexture(*texture, settings);
         }
 
+        // Load typed material artifacts and their textures first, then builtin/imported
+        // meshes and glTF scene primitives. Each successful native upload is tracked
+        // for cleanup; bindings map persistent AssetIDs to runtime handles.
         void LoadAssets()
         {
             for (const auto& metadata : m_Project.Assets().Snapshot())
@@ -401,6 +430,9 @@ export namespace kairo::player
             {
                 if (metadata.Type != kairo::assets::AssetType::Scene ||
                     metadata.Origin != kairo::assets::AssetOrigin::SourceFile) continue;
+                // Resolve glTF image URI relative to its registered source scene path, require
+                // matching typed project Texture2D metadata, and derive sRGB/linear/normal
+                // import flags from the glTF semantic before GPU upload.
                 const auto resolveTexture = [this, &metadata](
                     std::string_view uri, kairo::assets::TextureSemantic semantic)
                 {
