@@ -132,7 +132,7 @@ OpenGL's context is made current before these operations. As with other backends
 | Player: native destroy | driver failure / still-in-flight reference | backend retirement plus reverse release; keep failed handle entries |
 | Device loss/recreation | irrecoverable backend state | **Not implemented in this pass** |
 
-## 8. Run the four CPU-only CTest targets
+## 8. Run the five CPU-only CTest targets
 
 In a configured sibling-repository C++23 Kairo workspace:
 
@@ -142,13 +142,14 @@ cmake --build build/kairo --parallel 4 --target \
   KairoPlayerRenderResourceTrackingTests \
   KairoRendererNativeResourcePublicationTests \
   KairoRendererVulkanFrameRecoveryJournalTests \
+  KairoRendererTransactionalGenerationTests \
   KairoMaterialFileSizeBudgetTests
 
 ctest --test-dir build/kairo --output-on-failure -R \
-  'KairoPlayerRenderResourceTrackingTests|KairoRendererNativeResourcePublicationTests|KairoRendererVulkanFrameRecoveryJournalTests|KairoMaterialFileSizeBudgetTests'
+  'KairoPlayerRenderResourceTrackingTests|KairoRendererNativeResourcePublicationTests|KairoRendererVulkanFrameRecoveryJournalTests|KairoRendererTransactionalGenerationTests|KairoMaterialFileSizeBudgetTests'
 ```
 
-The four regression binaries are CPU-only: two use mock create/bind/destroy callbacks, one tests the Vulkan frame state journal, and one validates material file lengths before allocation. The [standalone direct compiler runner](../scripts/run_renderer_resource_lifetime_regressions.sh) invokes all four without a GPU or CMake superbuild. They do not require a window or native graphics device. **The Kairo superbuild configuration** may still require Vulkan/GLFW, a C++23 modules compiler and other sibling repositories. A standalone C++23 algorithm smoke test was also compiled locally with GCC 14 and Clang 17, but this does not certify either exact-head repository target.
+The **five** regression binaries are CPU-only: two cover create/bind/destroy ownership callbacks, one covers Vulkan frame state, one fault-injects the actual [transactional descriptor generation policy](https://github.com/swayam8624/KairoRenderer/blob/main/docs/TRANSACTIONAL_VULKAN_DESCRIPTOR_GENERATIONS_LAB.md), and one validates material input length. The [standalone direct compiler runner](../scripts/run_renderer_resource_lifetime_regressions.sh) invokes all five without a GPU or CMake superbuild. They do not require a window or native graphics device. **The Kairo superbuild configuration** may still require Vulkan/GLFW, a C++23 modules compiler and other sibling repositories. A standalone C++23 algorithm smoke test was also compiled locally with GCC 14 and Clang 17, but this does not certify either exact-head repository target.
 
 Before declaring the backend fix production-verified, separately run the native OpenGL, Vulkan, Metal or Direct3D12 smoke tests for the target platform; use fault-injection allocators or targeted native validation for the very rare map-allocation failure branches. Record the repo commit SHA, selected backend, GPU/driver, compiler, fault injected and GPU resource-leak evidence.
 
