@@ -2,6 +2,8 @@
 
 **Date:** 2026-11-22. **Integration target:** active default `main` branches. This ledger records completed **comment/documentation commits**, not a native build, an asset-cook, validation-layer evidence, or a merge of historic divergent PRs.
 
+**Later input and WSI update:** [material file size is now bounded before allocation](MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md) and [Vulkan frame recovery source changes](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_FRAME_FAILURE_RECOVERY_LAB.md) are committed. Four CPU-only tests are registered or provided in [the standalone runner](../scripts/run_renderer_resource_lifetime_regressions.sh). Exact-head GPU/device tests remain outstanding.
+
 ## Subsequent functional correctness update
 
 **Follow-on repair is now committed:** [GPU resource rollback and renderer teardown laboratory](GPU_RESOURCE_ROLLBACK_AND_RENDERER_TEARDOWN_LAB.md). The Player bridge now tracks native-backed handles before potentially throwing binding operations, submits an empty RenderScene before teardown, and retains failed deletion handles; a CPU-only CTest exercises the policy. Native Metal/D3D12/OpenGL handle-publication rollback was also repaired in KairoRenderer. This does not retroactively make the source-teaching snapshot below a native test pass.
