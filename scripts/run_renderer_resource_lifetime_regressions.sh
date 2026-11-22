@@ -21,15 +21,16 @@ cxx="${CXX:-c++}"
 
 player_test="$game_root/Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp"
 renderer_test="$renderer_root/tests/NativeResourcePublicationTests.cpp"
+frame_test="$renderer_root/tests/VulkanFrameRecoveryJournalTests.cpp"
 
 if ! command -v "$cxx" >/dev/null 2>&1; then
   printf 'Missing C++ compiler: %s\n' "$cxx" >&2
   exit 1
 fi
 
-if [[ ! -f "$player_test" || ! -f "$renderer_test" ]]; then
+if [[ ! -f "$player_test" || ! -f "$renderer_test" || ! -f "$frame_test" ]]; then
   printf 'Expected sibling KairoGameEngine and KairoRenderer source trees.\n' >&2
-  printf 'Missing player or renderer test: %s | %s\n' "$player_test" "$renderer_test" >&2
+  printf 'Missing Player/Renderer regression source: %s | %s | %s\n' "$player_test" "$renderer_test" "$frame_test" >&2
   exit 1
 fi
 
@@ -49,5 +50,10 @@ printf '%s\n' '=== Renderer native-publication rollback failure injection ==='
   "$renderer_test" -o "$output_dir/kairo-renderer-publication-test"
 "$output_dir/kairo-renderer-publication-test"
 
-printf '%s\n' 'PASS: both checked-in CPU-only C++23 regression programs compiled and ran.'
+printf '%s\n' '=== Vulkan acquire/record/submit/present failure state machine ==='
+"$cxx" -std=c++23 -O0 -g -Wall -Wextra -Werror -pedantic \
+  "$frame_test" -o "$output_dir/kairo-vulkan-frame-journal-test"
+"$output_dir/kairo-vulkan-frame-journal-test"
+
+printf '%s\n' 'PASS: all three checked-in CPU-only C++23 regression programs compiled and ran.'
 printf '%s\n' 'NOTE: these checks do not prove native Vulkan/Metal/OpenGL/D3D12 GPU execution.'
