@@ -1,5 +1,7 @@
 # KairoGameEngine
 
+**GPU resource correctness:** [C++23 exception-safe handle adoption, native map-publication rollback, and unbind-before-delete teardown](docs/GPU_RESOURCE_ROLLBACK_AND_RENDERER_TEARDOWN_LAB.md). The new CPU-only CTest helpers are not native GPU-driver verification.
+
 **Source-teaching evidence ledger:** [67 implementation annotations, 19 test explanations and unresolved native verification](docs/ASSET_SCENE_GPU_TEACHING_PROGRESS.md).
 
 **Cross-repository integration lab:** [AssetID → authored Scene → shared Editor/Player draw extraction → renderer GPU lifetime](docs/ASSET_SCENE_TO_GPU_LIFETIME_LAB.md). Read the authored/CPU contracts before following the native GPU backend; source inspection is not a native test result.
