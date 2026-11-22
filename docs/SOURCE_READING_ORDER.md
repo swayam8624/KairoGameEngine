@@ -4,6 +4,11 @@
 
 ## How to use this guide
 
+Start with the new [complete Kairo integration walkthrough](ENGINE_INTEGRATION_WALKTHROUGH.md).
+It follows one project from portable `.kproject` and `.kscene` files through
+the Player's shared realtime render bridge, physics adapter, native frame
+loop, and exact-head workspace acceptance.
+
 KairoGameEngine is a sibling-repository CMake superbuild. Read integration contracts first; each component implementation lives in another repository.
 
 Read each phase in order. Every link goes to a source file or directory in this repository. For a directory, inspect its public interface and then its implementation files. After each phase, identify the caller, the state it owns, the inputs it validates, and its observable outputs.
