@@ -4,6 +4,8 @@
 
 **Runnable CPU regression:** [`scripts/run_renderer_resource_lifetime_regressions.sh`](../scripts/run_renderer_resource_lifetime_regressions.sh). It builds both connected repositories' ownership-policy tests directly with your C++23 compiler, without a GPU.
 
+**Portable CI verification:** [`cpu-player-resource-guards.yml`](../.github/workflows/cpu-player-resource-guards.yml) runs the actual CPU-only Player handle-journal and material-size tests on GCC/Clang. The [standalone runner](../scripts/run_renderer_resource_lifetime_regressions.sh) also builds the sibling renderer's two portable regression tests.
+
 **Material input trust boundary:** [one-MiB pre-allocation gate and strict derived material parsing](MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md). Source: [`MaterialFileSizeBudget.hpp`](../Runtime/KairoRealtimeRenderBridge/MaterialFileSizeBudget.hpp) and [CPU regression](../Runtime/KairoRealtimeRenderBridge/tests/MaterialFileSizeBudgetTests.cpp).
 
 **Vulkan frame continuation:** [lost-fence recovery, WSI binary-semaphore drain and native validation plan](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_FRAME_FAILURE_RECOVERY_LAB.md). [Standalone runner](../scripts/run_renderer_resource_lifetime_regressions.sh) now includes four independent CPU tests.
