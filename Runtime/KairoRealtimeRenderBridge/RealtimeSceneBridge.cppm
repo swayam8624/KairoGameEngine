@@ -256,6 +256,10 @@ export namespace kairo::runtime::renderbridge
 
         // Resolve the typed AssetID first, then attach a valid GPU handle.
         // Upload and destruction remain the native renderer's job.
+        // Check the typed persistent AssetID through KairoAssets, then bind it to a
+        // valid renderer MeshHandle. RenderAssetBindings does not
+        // create/upload/destroy GPU buffers; the native RendererRuntime owns that
+        // lifetime.
         void BindMesh(kairo::assets::MeshAssetHandle asset, kairo::renderer::MeshHandle handle)
         {
             (void)m_Registry.Resolve(asset);
@@ -265,6 +269,9 @@ export namespace kairo::runtime::renderbridge
                 throw std::invalid_argument("A render mesh asset is already bound.");
         }
 
+        // Resolve a durable mesh asset to an already-uploaded native handle. If the
+        // AssetRegistry says the type is wrong or the handle was never bound, fail
+        // before emitting an invalid MeshDraw.
         [[nodiscard]] kairo::renderer::MeshHandle ResolveMesh(
             kairo::assets::MeshAssetHandle asset) const
         {
@@ -276,6 +283,9 @@ export namespace kairo::runtime::renderbridge
             return found->second;
         }
 
+        // Check the stable material type and validate the backend-neutral PBRMaterial
+        // before insertion. A duplicate ID is rejected instead of silently replacing
+        // shader-facing material content.
         void BindMaterial(kairo::assets::MaterialAssetHandle asset,
             kairo::renderer::PBRMaterial material)
         {
@@ -285,6 +295,10 @@ export namespace kairo::runtime::renderbridge
                 throw std::invalid_argument("A render material asset is already bound.");
         }
 
+        // A registered builtin material may use default PBR parameters when no
+        // explicit runtime binding exists; imported materials without bindings must
+        // fail. This is a deliberate builtin fallback, not arbitrary missing-asset
+        // recovery.
         [[nodiscard]] kairo::renderer::PBRMaterial ResolveMaterial(
             kairo::assets::MaterialAssetHandle asset) const
         {
@@ -296,6 +310,10 @@ export namespace kairo::runtime::renderbridge
                 "No renderer material is bound for asset ID: " + asset.ID.ToString());
         }
 
+        // Validate the persistent typed texture and its native TextureHandle before
+        // registering the association. GPU image ownership remains with
+        // RendererRuntime, and asset metadata does not store this process-local
+        // handle.
         void BindTexture(kairo::assets::TextureAssetHandle asset,
             kairo::renderer::TextureHandle handle)
         {
@@ -317,6 +335,9 @@ export namespace kairo::runtime::renderbridge
             return found->second;
         }
 
+        // Store a list of already uploaded mesh primitives and material/transform
+        // descriptors. Reject empty lists or invalid handles before publishing the
+        // bound SceneAsset ID.
         void BindScene(kairo::assets::SceneAssetHandle asset,
             std::vector<ScenePrimitive> primitives)
         {
@@ -329,6 +350,9 @@ export namespace kairo::runtime::renderbridge
 
         /// Bind the renderer handles produced from one exact glTF source while
         /// retaining the node/skin identities needed by animation extraction.
+        // Bind source glTF node/primitive/skin metadata to corresponding uploaded
+        // mesh handles. Validate count, node membership and skin identity against the
+        // exact parsed artifact to prevent mismatched animation palettes.
         void BindGltfScene(kairo::assets::SceneAssetHandle asset,
             kairo::assets::GltfSceneArtifactData source,
             const kairo::renderer::GltfRenderAsset& renderAsset,
@@ -401,6 +425,9 @@ export namespace kairo::runtime::renderbridge
             }
         }
 
+        // Look up bound SceneAsset by stable ID and check it still resolves as the
+        // declared type. The returned reference borrows the binding owner's lifetime;
+        // do not cache it after mutating or destroying bindings.
         [[nodiscard]] const SceneBinding& ResolveSceneBinding(
             kairo::assets::SceneAssetHandle asset) const
         {
@@ -462,6 +489,10 @@ export namespace kairo::runtime::renderbridge
     /// Task: apply the single Editor/Player photometric calibration: 10 klux
     /// for directional lights or 100 candela for local lights maps to one
     /// scene-radiance unit. Coordinates stay right-handed with no axis swap.
+    // Apply one Editor/Player photometric conversion: 10,000 lux per renderer
+    // intensity unit for directional lights, 100 candela per unit for local
+    // lights. Use world-space transform for direction and position; validate
+    // output before GPU submission.
     [[nodiscard]] inline kairo::renderer::RenderLight MakeRenderLight(
         const kairo::engine::LightComponent& source,
         const kairo::foundation::math::Transformf& world)
@@ -512,6 +543,10 @@ export namespace kairo::runtime::renderbridge
     /// and Player regardless of the selected graphics API.
     /// Degeneracy: missing bindings, invalid material state, singular transforms,
     /// and an empty layer mask fail before GPU command recording.
+    // CPU-only extraction traverses active, layer-visible Scene entities; resolve
+    // stable mesh/material/scene asset references, derive world matrices, assign
+    // authored Entity.Value as picking ObjectID, and append lights/environment.
+    // No GPU upload here.
     [[nodiscard]] inline kairo::renderer::RenderScene BuildRenderScene(
         const kairo::engine::Scene& scene,
         const RenderAssetBindings& assets,
@@ -540,6 +575,9 @@ export namespace kairo::runtime::renderbridge
             const auto& primitives = assets.ResolveScene(source.SceneAsset);
             const auto* gltf = assets.ResolveGltfSource(source.SceneAsset);
             const auto* playback = animations.Find(entity);
+            // A non-glTF multi-primitive scene uses the prebound LocalToAsset transforms.
+            // Requesting animation for it is invalid because there is no validated glTF
+            // node hierarchy to sample.
             if (gltf == nullptr)
             {
                 if (playback != nullptr)
@@ -555,6 +593,9 @@ export namespace kairo::runtime::renderbridge
                 continue;
             }
 
+            // For glTF instances, evaluate playback or rest pose, then compute node world
+            // matrices. This is an asset-local animation hierarchy before applying the
+            // outer authored Scene instance transform.
             const auto pose = playback != nullptr
                 ? kairo::engine::SampleGltfAnimation(*gltf, playback->ClipIndex,
                     playback->TimeSeconds, playback->TimeMode)
@@ -572,6 +613,10 @@ export namespace kairo::runtime::renderbridge
                 draw.ObjectID = entity.Value;
                 draw.CastShadows = source.CastShadows;
                 draw.ReceiveShadows = source.ReceiveShadows;
+                // Unskinned primitives use outer authored world * evaluated node world.
+                // Skinned primitives instead use outer world as Model with a
+                // jointWorld*inverseBind palette in asset space; multiplying node world twice
+                // would break skinning.
                 if (primitive.SkinIndex == kairo::assets::GltfMissingIndex)
                     draw.Model = world * poseWorld[primitive.NodeIndex];
                 else
@@ -596,6 +641,9 @@ export namespace kairo::runtime::renderbridge
                 result.Add(std::move(draw));
             }
         }
+        // Extract renderer lights only for permitted render layers; the shared
+        // conversion avoids diverging Editor and Player intensity conventions when
+        // using the same authored project.
         for (const kairo::engine::Entity entity : scene.LightEntities())
             if ((scene.Light(entity).RenderLayers & renderLayers) != 0u)
                 result.AddLight(MakeRenderLight(scene.Light(entity), scene.WorldTransform(entity)));
