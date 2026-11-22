@@ -367,28 +367,19 @@ export namespace kairo::player
         // count and destructor/constructor rollback report it on stderr.
         [[nodiscard]] std::size_t ReleaseResources() noexcept
         {
-            if (m_OwnedMeshes.empty() && m_OwnedTextures.empty()) return 0u;
-            try
-            {
-                m_Renderer.SubmitRenderScene(kairo::renderer::RenderScene{});
-            }
-            catch (...)
-            {
-                // A still-bound draw could make destruction invalid. Do not
-                // attempt unsafe deletes if the unbind operation itself failed.
-                return 1u + m_OwnedMeshes.size() + m_OwnedTextures.size();
-            }
-            const auto meshFailures = detail::ReleaseReverse(m_OwnedMeshes,
+            return detail::ReleaseSceneResources(m_OwnedMeshes, m_OwnedTextures,
+                [this]
+                {
+                    m_Renderer.SubmitRenderScene(kairo::renderer::RenderScene{});
+                },
                 [this](kairo::renderer::MeshHandle handle)
                 {
                     m_Renderer.DestroyMesh(handle);
-                });
-            const auto textureFailures = detail::ReleaseReverse(m_OwnedTextures,
+                },
                 [this](kairo::renderer::TextureHandle handle)
                 {
                     m_Renderer.DestroyTexture(handle);
                 });
-            return meshFailures + textureFailures;
         }
 
         // Cache a texture asset ID's upload by its import color-space/normal-map
