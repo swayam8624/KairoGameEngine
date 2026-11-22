@@ -3,6 +3,7 @@ module;
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
@@ -11,6 +12,7 @@ module;
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include "RuntimeRenderResourceTracking.hpp"
 
 // TEACHING INTEGRATION: RuntimeProject owns the authored Scene and AssetRegistry;
 // this bridge owns uploaded RendererRuntime mesh/texture HANDLES and imported
@@ -66,12 +68,19 @@ export namespace kairo::player
             try { LoadAssets(); }
             catch (...)
             {
-                ReleaseResources();
+                const auto failures = ReleaseResources();
+                if (failures != 0u)
+                    std::fprintf(stderr, "KairoPlayer failed to roll back %zu renderer resources.\n", failures);
                 throw;
             }
         }
 
-        ~RuntimeRenderBridge() noexcept { ReleaseResources(); }
+        ~RuntimeRenderBridge() noexcept
+        {
+            const auto failures = ReleaseResources();
+            if (failures != 0u)
+                std::fprintf(stderr, "KairoPlayer could not release %zu renderer resources.\n", failures);
+        }
 
         RuntimeRenderBridge(const RuntimeRenderBridge&) = delete;
         RuntimeRenderBridge& operator=(const RuntimeRenderBridge&) = delete;
@@ -350,30 +359,36 @@ export namespace kairo::player
             return found->second;
         }
 
-        // Release owned MeshHandle and TextureHandle vectors in reverse creation order.
-        // Destructors cannot propagate GPU cleanup exceptions here; the renderer must
-        // outlive this bridge.
-        // Reverse-walk created mesh and texture handles and ask the renderer
-        // to destroy them before the RendererRuntime itself dies. WARNING:
-        // this noexcept cleanup swallows DestroyMesh/DestroyTexture exceptions.
-        // If a texture remains referenced by the submitted render scene,
-        // renderer refusal can be hidden and the handle list is still cleared.
-        // Audit scene-unbinding/retirement and explicit cleanup reporting.
-        void ReleaseResources() noexcept
+        // Native backends can refuse DestroyTexture/DestroyMesh while a draw
+        // still refers to the resource. Clear the submitted scene FIRST; then
+        // each backend handles actual GPU retirement in its destruction API.
+        // Every failed deletion stays in the journal for a possible retry.
+        // This is best-effort noexcept teardown; callers receive the failure
+        // count and destructor/constructor rollback report it on stderr.
+        [[nodiscard]] std::size_t ReleaseResources() noexcept
         {
-            for (auto iterator = m_OwnedMeshes.rbegin(); iterator != m_OwnedMeshes.rend(); ++iterator)
+            if (m_OwnedMeshes.empty() && m_OwnedTextures.empty()) return 0u;
+            try
             {
-                try { m_Renderer.DestroyMesh(*iterator); }
-                catch (...) {}
+                m_Renderer.SubmitRenderScene(kairo::renderer::RenderScene{});
             }
-            for (auto iterator = m_OwnedTextures.rbegin();
-                iterator != m_OwnedTextures.rend(); ++iterator)
+            catch (...)
             {
-                try { m_Renderer.DestroyTexture(*iterator); }
-                catch (...) {}
+                // A still-bound draw could make destruction invalid. Do not
+                // attempt unsafe deletes if the unbind operation itself failed.
+                return 1u + m_OwnedMeshes.size() + m_OwnedTextures.size();
             }
-            m_OwnedMeshes.clear();
-            m_OwnedTextures.clear();
+            const auto meshFailures = detail::ReleaseReverse(m_OwnedMeshes,
+                [this](kairo::renderer::MeshHandle handle)
+                {
+                    m_Renderer.DestroyMesh(handle);
+                });
+            const auto textureFailures = detail::ReleaseReverse(m_OwnedTextures,
+                [this](kairo::renderer::TextureHandle handle)
+                {
+                    m_Renderer.DestroyTexture(handle);
+                });
+            return meshFailures + textureFailures;
         }
 
         // Cache a texture asset ID's upload by its import color-space/normal-map
@@ -385,8 +400,8 @@ export namespace kairo::player
         // source as both sRGB color and linear data throws rather than silently
         // reinterpreting sampled bytes. ImportRenderTexture creates CPU
         // artifacts; RendererRuntime::CreateTexture allocates native storage.
-        // AUDIT: BindTexture or bookkeeping failure after CreateTexture could
-        // strand a newly created handle before m_OwnedTextures tracks it.
+        // CreateTrackBind reserves journal capacity BEFORE GPU creation and
+        // records the handle BEFORE map/binding allocations that may throw.
         [[nodiscard]] kairo::renderer::TextureHandle EnsureTexture(
             kairo::assets::TextureAssetHandle asset,
             const kairo::assets::TextureImportSettings& settings)
@@ -403,11 +418,13 @@ export namespace kairo::player
             }
             const auto texture = kairo::runtime::renderbridge::ImportRenderTexture(
                 m_Project.Root(), asset, settings, m_Project.Assets(), m_Imports, m_Cache);
-            const auto handle = m_Renderer.CreateTexture(texture);
-            m_TextureSettings.emplace(asset.ID, settings);
-            m_Assets.BindTexture(asset, handle);
-            m_OwnedTextures.push_back(handle);
-            return handle;
+            return detail::CreateTrackBind(m_OwnedTextures,
+                [this, &texture] { return m_Renderer.CreateTexture(texture); },
+                [this, asset, settings](kairo::renderer::TextureHandle handle)
+                {
+                    m_TextureSettings.emplace(asset.ID, settings);
+                    m_Assets.BindTexture(asset, handle);
+                });
         }
 
         // Treat missing optional channels as no upload; otherwise create
@@ -478,9 +495,12 @@ export namespace kairo::player
                 if (!mesh.has_value())
                     throw std::invalid_argument(
                         "Unsupported runtime mesh asset: " + metadata.ID.ToString());
-                const auto handle = m_Renderer.CreateMesh(*mesh);
-                m_Assets.BindMesh({ metadata.ID }, handle);
-                m_OwnedMeshes.push_back(handle);
+                (void)detail::CreateTrackBind(m_OwnedMeshes,
+                    [this, &mesh] { return m_Renderer.CreateMesh(*mesh); },
+                    [this, &metadata](kairo::renderer::MeshHandle handle)
+                    {
+                        m_Assets.BindMesh({ metadata.ID }, handle);
+                    });
             }
 
             for (const auto& metadata : m_Project.Assets().Snapshot())
@@ -517,8 +537,9 @@ export namespace kairo::player
                 handles.reserve(imported.RenderAsset.Primitives.size());
                 for (const auto& primitive : imported.RenderAsset.Primitives)
                 {
-                    const auto handle = m_Renderer.CreateMesh(primitive.Geometry);
-                    m_OwnedMeshes.push_back(handle);
+                    const auto handle = detail::CreateTrackBind(m_OwnedMeshes,
+                        [this, &primitive] { return m_Renderer.CreateMesh(primitive.Geometry); },
+                        [](kairo::renderer::MeshHandle) {});
                     handles.push_back(handle);
                 }
                 m_Assets.BindGltfScene({ metadata.ID }, std::move(imported.Source),
