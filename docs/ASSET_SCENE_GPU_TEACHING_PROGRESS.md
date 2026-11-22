@@ -2,6 +2,10 @@
 
 **Date:** 2026-11-22. **Integration target:** active default `main` branches. This ledger records completed **comment/documentation commits**, not a native build, an asset-cook, validation-layer evidence, or a merge of historic divergent PRs.
 
+## Subsequent functional correctness update
+
+**Follow-on repair is now committed:** [GPU resource rollback and renderer teardown laboratory](GPU_RESOURCE_ROLLBACK_AND_RENDERER_TEARDOWN_LAB.md). The Player bridge now tracks native-backed handles before potentially throwing binding operations, submits an empty RenderScene before teardown, and retains failed deletion handles; a CPU-only CTest exercises the policy. Native Metal/D3D12/OpenGL handle-publication rollback was also repaired in KairoRenderer. This does not retroactively make the source-teaching snapshot below a native test pass.
+
 ## Source coverage completed in this pass
 
 | Repository and source | New teaching sections | What the reader can now trace |
