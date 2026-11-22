@@ -78,6 +78,10 @@ export namespace kairo::runtime::renderbridge
         bool CacheHit = false;
     };
 
+    // The ImportSourceAsset output is a typed CPU derived artifact. Retain
+    // BOTH parsed glTF source (node/clip/skin metadata) and renderer-neutral
+    // primitive geometry; a plain GPU mesh upload cannot recreate animation.
+    // The URI texture resolver is caller-owned and chooses GPU handles.
     [[nodiscard]] inline RenderGltfSceneImport ImportRenderGltfSceneWithSource(
         const std::filesystem::path& projectRoot,
         kairo::assets::SceneAssetHandle asset,
@@ -103,6 +107,9 @@ export namespace kairo::runtime::renderbridge
     }
 
     /// Compatibility projection for callers that only need static render data.
+    // Compatibility helper for a static-only caller: discard extra parsed
+    // glTF source metadata and return the render primitive projection.
+    // Use WithSource when animation or skinning must survive import.
     [[nodiscard]] inline kairo::renderer::GltfRenderAsset ImportRenderGltfScene(
         const std::filesystem::path& projectRoot,
         kairo::assets::SceneAssetHandle asset,
@@ -118,6 +125,10 @@ export namespace kairo::runtime::renderbridge
     /// Task: import a texture with explicit color/data semantics. Those
     /// semantics participate in the derived-data key and therefore cannot be
     /// guessed by a graphics backend.
+    // Import settings (SRGB/Linear + normal semantics) are part of the
+    // canonical import recipe and derived cache key, not renderer guesses.
+    // ParseTextureDerivedArtifact returns owned CPU bytes; the caller's
+    // RendererRuntime separately creates VkImage or MTLTexture storage.
     [[nodiscard]] inline kairo::assets::TextureArtifactData ImportRenderTexture(
         const std::filesystem::path& projectRoot,
         kairo::assets::TextureAssetHandle asset,
@@ -142,6 +153,11 @@ export namespace kairo::runtime::renderbridge
 
     /// Task: load the canonical generated material artifact. Source parsing and
     /// backend-specific material guesses are intentionally not permitted here.
+    // Resolve stable typed ID -> registered project-local material path,
+    // parse a full derived-artifact binary file, and require inner material
+    // validity. This routine is CPU-only; it does not bind a descriptor set.
+    // AUDIT: unlike the derived cache reader, file size here has no explicit
+    // pre-allocation limit; consider applying the canonical artifact budget.
     [[nodiscard]] inline kairo::assets::MaterialArtifactData LoadRenderMaterial(
         const std::filesystem::path& projectRoot,
         kairo::assets::MaterialAssetHandle asset,
@@ -193,6 +209,10 @@ export namespace kairo::runtime::renderbridge
     /// deterministic camera-selection rule. Multiple active primary cameras
     /// are rejected because silently choosing one makes runtime output depend
     /// on incidental container order.
+    // Traverse active authored cameras deterministically; a single marked
+    // Primary wins over a previously selected nonprimary. Two active primaries
+    // are a project error. Return default camera if none is active. World
+    // hierarchy pose gives eye, forward and up independently of GPU backend.
     [[nodiscard]] inline kairo::renderer::CameraPose SelectRenderCamera(
         const kairo::engine::Scene& scene)
     {
@@ -231,6 +251,10 @@ export namespace kairo::runtime::renderbridge
     /// created each handle remains responsible for destruction.
     // Maps authored IDs -> existing native renderer handles/materials.
     // These process-local maps must be refreshed on GPU device rebuild.
+    // The AssetRegistry reference must outlive this lookup table. Each
+    // Mesh/Texture renderer handle is BORROWED, NOT a GPU allocation owned
+    // here; materials are stored by value. A device loss/recreation invalidates
+    // process-local handles even when original AssetIDs remain durable.
     class RenderAssetBindings final
     {
     public:
@@ -286,6 +310,9 @@ export namespace kairo::runtime::renderbridge
         // Check the stable material type and validate the backend-neutral PBRMaterial
         // before insertion. A duplicate ID is rejected instead of silently replacing
         // shader-facing material content.
+        // Store validated PBR factors/texture handles by persistent ID. This
+        // is a CPU conversion result; VkDescriptorSet is built later by
+        // VulkanTriangle::RebuildMaterialDescriptors after frame retirement.
         void BindMaterial(kairo::assets::MaterialAssetHandle asset,
             kairo::renderer::PBRMaterial material)
         {
@@ -324,6 +351,8 @@ export namespace kairo::runtime::renderbridge
                 throw std::invalid_argument("A render texture asset is already bound.");
         }
 
+        // Require typed registry identity AND previously uploaded native
+        // handle. No fallback for a referenced but unbound source texture.
         [[nodiscard]] kairo::renderer::TextureHandle ResolveTexture(
             kairo::assets::TextureAssetHandle asset) const
         {
@@ -387,12 +416,18 @@ export namespace kairo::runtime::renderbridge
                 throw std::invalid_argument("A render scene asset is already bound.");
         }
 
+        // Borrow a primitive vector from this process-local asset binding.
+        // The caller immediately copies primitive values to RenderScene draws;
+        // retaining references after binding destruction is invalid.
         [[nodiscard]] const std::vector<ScenePrimitive>& ResolveScene(
             kairo::assets::SceneAssetHandle asset) const
         {
             return ResolveSceneBinding(asset).Primitives;
         }
 
+        // nullptr means this bound scene has only static primitive records;
+        // non-null metadata enables glTF joint/rest-pose/clip evaluation.
+        // Pointer borrows SceneBinding's optional artifact lifetime.
         [[nodiscard]] const kairo::assets::GltfSceneArtifactData* ResolveGltfSource(
             kairo::assets::SceneAssetHandle asset) const
         {
@@ -411,6 +446,8 @@ export namespace kairo::runtime::renderbridge
         std::unordered_map<kairo::assets::AssetID, SceneBinding,
             kairo::assets::AssetIDHash> m_Scenes;
 
+        // Reject empty scene bindings, invalid GPU mesh handles or malformed
+        // materials before publishing an authored SceneAssetID mapping.
         static void ValidateScenePrimitives(
             std::span<const ScenePrimitive> primitives)
         {
@@ -440,6 +477,8 @@ export namespace kairo::runtime::renderbridge
         }
     };
 
+    // One validated clip-time/mode override, separate from durable .kscene
+    // components and separate from GPU mesh/texture allocations.
     struct SceneAnimationPlayback final
     {
         std::uint32_t ClipIndex = 0u;
@@ -458,11 +497,16 @@ export namespace kairo::runtime::renderbridge
     /// Per-instance playback overrides. Animation state is intentionally kept
     /// outside serialized ECS in this first runtime slice so Editor/Player can
     /// drive preview/playback without changing the Scene schema prematurely.
+    // Map authored Entity.Value -> clip/time overrides for extraction only.
+    // Player advances clocks; Editor preview may supply its own values.
+    // Removing an entity should clear its override to avoid stale identity.
     class SceneAnimationOverrides final
     {
         std::unordered_map<std::uint32_t, SceneAnimationPlayback> m_Playback;
 
     public:
+        // Store validated finite playback time for this authored instance.
+        // Extraction uses it to evaluate glTF pose without modifying Scene.
         void Set(kairo::engine::Entity entity, SceneAnimationPlayback playback)
         {
             playback.Validate();
@@ -474,6 +518,8 @@ export namespace kairo::runtime::renderbridge
             m_Playback.erase(entity.Value);
         }
 
+        // Return a BORROWED pointer to optional override; do not retain
+        // past map mutation/clear or the SceneAnimationOverrides owner.
         [[nodiscard]] const SceneAnimationPlayback* Find(
             kairo::engine::Entity entity) const noexcept
         {
