@@ -1,5 +1,7 @@
 # KairoGameEngine
 
+**Cross-repository integration lab:** [AssetID → authored Scene → shared Editor/Player draw extraction → renderer GPU lifetime](docs/ASSET_SCENE_TO_GPU_LIFETIME_LAB.md). Read the authored/CPU contracts before following the native GPU backend; source inspection is not a native test result.
+
 **Learn by following execution:** [31-repository portfolio curriculum](docs/PORTFOLIO_LEARNING_ROADMAP.md) · [license and third-party asset audit](docs/OPEN_SOURCE_AND_ASSET_PROVENANCE.md) · [Linked source-reading order](docs/SOURCE_READING_ORDER.md) · [One project → full game-frame integration walkthrough](docs/ENGINE_INTEGRATION_WALKTHROUGH.md) · [Worked authored Entity → ECS → Physics → animation → GPU frame laboratory](docs/AUTHORED_ENTITY_TO_PLAYER_FRAME_LAB.md).
 
 The walkthrough separates stable authored identities from runtime PhysicsWorld
