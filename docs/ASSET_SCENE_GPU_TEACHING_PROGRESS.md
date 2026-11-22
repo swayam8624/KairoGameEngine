@@ -4,7 +4,7 @@
 
 **CI guardrail committed:** [CPU-only Player/asset workflow](../.github/workflows/cpu-player-resource-guards.yml) compiles the checked-in fault-injection and size-budget tests under GCC and Clang, without a GPU. This is a workflow configuration, not a claim that exact-head GitHub Actions jobs have already finished.
 
-**Later input and WSI update:** [material file size is now bounded before allocation](MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md) and [Vulkan frame recovery source changes](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_FRAME_FAILURE_RECOVERY_LAB.md) are committed. Four CPU-only tests are registered or provided in [the standalone runner](../scripts/run_renderer_resource_lifetime_regressions.sh). Exact-head GPU/device tests remain outstanding.
+**Later input and WSI update:** [material file size is now bounded before allocation](MATERIAL_ARTIFACT_BOUNDARY_AND_FILE_BUDGET_LAB.md) and [Vulkan frame recovery source changes](https://github.com/swayam8624/KairoRenderer/blob/main/docs/VULKAN_FRAME_FAILURE_RECOVERY_LAB.md) are committed. **Five** CPU-only tests are registered or provided in [the standalone runner](../scripts/run_renderer_resource_lifetime_regressions.sh), including [transactional descriptor generations](https://github.com/swayam8624/KairoRenderer/blob/main/docs/TRANSACTIONAL_VULKAN_DESCRIPTOR_GENERATIONS_LAB.md). Exact-head GPU/device tests remain outstanding.
 
 ## Subsequent functional correctness update
 
