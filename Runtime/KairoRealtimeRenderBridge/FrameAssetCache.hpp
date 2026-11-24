@@ -1,7 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <optional>
 #include <unordered_map>
 #include <utility>
 
@@ -21,7 +20,7 @@ namespace kairo::runtime::renderbridge::detail
         {
             // Adjacent entities often share the same asset. Avoid hashing
             // on these runs; unordered_map references survive rehashing.
-            if (m_LastKey && *m_LastKey == key) return *m_LastValue;
+            if (m_Last && m_Last->first == key) return m_Last->second;
             auto found = m_Values.find(key);
             if (found == m_Values.end())
             {
@@ -30,9 +29,8 @@ namespace kairo::runtime::renderbridge::detail
                 auto value = std::invoke(std::forward<Resolve>(resolve));
                 found = m_Values.emplace(key, std::move(value)).first;
             }
-            m_LastKey = key;
-            m_LastValue = &found->second;
-            return *m_LastValue;
+            m_Last = &*found;
+            return m_Last->second;
         }
 
         FrameAssetCache() = default;
@@ -44,8 +42,8 @@ namespace kairo::runtime::renderbridge::detail
         FrameAssetCache& operator=(FrameAssetCache&&) = delete;
 
     private:
-        std::unordered_map<Key, Value, Hash> m_Values;
-        std::optional<Key> m_LastKey;
-        const Value* m_LastValue = nullptr;
+        using Map = std::unordered_map<Key, Value, Hash>;
+        Map m_Values;
+        const typename Map::value_type* m_Last = nullptr;
     };
 }
