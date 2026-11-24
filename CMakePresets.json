@@ -119,6 +119,16 @@
         "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
       }
+    },
+    {
+      "name": "game-player-clang",
+      "displayName": "Game player only (strict gameplay AI)",
+      "inherits": "game-clang",
+      "binaryDir": "${sourceDir}/build/game-player-clang",
+      "cacheVariables": {
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
+        "KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -153,6 +163,10 @@
     {
       "name": "game-clang",
       "configurePreset": "game-clang"
+    },
+    {
+      "name": "game-player-clang",
+      "configurePreset": "game-player-clang"
     }
   ],
   "testPresets": [
@@ -201,6 +215,13 @@
     {
       "name": "game-clang",
       "configurePreset": "game-clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "game-player-clang",
+      "configurePreset": "game-player-clang",
       "output": {
         "outputOnFailure": true
       }
