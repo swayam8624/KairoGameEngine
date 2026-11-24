@@ -13,8 +13,9 @@ All listed PRs were opened as drafts. No main/master branch was modified by this
 | 4 | KairoGameEngine | [#42](https://github.com/swayam8624/KairoGameEngine/pull/42) | refactor/game-first | See PR current head (this ledger is part of it) | Core workspace and strict runtime profile |
 | 5 | KairoGameEngine | [#43](https://github.com/swayam8624/KairoGameEngine/pull/43) | refactor/runtime-resource-journal | 1733cd9921c2c1345b69bc1323499d76055069b6 | Linear resource journal and startup snapshot reuse |
 | 6 | KairoGameEngine | [#44](https://github.com/swayam8624/KairoGameEngine/pull/44) | fix/compute-integration-variant-header | 397c61526e996628b969831db4d9fe3ea677e87d | Optional compute test missing direct standard-library headers |
+| 7 | KairoGameEngine | [#45](https://github.com/swayam8624/KairoGameEngine/pull/45) | refactor/frame-scene-extraction | 63a3d376b3a3e9a0d43835583c49a69041d975d8 | Frame-local hierarchy memoization and shared entity enumeration |
 
-Math, AI and Editor are sibling dependencies; review and test their branches before the strict engine integration. Engine #43 and #44 are independent branches from main; neither requires a stacked PR base. Refresh/rebase against the updated main as appropriate. Do not merge just because an older run passed.
+Math, AI and Editor are sibling dependencies; review and test their branches before the strict engine integration. Engine #43, #44 and #45 are independent branches from main; none requires a stacked PR base. Refresh/rebase against the updated main as appropriate. Do not merge just because an older run passed.
 
 ## Local Codex handoff
 
@@ -27,6 +28,8 @@ The owner reported that local CI patches and source fixes are saved separately, 
 - Editor #21 head 1a0b44c55603040a00a48866b95c983a6befe2f7: observed editor workflow cancelled. No complete native regression result.
 - Engine #43: local independent Clang C++23 ASan/UBSan harness exercised the exact modified header (verified git blob f95dcdbc65245ce767872974feb2d12dc6202bb6): 8,191 exhaustive failure masks for journal lengths 0–12, 65,536 handles with 17 capacity growths, alternating failure/retry and bind/unbind failure cases. Checked-in CTest regression and native integration still need execution.
 - Math #4 and Engine #44: source repairs for observed CI errors, native reruns pending.
+- Engine #43: standalone Runtime resource journal Actions run 45429139703 completed successfully; full integration still pending at observation.
+- Engine #45: independent Clang C++23 ASan/UBSan harness against verified exact header blob 92f889024b5a24c1618f5a099828084afa5e4709 passed 102,014 randomized reference comparisons and a 100,000-node reverse-ID chain; active state and world transforms evaluated at most once per node, new cache reflected disabled ancestor. Full module tests and native frame timing pending. O(n) transient cache storage and binary-search lookup are tradeoffs; profile both shallow/sparse and deep scenes. Standalone Editor's pinned bridge revision is unchanged until integration is accepted.
 
 ## Final integration gate
 
