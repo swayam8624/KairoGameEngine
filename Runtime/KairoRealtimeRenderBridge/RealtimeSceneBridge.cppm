@@ -20,6 +20,7 @@ module;
 #include <filesystem>
 #include <fstream>
 #include "MaterialFileSizeBudget.hpp"
+#include "FrameHierarchyCache.hpp"
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -226,7 +227,7 @@ export namespace kairo::runtime::renderbridge
         std::optional<kairo::engine::Entity> selected;
         for (const auto entity : scene.Entities())
         {
-            if (!scene.IsActiveInHierarchy(entity) || !scene.HasCamera(entity))
+            if (!scene.HasCamera(entity) || !scene.IsActiveInHierarchy(entity))
                 continue;
             const auto& camera = scene.Camera(entity);
             if (!camera.Primary && selected.has_value()) continue;
@@ -609,22 +610,33 @@ export namespace kairo::runtime::renderbridge
         if (renderLayers == 0u)
             throw std::invalid_argument("Render extraction requires a non-empty layer mask.");
         kairo::renderer::RenderScene result;
-        for (const kairo::engine::Entity entity : scene.RenderableEntities())
+        // One sorted enumeration for all categories; retain the original mesh,
+        // scene-instance, light ordering. Cache only hierarchy paths we visit.
+        const auto entities = scene.Entities();
+        detail::FrameHierarchyCache<kairo::engine::Scene, kairo::engine::Entity,
+            kairo::foundation::math::Transformf> hierarchy(scene, entities);
+        for (const kairo::engine::Entity entity : entities)
         {
+            if (!scene.HasMeshRenderer(entity)) continue;
             const auto& source = scene.MeshRenderer(entity);
-            if ((source.RenderLayers & renderLayers) == 0u) continue;
+            if (!source.Visible || (source.RenderLayers & renderLayers) == 0u) continue;
+            const auto& world = hierarchy.Resolve(entity);
+            if (!world) continue;
             result.Add({ .Mesh = assets.ResolveMesh(source.MeshAsset),
-                .Model = kairo::foundation::math::ToMatrix4(scene.WorldTransform(entity)),
+                .Model = kairo::foundation::math::ToMatrix4(*world),
                 .Material = assets.ResolveMaterial(source.MaterialForSlot(0u)),
                 .ObjectID = entity.Value,
                 .CastShadows = source.CastShadows,
                 .ReceiveShadows = source.ReceiveShadows });
         }
-        for (const kairo::engine::Entity entity : scene.SceneInstanceEntities())
+        for (const kairo::engine::Entity entity : entities)
         {
+            if (!scene.HasSceneInstance(entity)) continue;
             const auto& source = scene.SceneInstance(entity);
-            if ((source.RenderLayers & renderLayers) == 0u) continue;
-            const auto world = kairo::foundation::math::ToMatrix4(scene.WorldTransform(entity));
+            if (!source.Visible || (source.RenderLayers & renderLayers) == 0u) continue;
+            const auto& transform = hierarchy.Resolve(entity);
+            if (!transform) continue;
+            const auto world = kairo::foundation::math::ToMatrix4(*transform);
             const auto& primitives = assets.ResolveScene(source.SceneAsset);
             const auto* gltf = assets.ResolveGltfSource(source.SceneAsset);
             const auto* playback = animations.Find(entity);
@@ -697,10 +709,20 @@ export namespace kairo::runtime::renderbridge
         // Extract renderer lights only for permitted render layers; the shared
         // conversion avoids diverging Editor and Player intensity conventions when
         // using the same authored project.
-        for (const kairo::engine::Entity entity : scene.LightEntities())
-            if ((scene.Light(entity).RenderLayers & renderLayers) != 0u)
-                result.AddLight(MakeRenderLight(scene.Light(entity), scene.WorldTransform(entity)));
-        if (const auto active = scene.ActiveEnvironment(); active.has_value())
+        std::optional<kairo::engine::Entity> active;
+        for (const kairo::engine::Entity entity : entities)
+        {
+            if (scene.HasLight(entity) && (scene.Light(entity).RenderLayers & renderLayers) != 0u)
+                if (const auto& world = hierarchy.Resolve(entity); world)
+                    result.AddLight(MakeRenderLight(scene.Light(entity), *world));
+            // Match Scene::ActiveEnvironment: enabled, active, highest priority,
+            // and lowest stable ID on ties. Environments have no render-layer filter.
+            if (scene.HasEnvironment(entity) && scene.Environment(entity).Enabled &&
+                (!active || scene.Environment(entity).Priority > scene.Environment(*active).Priority) &&
+                scene.IsActiveInHierarchy(entity))
+                active = entity;
+        }
+        if (active.has_value())
         {
             const auto& source = scene.Environment(*active);
             kairo::renderer::RenderEnvironment environment;

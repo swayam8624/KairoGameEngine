@@ -1,0 +1,30 @@
+name: Frame hierarchy cache
+on:
+  pull_request:
+    paths:
+      - 'Runtime/KairoRealtimeRenderBridge/FrameHierarchyCache.hpp'
+      - 'Runtime/KairoRealtimeRenderBridge/tests/FrameHierarchyCacheTests.cpp'
+      - '.github/workflows/frame-hierarchy-cache.yml'
+  push:
+    branches: [main, refactor/frame-scene-extraction]
+permissions:
+  contents: read
+jobs:
+  hierarchy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build host-neutral C++23 test with sanitizers
+        run: |
+          mkdir -p build/frame-hierarchy
+          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoRealtimeRenderBridge/tests/FrameHierarchyCacheTests.cpp -o build/frame-hierarchy/test
+      - name: Run reference and stress tests
+        run: |
+          set -o pipefail
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/frame-hierarchy/test 2>&1 | tee build/frame-hierarchy/test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frame-hierarchy-diagnostics
+          path: build/frame-hierarchy/test.log
+          if-no-files-found: warn
