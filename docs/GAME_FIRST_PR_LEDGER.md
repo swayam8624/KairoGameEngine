@@ -23,6 +23,8 @@ Math, AI and Editor are sibling dependencies; review and test their branches bef
 
 Current integration candidate: [Engine #48](https://github.com/swayam8624/KairoGameEngine/pull/48), based on merged main; review the four refreshed pins and test before merging. Renderer #21 can be reviewed in parallel, then its accepted revision needs a separate pin update.
 
+Renderer draw-state follow-up: [Renderer #22](https://github.com/swayam8624/KairoRenderer/pull/22), branch `refactor/vulkan-draw-state`, review head `b36e85de26402af95acfe808b55f69b1bd780079`. Stacked on #21; review and merge #21 first, then retarget/rebase #22. The lock candidate #48 can be reviewed independently; after both renderer PRs are accepted, refresh the renderer pin and rerun combined acceptance. No default branch writes by this pass.
+
 ## Local Codex handoff
 
 The owner reported that local CI patches and source fixes are saved separately, not pushed. Review those patches alongside this queue; if a Math or compute include fix already exists, apply the equivalent change once. Integrate the CI changes without overwriting the new narrow workflows or the game-first default. No access to the local Mac handoff contents is assumed here.
@@ -48,6 +50,8 @@ The owner reported that local CI patches and source fixes are saved separately, 
 - Engine #47: actual Frame extraction caches workflow 45434709306 and CPU-only guards 45434709338 succeeded at exact review head. Logged 102,014 hierarchy comparisons and 100,000 adjacent hits with zero hashing.
 - ONNX #5: Compute Component CI 45434417088 succeeded. Combined Wave E must be rerun against the approved ONNX pin.
 - Renderer #21: standalone Vulkan descriptor invalidation sanitizer workflow 45440041611 succeeded; full renderer CI queued. Exact shader-visible comparison avoids unnecessary native generation replacement and fixes stale indices after mesh removal. Native Vulkan validation and timing pending.
+
+- Renderer #22: pass-local pipeline and vertex/index buffer binding elision in shadow and main passes. Draw order, per-draw descriptors, push constants and transparent sorting retained. Added CTest and standalone sanitizer replay covering 100,000 repeated draws, 256,000 randomized draws, pass boundaries and failure retry. Native Vulkan smoke and timings pending; draw-call count unchanged.
 
 ## Final integration gate
 
