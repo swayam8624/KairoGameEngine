@@ -4,6 +4,11 @@ set -euo pipefail
 ENGINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT="${1:-}"
 MODE="${2:---validate}"
+PROFILE="${KAIRO_BUILD_PROFILE:-game-clang}"
+case "$PROFILE" in
+    game-clang|dev-clang) ;;
+    *) echo "Unsupported KAIRO_BUILD_PROFILE: $PROFILE" >&2; exit 2 ;;
+esac
 
 if [[ -z "${PROJECT}" ]]; then
     echo "usage: $0 <path/to/Project.kproject> [--validate|--smoke]" >&2
@@ -44,11 +49,11 @@ resolve_binary() {
     return 1
 }
 
-COMPILER="$(resolve_binary     "${ENGINE_ROOT}/build/dev-clang/components/KairoEditor/KairoProjectCompiler"     "${ENGINE_ROOT}/build/dev-clang/KairoEditor/KairoProjectCompiler")" || {
+COMPILER="$(resolve_binary     "${ENGINE_ROOT}/build/${PROFILE}/components/KairoEditor/KairoProjectCompiler"     "${ENGINE_ROOT}/build/${PROFILE}/KairoEditor/KairoProjectCompiler")" || {
     echo "Built KairoProjectCompiler not found in current or legacy layout." >&2
     exit 3
 }
-PLAYER="$(resolve_binary     "${ENGINE_ROOT}/build/dev-clang/Runtime/KairoPlayer/KairoPlayer")" || {
+PLAYER="$(resolve_binary     "${ENGINE_ROOT}/build/${PROFILE}/Runtime/KairoPlayer/KairoPlayer")" || {
     echo "Built KairoPlayer not found." >&2
     exit 3
 }
