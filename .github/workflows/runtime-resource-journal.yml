@@ -1,0 +1,30 @@
+name: Runtime resource journal
+on:
+  pull_request:
+    paths:
+      - 'Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp'
+      - 'Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp'
+      - '.github/workflows/runtime-resource-journal.yml'
+  push:
+    branches: [main, refactor/runtime-resource-journal]
+permissions:
+  contents: read
+jobs:
+  cpu-failure-injection:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile isolated C++23 regression with sanitizers
+        run: |
+          mkdir -p build/resource-journal
+          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/RuntimeRenderResourceTrackingTests.cpp -o build/resource-journal/test
+      - name: Run failure injection and growth tests
+        run: |
+          set -o pipefail
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/resource-journal/test 2>&1 | tee build/resource-journal/test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resource-journal-diagnostics
+          path: build/resource-journal/test.log
+          if-no-files-found: warn

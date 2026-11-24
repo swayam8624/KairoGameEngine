@@ -444,7 +444,10 @@ export namespace kairo::player
         // The constructor catch invokes ReleaseResources on partial import.
         void LoadAssets()
         {
-            for (const auto& metadata : m_Project.Assets().Snapshot())
+            // The registry is immutable during this load. Reuse its sorted
+            // metadata snapshot rather than copying and sorting it three times.
+            const auto metadataSnapshot = m_Project.Assets().Snapshot();
+            for (const auto& metadata : metadataSnapshot)
             {
                 if (metadata.Type != kairo::assets::AssetType::Material ||
                     metadata.Origin == kairo::assets::AssetOrigin::Builtin) continue;
@@ -473,7 +476,7 @@ export namespace kairo::player
                     m_Project.Scene().Environment(*environment).EnvironmentTexture,
                     kairo::assets::TextureColorSpace::Linear, false);
 
-            for (const auto& metadata : m_Project.Assets().Snapshot())
+            for (const auto& metadata : metadataSnapshot)
             {
                 if (metadata.Type != kairo::assets::AssetType::Mesh) continue;
                 std::optional<kairo::renderer::Mesh> mesh;
@@ -494,7 +497,7 @@ export namespace kairo::player
                     });
             }
 
-            for (const auto& metadata : m_Project.Assets().Snapshot())
+            for (const auto& metadata : metadataSnapshot)
             {
                 if (metadata.Type != kairo::assets::AssetType::Scene ||
                     metadata.Origin != kairo::assets::AssetOrigin::SourceFile) continue;
