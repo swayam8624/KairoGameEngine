@@ -51,7 +51,7 @@ The owner reported that local CI patches and source fixes are saved separately, 
 - ONNX #5: Compute Component CI 45434417088 succeeded. Combined Wave E must be rerun against the approved ONNX pin.
 - Renderer #21: standalone Vulkan descriptor invalidation sanitizer workflow 45440041611 succeeded; full renderer CI queued. Exact shader-visible comparison avoids unnecessary native generation replacement and fixes stale indices after mesh removal. Native Vulkan validation and timing pending.
 
-- Renderer #22: pass-local pipeline and vertex/index buffer binding elision in shadow and main passes. Draw order, per-draw descriptors, push constants and transparent sorting retained. Added CTest and standalone sanitizer replay covering 100,000 repeated draws, 256,000 randomized draws, pass boundaries and failure retry. Native Vulkan smoke and timings pending; draw-call count unchanged.
+- Renderer #22: pass-local pipeline and vertex/index buffer binding elision in shadow and main passes. Draw order, per-draw descriptors, push constants and transparent sorting retained. Added CTest and standalone sanitizer replay covering 100,000 repeated draws, 256,000 randomized draws, pass boundaries and failure retry. Exact committed header and test blob hashes matched local copies (e7a6c04ecfa21323d82894db2a5b5f97156f3ff3 and 87598b1113bf13e1723cc9e4286c339b35cdc2d3); local Clang C++23 ASan/UBSan replay passed. Native Vulkan smoke and timings pending; draw-call count unchanged.
 
 ## Final integration gate
 
