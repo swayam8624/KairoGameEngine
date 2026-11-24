@@ -1,6 +1,6 @@
 # Game-first integration ledger
 
-Updated 2026-11-24. This is a review/apply queue, not an accepted build stamp.
+Updated 2026-11-25. This is a review/apply queue, not an accepted build stamp.
 The first ten cleanup PRs were independently confirmed merged via GitHub on 2026-11-24. Merge status does not imply combined native acceptance. Do not reset local dirty work.
 
 ## Historical apply order and current review queue
@@ -75,6 +75,12 @@ The owner reported that local CI patches and source fixes are saved separately, 
 - Renderer #27 full Ubuntu build/CTest succeeded (job 138633921470); Windows failed and macOS cancelled. Native Vulkan presentation skips remain unaccepted.
 - Renderer #29: stable-geometry median BVH and conservative affine world bounds; individual fallback for moving, skinned, unsafe and projective geometry. Static BVH sanitizer workflow 45448968574 succeeded. CPU test uses 65,536 interleaved clustered objects and 320,000 world-space samples. Camera/material changes reuse hierarchy; exact model/mesh change or mesh removal invalidates. O(n) scene comparison and visibility output remain, and build/storage cost must be profiled.
 - Renderer #30: required Lavapipe/Xvfb rendering smoke workflow executes native test binaries directly; exit 77 and validation errors fail. Added 259-object scene image equivalence and camera/model change picking checks. Actual execution pending; no hardware timing claim.
+
+## November 25 integration refresh
+
+GitHub confirms Renderer #21–30 (including independent #28) and Engine #48 merged. Together with the first ten PRs, all 21 previous PRs are merged. The strict Vulkan software-driver gate 45449116912 passed on review head 3c23c3f3e2d1c1bb1f9b7d4cb602fbfab3aa31e2: actual skinning and instancing/reference image, picking, offscreen shadow, large-scene camera/object motion tests executed under llvmpipe, with no detected validation errors. This is not physical-GPU performance evidence. Proposed renderer lock d7ec83fbf6b3a7fbbcc9d334904833a84527ba0e is the merged #30 commit; exact combined engine build still required.
+
+New independent Metal stack: [Renderer #31](https://github.com/swayam8624/KairoRenderer/pull/31), fix/metal-large-skin-palettes, head ac619cbb322e06caa97c729a6a1f71dbcfc03c30. Replaces inline skin bytes with a retained frame MTLBuffer, aligned offsets and shared shadow/main data. Host-neutral sanitizer workflow 45490490646 passed 100,000 range checks; Apple native 255-joint smoke pending. [Renderer #32](https://github.com/swayam8624/KairoRenderer/pull/32), refactor/metal-encoder-state, head ec431a02973dbce084c74750571085b4a360688a, stacked on #31. Pass-local pipeline, geometry, depth, cull and texture/sampler state reuse; no draw reordering or draw-count reduction. Native Apple validation pending. Neither pending Metal branch is pinned by this lock candidate.
 
 ## Final integration gate
 
