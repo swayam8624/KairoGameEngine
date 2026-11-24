@@ -170,6 +170,60 @@ int main()
         Check(recovered == 0u && meshJournal.empty() &&
               textureJournal.empty(), "Failed teardown recovery retry");
 
+        // Exhaust all failure patterns on a small journal. The callback must
+        // see reverse order exactly once, and retained handles must retry in
+        // the original reverse order, even when failures are interleaved.
+        for (unsigned mask = 0u; mask < 256u; ++mask)
+        {
+            std::vector<Handle> journal{ 0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u };
+            std::vector<Handle> expected;
+            for (Handle handle = 0u; handle < 8u; ++handle)
+                if ((mask & (1u << handle)) != 0u) expected.push_back(handle);
+            std::vector<Handle> attempted;
+            const auto failures = ReleaseReverse(journal, [&](Handle handle)
+            {
+                attempted.push_back(handle);
+                if ((mask & (1u << handle)) != 0u)
+                    throw std::runtime_error("injected retirement failure");
+            });
+            Check(attempted == std::vector<Handle>{ 7u, 6u, 5u, 4u, 3u, 2u, 1u, 0u },
+                "Mixed retirement did not visit original reverse order");
+            Check(journal == expected && failures == expected.size(),
+                "Mixed retirement lost or reordered failed handles");
+            attempted.clear();
+            Check(ReleaseReverse(journal, [&](Handle handle) { attempted.push_back(handle); }) == 0u,
+                "Retry of mixed retirement failed");
+            Check(attempted == std::vector<Handle>(expected.rbegin(), expected.rend()),
+                "Retried handles were not destroyed in reverse creation order");
+            Check(journal.empty(), "Retry did not empty journal");
+        }
+
+        // Count capacity changes, not timing, so this test is stable on CI.
+        // Geometric reserve must keep 65,536 uploads to at most 17 growths.
+        std::vector<Handle> large;
+        std::size_t growths = 0u;
+        for (Handle handle = 0u; handle < 65'536u; ++handle)
+        {
+            const auto previous = large.capacity();
+            (void)CreateTrackBind(large, [&, handle]
+            {
+                Check(large.capacity() > large.size(), "Native create preceded capacity reservation");
+                return handle;
+            }, [](Handle) {});
+            if (large.capacity() != previous) ++growths;
+        }
+        Check(growths <= 17u, "Resource journal growth is not geometric");
+        const auto largeFailures = ReleaseReverse(large, [](Handle handle)
+        {
+            if ((handle & 1u) != 0u) throw std::runtime_error("injected alternating failure");
+        });
+        Check(largeFailures == 32'768u && large.size() == 32'768u,
+            "Large alternating cleanup retained the wrong count");
+        for (std::size_t index = 0u; index < large.size(); ++index)
+            Check(large[index] == index * 2u + 1u, "Large retry order corrupted");
+        Check(ReleaseReverse(large, [](Handle) {}) == 0u && large.empty(),
+            "Large journal retry did not retire all handles");
+
         std::puts("KairoPlayer renderer resource tracking tests passed");
         return 0;
     }
