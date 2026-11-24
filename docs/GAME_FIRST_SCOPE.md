@@ -24,6 +24,10 @@ ctest --preset game-player-clang --no-tests=error
 
 This profile does not configure the Editor, assistant, device agent, cloud provider, migration library, offline renderer, or standalone scale benchmark. The native Player and Phase1 gameplay fixture remain. An old KairoAI checkout fails the strict configuration rather than silently linking assistant code. The historical workspace lock has not been updated; do not represent this new combination as an accepted exact-head snapshot.
 
+## Editor structural correctness companion
+
+[KairoEditor PR #21](https://github.com/swayam8624/KairoEditor/pull/21) unifies authored component transfer across structural undo, duplication, clipboard and prefabs. It retains audio and imported scene instances, handles primary camera/listener conflicts, and replaces quadratic parent remapping and cycle validation with linear algorithms (expected linear for hash lookup). Exact-head native acceptance is pending. This companion branch does not change the historical workspace lock.
+
 ## Capability roadmap (not claims of existing completeness)
 
 | Gate | Deliverable | Acceptance |
