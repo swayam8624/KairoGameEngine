@@ -21,6 +21,7 @@ module;
 #include <fstream>
 #include "MaterialFileSizeBudget.hpp"
 #include "FrameHierarchyCache.hpp"
+#include "FrameAssetCache.hpp"
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -665,6 +666,14 @@ export namespace kairo::runtime::renderbridge
         const auto entities = scene.Entities();
         detail::FrameHierarchyCache<kairo::engine::Scene, kairo::engine::Entity,
             kairo::foundation::math::Transformf> hierarchy(scene, entities);
+        // Asset registries and bindings must remain stable during extraction.
+        // Reuse checked typed lookups for repeated assets; never retain a
+        // renderer handle or borrowed scene binding across frame boundaries.
+        using AssetID = kairo::assets::AssetID;
+        using AssetHash = kairo::assets::AssetIDHash;
+        detail::FrameAssetCache<AssetID, kairo::renderer::MeshHandle, AssetHash> meshes;
+        detail::FrameAssetCache<AssetID, kairo::renderer::PBRMaterial, AssetHash> materials;
+        detail::FrameAssetCache<AssetID, const RenderAssetBindings::SceneBinding*, AssetHash> scenes;
         for (const kairo::engine::Entity entity : entities)
         {
             if (!scene.HasMeshRenderer(entity)) continue;
@@ -672,9 +681,14 @@ export namespace kairo::runtime::renderbridge
             if (!source.Visible || (source.RenderLayers & renderLayers) == 0u) continue;
             const auto& world = hierarchy.Resolve(entity);
             if (!world) continue;
-            result.Add({ .Mesh = assets.ResolveMesh(source.MeshAsset),
+            const auto mesh = meshes.Get(source.MeshAsset.ID,
+                [&] { return assets.ResolveMesh(source.MeshAsset); });
+            const auto materialAsset = source.MaterialForSlot(0u);
+            const auto& material = materials.Get(materialAsset.ID,
+                [&] { return assets.ResolveMaterial(materialAsset); });
+            result.Add({ .Mesh = mesh,
                 .Model = kairo::foundation::math::ToMatrix4(*world),
-                .Material = assets.ResolveMaterial(source.MaterialForSlot(0u)),
+                .Material = material,
                 .ObjectID = entity.Value,
                 .CastShadows = source.CastShadows,
                 .ReceiveShadows = source.ReceiveShadows });
@@ -687,7 +701,8 @@ export namespace kairo::runtime::renderbridge
             const auto& transform = hierarchy.Resolve(entity);
             if (!transform) continue;
             const auto world = kairo::foundation::math::ToMatrix4(*transform);
-            const auto& binding = assets.ResolveSceneBinding(source.SceneAsset);
+            const auto& binding = *scenes.Get(source.SceneAsset.ID,
+                [&] { return &assets.ResolveSceneBinding(source.SceneAsset); });
             const auto& primitives = binding.Primitives;
             const auto* gltf = binding.GltfSource ? &*binding.GltfSource : nullptr;
             const auto* playback = animations.Find(entity);
