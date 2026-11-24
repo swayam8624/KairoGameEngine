@@ -42,10 +42,18 @@ class GameFirstScope(unittest.TestCase):
         flags = game["cacheVariables"]
         for name in ("EDITOR", "PLAYER", "PHASE1_SAMPLE"):
             self.assertEqual(flags["KAIRO_GAME_ENGINE_BUILD_" + name], "ON")
-        for name in ("RACING_SAMPLE", "RAYTRACER", "PHYSICS_SANDBOX", "AI_CLOUD", "COMPUTE_STACK", "MIGRATION"):
+        for name in ("RACING_SAMPLE", "RAYTRACER", "PHYSICS_SANDBOX", "AI_CLOUD", "COMPUTE_STACK", "MIGRATION", "BENCHMARKS"):
             self.assertEqual(flags["KAIRO_GAME_ENGINE_BUILD_" + name], "OFF")
         for key in ("buildPresets", "testPresets"):
             self.assertIn("game-clang", [p["name"] for p in data[key]])
+
+    def test_optional_tools_do_not_leak_into_runtime(self):
+        root = (ROOT / "CMakeLists.txt").read_text()
+        self.assertNotRegex(root, r"target_link_libraries\(KairoGameEngine\s+INTERFACE\s+KairoBridge")
+        self.assertRegex(root, r"if\(KAIRO_GAME_ENGINE_BUILD_BENCHMARKS\)\s+add_executable\(KairoWaveCScaleBenchmark")
+        player = (ROOT / "Runtime/KairoPlayer/CMakeLists.txt").read_text()
+        self.assertIn("if(TARGET Kairo::GameplayAI)", player)
+        self.assertIn("Kairo::GameEngine KairoRealtimeRenderBridge ${_kairo_player_gameplay_ai}", player)
 
     def test_bootstrap_default_then_explicit_portfolio(self):
         with tempfile.TemporaryDirectory() as tmp:
