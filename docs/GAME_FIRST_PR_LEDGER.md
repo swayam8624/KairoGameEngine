@@ -31,6 +31,8 @@ Next renderer stack: [Renderer #24](https://github.com/swayam8624/KairoRenderer/
 
 Renderer follow-ups: [#26](https://github.com/swayam8624/KairoRenderer/pull/26) `refactor/vulkan-frustum-support` head `6d6d67eeaa23d02950e4dc30cf0fe9262b814833`, then [#27](https://github.com/swayam8624/KairoRenderer/pull/27) `refactor/vulkan-visible-run-planning` head `5d157eab5ab37df82d6b3777c9e72303001440fb`. Extend the stack #21 -> #22 -> #23 -> #24 -> #25 -> #26 -> #27. Independent [#28](https://github.com/swayam8624/KairoRenderer/pull/28) `fix/msvc-transaction-fault-injection` head `52c072f0e382138db368880a7c5b8b0d3b2b1654` can be reviewed in parallel, then incorporated into the accepted renderer revision. Do not confuse a skipped native smoke with a pass.
 
+Next renderer stack: [#29](https://github.com/swayam8624/KairoRenderer/pull/29) `feat/vulkan-static-visibility-bvh`, head `071bd31d0506ec9de42a0abaf15d35fca12ac577`, then [#30](https://github.com/swayam8624/KairoRenderer/pull/30) `ci/required-vulkan-smoke`, head `3c23c3f3e2d1c1bb1f9b7d4cb602fbfab3aa31e2`. Review after #27; #28 independent. Do not pin the stack before strict native software Vulkan smoke and platform validation.
+
 ## Local Codex handoff
 
 The owner reported that local CI patches and source fixes are saved separately, not pushed. Review those patches alongside this queue; if a Math or compute include fix already exists, apply the equivalent change once. Integrate the CI changes without overwriting the new narrow workflows or the game-first default. No access to the local Mac handoff contents is assumed here.
@@ -69,6 +71,10 @@ The owner reported that local CI patches and source fixes are saved separately, 
 - Renderer #25 exact head 119b72c39d9a527d48036b71831d9ec5c3d6ea6d: frustum, opaque/shadow shader contract, descriptor and draw policy workflows passed (45445604893, 45445604646, 45445604620, 45445604463). Full Ubuntu build and CTest job 138628389832 succeeded, with two Vulkan smokes explicitly skipped (12 of 14 tests executed successfully). Windows job 138628389512 failed at the pre-existing transactional fault-injection helper's C4702 warning-as-error; macOS job cancelled. #28 proposes a targeted test-only repair; MSVC rerun pending.
 - Renderer #26: frustum sanitizer run 45447003172 passed 800,000 sampled points; all 19,815 reference rejections matched prepared support. Frame-prepared camera product and AABB plane support reduce repeated arithmetic; extreme inputs fail open. No measured native timing and no BVH yet.
 - Renderer #27: compact surviving main/shadow index streams preserve original descriptor indices and stable order; invisible and noncasting gaps no longer fragment compatible batches. Added sparse 100,000-draw and randomized regressions; exact-head opaque/shadow instancing contract 45447141445, frustum 45447140728, descriptor 45447141411 and draw-state 45447140909 all passed. Full renderer CI 45447140962 still running at observation. No native performance claim.
+
+- Renderer #27 full Ubuntu build/CTest succeeded (job 138633921470); Windows failed and macOS cancelled. Native Vulkan presentation skips remain unaccepted.
+- Renderer #29: stable-geometry median BVH and conservative affine world bounds; individual fallback for moving, skinned, unsafe and projective geometry. Static BVH sanitizer workflow 45448968574 succeeded. CPU test uses 65,536 interleaved clustered objects and 320,000 world-space samples. Camera/material changes reuse hierarchy; exact model/mesh change or mesh removal invalidates. O(n) scene comparison and visibility output remain, and build/storage cost must be profiled.
+- Renderer #30: required Lavapipe/Xvfb rendering smoke workflow executes native test binaries directly; exit 77 and validation errors fail. Added 259-object scene image equivalence and camera/model change picking checks. Actual execution pending; no hardware timing claim.
 
 ## Final integration gate
 
