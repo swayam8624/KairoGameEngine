@@ -21,6 +21,8 @@ The first ten cleanup PRs were independently confirmed merged via GitHub on 2026
 
 Math, AI and Editor are sibling dependencies; review and test their branches before the strict engine integration. The #45 -> #46 -> #47 stacked sequence is now merged, and main contains the combined render bridge blob 1271bb9189e3469719d278ebb2a57b7389ef1101. Renderer #21 is an independent sibling PR, not yet merged. Do not merge just because an older run passed. The proposed lock refresh includes only the four already-merged sibling revisions (Math, AI, Editor, ONNX); the renderer pin must be updated separately after review. Historical evidence is not acceptance of this candidate.
 
+Current integration candidate: [Engine #48](https://github.com/swayam8624/KairoGameEngine/pull/48), based on merged main; review the four refreshed pins and test before merging. Renderer #21 can be reviewed in parallel, then its accepted revision needs a separate pin update.
+
 ## Local Codex handoff
 
 The owner reported that local CI patches and source fixes are saved separately, not pushed. Review those patches alongside this queue; if a Math or compute include fix already exists, apply the equivalent change once. Integrate the CI changes without overwriting the new narrow workflows or the game-first default. No access to the local Mac handoff contents is assumed here.
