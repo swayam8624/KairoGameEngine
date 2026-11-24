@@ -22,11 +22,11 @@ cmake --build --preset game-player-clang --parallel 4
 ctest --preset game-player-clang --no-tests=error
 ```
 
-This profile does not configure the Editor, assistant, device agent, cloud provider, migration library, offline renderer, or standalone scale benchmark. The native Player and Phase1 gameplay fixture remain. An old KairoAI checkout fails the strict configuration rather than silently linking assistant code. The historical workspace lock has not been updated; do not represent this new combination as an accepted exact-head snapshot.
+This profile does not configure the Editor, assistant, device agent, cloud provider, migration library, offline renderer, or standalone scale benchmark. The native Player and Phase1 gameplay fixture remain. An old KairoAI checkout fails the strict configuration rather than silently linking assistant code. The candidate workspace lock now proposes the merged Math, AI, Editor and ONNX revisions; do not represent this new combination as an accepted exact-head snapshot.
 
 ## Editor structural correctness companion
 
-[KairoEditor PR #21](https://github.com/swayam8624/KairoEditor/pull/21) unifies authored component transfer across structural undo, duplication, clipboard and prefabs. It retains audio and imported scene instances, handles primary camera/listener conflicts, and replaces quadratic parent remapping and cycle validation with linear algorithms (expected linear for hash lookup). Exact-head native acceptance is pending. This companion branch does not change the historical workspace lock.
+[KairoEditor PR #21](https://github.com/swayam8624/KairoEditor/pull/21) unifies authored component transfer across structural undo, duplication, clipboard and prefabs. It retains audio and imported scene instances, handles primary camera/listener conflicts, and replaces quadratic parent remapping and cycle validation with linear algorithms (expected linear for hash lookup). Exact-head native acceptance is pending. The candidate workspace lock includes the merged Editor revision. Native acceptance is still required.
 
 ## Capability roadmap (not claims of existing completeness)
 
@@ -57,4 +57,4 @@ Do not introduce dependencies that make a genre-specific template mandatory for 
 - `bash scripts/bootstrap_workspace.sh --portfolio` — explicitly fetch every historical sibling
 - `bash scripts/run_portfolio_acceptance.sh` — historical portfolio campaign, not the game release gate
 
-`workspace.lock` remains the historical full snapshot. Bootstrap clones default branches; lock verification can fail if they differ from recorded revisions. No script silently resets an existing checkout.
+`workspace.lock` is a candidate full snapshot with four reviewed sibling merge revisions refreshed. The previous snapshot is preserved in Git history; this candidate is not an accepted build stamp. Bootstrap clones default branches; lock verification can fail if they differ from recorded revisions. No script silently resets an existing checkout.
