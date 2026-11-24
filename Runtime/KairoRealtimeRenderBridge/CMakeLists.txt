@@ -7,6 +7,9 @@ target_link_libraries(KairoRealtimeRenderBridge PUBLIC
 add_library(Kairo::RealtimeRenderBridge ALIAS KairoRealtimeRenderBridge)
 
 if(BUILD_TESTING)
+    add_executable(KairoFrameHierarchyCacheTests tests/FrameHierarchyCacheTests.cpp)
+    target_compile_features(KairoFrameHierarchyCacheTests PRIVATE cxx_std_23)
+    add_test(NAME KairoFrameHierarchyCacheTests COMMAND KairoFrameHierarchyCacheTests)
     # Compile the pure C++ file-size gate independently from Catch2/GPU.
     add_executable(KairoMaterialFileSizeBudgetTests
         tests/MaterialFileSizeBudgetTests.cpp)
