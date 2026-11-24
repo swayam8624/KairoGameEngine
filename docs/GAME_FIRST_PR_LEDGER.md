@@ -68,7 +68,7 @@ The owner reported that local CI patches and source fixes are saved separately, 
 
 - Renderer #25 exact head 119b72c39d9a527d48036b71831d9ec5c3d6ea6d: frustum, opaque/shadow shader contract, descriptor and draw policy workflows passed (45445604893, 45445604646, 45445604620, 45445604463). Full Ubuntu build and CTest job 138628389832 succeeded, with two Vulkan smokes explicitly skipped (12 of 14 tests executed successfully). Windows job 138628389512 failed at the pre-existing transactional fault-injection helper's C4702 warning-as-error; macOS job cancelled. #28 proposes a targeted test-only repair; MSVC rerun pending.
 - Renderer #26: frustum sanitizer run 45447003172 passed 800,000 sampled points; all 19,815 reference rejections matched prepared support. Frame-prepared camera product and AABB plane support reduce repeated arithmetic; extreme inputs fail open. No measured native timing and no BVH yet.
-- Renderer #27: compact surviving main/shadow index streams preserve original descriptor indices and stable order; invisible and noncasting gaps no longer fragment compatible batches. Added sparse 100,000-draw and randomized regressions; exact-head CI pending at creation. No native performance claim.
+- Renderer #27: compact surviving main/shadow index streams preserve original descriptor indices and stable order; invisible and noncasting gaps no longer fragment compatible batches. Added sparse 100,000-draw and randomized regressions; exact-head opaque/shadow instancing contract 45447141445, frustum 45447140728, descriptor 45447141411 and draw-state 45447140909 all passed. Full renderer CI 45447140962 still running at observation. No native performance claim.
 
 ## Final integration gate
 
