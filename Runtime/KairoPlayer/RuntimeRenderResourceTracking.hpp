@@ -43,7 +43,17 @@ namespace kairo::player::detail
 
         if (owned.size() == owned.max_size())
             throw std::length_error("Renderer handle tracking capacity exhausted.");
-        owned.reserve(owned.size() + 1u); // may throw; no new GPU handle yet
+        // Reserve geometrically only when full. Reserving exactly size+1
+        // on each upload can move the entire journal for every new mesh.
+        // Saturate the growth calculation before addition to avoid overflow.
+        if (owned.size() == owned.capacity())
+        {
+            const auto capacity = owned.capacity();
+            const auto limit = owned.max_size();
+            const auto growth = capacity == 0u ? 1u : capacity;
+            const auto next = growth > limit - capacity ? limit : capacity + growth;
+            owned.reserve(next); // may throw; no new GPU handle yet
+        }
 
         const Handle handle = std::invoke(std::forward<Create>(create));
         owned.push_back(handle);            // capacity reserved; no new alloc
@@ -63,17 +73,28 @@ namespace kairo::player::detail
         Destroy&& destroy) noexcept
     {
         static_assert(std::is_nothrow_move_assignable_v<Handle>);
-        std::size_t failures = 0u;
-        for (std::size_t index = owned.size(); index != 0u; --index)
+        // Compact failed handles into the already-visited suffix while
+        // destroying in reverse order. No allocation, no per-handle erase,
+        // and no reordering of failed handles for a subsequent retry.
+        const auto size = owned.size();
+        auto retained = size;
+        for (auto index = size; index != 0u; --index)
         {
-            try
+            try { std::invoke(destroy, owned[index - 1u]); }
+            catch (...)
             {
-                std::invoke(destroy, owned[index - 1u]);
-                owned.erase(owned.begin() +
-                    static_cast<std::vector<Handle>::difference_type>(index - 1u));
+                --retained;
+                if (retained != index - 1u)
+                    owned[retained] = std::move(owned[index - 1u]);
             }
-            catch (...) { ++failures; }
         }
+
+        const auto failures = size - retained;
+        for (std::size_t index = 0u; index < failures; ++index)
+            if (retained != 0u)
+                owned[index] = std::move(owned[retained + index]);
+        owned.erase(owned.begin() +
+            static_cast<typename std::vector<Handle>::difference_type>(failures), owned.end());
         return failures;
     }
 
