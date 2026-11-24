@@ -18,15 +18,36 @@
         "KAIRO_GAME_ENGINE_BUILD_EDITOR": "ON",
         "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "ON",
         "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "ON",
-        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "ON"
+        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "ON"
       }
     },
     {
       "name": "dev-clang",
-      "displayName": "Kairo developer build (Clang)",
+      "displayName": "Legacy full developer build (Clang)",
       "inherits": "dev",
       "binaryDir": "${sourceDir}/build/dev-clang",
       "toolchainFile": "${sourceDir}/cmake/toolchains/clang.cmake"
+    },
+    {
+      "name": "game-clang",
+      "displayName": "Game-first developer build (Clang)",
+      "inherits": "dev-clang",
+      "binaryDir": "${sourceDir}/build/game-clang",
+      "cacheVariables": {
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_PLAYER": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_AI_CLOUD": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_MIGRATION": "OFF",
+        "KAIRO_GAME_ENGINE_ENABLE_PACKAGING": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
+      }
     },
     {
       "name": "release",
@@ -36,7 +57,14 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_TESTING": "OFF",
-        "KAIRO_RENDERER_ENABLE_VALIDATION": "OFF"
+        "KAIRO_RENDERER_ENABLE_VALIDATION": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_MIGRATION": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_AI_CLOUD": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
       }
     },
     {
@@ -46,7 +74,8 @@
       "binaryDir": "${sourceDir}/build/ci-clang",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF"
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
       }
     },
     {
@@ -59,7 +88,8 @@
         "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
-        "KAIRO_GAME_ENGINE_ENABLE_SANITIZERS": "ON"
+        "KAIRO_GAME_ENGINE_ENABLE_SANITIZERS": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
       }
     },
     {
@@ -70,7 +100,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
-        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF"
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
       }
     },
     {
@@ -85,7 +116,18 @@
         "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
-        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "OFF"
+        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
+      }
+    },
+    {
+      "name": "game-player-clang",
+      "displayName": "Game player only (strict gameplay AI)",
+      "inherits": "game-clang",
+      "binaryDir": "${sourceDir}/build/game-player-clang",
+      "cacheVariables": {
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
+        "KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT": "ON"
       }
     }
   ],
@@ -117,6 +159,14 @@
     {
       "name": "compute-stack-clang",
       "configurePreset": "compute-stack-clang"
+    },
+    {
+      "name": "game-clang",
+      "configurePreset": "game-clang"
+    },
+    {
+      "name": "game-player-clang",
+      "configurePreset": "game-player-clang"
     }
   ],
   "testPresets": [
@@ -158,6 +208,20 @@
     {
       "name": "compute-stack-clang",
       "configurePreset": "compute-stack-clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "game-clang",
+      "configurePreset": "game-clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "game-player-clang",
+      "configurePreset": "game-player-clang",
       "output": {
         "outputOnFailure": true
       }

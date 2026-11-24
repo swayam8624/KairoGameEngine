@@ -1,0 +1,23 @@
+name: Game-first scope
+on:
+  push:
+    branches: [main, refactor/game-first]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check workspace and build profile contracts
+        run: python3 scripts/test_game_first_scope.py -v
+      - name: Check shell syntax and CMake preset parsing
+        run: |
+          bash -n scripts/workspace_profiles.sh
+          bash -n scripts/bootstrap_workspace.sh
+          bash -n scripts/sync_workspace.sh
+          bash -n scripts/build_and_test.sh
+          bash -n scripts/run_portfolio_acceptance.sh
+          bash -n scripts/validate_and_run_kairo_project.sh
+          cmake --list-presets

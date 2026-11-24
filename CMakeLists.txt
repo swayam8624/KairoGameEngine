@@ -10,12 +10,14 @@ include(CTest)
 option(KAIRO_GAME_ENGINE_BUILD_EDITOR "Build the native Vulkan editor" ON)
 option(KAIRO_GAME_ENGINE_BUILD_PLAYER "Build the standalone Kairo runtime player" ON)
 option(KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE "Build the Phase 1 gameplay vertical slice" ON)
-option(KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE "Build the native PMNDRS racing port" ON)
-option(KAIRO_GAME_ENGINE_BUILD_RAYTRACER "Build the offline CPU ray tracer" ON)
-option(KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX "Build physics terminal and GLFW sandboxes" ON)
+option(KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE "Build the native PMNDRS racing port" OFF)
+option(KAIRO_GAME_ENGINE_BUILD_RAYTRACER "Build the offline CPU ray tracer" OFF)
+option(KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX "Build physics terminal and GLFW sandboxes" OFF)
 option(KAIRO_GAME_ENGINE_BUILD_AI_CLOUD "Build the optional CPR OpenAI-compatible transport" OFF)
 option(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK "Build experimental GPU/SIMD/scheduler/ONNX/transformer modules" OFF)
 option(KAIRO_GAME_ENGINE_BUILD_MIGRATION "Build Unity/Unreal/Godot migration framework" OFF)
+option(KAIRO_GAME_ENGINE_BUILD_BENCHMARKS "Build standalone scale benchmark executables" OFF)
+option(KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT "Require gameplay-only AI dependency" OFF)
 option(KAIRO_GAME_ENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(KAIRO_GAME_ENGINE_ENABLE_PACKAGING "Enable CPack source-package configuration" OFF)
 
@@ -98,6 +100,11 @@ set(KAIRO_PHYSICS_ENGINE_BUILD_GLFW_SANDBOX ${KAIRO_GAME_ENGINE_BUILD_PHYSICS_SA
 set(KAIRO_ASSETS_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_AI_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_AI_BUILD_CLOUD_PROVIDER ${KAIRO_GAME_ENGINE_BUILD_AI_CLOUD} CACHE BOOL "" FORCE)
+if(KAIRO_GAME_ENGINE_BUILD_EDITOR OR KAIRO_GAME_ENGINE_BUILD_AI_CLOUD)
+    set(KAIRO_AI_BUILD_ASSISTANT ON CACHE BOOL "" FORCE)
+else()
+    set(KAIRO_AI_BUILD_ASSISTANT OFF CACHE BOOL "" FORCE)
+endif()
 set(KAIRO_ECS_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_REFLECTION_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
 set(KAIRO_ENGINE_CORE_BUILD_TESTS ${BUILD_TESTING} CACHE BOOL "" FORCE)
@@ -121,6 +128,13 @@ kairo_add_workspace_repo(KairoPhysicsEngine KairoPhysicsEngine KAIRO_PHYSICS_ENG
 
 kairo_add_workspace_repo(KairoAssets KairoAssets KAIRO_ASSETS_SOURCE)
 kairo_add_workspace_repo(KairoAI KairoAI KAIRO_AI_SOURCE)
+if(KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT AND NOT TARGET Kairo::GameplayAI)
+    message(FATAL_ERROR "Strict game build requires the Kairo::GameplayAI target. Update KairoAI to the gameplay split revision.")
+endif()
+if(KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT AND NOT KAIRO_GAME_ENGINE_BUILD_EDITOR
+   AND NOT KAIRO_GAME_ENGINE_BUILD_AI_CLOUD AND TARGET KairoAI)
+    message(FATAL_ERROR "Assistant library must not be configured in a strict player-only build.")
+endif()
 kairo_add_workspace_repo(KairoECS KairoECS KAIRO_ECS_SOURCE)
 kairo_add_workspace_repo(KairoReflection KairoReflection KAIRO_REFLECTION_SOURCE)
 kairo_add_workspace_repo(KairoEngineCore KairoEngineCore KAIRO_ENGINE_CORE_SOURCE)
@@ -207,9 +221,6 @@ target_link_libraries(KairoGameEngine INTERFACE
     KairoSceneECSBridge
     KairoRenderer
     KairoPhysicsEngine)
-if(TARGET KairoBridge)
-    target_link_libraries(KairoGameEngine INTERFACE KairoBridge)
-endif()
 add_library(Kairo::GameEngine ALIAS KairoGameEngine)
 
 if(BUILD_TESTING)
@@ -229,6 +240,10 @@ if(BUILD_TESTING)
     target_link_libraries(KairoSceneECSBridgeTests PRIVATE KairoSceneECSBridge)
     add_test(NAME KairoSceneECSBridgeTests COMMAND KairoSceneECSBridgeTests)
 
+endif()
+
+# A performance experiment is not a runtime dependency or a unit test.
+if(KAIRO_GAME_ENGINE_BUILD_BENCHMARKS)
     add_executable(KairoWaveCScaleBenchmark tests/WaveCScaleBenchmark.cpp)
     # KairoPhysicsEngine already exposes KairoSpatial, while both
     # KairoRenderer and KairoEngineCore expose KairoAssets. Do not list these

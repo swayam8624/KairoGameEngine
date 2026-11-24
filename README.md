@@ -1,5 +1,36 @@
 # KairoGameEngine
 
+Kairo is a game-development engine first: build, author, play, debug and ship games. The ordinary workspace contains only dependencies required by the Editor and Player. Independent research, DCC tools, compute experiments and the offline renderer are not prerequisites.
+
+## Start here: game-first workspace
+
+```bash
+git clone https://github.com/swayam8624/KairoGameEngine.git
+cd KairoGameEngine
+bash scripts/bootstrap_workspace.sh
+bash scripts/build_and_test.sh
+```
+
+The default build uses `game-clang` and writes to `build/game-clang`. See [game-first scope](docs/GAME_FIRST_SCOPE.md) for the supported baseline, retained dependencies, and genre-neutral product roadmap. For a locked verification use `bash scripts/build_and_test.sh --verify-lock` (existing checkouts are never reset automatically).
+
+Launch the Editor from the new build:
+
+```bash
+./build/game-clang/components/KairoEditor/KairoEditorApp --project ../KairoEditor/examples/StarterProject/Project.kproject
+```
+
+Compile and validate a project:
+
+```bash
+bash scripts/validate_and_run_kairo_project.sh ../KairoEditor/examples/StarterProject/Project.kproject --validate
+```
+
+For historical full-portfolio work only, use `bash scripts/bootstrap_workspace.sh --portfolio`, `bash scripts/sync_workspace.sh --portfolio` and `bash scripts/build_and_test.sh --portfolio`. Those use the legacy `dev-clang` build directory and separate evidence campaign. The reference material below describes that broader integration workspace; it does not define the game product's required scope.
+
+---
+
+## Legacy integration reference
+
 **Quick C++23 regression runner:** `bash scripts/run_renderer_resource_lifetime_regressions.sh` now compiles **seven** CPU-only programs: Player GPU-handle tracking, renderer native-publication rollback, Vulkan frame recovery, transactional Vulkan descriptor generations, texture mip upload staging, Vulkan upload retirement/device-loss classification, and material file-size validation; [source](scripts/run_renderer_resource_lifetime_regressions.sh).
 
 **Portable CI:** [GCC/Clang Player handle + material-length regression workflow](.github/workflows/cpu-player-resource-guards.yml) · [seven-test standalone C++23 runner](scripts/run_renderer_resource_lifetime_regressions.sh). Native GPU testing remains a separate gate.
@@ -133,10 +164,10 @@ brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shader
 
 ## Build And Test
 
-For normal development:
+For the historical full developer build:
 
 ```bash
-bash scripts/build_and_test.sh
+bash scripts/build_and_test.sh --portfolio
 ```
 
 Run every acceptance gate available on the current host:
@@ -159,7 +190,7 @@ After changing workspace layout or compiler/toolchain state, force a clean
 configure and verify the exact recorded sibling revisions first:
 
 ```bash
-bash scripts/build_and_test.sh --clean --verify-lock
+bash scripts/build_and_test.sh --portfolio --clean --verify-lock
 ```
 
 The script is fail-fast: CTest is never run after a failed build, so one linker
@@ -181,7 +212,7 @@ prefers the current Homebrew LLVM installation; on other platforms it resolves
 select a specific Clang installation. The plain `dev` preset deliberately uses
 the compiler selected by the host environment.
 
-Both developer presets build the real-time editor, CPU ray tracer, physics
+Both legacy developer presets build the real-time editor, CPU ray tracer, physics
 sandboxes, standalone player, and all registered tests. The optimized preset is:
 
 ```bash
@@ -391,8 +422,8 @@ standalone build path.
 | --- | --- | --- |
 | `KAIRO_GAME_ENGINE_BUILD_EDITOR` | `ON` | Build the native editor application |
 | `KAIRO_GAME_ENGINE_BUILD_PLAYER` | `ON` | Build the standalone project validator and Vulkan player |
-| `KAIRO_GAME_ENGINE_BUILD_RAYTRACER` | `ON` | Build the offline CPU ray tracer |
-| `KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX` | `ON` | Build terminal and GLFW physics sandboxes |
+| `KAIRO_GAME_ENGINE_BUILD_RAYTRACER` | `OFF` | Build the offline CPU ray tracer |
+| `KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX` | `OFF` | Build terminal and GLFW physics sandboxes |
 | `KAIRO_GAME_ENGINE_BUILD_AI_CLOUD` | `OFF` | Build KairoAI's pinned CPR OpenAI-compatible transport |
 | `KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK` | `OFF` | Include the experimental ML/compute repositories |
 
