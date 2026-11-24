@@ -420,3 +420,34 @@ TEST_CASE("Shared glTF rest snapshots isolate independent animated instances",
         CHECK(reset.Draws()[i * 2u + 1u].Skinning.JointMatrices == restReference.JointMatrices);
     CHECK(binding.RestPose->Palettes.at(0u).JointMatrices == restReference.JointMatrices);
 }
+
+
+TEST_CASE("Frame asset lookups refresh after registry removal and replacement",
+    "[KairoRealtimeRenderBridge][Assets]")
+{
+    kairo::assets::AssetRegistry registry;
+    RegisterAssets(registry);
+    RenderAssetBindings assets(registry);
+    assets.BindMesh({ MeshID }, 7u);
+    kairo::engine::Scene scene;
+    for (unsigned i = 0u; i < 64u; ++i)
+    {
+        const auto entity = scene.CreateEntity("Repeated mesh");
+        scene.SetMeshRenderer(entity, { { MeshID }, { MaterialID }, true, {} });
+        scene.Transform(entity).Local.Translation.x = static_cast<float>(i);
+    }
+    const auto first = BuildRenderScene(scene, assets);
+    REQUIRE(first.Draws().size() == 64u);
+    for (unsigned i = 0u; i < 64u; ++i)
+    {
+        CHECK(first.Draws()[i].Mesh == 7u);
+        CHECK(first.Draws()[i].Model(0u, 3u) == static_cast<float>(i));
+    }
+    const auto metadata = registry.At(MeshID);
+    registry.Remove(MeshID);
+    REQUIRE_THROWS_AS(BuildRenderScene(scene, assets), std::out_of_range);
+    registry.Insert(metadata);
+    const auto restored = BuildRenderScene(scene, assets);
+    REQUIRE(restored.Draws().size() == first.Draws().size());
+    CHECK(restored.Draws()[63].ObjectID == first.Draws()[63].ObjectID);
+}
