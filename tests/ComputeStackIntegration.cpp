@@ -7,6 +7,8 @@
 #include <iostream>
 #include <span>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 import Kairo.SIMD;
