@@ -1,24 +1,25 @@
 # Game-first integration ledger
 
 Updated 2026-11-24. This is a review/apply queue, not an accepted build stamp.
-All listed PRs were opened as drafts. No main/master branch was modified by this cleanup campaign. Do not reset local dirty work.
+The first ten cleanup PRs were independently confirmed merged via GitHub on 2026-11-24. Merge status does not imply combined native acceptance. Do not reset local dirty work.
 
-## Apply order
+## Historical apply order and current review queue
 
-| Order | Repository | PR | Branch | Review head | Purpose |
-|---|---|---|---|---|---|
-| 1 | KairoMath | [#4](https://github.com/swayam8624/KairoMath/pull/4) | fix/release-transform-warning | 6dfc0f34a123d191aae5e5110bc686c8ae9d1986 | Release/NDEBUG warning blocking Ubuntu build |
-| 2 | KairoAI | [#6](https://github.com/swayam8624/KairoAI/pull/6) | refactor/gameplay-runtime-split | 35d4d4583986d860e54c10c6eff3f56bee12a471 | Gameplay-only target, assistant optional; CI matcher repair |
-| 3 | KairoEditor | [#21](https://github.com/swayam8624/KairoEditor/pull/21) | refactor/game-first-scene | 1a0b44c55603040a00a48866b95c983a6befe2f7 | Structural editing component preservation |
-| 4 | KairoGameEngine | [#42](https://github.com/swayam8624/KairoGameEngine/pull/42) | refactor/game-first | See PR current head (this ledger is part of it) | Core workspace and strict runtime profile |
-| 5 | KairoGameEngine | [#43](https://github.com/swayam8624/KairoGameEngine/pull/43) | refactor/runtime-resource-journal | 1733cd9921c2c1345b69bc1323499d76055069b6 | Linear resource journal and startup snapshot reuse |
-| 6 | KairoGameEngine | [#44](https://github.com/swayam8624/KairoGameEngine/pull/44) | fix/compute-integration-variant-header | 397c61526e996628b969831db4d9fe3ea677e87d | Optional compute test missing direct standard-library headers |
-| 7 | KairoGameEngine | [#45](https://github.com/swayam8624/KairoGameEngine/pull/45) | refactor/frame-scene-extraction | 63a3d376b3a3e9a0d43835583c49a69041d975d8 | Frame-local hierarchy memoization and shared entity enumeration |
-| 8 | KairoGameEngine | [#46](https://github.com/swayam8624/KairoGameEngine/pull/46) | refactor/gltf-pose-reuse | 59a8ec5b4d72e1afd38ab052ad3811e88fc6d8af | Immutable glTF rest snapshots; one animated hierarchy per instance |
-| 9 | KairoONNX | [#5](https://github.com/swayam8624/KairoONNX/pull/5) | fix/smoke-variant-includes | f48d08aa816ca0ccd98c05712c072d03a715c29a | Optional compute smoke test standard-library includes |
-| 10 | KairoGameEngine | [#47](https://github.com/swayam8624/KairoGameEngine/pull/47) | refactor/frame-asset-lookups | 3cb950eab1ac56b37dff16e060b404be2b59a52c | Per-extraction typed asset lookup cache |
+| Order | Repository | PR | Branch | Review head | Purpose | Status / merge SHA |
+|---|---|---|---|---|---|---|
+| 1 | KairoMath | [#4](https://github.com/swayam8624/KairoMath/pull/4) | fix/release-transform-warning | 6dfc0f34a123d191aae5e5110bc686c8ae9d1986 | Release/NDEBUG warning blocking Ubuntu build | Merged `f31f5a2feac8ebb958fef5bfc81a1fca50578e85` |
+| 2 | KairoAI | [#6](https://github.com/swayam8624/KairoAI/pull/6) | refactor/gameplay-runtime-split | 35d4d4583986d860e54c10c6eff3f56bee12a471 | Gameplay-only target, assistant optional; CI matcher repair | Merged `5f09694af688a34be157fe3a00171fe7be8bcd00` |
+| 3 | KairoEditor | [#21](https://github.com/swayam8624/KairoEditor/pull/21) | refactor/game-first-scene | 1a0b44c55603040a00a48866b95c983a6befe2f7 | Structural editing component preservation | Merged `da2369262e666b8769778ae35681f247573dbec0` |
+| 4 | KairoGameEngine | [#42](https://github.com/swayam8624/KairoGameEngine/pull/42) | refactor/game-first | See PR current head (this ledger is part of it) | Core workspace and strict runtime profile | Merged `4b9c847f62dc0d16a914f86ea6dd402f3760b2d5` |
+| 5 | KairoGameEngine | [#43](https://github.com/swayam8624/KairoGameEngine/pull/43) | refactor/runtime-resource-journal | 1733cd9921c2c1345b69bc1323499d76055069b6 | Linear resource journal and startup snapshot reuse | Merged `3fcd5cf623cb5c9b7d388046b79fe003d3ef3e2c` |
+| 6 | KairoGameEngine | [#44](https://github.com/swayam8624/KairoGameEngine/pull/44) | fix/compute-integration-variant-header | 397c61526e996628b969831db4d9fe3ea677e87d | Optional compute test missing direct standard-library headers | Merged `da01ec78e134728b3c3ee3614332f06b6e30a396` |
+| 7 | KairoGameEngine | [#45](https://github.com/swayam8624/KairoGameEngine/pull/45) | refactor/frame-scene-extraction | 63a3d376b3a3e9a0d43835583c49a69041d975d8 | Frame-local hierarchy memoization and shared entity enumeration | Merged `899db9f797a3a705bbff6a0fec813fe313eed96c` |
+| 8 | KairoGameEngine | [#46](https://github.com/swayam8624/KairoGameEngine/pull/46) | refactor/gltf-pose-reuse | 59a8ec5b4d72e1afd38ab052ad3811e88fc6d8af | Immutable glTF rest snapshots; one animated hierarchy per instance | Merged `eb8982fd00c4a0c8c21d89aab86db33c0845841c` |
+| 9 | KairoONNX | [#5](https://github.com/swayam8624/KairoONNX/pull/5) | fix/smoke-variant-includes | f48d08aa816ca0ccd98c05712c072d03a715c29a | Optional compute smoke test standard-library includes | Merged `572a0b49177584b85d726fe4cfc72a861f6ddd1e` |
+| 10 | KairoGameEngine | [#47](https://github.com/swayam8624/KairoGameEngine/pull/47) | refactor/frame-asset-lookups | 3cb950eab1ac56b37dff16e060b404be2b59a52c | Per-extraction typed asset lookup cache | Merged `ae9c6737f134ede885d464fab5206ec47e58e834` |
+| 11 | KairoRenderer | [#21](https://github.com/swayam8624/KairoRenderer/pull/21) | fix/vulkan-descriptor-invalidation | 7be12bfeef9a12590a18b309fc41eef477973706 | Vulkan descriptor generation reuse and mesh removal invalidation | Open draft; CPU policy passed |
 
-Math, AI and Editor are sibling dependencies; review and test their branches before the strict engine integration. Engine #43, #44 and #45 are independent branches from main; none requires a stacked PR base. Refresh/rebase against the updated main as appropriate. #46 is stacked on #45 because they edit the same render extraction module. Keep #45's branch until #46 is retargeted to main after #45 merges; if #45 is squash-merged, rebase/cherry-pick only #46's two commits. #47 is stacked on #46; integrate the chain #45 -> #46 -> #47 in order, retaining branch heads until downstream PRs are retargeted/rebased. ONNX #5 is independent, may be reviewed in parallel, and must be included with Engine #44 for the optional compute gate. Do not merge just because an older run passed.
+Math, AI and Editor are sibling dependencies; review and test their branches before the strict engine integration. The #45 -> #46 -> #47 stacked sequence is now merged, and main contains the combined render bridge blob 1271bb9189e3469719d278ebb2a57b7389ef1101. Renderer #21 is an independent sibling PR, not yet merged. Do not merge just because an older run passed. The proposed lock refresh includes only the four already-merged sibling revisions (Math, AI, Editor, ONNX); the renderer pin must be updated separately after review. Historical evidence is not acceptance of this candidate.
 
 ## Local Codex handoff
 
@@ -42,9 +43,13 @@ The owner reported that local CI patches and source fixes are saved separately, 
 - Engine #46: CPU-only input guards succeeded (run 45433360749); full module build queued at observation.
 - Engine #47: exact header blob baadeb70e0407cdaad5ff67fff180cee56137ae5 and test blob cbeaf8df893d33e5b9b62c39f248733b136103e5 verified against local files; Clang C++23 ASan/UBSan passed 100,000 adjacent hits with no hashing, 4,096 unique resolutions, rehash, retry, frame refresh. Module regression pending. Additional temporary hash-map allocations and stable-registry-during-extraction assumption require profiling/review.
 
+- Engine #47: actual Frame extraction caches workflow 45434709306 and CPU-only guards 45434709338 succeeded at exact review head. Logged 102,014 hierarchy comparisons and 100,000 adjacent hits with zero hashing.
+- ONNX #5: Compute Component CI 45434417088 succeeded. Combined Wave E must be rerun against the approved ONNX pin.
+- Renderer #21: standalone Vulkan descriptor invalidation sanitizer workflow 45440041611 succeeded; full renderer CI queued. Exact shader-visible comparison avoids unnecessary native generation replacement and fixes stale indices after mesh removal. Native Vulkan validation and timing pending.
+
 ## Final integration gate
 
-1. Preserve the local working tree and inspect all ten diffs.
+1. Preserve the local working tree and inspect pending diffs and the merged revision history.
 2. Apply approved sibling revisions and CI infrastructure; run standalone checks.
 3. Refresh engine workspace lock using the actual approved sibling commit SHAs, not branch names or guessed revisions. Preserve historical evidence; do not mark an untested lock accepted.
 4. Build game-clang and strict game-player-clang, run CTest with explicit native Metal smoke on Mac and cross-platform CI. Exercise editor undo/duplicate/prefab and the runtime resource journal.
