@@ -15,8 +15,10 @@ All listed PRs were opened as drafts. No main/master branch was modified by this
 | 6 | KairoGameEngine | [#44](https://github.com/swayam8624/KairoGameEngine/pull/44) | fix/compute-integration-variant-header | 397c61526e996628b969831db4d9fe3ea677e87d | Optional compute test missing direct standard-library headers |
 | 7 | KairoGameEngine | [#45](https://github.com/swayam8624/KairoGameEngine/pull/45) | refactor/frame-scene-extraction | 63a3d376b3a3e9a0d43835583c49a69041d975d8 | Frame-local hierarchy memoization and shared entity enumeration |
 | 8 | KairoGameEngine | [#46](https://github.com/swayam8624/KairoGameEngine/pull/46) | refactor/gltf-pose-reuse | 59a8ec5b4d72e1afd38ab052ad3811e88fc6d8af | Immutable glTF rest snapshots; one animated hierarchy per instance |
+| 9 | KairoONNX | [#5](https://github.com/swayam8624/KairoONNX/pull/5) | fix/smoke-variant-includes | f48d08aa816ca0ccd98c05712c072d03a715c29a | Optional compute smoke test standard-library includes |
+| 10 | KairoGameEngine | [#47](https://github.com/swayam8624/KairoGameEngine/pull/47) | refactor/frame-asset-lookups | 3cb950eab1ac56b37dff16e060b404be2b59a52c | Per-extraction typed asset lookup cache |
 
-Math, AI and Editor are sibling dependencies; review and test their branches before the strict engine integration. Engine #43, #44 and #45 are independent branches from main; none requires a stacked PR base. Refresh/rebase against the updated main as appropriate. #46 is stacked on #45 because they edit the same render extraction module. Keep #45's branch until #46 is retargeted to main after #45 merges; if #45 is squash-merged, rebase/cherry-pick only #46's two commits. Do not merge just because an older run passed.
+Math, AI and Editor are sibling dependencies; review and test their branches before the strict engine integration. Engine #43, #44 and #45 are independent branches from main; none requires a stacked PR base. Refresh/rebase against the updated main as appropriate. #46 is stacked on #45 because they edit the same render extraction module. Keep #45's branch until #46 is retargeted to main after #45 merges; if #45 is squash-merged, rebase/cherry-pick only #46's two commits. #47 is stacked on #46; integrate the chain #45 -> #46 -> #47 in order, retaining branch heads until downstream PRs are retargeted/rebased. ONNX #5 is independent, may be reviewed in parallel, and must be included with Engine #44 for the optional compute gate. Do not merge just because an older run passed.
 
 ## Local Codex handoff
 
@@ -30,16 +32,19 @@ The owner reported that local CI patches and source fixes are saved separately, 
 - Engine #43: local independent Clang C++23 ASan/UBSan harness exercised the exact modified header (verified git blob f95dcdbc65245ce767872974feb2d12dc6202bb6): 8,191 exhaustive failure masks for journal lengths 0–12, 65,536 handles with 17 capacity growths, alternating failure/retry and bind/unbind failure cases. Checked-in CTest regression and native integration still need execution.
 - Math #4: KairoMath CI at 6dfc0f34a123d191aae5e5110bc686c8ae9d1986 succeeded (run 45429387759); combined engine build still pending.
 - AI #6 updated head 35d4d4583986d860e54c10c6eff3f56bee12a471: Gameplay target isolation and Build and Test both succeeded (runs 45429251857 and 45429251802).
-- Engine #44: build queued and Wave C/E running at observation.
+- Engine #44: Wave C succeeded; Wave E progressed to KairoONNXSmoke and failed six std::get variant expressions (job 138569950741). ONNX #5 adds the missing direct includes; integration rerun with approved ONNX pin required.
 - Engine #43: standalone Runtime resource journal Actions run 45429139703 completed successfully; full integration still pending at observation.
 - Engine #45: independent Clang C++23 ASan/UBSan harness against verified exact header blob 92f889024b5a24c1618f5a099828084afa5e4709 passed 102,014 randomized reference comparisons and a 100,000-node reverse-ID chain; active state and world transforms evaluated at most once per node, new cache reflected disabled ancestor. Full module tests and native frame timing pending. O(n) transient cache storage and binary-search lookup are tradeoffs; profile both shallow/sparse and deep scenes. Standalone Editor's pinned bridge revision is unchanged until integration is accepted.
 
 - Engine #45: actual GitHub Actions Frame hierarchy cache run 45432411623 and CPU-only input guards run 45432411050 succeeded at the review head. Full build was still running at observation.
 - Engine #46: regression added against existing EngineCore reference for distinct playback times, inverse bind matrices and rest reset. Full module validation pending. Caches per-asset node world matrices and referenced joint palettes; animated snapshots remain instance-local. No GPU timing claim.
 
+- Engine #46: CPU-only input guards succeeded (run 45433360749); full module build queued at observation.
+- Engine #47: exact header blob baadeb70e0407cdaad5ff67fff180cee56137ae5 and test blob cbeaf8df893d33e5b9b62c39f248733b136103e5 verified against local files; Clang C++23 ASan/UBSan passed 100,000 adjacent hits with no hashing, 4,096 unique resolutions, rehash, retry, frame refresh. Module regression pending. Additional temporary hash-map allocations and stable-registry-during-extraction assumption require profiling/review.
+
 ## Final integration gate
 
-1. Preserve the local working tree and inspect all eight diffs.
+1. Preserve the local working tree and inspect all ten diffs.
 2. Apply approved sibling revisions and CI infrastructure; run standalone checks.
 3. Refresh engine workspace lock using the actual approved sibling commit SHAs, not branch names or guessed revisions. Preserve historical evidence; do not mark an untested lock accepted.
 4. Build game-clang and strict game-player-clang, run CTest with explicit native Metal smoke on Mac and cross-platform CI. Exercise editor undo/duplicate/prefab and the runtime resource journal.
