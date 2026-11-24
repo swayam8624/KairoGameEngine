@@ -9,6 +9,8 @@ set -euo pipefail
 
 ENGINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_ROOT="${KAIRO_WORKSPACE_ROOT:-$(cd "${ENGINE_ROOT}/.." && pwd)}"
+# Historical portfolio uses its own legacy build, never game-profile binaries.
+export KAIRO_BUILD_PROFILE=dev-clang
 EVIDENCE_DIR="${ENGINE_ROOT}/build/portfolio-evidence"
 EVIDENCE_FILE="${EVIDENCE_DIR}/accepted.env"
 mkdir -p "${EVIDENCE_DIR}"
@@ -51,7 +53,7 @@ cmake_gate() {
 }
 
 run bash "${ENGINE_ROOT}/scripts/verify_workspace_lock.sh"
-run bash "${ENGINE_ROOT}/scripts/build_and_test.sh" --verify-lock
+run bash "${ENGINE_ROOT}/scripts/build_and_test.sh" --verify-lock --portfolio
 
 # Prove the supported import/run contract with actual Kairo projects and actual
 # built compiler/player binaries. This is not Unity/Unreal migration.
