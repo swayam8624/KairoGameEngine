@@ -23,10 +23,28 @@
     },
     {
       "name": "dev-clang",
-      "displayName": "Kairo developer build (Clang)",
+      "displayName": "Legacy full developer build (Clang)",
       "inherits": "dev",
       "binaryDir": "${sourceDir}/build/dev-clang",
       "toolchainFile": "${sourceDir}/cmake/toolchains/clang.cmake"
+    },
+    {
+      "name": "game-clang",
+      "displayName": "Game-first developer build (Clang)",
+      "inherits": "dev-clang",
+      "binaryDir": "${sourceDir}/build/game-clang",
+      "cacheVariables": {
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_PLAYER": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_AI_CLOUD": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_MIGRATION": "OFF",
+        "KAIRO_GAME_ENGINE_ENABLE_PACKAGING": "OFF"
+      }
     },
     {
       "name": "release",
@@ -36,7 +54,13 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_TESTING": "OFF",
-        "KAIRO_RENDERER_ENABLE_VALIDATION": "OFF"
+        "KAIRO_RENDERER_ENABLE_VALIDATION": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_MIGRATION": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_AI_CLOUD": "OFF"
       }
     },
     {
@@ -117,6 +141,10 @@
     {
       "name": "compute-stack-clang",
       "configurePreset": "compute-stack-clang"
+    },
+    {
+      "name": "game-clang",
+      "configurePreset": "game-clang"
     }
   ],
   "testPresets": [
@@ -158,6 +186,13 @@
     {
       "name": "compute-stack-clang",
       "configurePreset": "compute-stack-clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "game-clang",
+      "configurePreset": "game-clang",
       "output": {
         "outputOnFailure": true
       }
