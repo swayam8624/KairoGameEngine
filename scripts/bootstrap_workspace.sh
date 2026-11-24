@@ -7,13 +7,8 @@ set -euo pipefail
 ENGINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_ROOT="${KAIRO_WORKSPACE_ROOT:-$(cd "${ENGINE_ROOT}/.." && pwd)}"
 
-repos=(
-  KairoMath KairoGeometry KairoSpatial KairoPhysicsMath KairoPhysicsEngine
-  KairoAssets KairoAI KairoECS KairoReflection KairoEngineCore KairoRenderer
-  KairoEditor KairoRayTracer KairoGPU KairoSIMD KairoScheduler KairoONNX
-  KairoTransformers KairoHub KairoMacPerception
-  KairoPipelineCore KairoBlender KairoProductionTools KairoHoudini KairoMaya KairoNuke
-)
+source "${ENGINE_ROOT}/scripts/workspace_profiles.sh"
+kairo_select_workspace_profile "$@"
 
 for repo in "${repos[@]}"; do
     target="${WORKSPACE_ROOT}/${repo}"
