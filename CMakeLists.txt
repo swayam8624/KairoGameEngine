@@ -16,6 +16,7 @@ option(KAIRO_GAME_ENGINE_BUILD_PHYSICS_SANDBOX "Build physics terminal and GLFW 
 option(KAIRO_GAME_ENGINE_BUILD_AI_CLOUD "Build the optional CPR OpenAI-compatible transport" OFF)
 option(KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK "Build experimental GPU/SIMD/scheduler/ONNX/transformer modules" OFF)
 option(KAIRO_GAME_ENGINE_BUILD_MIGRATION "Build Unity/Unreal/Godot migration framework" OFF)
+option(KAIRO_GAME_ENGINE_BUILD_BENCHMARKS "Build standalone scale benchmark executables" OFF)
 option(KAIRO_GAME_ENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(KAIRO_GAME_ENGINE_ENABLE_PACKAGING "Enable CPack source-package configuration" OFF)
 
@@ -207,9 +208,6 @@ target_link_libraries(KairoGameEngine INTERFACE
     KairoSceneECSBridge
     KairoRenderer
     KairoPhysicsEngine)
-if(TARGET KairoBridge)
-    target_link_libraries(KairoGameEngine INTERFACE KairoBridge)
-endif()
 add_library(Kairo::GameEngine ALIAS KairoGameEngine)
 
 if(BUILD_TESTING)
@@ -229,6 +227,10 @@ if(BUILD_TESTING)
     target_link_libraries(KairoSceneECSBridgeTests PRIVATE KairoSceneECSBridge)
     add_test(NAME KairoSceneECSBridgeTests COMMAND KairoSceneECSBridgeTests)
 
+endif()
+
+# A performance experiment is not a runtime dependency or a unit test.
+if(KAIRO_GAME_ENGINE_BUILD_BENCHMARKS)
     add_executable(KairoWaveCScaleBenchmark tests/WaveCScaleBenchmark.cpp)
     # KairoPhysicsEngine already exposes KairoSpatial, while both
     # KairoRenderer and KairoEngineCore expose KairoAssets. Do not list these
