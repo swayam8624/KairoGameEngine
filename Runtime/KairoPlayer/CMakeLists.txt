@@ -11,6 +11,8 @@ target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
 # predating the split still provide that module through Kairo::AI.
 if(TARGET Kairo::GameplayAI)
     set(_kairo_player_gameplay_ai Kairo::GameplayAI)
+elseif(KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT)
+    message(FATAL_ERROR "Gameplay-only AI target missing; use KairoAI refactor/gameplay-runtime-split or a newer compatible revision.")
 else()
     message(STATUS "KairoPlayer: legacy KairoAI target; update sibling for gameplay-only linkage")
     set(_kairo_player_gameplay_ai Kairo::AI)
