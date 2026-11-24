@@ -6,11 +6,23 @@ Kairo exists to let people author, test, debug and distribute games. The default
 
 ## Dependency boundary
 
-The default workspace has twelve siblings: Math, Geometry, Spatial, PhysicsMath, PhysicsEngine, Assets, AI, ECS, Reflection, EngineCore, Renderer and Editor (all prefixed Kairo). AI remains because both Editor and Player currently link it; removing the cloud assistant from the default build does not remove its underlying dependency. Extract editor assistance and runtime inference behind optional interfaces in a later pass.
+The default workspace has twelve siblings: Math, Geometry, Spatial, PhysicsMath, PhysicsEngine, Assets, AI, ECS, Reflection, EngineCore, Renderer and Editor (all prefixed Kairo). AI remains a sibling because it contains the deterministic GameplayAI module used by navigation, entity lifecycle and world persistence. The companion KairoAI PR #6 splits that module into Kairo::GameplayAI; the Player prefers this target while the Editor retains the aggregate assistant API. Older AI checkouts still work in normal builds via the compatibility link. Strict player-only builds reject those older checkouts.
 
 The other fourteen siblings are opt-in: RayTracer, GPU, SIMD, Scheduler, ONNX, Transformers, Hub, MacPerception, PipelineCore, Blender, ProductionTools, Houdini, Maya and Nuke. Their repositories and lock entries are preserved. Hub may become a useful onboarding tool later; no DCC host or ML framework should be required to make a game. The native racing sample, offline renderer, physics sandboxes, migration framework and experimental compute build remain explicit opt-ins. Keep Phase1Game and shared content as regression fixtures.
 
 The game-clang preset has its own build directory. Legacy full developer and portfolio scripts remain separate. Release builds default to the narrower feature set. Existing local checkouts are not deleted, reset or moved.
+
+## Player-only build
+
+With a KairoAI checkout containing the gameplay split (see [KairoAI PR #6](https://github.com/swayam8624/KairoAI/pull/6)), configure:
+
+```bash
+cmake --preset game-player-clang
+cmake --build --preset game-player-clang --parallel 4
+ctest --preset game-player-clang --no-tests=error
+```
+
+This profile does not configure the Editor, assistant, device agent, cloud provider, migration library, offline renderer, or standalone scale benchmark. The native Player and Phase1 gameplay fixture remain. An old KairoAI checkout fails the strict configuration rather than silently linking assistant code. The historical workspace lock has not been updated; do not represent this new combination as an accepted exact-head snapshot.
 
 ## Capability roadmap (not claims of existing completeness)
 
