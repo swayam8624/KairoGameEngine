@@ -47,6 +47,17 @@ class GameFirstScope(unittest.TestCase):
         for key in ("buildPresets", "testPresets"):
             self.assertIn("game-clang", [p["name"] for p in data[key]])
 
+    def test_strict_player_profile(self):
+        data = json.loads((ROOT / "CMakePresets.json").read_text())
+        player = next(p for p in data["configurePresets"] if p["name"] == "game-player-clang")
+        self.assertEqual(player["inherits"], "game-clang")
+        self.assertEqual(player["cacheVariables"]["KAIRO_GAME_ENGINE_BUILD_EDITOR"], "OFF")
+        self.assertEqual(player["cacheVariables"]["KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT"], "ON")
+        self.assertTrue(player["binaryDir"].endswith("/game-player-clang"))
+        root = (ROOT / "CMakeLists.txt").read_text()
+        self.assertIn("set(KAIRO_AI_BUILD_ASSISTANT OFF CACHE BOOL", root)
+        self.assertIn("Assistant library must not be configured in a strict player-only build.", root)
+
     def test_optional_tools_do_not_leak_into_runtime(self):
         root = (ROOT / "CMakeLists.txt").read_text()
         self.assertNotRegex(root, r"target_link_libraries\(KairoGameEngine\s+INTERFACE\s+KairoBridge")
