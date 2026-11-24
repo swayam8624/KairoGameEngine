@@ -25,6 +25,8 @@ Current integration candidate: [Engine #48](https://github.com/swayam8624/KairoG
 
 Renderer draw-state follow-up: [Renderer #22](https://github.com/swayam8624/KairoRenderer/pull/22), branch `refactor/vulkan-draw-state`, review head `b36e85de26402af95acfe808b55f69b1bd780079`. Stacked on #21; review and merge #21 first, then retarget/rebase #22. The lock candidate #48 can be reviewed independently; after both renderer PRs are accepted, refresh the renderer pin and rerun combined acceptance. No default branch writes by this pass.
 
+Renderer instancing follow-up: [Renderer #23](https://github.com/swayam8624/KairoRenderer/pull/23), branch `feat/vulkan-opaque-instancing`, review head `b53f674214d12d822967ccd9b2a136855d2c3638`. Review after #21 and #22; retarget/rebase in order. Native Vulkan image/picking and shader package checks are required before acceptance.
+
 ## Local Codex handoff
 
 The owner reported that local CI patches and source fixes are saved separately, not pushed. Review those patches alongside this queue; if a Math or compute include fix already exists, apply the equivalent change once. Integrate the CI changes without overwriting the new narrow workflows or the game-first default. No access to the local Mac handoff contents is assumed here.
@@ -52,6 +54,9 @@ The owner reported that local CI patches and source fixes are saved separately, 
 - Renderer #21: standalone Vulkan descriptor invalidation sanitizer workflow 45440041611 succeeded; full renderer CI queued. Exact shader-visible comparison avoids unnecessary native generation replacement and fixes stale indices after mesh removal. Native Vulkan validation and timing pending.
 
 - Renderer #22: pass-local pipeline and vertex/index buffer binding elision in shadow and main passes. Draw order, per-draw descriptors, push constants and transparent sorting retained. Added CTest and standalone sanitizer replay covering 100,000 repeated draws, 256,000 randomized draws, pass boundaries and failure retry. Exact committed header and test blob hashes matched local copies (e7a6c04ecfa21323d82894db2a5b5f97156f3ff3 and 87598b1113bf13e1723cc9e4286c339b35cdc2d3); local Clang C++23 ASan/UBSan replay passed. Native Vulkan smoke and timings pending; draw-call count unchanged.
+
+- Renderer #22: GitHub Actions Vulkan draw binding state run 45440832992 and descriptor invalidation run 45440833086 succeeded. Full renderer CI cancelled; no native acceptance.
+- Renderer #23: actual opaque instance-rate vertex stream and multi-instance indexed draws for contiguous static same-mesh/same-material runs. Existing transparent/masked/skinned and shadow paths unchanged. Per-instance model/normal matrices and uint IDs/receive-shadow flags. CPU planner, shader compile/link validation and native image/picking reference smoke added; results pending at creation. Descriptor allocation per draw remains. Verify packaging of instanced SPIR-V and native fence/resize behavior before shipping.
 
 ## Final integration gate
 
