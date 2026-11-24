@@ -359,3 +359,64 @@ TEST_CASE("Frame extraction preserves stable ordering and refreshes hierarchy af
     scene.SetParent(mesh, std::nullopt);
     check();
 }
+
+
+TEST_CASE("Shared glTF rest snapshots isolate independent animated instances",
+    "[KairoRealtimeRenderBridge][Animation][Skinning]")
+{
+    kairo::assets::AssetRegistry registry;
+    RegisterAssets(registry);
+    RenderAssetBindings assets(registry);
+    auto source = AnimatedGltfScene();
+    // Non-identity inverse bind exposes multiplication-order mistakes.
+    source.Skins[0].InverseBindMatrices[0][12] = -2.0f;
+    const auto renderAsset = kairo::renderer::MakeGltfRenderAsset(source);
+    const std::array<kairo::renderer::MeshHandle, 2u> meshes{ 41u, 42u };
+    assets.BindGltfScene({ SceneID }, source, renderAsset, meshes);
+    const auto& binding = assets.ResolveSceneBinding({ SceneID });
+    REQUIRE(binding.RestPose.has_value());
+    REQUIRE(binding.RestPose->Palettes.size() == 1u);
+    const auto restPose = kairo::engine::BuildGltfRestPose(source);
+    const auto restReference = kairo::engine::BuildGltfAssetSpaceSkinPalette(source, restPose, 0u);
+    CHECK(binding.RestPose->Palettes.at(0u).JointMatrices == restReference.JointMatrices);
+
+    kairo::engine::Scene scene;
+    const auto a = scene.CreateEntity("A");
+    const auto b = scene.CreateEntity("B");
+    const auto c = scene.CreateEntity("Rest");
+    for (const auto entity : { a, b, c })
+        scene.SetSceneInstance(entity, { { SceneID }, true, true, true, 0x4u });
+    scene.Transform(a).Local.Translation.x = 3.0f;
+    scene.Transform(b).Local.Translation.x = 7.0f;
+    scene.Transform(c).Local.Translation.x = 11.0f;
+
+    SceneAnimationOverrides playback;
+    playback.Set(a, { 0u, 0.25f, kairo::engine::AnimationTimeMode::Clamp });
+    playback.Set(b, { 0u, 0.75f, kairo::engine::AnimationTimeMode::Clamp });
+    const auto output = BuildRenderScene(scene, assets, playback, 0x4u);
+    REQUIRE(output.Draws().size() == 6u);
+    for (std::size_t i = 0u; i < 3u; ++i)
+    {
+        const auto entity = std::array{ a, b, c }[i];
+        const auto pose = i == 2u ? restPose :
+            kairo::engine::SampleGltfAnimation(source, 0u, i == 0u ? 0.25f : 0.75f,
+                kairo::engine::AnimationTimeMode::Clamp);
+        const auto expectedWorld = kairo::engine::ResolveGltfWorldMatrices(source, pose);
+        const auto expectedSkin = kairo::engine::BuildGltfAssetSpaceSkinPalette(source, pose, 0u);
+        const auto outer = kairo::foundation::math::ToMatrix4(scene.WorldTransform(entity));
+        const auto& rigid = output.Draws()[i * 2u];
+        const auto& skinned = output.Draws()[i * 2u + 1u];
+        CHECK(rigid.ObjectID == entity.Value);
+        CHECK(skinned.ObjectID == entity.Value);
+        CHECK(rigid.Model == outer * expectedWorld[1]);
+        CHECK(skinned.Model == outer);
+        CHECK(skinned.Skinning.JointMatrices == expectedSkin.JointMatrices);
+    }
+
+    // Subsequent rest-only extraction must not inherit the previous frame's animation.
+    const auto reset = BuildRenderScene(scene, assets, 0x4u);
+    REQUIRE(reset.Draws().size() == 6u);
+    for (std::size_t i = 0u; i < 3u; ++i)
+        CHECK(reset.Draws()[i * 2u + 1u].Skinning.JointMatrices == restReference.JointMatrices);
+    CHECK(binding.RestPose->Palettes.at(0u).JointMatrices == restReference.JointMatrices);
+}
