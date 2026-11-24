@@ -7,7 +7,16 @@ target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
         RuntimeCharacterMotorBridge.cppm RuntimePlayerControllerBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeLocomotionAnimationBridge.cppm RuntimeEntityLifecycleBridge.cppm RuntimeSaveGameBridge.cppm RuntimeWorldSaveBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
         RuntimeWorldStreamingBridge.cppm)
-target_link_libraries(KairoPlayerRuntime PUBLIC Kairo::GameEngine KairoRealtimeRenderBridge Kairo::AI)
+# Prefer the small, deterministic gameplay module. Existing sibling checkouts
+# predating the split still provide that module through Kairo::AI.
+if(TARGET Kairo::GameplayAI)
+    set(_kairo_player_gameplay_ai Kairo::GameplayAI)
+else()
+    message(STATUS "KairoPlayer: legacy KairoAI target; update sibling for gameplay-only linkage")
+    set(_kairo_player_gameplay_ai Kairo::AI)
+endif()
+target_link_libraries(KairoPlayerRuntime PUBLIC
+    Kairo::GameEngine KairoRealtimeRenderBridge ${_kairo_player_gameplay_ai})
 target_compile_features(KairoPlayerRuntime PUBLIC cxx_std_23)
 
 add_executable(KairoPlayer main.cpp)
