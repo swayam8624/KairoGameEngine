@@ -25,7 +25,9 @@ Current integration candidate: [Engine #48](https://github.com/swayam8624/KairoG
 
 Renderer draw-state follow-up: [Renderer #22](https://github.com/swayam8624/KairoRenderer/pull/22), branch `refactor/vulkan-draw-state`, review head `b36e85de26402af95acfe808b55f69b1bd780079`. Stacked on #21; review and merge #21 first, then retarget/rebase #22. The lock candidate #48 can be reviewed independently; after both renderer PRs are accepted, refresh the renderer pin and rerun combined acceptance. No default branch writes by this pass.
 
-Renderer instancing follow-up: [Renderer #23](https://github.com/swayam8624/KairoRenderer/pull/23), branch `feat/vulkan-opaque-instancing`, review head `c865fdb3b5d092dcef40b4910f704ac76fa63ed7`. Review after #21 and #22; retarget/rebase in order. Native Vulkan image/picking and shader package checks are required before acceptance.
+Renderer instancing follow-up: [Renderer #23](https://github.com/swayam8624/KairoRenderer/pull/23), branch `feat/vulkan-opaque-instancing`, review head `c7459053ea7e99f5f2de1d8e8b5568341666e996`. Review after #21 and #22; retarget/rebase in order. Native Vulkan image/picking and shader package checks are required before acceptance.
+
+Next renderer stack: [Renderer #24](https://github.com/swayam8624/KairoRenderer/pull/24), `feat/vulkan-frustum-culling`, head `c39d530f8632cc3ef212a08b3bf8165b3dca65a5`; then [Renderer #25](https://github.com/swayam8624/KairoRenderer/pull/25), `feat/vulkan-shadow-instancing`, head `119b72c39d9a527d48036b71831d9ec5c3d6ea6d`. Integrate #21 -> #22 -> #23 -> #24 -> #25 in order. Each of #23, #24 and #25 includes the same direct vector-header repair for the native smoke; when rebasing, retain that equivalent change only once. Do not advance the renderer lock before native acceptance.
 
 ## Local Codex handoff
 
@@ -57,6 +59,10 @@ The owner reported that local CI patches and source fixes are saved separately, 
 
 - Renderer #22: GitHub Actions Vulkan draw binding state run 45440832992 and descriptor invalidation run 45440833086 succeeded. Full renderer CI cancelled; no native acceptance.
 - Renderer #23: actual opaque instance-rate vertex stream and multi-instance indexed draws for contiguous static same-mesh/same-material runs. Existing transparent/masked/skinned and shadow paths unchanged. Per-instance model/normal matrices and uint IDs/receive-shadow flags. CPU planner, shader compile/link validation and native image/picking reference smoke added. Run 45444357600 passed planner sanitizers (100,000 compatible draws -> 1 instance run; 256,000 randomized draws), but strict GLSL link rejected the pre-existing mismatched varying names. Aligned varying names at unchanged locations across ordinary, skinned and instanced shaders; rerun pending. Descriptor allocation per draw remains. Verify packaging of instanced SPIR-V and native fence/resize behavior before shipping.
+
+- Renderer #23: corrected ordinary/skinned/instanced GLSL link and SPIR-V validation succeeded (45444564191); full Ubuntu build subsequently failed solely in the new smoke source at vector comparison (job 138624651554). Direct `<vector>` include added to all three stacked branches; fresh build required. Full macOS job cancelled.
+- Renderer #24: frustum bounds sanitizer workflow 45445212128 passed 800,000 sampled clip-space checks, 19,815 rejected boxes, boundary/reflection/eye-crossing and fail-open cases. This is CPU policy evidence; not a proof of native output equivalence or a timing gain. Static meshes only; no camera filtering of shadow casters, and original descriptor indices preserved.
+- Renderer #25: separate shadow run plan and instanced depth shader; camera-offscreen casters remain included. Main/shadow instance records share a fence-retired upload buffer and staging capacity. Added planner checks and native comparison with offscreen casters enabled/disabled. Fresh shader and native tests pending at commit; no GPU timing claims.
 
 ## Final integration gate
 
