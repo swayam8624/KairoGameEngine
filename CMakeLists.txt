@@ -128,6 +128,13 @@ kairo_add_workspace_repo(KairoPhysicsEngine KairoPhysicsEngine KAIRO_PHYSICS_ENG
 
 kairo_add_workspace_repo(KairoAssets KairoAssets KAIRO_ASSETS_SOURCE)
 kairo_add_workspace_repo(KairoAI KairoAI KAIRO_AI_SOURCE)
+if(KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT AND NOT TARGET Kairo::GameplayAI)
+    message(FATAL_ERROR "Strict game build requires the Kairo::GameplayAI target. Update KairoAI to the gameplay split revision.")
+endif()
+if(KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT AND NOT KAIRO_GAME_ENGINE_BUILD_EDITOR
+   AND NOT KAIRO_GAME_ENGINE_BUILD_AI_CLOUD AND TARGET KairoAI)
+    message(FATAL_ERROR "Assistant library must not be configured in a strict player-only build.")
+endif()
 kairo_add_workspace_repo(KairoECS KairoECS KAIRO_ECS_SOURCE)
 kairo_add_workspace_repo(KairoReflection KairoReflection KAIRO_REFLECTION_SOURCE)
 kairo_add_workspace_repo(KairoEngineCore KairoEngineCore KAIRO_ENGINE_CORE_SOURCE)
