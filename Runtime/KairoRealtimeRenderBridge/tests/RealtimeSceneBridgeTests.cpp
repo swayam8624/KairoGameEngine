@@ -288,3 +288,74 @@ TEST_CASE("Camera extraction preserves authored projection parameters",
     CHECK(extracted.NearPlane == camera.NearPlane);
     CHECK(extracted.FarPlane == camera.FarPlane);
 }
+
+
+TEST_CASE("Frame extraction preserves stable ordering and refreshes hierarchy after edits",
+    "[KairoRealtimeRenderBridge][Hierarchy]")
+{
+    kairo::assets::AssetRegistry registry;
+    RegisterAssets(registry);
+    RenderAssetBindings assets(registry);
+    assets.BindMesh({ MeshID }, 7u);
+    assets.BindScene({ SceneID }, { { 41u, {}, kairo::foundation::math::Mat4f::Identity() } });
+
+    kairo::engine::Scene scene;
+    // Parents need not have lower IDs than their descendants.
+    const auto imported = scene.CreateEntityWithID({ 9u }, "Imported");
+    const auto mesh = scene.CreateEntityWithID({ 5u }, "Mesh");
+    const auto parent = scene.CreateEntityWithID({ 80u }, "Parent");
+    const auto light = scene.CreateEntityWithID({ 2u }, "Light");
+    const auto hidden = scene.CreateEntityWithID({ 3u }, "Hidden");
+    scene.SetParent(imported, parent);
+    scene.SetParent(mesh, parent);
+    scene.SetParent(light, mesh);
+    scene.SetParent(hidden, parent);
+    scene.Transform(parent).Local.Translation = { 10.0f, 2.0f, 1.0f };
+    scene.Transform(parent).Local.Scale = { 2.0f, 3.0f, 4.0f };
+    scene.Transform(mesh).Local.Translation = { 1.0f, 2.0f, 3.0f };
+    scene.Transform(light).Local.Translation = { 3.0f, 1.0f, 0.0f };
+    scene.SetMeshRenderer(mesh, { { MeshID }, { MaterialID }, true, {} });
+    scene.SetMeshRenderer(hidden, { { MeshID }, { MaterialID }, false, {} });
+    scene.SetSceneInstance(imported, { { SceneID }, true, true, true, 0x1u });
+    kairo::engine::LightComponent point;
+    point.Type = kairo::engine::LightType::Point;
+    point.Unit = kairo::engine::PhotometricUnit::Candela;
+    point.RenderLayers = 0x1u;
+    scene.SetLight(light, point);
+
+    const auto firstEnvironment = scene.CreateEntityWithID({ 30u }, "First world");
+    const auto secondEnvironment = scene.CreateEntityWithID({ 40u }, "Second world");
+    kairo::engine::EnvironmentComponent environment;
+    environment.Priority = 5;
+    environment.BackgroundColor = { 0.2f, 0.3f, 0.4f };
+    scene.SetEnvironment(firstEnvironment, environment);
+    environment.BackgroundColor = { 0.6f, 0.7f, 0.8f };
+    scene.SetEnvironment(secondEnvironment, environment);
+
+    const auto check = [&]
+    {
+        const auto out = BuildRenderScene(scene, assets, 0x1u);
+        REQUIRE(out.Draws().size() == 2u);
+        CHECK(out.Draws()[0].ObjectID == mesh.Value);
+        CHECK(out.Draws()[1].ObjectID == imported.Value);
+        CHECK(out.Draws()[0].Model ==
+            kairo::foundation::math::ToMatrix4(scene.WorldTransform(mesh)));
+        CHECK(out.Draws()[1].Model ==
+            kairo::foundation::math::ToMatrix4(scene.WorldTransform(imported)));
+        REQUIRE(out.Lights().size() == 1u);
+        CHECK(out.Lights()[0].Position == scene.WorldTransform(light).Translation);
+        CHECK(out.Environment().BackgroundColor ==
+            scene.Environment(*scene.ActiveEnvironment()).BackgroundColor);
+    };
+    check();
+    scene.Transform(parent).Local.Translation.x = -17.0f;
+    check();
+    scene.SetEnabled(parent, false);
+    const auto disabled = BuildRenderScene(scene, assets, 0x1u);
+    CHECK(disabled.Draws().empty());
+    CHECK(disabled.Lights().empty());
+    scene.SetEnabled(parent, true);
+    scene.SetEnabled(firstEnvironment, false);
+    scene.SetParent(mesh, std::nullopt);
+    check();
+}
