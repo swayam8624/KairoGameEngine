@@ -277,11 +277,57 @@ export namespace kairo::runtime::renderbridge
             std::uint32_t SkinIndex = kairo::assets::GltfMissingIndex;
         };
 
+        // Evaluated asset-space data is independent of any outer scene entity.
+        // The binding owns an immutable rest snapshot; animated snapshots are
+        // local to one extraction, never written back into the shared binding.
+        struct EvaluatedGltfPose final
+        {
+            std::vector<kairo::foundation::math::Mat4f> World;
+            std::unordered_map<std::uint32_t, kairo::renderer::SkinPalette> Palettes;
+        };
+
         struct SceneBinding final
         {
             std::vector<ScenePrimitive> Primitives;
             std::optional<kairo::assets::GltfSceneArtifactData> GltfSource;
+            std::optional<EvaluatedGltfPose> RestPose{};
         };
+
+        // Source has already passed full asset validation at binding time.
+        // Use the resolved node matrices for every referenced skin rather
+        // than re-evaluating the hierarchy and validating the source per skin.
+        [[nodiscard]] static EvaluatedGltfPose EvaluateGltfPose(
+            const kairo::assets::GltfSceneArtifactData& source,
+            const kairo::engine::GltfAnimationPose& pose,
+            std::span<const ScenePrimitive> primitives)
+        {
+            EvaluatedGltfPose evaluated;
+            evaluated.World = kairo::engine::ResolveGltfWorldMatrices(source, pose);
+            for (const auto& primitive : primitives)
+            {
+                if (primitive.NodeIndex >= evaluated.World.size())
+                    throw std::logic_error("Bound glTF primitive node index is outside evaluated pose.");
+                if (primitive.SkinIndex == kairo::assets::GltfMissingIndex ||
+                    evaluated.Palettes.contains(primitive.SkinIndex)) continue;
+
+                if (primitive.SkinIndex >= source.Skins.size())
+                    throw std::out_of_range("Bound glTF skin index is outside source.");
+                const auto& skin = source.Skins[primitive.SkinIndex];
+                if (skin.Joints.size() != skin.InverseBindMatrices.size())
+                    throw std::invalid_argument("glTF joint and inverse bind counts differ.");
+                kairo::renderer::SkinPalette palette;
+                palette.JointMatrices.reserve(skin.Joints.size());
+                for (std::size_t joint = 0u; joint < skin.Joints.size(); ++joint)
+                {
+                    // Same asset-space equation as EngineCore's reference
+                    // BuildGltfAssetSpaceSkinPalette; no mesh-node inverse.
+                    palette.JointMatrices.push_back(evaluated.World.at(skin.Joints[joint]) *
+                        kairo::engine::GltfMatrixToKairo(skin.InverseBindMatrices[joint]));
+                }
+                evaluated.Palettes.emplace(primitive.SkinIndex, std::move(palette));
+            }
+            return evaluated;
+        }
 
         explicit RenderAssetBindings(const kairo::assets::AssetRegistry& registry) noexcept
             : m_Registry(registry) {}
@@ -419,8 +465,11 @@ export namespace kairo::runtime::renderbridge
                     render.SkinIndex });
             }
             ValidateScenePrimitives(primitives);
+            // Finish CPU evaluation before publishing the binding. All
+            // non-playing instances share this rest snapshot.
+            auto rest = EvaluateGltfPose(source, kairo::engine::BuildGltfRestPose(source), primitives);
             if (!m_Scenes.emplace(asset.ID,
-                SceneBinding{ std::move(primitives), std::move(source) }).second)
+                SceneBinding{ std::move(primitives), std::move(source), std::move(rest) }).second)
                 throw std::invalid_argument("A render scene asset is already bound.");
         }
 
@@ -470,6 +519,7 @@ export namespace kairo::runtime::renderbridge
             }
         }
 
+    public:
         // Look up bound SceneAsset by stable ID and check it still resolves as the
         // declared type. The returned reference borrows the binding owner's lifetime;
         // do not cache it after mutating or destroying bindings.
@@ -637,8 +687,9 @@ export namespace kairo::runtime::renderbridge
             const auto& transform = hierarchy.Resolve(entity);
             if (!transform) continue;
             const auto world = kairo::foundation::math::ToMatrix4(*transform);
-            const auto& primitives = assets.ResolveScene(source.SceneAsset);
-            const auto* gltf = assets.ResolveGltfSource(source.SceneAsset);
+            const auto& binding = assets.ResolveSceneBinding(source.SceneAsset);
+            const auto& primitives = binding.Primitives;
+            const auto* gltf = binding.GltfSource ? &*binding.GltfSource : nullptr;
             const auto* playback = animations.Find(entity);
             // A non-glTF multi-primitive scene uses the prebound LocalToAsset transforms.
             // Requesting animation for it is invalid because there is no validated glTF
@@ -658,20 +709,19 @@ export namespace kairo::runtime::renderbridge
                 continue;
             }
 
-            // For glTF instances, evaluate playback or rest pose, then compute node world
-            // matrices. This is an asset-local animation hierarchy before applying the
-            // outer authored Scene instance transform.
-            const auto pose = playback != nullptr
-                ? kairo::engine::SampleGltfAnimation(*gltf, playback->ClipIndex,
-                    playback->TimeSeconds, playback->TimeMode)
-                : kairo::engine::BuildGltfRestPose(*gltf);
-            const auto poseWorld = kairo::engine::ResolveGltfWorldMatrices(*gltf, pose);
-            std::unordered_map<std::uint32_t, kairo::renderer::SkinPalette> palettes;
+            // Rest matrices and skin palettes are owned by the immutable
+            // asset binding. Each animated entity evaluates a separate pose;
+            // no cross-entity mutable state or frame-to-frame cache.
+            std::optional<RenderAssetBindings::EvaluatedGltfPose> animated;
+            if (playback != nullptr)
+            {
+                const auto pose = kairo::engine::SampleGltfAnimation(*gltf,
+                    playback->ClipIndex, playback->TimeSeconds, playback->TimeMode);
+                animated.emplace(RenderAssetBindings::EvaluateGltfPose(*gltf, pose, primitives));
+            }
+            const auto& evaluated = animated ? *animated : binding.RestPose.value();
             for (const auto& primitive : primitives)
             {
-                if (primitive.NodeIndex >= poseWorld.size())
-                    throw std::logic_error(
-                        "Bound glTF primitive node index is outside evaluated pose.");
                 kairo::renderer::MeshDraw draw;
                 draw.Mesh = primitive.Mesh;
                 draw.Material = primitive.Material;
@@ -683,25 +733,14 @@ export namespace kairo::runtime::renderbridge
                 // jointWorld*inverseBind palette in asset space; multiplying node world twice
                 // would break skinning.
                 if (primitive.SkinIndex == kairo::assets::GltfMissingIndex)
-                    draw.Model = world * poseWorld[primitive.NodeIndex];
+                    draw.Model = world * evaluated.World[primitive.NodeIndex];
                 else
                 {
                     // EngineCore returns jointWorld * inverseBind in imported-
                     // asset space. The outer entity transform belongs on Model;
                     // applying the glTF mesh-node world here would double it.
                     draw.Model = world;
-                    auto found = palettes.find(primitive.SkinIndex);
-                    if (found == palettes.end())
-                    {
-                        const auto evaluated =
-                            kairo::engine::BuildGltfAssetSpaceSkinPalette(
-                                *gltf, pose, primitive.SkinIndex);
-                        kairo::renderer::SkinPalette converted;
-                        converted.JointMatrices = evaluated.JointMatrices;
-                        found = palettes.emplace(primitive.SkinIndex,
-                            std::move(converted)).first;
-                    }
-                    draw.Skinning = found->second;
+                    draw.Skinning = evaluated.Palettes.at(primitive.SkinIndex);
                 }
                 result.Add(std::move(draw));
             }
