@@ -3,6 +3,7 @@ set -euo pipefail
 
 ENGINE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ENGINE_ROOT}"
+WORKSPACE_ROOT="${KAIRO_WORKSPACE_ROOT:-$(cd "${ENGINE_ROOT}/.." && pwd)}"
 
 CLEAN=0
 VERIFY_LOCK=0
@@ -40,7 +41,7 @@ BUILD_LOG="${ENGINE_ROOT}/build/${PROFILE}/integration-build.log"
 # status.  A build failure stops here; CTest is never run on missing binaries.
 set +e
 {
-    cmake --preset "${PROFILE}" &&
+    cmake --preset "${PROFILE}" -DKAIRO_WORKSPACE_ROOT="${WORKSPACE_ROOT}" &&
     cmake --build --preset "${PROFILE}" --parallel
 } 2>&1 | tee "${BUILD_LOG}"
 BUILD_STATUS=${PIPESTATUS[0]}
