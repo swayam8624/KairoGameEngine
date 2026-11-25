@@ -10,6 +10,7 @@
 #include "CraftEquipment.hpp"
 #include "CraftMouseLook.hpp"
 #include "CraftActionLatch.hpp"
+#include "CraftTargetFeedback.hpp"
 #include "CraftEquipmentSave.hpp"
 #include "CraftSaveFile.hpp"
 #include "TerrainScreenError.hpp"
@@ -95,6 +96,27 @@ int main(int argc,char** argv)
         std::optional<CaveChunk> committed,pending;
         std::optional<P> plan;
         VoxelCoordinate origin{};
+        CraftTargetPublication targetPublication;
+        const auto targetCell=[](VoxelCoordinate c){return CraftTargetCell{c.X,c.Y,c.Z};};
+        const auto publishTarget=[&](std::optional<CraftTargetKey> key)
+        {
+            (void)targetPublication.Refresh(key,[&](const auto& selected)
+            {
+                DebugDrawList lines;
+                if(selected)
+                {
+                    const auto boxes=CraftBuildTargetBoxes(*selected);
+                    const auto add=[&](const CraftTargetBox& b)
+                    {
+                        lines.AddAABB({b.Min[0],b.Min[1],b.Min[2]},
+                            {b.Max[0],b.Max[1],b.Max[2]},{b.Color[0],b.Color[1],b.Color[2],1.f});
+                    };
+                    add(boxes.Target);
+                    if(boxes.Placement)add(*boxes.Placement);
+                }
+                renderer.SubmitDebugDraw(lines);
+            });
+        };
         std::size_t loads=0,evictions=0,retained=0,peakUploads=0;
         RenderScene authored;
         RenderLight light;light.Type=RenderLightType::Directional;
@@ -507,6 +529,26 @@ int main(int argc,char** argv)
                         }
                     }
                     leftHeld=left;rightHeld=right;
+                    // Re-query after edits, so a removed target disappears
+                    // immediately. Placement is preflight feedback, not a
+                    // promise that a subsequent native transaction will succeed.
+                    std::optional<CraftTargetKey> aim;
+                    if(mouseCaptured)
+                        if(const auto pointed=TraceVoxels({x,y,z},d,8,64,query))
+                        {
+                            const bool mineable=InCaveWorld(pointed->Cell)&&(!survival||
+                                (pointed->Material>=CraftGrass&&pointed->Material<=CraftPlaced&&pointed->Cell.Y>CaveBottom&&
+                                 inventory.Count(pointed->Material)<CraftInventory::StackLimit));
+                            aim=CraftTargetKey{targetCell(pointed->Cell),targetCell(origin),mineable,false,std::nullopt};
+                            if(pointed->Placement)
+                            {
+                                const auto cell=*pointed->Placement;
+                                aim->Placement=targetCell(cell);
+                                aim->Placeable=InCaveWorld(cell)&&query(cell)==VoxelAir&&(!survival||
+                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(body,config,cell)));
+                            }
+                        }
+                    publishTarget(aim);
                     if(nativeHud)refreshNativeHud();
                     else if(hudEnabled)oldSubmit(pub.Active());
                     renderer.DrawFrame();
@@ -515,6 +557,7 @@ int main(int argc,char** argv)
         }
         catch(...){hudEnabled=false;(void)pub.Release(oldSubmit,destroy);throw;}
         hudEnabled=false;
+        publishTarget(std::nullopt);
         refreshNativeHud();
         if(pub.Release(oldSubmit,destroy)!=0)throw std::runtime_error("Cave cleanup failed.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);

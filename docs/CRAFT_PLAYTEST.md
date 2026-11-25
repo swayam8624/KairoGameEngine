@@ -7,7 +7,7 @@ these later changes still require exact-head acceptance.
 
 ## CPU acceptance without the graphics SDK
 
-Run the complete 25-contract C++23 suite on a source checkout:
+Run the complete 26-contract C++23 suite on a source checkout:
 
 ```bash
 CXX=clang++ bash scripts/run_craft_cpu_contracts.sh
@@ -79,6 +79,15 @@ build shader path is intended to be required. Native moved-directory and
 relocated executable tests remain pending. The bundle does not collect dynamic
 libraries, graphics drivers, code signatures or installer metadata, and must
 be tested on a host with the required runtime dependencies.
+
+## Block selection feedback
+
+The aimed block is outlined in gold, or red if mining is blocked by a
+protected material, world boundary or full inventory. The face-adjacent
+placement preview is green when its preflight checks pass, otherwise red.
+The outline uses rebased world coordinates and clears when the aim is lost
+or the block is removed. Preflight does not guarantee native upload or edit
+journal capacity; actual edits retain the existing transactional checks.
 
 ## Surface lighting cycle
 

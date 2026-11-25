@@ -14,6 +14,7 @@
 #include "CraftEquipment.hpp"
 #include "CraftMouseLook.hpp"
 #include "CraftActionLatch.hpp"
+#include "CraftTargetFeedback.hpp"
 #include "CraftEquipmentSave.hpp"
 #include "CraftSaveFile.hpp"
 #include "TerrainScreenError.hpp"
@@ -121,6 +122,27 @@ int main(int argc,char** argv)
         Plan::Slots coordinates{};
         Publication publication;
         VoxelCoordinate origin{};
+        CraftTargetPublication targetPublication;
+        const auto targetCell=[](VoxelCoordinate c){return CraftTargetCell{c.X,c.Y,c.Z};};
+        const auto publishTarget=[&](std::optional<CraftTargetKey> key)
+        {
+            (void)targetPublication.Refresh(key,[&](const auto& selected)
+            {
+                DebugDrawList lines;
+                if(selected)
+                {
+                    const auto boxes=CraftBuildTargetBoxes(*selected);
+                    const auto add=[&](const CraftTargetBox& b)
+                    {
+                        lines.AddAABB({b.Min[0],b.Min[1],b.Min[2]},
+                            {b.Max[0],b.Max[1],b.Max[2]},{b.Color[0],b.Color[1],b.Color[2],1.f});
+                    };
+                    add(boxes.Target);
+                    if(boxes.Placement)add(*boxes.Placement);
+                }
+                renderer.SubmitDebugDraw(lines);
+            });
+        };
         std::optional<CraftColumn> center,pendingCenter;
         std::optional<Plan> pendingPlan;
         std::unique_ptr<CraftMeshBatch<2>> batch;
@@ -494,6 +516,14 @@ int main(int argc,char** argv)
                         throw std::runtime_error("Recipe transaction failed.");
                     std::cout<<"Native camera-aligned HUD capture and recipe transaction passed\n";
                 }
+                // Independent capture tests the retained renderer debug list.
+                publishTarget(CraftTargetKey{targetCell(hit->Cell),targetCell(origin),true,false,std::nullopt});
+                if(capture(.5,.5).RGBA==baseline.RGBA)
+                    throw std::runtime_error("Target outline capture unchanged.");
+                publishTarget(std::nullopt);
+                if(capture(.5,.5).RGBA!=baseline.RGBA)
+                    throw std::runtime_error("Target outline removal changed baseline.");
+                std::cout<<"Native target outline and removal passed\n";
                 // Prove native day/night changes without any chunk loads
                 // or edits. Restore the exact prior authored scene.
                 const auto beforeLighting=authored;
@@ -685,6 +715,26 @@ int main(int argc,char** argv)
                     }
                     leftHeld=left;rightHeld=right;
                     if(actions.Save.Press(key(GLFW_KEY_F5)>0)){try{save();}catch(const std::exception& ex){std::cerr<<"Save failed: "<<ex.what()<<'\n';}}
+                    // Re-query after edits, so a removed target disappears
+                    // immediately. Placement is preflight feedback, not a
+                    // promise that a subsequent native transaction will succeed.
+                    std::optional<CraftTargetKey> aim;
+                    if(mouseCaptured)
+                        if(const auto pointed=TraceVoxels({x,y,z},direction,8,64,query))
+                        {
+                            const bool mineable=InStreamCraftWorld(pointed->Cell)&&(!survival||
+                                (pointed->Material>=CraftGrass&&pointed->Material<=CraftPlaced&&
+                                 inventory.Count(pointed->Material)<CraftInventory::StackLimit));
+                            aim=CraftTargetKey{targetCell(pointed->Cell),targetCell(origin),mineable,false,std::nullopt};
+                            if(pointed->Placement)
+                            {
+                                const auto cell=*pointed->Placement;
+                                aim->Placement=targetCell(cell);
+                                aim->Placeable=InStreamCraftWorld(cell)&&query(cell)==VoxelAir&&(!survival||
+                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(player,bodyConfig,cell)));
+                            }
+                        }
+                    publishTarget(aim);
                     if(nativeHud)refreshNativeHud();
                     else if(hudEnabled)committedSubmit(publication.Active());
                     renderer.DrawFrame();
@@ -693,6 +743,7 @@ int main(int argc,char** argv)
         }
         catch(...){hudEnabled=false;(void)publication.Release(committedSubmit,destroy);throw;}
         hudEnabled=false;
+        publishTarget(std::nullopt);
         refreshNativeHud();
         if(publication.Release(committedSubmit,destroy)!=0)throw std::runtime_error("Streamed Craft shutdown retained meshes.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);

@@ -358,6 +358,21 @@ capture difference, unchanged residency/edit counts and exact restored
 baseline. Full native acceptance remains pending. No persistent world clock,
 dynamic shadows, weather, mobs or underground lighting change in this pass.
 
+### Block target and placement feedback
+
+Both demos submit depth-tested debug AABBs for the current aimed block and
+face-adjacent placement candidate. Use int64 subtraction before float
+conversion and a small expansion to avoid coplanar edges. Cache by target,
+render origin, placement and preflight state; re-query after editing.
+Target gold/red and placement green/red reflect inventory, protection,
+bounds and player overlap. Does not promise edit capacity or native
+publication success. Local Clang/GCC C++23 ASan/UBSan passed 100,000 idle
+target frames and 100,000 rebased geometry fixtures per compiler, plus
+color changes, empty state and retry. Exact header
+a063d0da09c827e4568a2ae081a8b6eb6d423a50 and test
+d0df5d0b697be0f0a7ca02ff0cc5da662063173f. Native surface smoke checks
+outline image change and removal. Full native acceptance pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
