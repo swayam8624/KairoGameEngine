@@ -468,3 +468,9 @@ Read [RuntimeShippingBridge](Runtime/KairoPlayer/RuntimeShippingBridge.cppm) aft
 ## M50 local matchmaking
 
 After the network protocol and prediction lab, read [directory](scripts/kairo_matchmaking.py), [race and lifecycle tests](scripts/tests/test_kairo_matchmaking.py), and [native discovery harness](Samples/NetworkLab/run_matchmaking.py). Trace SQLite transaction isolation, seat counts, ownership, expiration and process cleanup to the existing native client/server connection.
+
+## M50 platformer
+
+1. [Kernel](Runtime/KairoPlayer/RuntimePlatformer.hpp): authored map, half-open box, subcell sweep, grounded detection, jump edge, tile effects and reset.
+2. [Complete route and random replay oracle](Runtime/KairoPlayer/tests/RuntimePlatformerTests.cpp).
+3. [Playable demo](Samples/PlatformerLab/PlatformerDemo.cpp) and [instructions](Samples/PlatformerLab/README.md).
