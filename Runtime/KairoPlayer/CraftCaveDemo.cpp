@@ -1,6 +1,10 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "CraftCaveWorld.hpp"
+#include "CraftCaveSession.hpp"
+#include "CraftRecipesHud.hpp"
+#include <filesystem>
+#include <fstream>
+#include <string>
 #include "CraftMeshBatch.hpp"
 #include "VoxelMeshPublication.hpp"
 #include "VoxelPlayer.hpp"
@@ -22,6 +26,7 @@ int main(int argc,char** argv)
         using namespace kairo::foundation::math;
         using namespace kairo::player::detail;
         bool smoke=false,survival=false;
+        std::optional<std::filesystem::path> savePath;
         std::uint64_t seed=42;
         auto backend=GraphicsBackend::Automatic;
         for(int i=1;i<argc;++i)
@@ -29,6 +34,7 @@ int main(int argc,char** argv)
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
             else if(arg=="--survival")survival=true;
+            else if(arg=="--save"&&i+1<argc)savePath=std::filesystem::path(argv[++i]);
             else if(arg=="--renderer"&&i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
             else if(arg=="--seed"&&i+1<argc)
             {
@@ -36,15 +42,50 @@ int main(int argc,char** argv)
                 const auto result=std::from_chars(s.data(),s.data()+s.size(),seed);
                 if(result.ec!=std::errc{}||result.ptr!=s.data()+s.size())throw std::invalid_argument("Invalid seed.");
             }
-            else throw std::invalid_argument("KairoCraftCaves [--seed N] [--renderer backend] [--survival] [--smoke]");
+            else throw std::invalid_argument("KairoCraftCaves [--seed N] [--renderer backend] [--survival] [--save path] [--smoke]");
         }
+        if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
         RendererRuntime renderer({"Kairo Craft Caves",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960,540);
         renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         using P=CaveWindowPlan<1>;
-        using W=VoxelEdits<CaveCraftBaseline>;
+        using W=CaveCraftWorldEdits;
         using Pub=VoxelMeshPublication<MeshHandle,P::Capacity>;
-        auto world=std::make_shared<W>(CaveCraftBaseline{seed});
+        auto world=std::make_shared<W>(CaveCraftBaseline{seed},CraftSaveMaximumEdits);
+        CraftInventory inventory;
+        if(savePath&&std::filesystem::exists(*savePath))
+        {
+            const auto size=std::filesystem::file_size(*savePath);
+            if(size>CaveCraftMaximumBytes)throw std::length_error("Cave save size cap.");
+            std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
+            std::ifstream file(*savePath,std::ios::binary);
+            if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
+                file.peek()!=std::char_traits<char>::eof())throw std::runtime_error("Cave save read failed.");
+            auto decoded=DecodeCaveCraftSession(bytes);
+            seed=decoded.Seed;world=std::make_shared<W>(std::move(decoded.World));inventory=decoded.Inventory;
+        }
+        // Explicit save only, using the same single-writer replacement policy
+        // as the streamed surface world. A failed write leaves the old save.
+        const auto save=[&]()
+        {
+            if(!savePath)return;
+            const auto bytes=EncodeCaveCraftSession(seed,*world,inventory);
+            auto temp=*savePath;temp+=".tmp";
+            if(std::filesystem::exists(temp))throw std::runtime_error("Temporary cave save already exists.");
+            try
+            {
+                std::ofstream file(temp,std::ios::binary|std::ios::trunc);
+                if(!file||!file.write(reinterpret_cast<const char*>(bytes.data()),static_cast<std::streamsize>(bytes.size())))
+                    throw std::runtime_error("Cave save write failed.");
+                file.close();
+                if(!file)throw std::runtime_error("Cave save close failed.");
+                std::filesystem::rename(temp,*savePath);
+            }
+            catch(...)
+            {
+                std::error_code ignored;std::filesystem::remove(temp,ignored);throw;
+            }
+        };
         CraftMeshBatch<1,P,CaveCraftBaseline,CaveChunk> workers(4);
         Pub pub;
         P::Slots coords{};
@@ -163,11 +204,16 @@ int main(int argc,char** argv)
                 capture(8.5,-7.5,8.5,{0,0,-1});
                 const VoxelCoordinate block{0,-16,0};
                 const auto material=world->Get(block);
-                if(material==VoxelAir||!edit(block,VoxelAir))throw std::runtime_error("Cave edit failed.");
+                if(material==VoxelAir||!MineCraftBlock(inventory,block,query,edit))throw std::runtime_error("Cave edit failed.");
+                inventory.Selected=material;
+                const auto decoded=DecodeCaveCraftSession(EncodeCaveCraftSession(seed,*world,inventory));
+                if(decoded.Seed!=seed||decoded.World.Get(block)!=VoxelAir||decoded.Inventory.Count(material)!=1)
+                    throw std::runtime_error("Cave session roundtrip failed.");
                 settle(CaveObserver(1e9,-24,-1e9));
                 capture(1000000008.5,-23.5,-999999991.5,{0,0,-1});
                 settle({0,-1,0});
-                if(query(block)!=VoxelAir||!edit(block,material)||!world->Overrides().empty())
+                if(query(block)!=VoxelAir||!PlaceCraftBlock(inventory,block,query,edit,[](auto){return true;})||
+                    inventory.Count(material)!=0||!world->Overrides().empty())
                     throw std::runtime_error("Cave revisit failed.");
                 capture(8.5,-7.5,8.5,{0,0,-1});
                 if(loads!=90||evictions!=63||peakUploads>4)throw std::runtime_error("Cave streaming accounting.");
@@ -182,7 +228,7 @@ int main(int argc,char** argv)
                     if(c.Y<CaveBottom||c.Y>=CaveTop||std::abs(double(c.X))>=999999950||std::abs(double(c.Z))>=999999950)return CraftStone;
                     return query(c);
                 };
-                bool leftHeld=false,rightHeld=false,jumpHeld=false;
+                bool leftHeld=false,rightHeld=false,jumpHeld=false,recipeOneHeld=false,recipeTwoHeld=false,saveHeld=false;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
                 const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
@@ -212,14 +258,47 @@ int main(int argc,char** argv)
                     (void)update(CaveObserver(x,survival?body.Feet[1]:y,z));
                     const std::array d{std::sin(yaw)*std::cos(pitch),std::sin(pitch),-std::cos(yaw)*std::cos(pitch)};
                     camera(x,y,z,d);
+                    if(survival)
+                    {
+                        for(unsigned slot=0;slot<4;++slot)
+                            if(key(GLFW_KEY_1+static_cast<int>(slot)))inventory.Selected=static_cast<VoxelMaterial>(slot+1);
+                        const bool one=key(GLFW_KEY_R)>0,two=key(GLFW_KEY_T)>0;
+                        if(one&&!recipeOneHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
+                        if(two&&!recipeTwoHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
+                        recipeOneHeld=one;recipeTwoHeld=two;
+                        std::string title="Kairo Caves | Survival | ";
+                        for(unsigned i=0;i<4;++i)
+                        {
+                            if(inventory.Selected==i+1u)title+="[";
+                            title+=std::to_string(i+1u)+":"+std::to_string(inventory.Counts[i]);
+                            if(inventory.Selected==i+1u)title+="]";
+                            title+=" ";
+                        }
+                        title+="| R/T craft | F5 save";
+                        glfwSetWindowTitle(window,title.c_str());
+                    }
+                    const bool saveDown=key(GLFW_KEY_F5)>0;
+                    if(saveDown&&!saveHeld)
+                    {
+                        try{save();}catch(const std::exception& ex){std::cerr<<"Cave save failed: "<<ex.what()<<'\n';}
+                    }
+                    saveHeld=saveDown;
                     const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
                     const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
                     if((left&&!leftHeld)||(right&&!rightHeld))
                         if(auto hit=TraceVoxels({x,y,z},d,8,64,query))
                         {
-                            if(left&&!leftHeld)(void)edit(hit->Cell,VoxelAir);
-                            else if(hit->Placement&&(!survival||!PlayerIntersectsBlock(body,config,*hit->Placement)))
-                                (void)edit(*hit->Placement,CraftPlaced);
+                            if(left&&!leftHeld)
+                            {
+                                if(survival)(void)MineCraftBlock(inventory,hit->Cell,query,edit);
+                                else (void)edit(hit->Cell,VoxelAir);
+                            }
+                            else if(hit->Placement)
+                            {
+                                if(survival)(void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
+                                    [&](auto cell){return !PlayerIntersectsBlock(body,config,cell);});
+                                else (void)edit(*hit->Placement,CraftPlaced);
+                            }
                         }
                     leftHeld=left;rightHeld=right;renderer.DrawFrame();
                 }
