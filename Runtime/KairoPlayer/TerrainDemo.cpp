@@ -21,7 +21,7 @@ int main(int argc,char** argv)
         using namespace kairo::engine;
         bool smoke=false;
         std::uint64_t seed=42;
-        GraphicsBackend backend=GraphicsBackend::Auto;
+        GraphicsBackend backend=GraphicsBackend::Automatic;
         for(int i=1;i<argc;++i)
         {
             const std::string_view arg=argv[i];
