@@ -65,6 +65,22 @@ player="$build/Runtime/KairoPlayer"
 "$player/KairoTerrainExplorer" --renderer metal --seed 42 --smoke 2>&1 | tee "$logdir/explorer.log"
 "$player/KairoCraftStream" --renderer metal --seed 42 --survival --workers 4 --uploads 2 --smoke 2>&1 | tee "$logdir/craft.log"
 "$player/KairoCraftCaves" --renderer metal --seed 42 --smoke 2>&1 | tee "$logdir/caves.log"
+# Stage the exact built games outside the source/build tree and run both
+# copied executables through relative launchers. Do not write user saves.
+bundleParent="$(mktemp -d)"
+bundle="$bundleParent/playtest"
+trap 'rm -rf -- "$bundleParent"; echo "Metal acceptance evidence: $logdir"' EXIT
+cmake "-DSURFACE=$root/$player/KairoCraftStream" "-DCAVES=$root/$player/KairoCraftCaves" \
+    "-DOUTPUT=$bundle" "-DENGINE_REVISION=$(git rev-parse HEAD)" \
+    "-DRENDERER_REVISION=$(awk '$1=="KairoRenderer"{print $2}' workspace.lock)" \
+    -P scripts/StageCraftPlaytest.cmake 2>&1 | tee "$logdir/bundle.log"
+cp "$bundle/manifest.txt" "$logdir/craft-bundle-manifest.txt"
+(
+    cd "$bundle"
+    tail -n2 manifest.txt | shasum -a 256 -c -
+    ./run-surface.sh --renderer metal --seed 42 --survival --smoke
+    ./run-caves.sh --renderer metal --seed 42 --smoke
+) 2>&1 | tee "$logdir/relocated-games.log"
 # Verify that the exact dependency snapshot remained intact after the run.
 bash scripts/verify_workspace_lock.sh "${repos[@]}" 2>&1 | tee "$logdir/revisions-after.log"
 echo "PASS: exact dependency snapshot, macOS contracts, native renderer and gameplay captures." | tee "$logdir/RESULT.txt"

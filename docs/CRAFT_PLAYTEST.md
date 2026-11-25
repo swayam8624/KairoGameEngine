@@ -66,7 +66,9 @@ cmake --build --preset game-player-clang --target KairoCraftPlaytestBundle
 
 The default output is `build/game-player-clang/craft-playtest`. Configure
 `-DKAIRO_CRAFT_PLAYTEST_OUTPUT=/absolute/fresh/path` to choose another location.
-The target refuses an existing output; preserve any saves before removing
+The target records the configured source revision and renderer lock. Reconfigure
+before staging after a source update; CI supplies the checked-out revision at
+staging time. The target refuses an existing output; preserve any saves before removing
 or replacing a bundle. Both executables, separate save paths, launchers and
 SHA-256/revision manifest are staged. Run `run-surface.sh` or `run-caves.sh`
 (or corresponding Windows .cmd) without arguments for survival. Passing

@@ -336,7 +336,7 @@ Local CMake 3.31 fixture test passed paths with spaces, copy hashes, default
 arguments, explicit argument forwarding and existing-output rejection.
 Exact staging script blob 8b2b38b74a56528dc5ca25f8a9594475ea2e2c43.
 The fixture executables are scripts, not actual Craft builds. Native Vulkan
-CI runs copied surface/cave executables outside the build tree.
+and Metal CI run copied surface/cave executables outside the build tree.
 No claim of self-contained distribution, Windows launcher execution or
 native acceptance; earlier integration candidates unchanged.
 
