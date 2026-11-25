@@ -171,6 +171,12 @@ if(BUILD_TESTING)
     endif()
     # Platformer simulation and playable text demo share the same fixed tick kernel.
     # Strategy rules and sample share the same deterministic map simulation.
+    # The actual GameLab rectangle generator runs without a native GPU.
+    add_executable(KairoPlayerGameLabViewTests tests/RuntimeGameLabViewTests.cpp)
+    target_include_directories(KairoPlayerGameLabViewTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(KairoPlayerGameLabViewTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerGameLabViewTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerGameLabViewTests COMMAND KairoPlayerGameLabViewTests)
     add_executable(KairoPlayerGridCanvasTests tests/RuntimeGridCanvasTests.cpp)
     target_include_directories(KairoPlayerGridCanvasTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(KairoPlayerGridCanvasTests PRIVATE cxx_std_23)
@@ -505,7 +511,21 @@ if(BUILD_TESTING)
         set_tests_properties(KairoPlayerPlayableVerticalSliceValidate PROPERTIES TIMEOUT 20)
     endif()
 
-    # Linux CI provides Xvfb; macOS and Windows are explicit manual lab gates.
+    # Native overlay acceptance: the pinned backends draw UI before capture.
+    # Linux uses Xvfb + Vulkan; macOS uses Metal. No silent skip on a bad image.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR APPLE)
+        if(APPLE)
+            set(_kairo_lab_backend metal)
+        else()
+            set(_kairo_lab_backend vulkan)
+        endif()
+        add_test(NAME KairoGameLabPlatformerNativeSmoke COMMAND KairoGameLab --renderer ${_kairo_lab_backend} --smoke)
+        add_test(NAME KairoGameLabStrategyNativeSmoke COMMAND KairoGameLab --renderer ${_kairo_lab_backend} --strategy --smoke)
+        add_test(NAME KairoGameLabRPGNativeSmoke COMMAND KairoGameLab --renderer ${_kairo_lab_backend} --rpg --smoke)
+        set_tests_properties(KairoGameLabPlatformerNativeSmoke KairoGameLabStrategyNativeSmoke KairoGameLabRPGNativeSmoke PROPERTIES TIMEOUT 60 LABELS "m50-native")
+    endif()
+
+    # Linux CI provides Xvfb; macOS and Windows are explicit manual simulation lab gates.
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         add_test(NAME KairoSimulationWaterOpenGLSmoke COMMAND KairoSimulationLab --renderer opengl --smoke)
         add_test(NAME KairoSimulationSoftOpenGLSmoke COMMAND KairoSimulationLab --renderer opengl --soft --smoke)
