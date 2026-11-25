@@ -418,3 +418,9 @@ After the weather timeline, read [rain geometry sampling](Runtime/KairoPlayer/Ru
 2. [Conservation tests](Runtime/KairoPlayer/tests/RuntimeWaterGridTests.cpp): lake-at-rest, dry ridge and random beds.
 3. [Basin lab](Samples/WaterLab/WaterLab.cpp) and [run guide](Samples/WaterLab/README.md).
 4. Compare the narrower density diffusion in [EngineCore ProductionSystems.cppm](docs/study/KairoEngineCore.md); neither model is a full fluid solver.
+
+## M50 soft-body dynamics
+
+1. [Soft body solver](Runtime/KairoPlayer/RuntimeSoftBody.hpp): position/velocity state, signed tetra volume, inverse mass, compliance, gradient projection and fixed-step reconstruction.
+2. [Constraint and ground tests](Runtime/KairoPlayer/tests/RuntimeSoftBodyTests.cpp): compare a rest pose, pinned node, seeded drops and replay.
+3. Compare the existing cloth solver and PhysicsEngine contact contracts through [EngineCore](docs/study/KairoEngineCore.md) and [PhysicsEngine](docs/study/KairoPhysicsEngine.md). Follow the future mesh presentation adapter only after understanding signed volume derivatives.

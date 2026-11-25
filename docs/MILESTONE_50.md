@@ -95,3 +95,7 @@ Visible precipitation draw submission and a native capture/removal gate are now 
 ## Candidate progress: water flow
 
 Bounded depth-only grid and seeded conservation tests pass on two compilers. A terrain basin terminal sample is present. Actual rendered water, waves, momentum and authored integration are not established; the water/ocean and fluid gates remain open.
+
+## Candidate progress: soft bodies
+
+XPBD tetrahedral edge/volume constraints and ground projection pass 24,000 seeded drop steps per compiler. Reusable CPU kernel is present; real mesh presentation, multi-element contact acceptance and native integration remain open. No 50% promotion.

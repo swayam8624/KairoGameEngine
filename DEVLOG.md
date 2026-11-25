@@ -108,3 +108,7 @@ Added [RuntimeWaterGrid.hpp](Runtime/KairoPlayer/RuntimeWaterGrid.hpp), a bounde
 ### Water lab execution
 
 The exact sample blob 0b78d533478ff67699ce7845928534a8f1733115 built and ran under GCC and Clang with C++23 -Wall -Wextra -Werror. Both produced byte-identical output, reporting volume 8 at steps 0,20,40,60,80,100. This is a terminal visualization, not a native surface renderer.
+
+## 2026-11-25 — tetrahedral soft-body dynamics
+
+Added [RuntimeSoftBody.hpp](Runtime/KairoPlayer/RuntimeSoftBody.hpp), fixed-step XPBD compliant edges and tetrahedral signed volume constraints with inverse-mass weighting, pinned vertices, velocity reconstruction, and infinite ground plane. GCC and Clang C++23 -O2 -Wall -Wextra -Werror passed 24,000 seeded drop steps per compiler, plus rest, pinned and invalid input fixtures. Each tested trajectory reproduced exactly within the same compiler, stayed above ground, and retained volume within 5% of rest. Exact tested blobs: 46d2854299ada180ac0a1a865ba6a1cece41acff (header), c26ac9653344703c8a1aa05bdae4c7d0fb70abd4 (tests). No arbitrary mesh, self collision, material calibration, or native deformation presentation claim. The solver is currently a Player-side portable kernel; future PhysicsEngine integration should share the constraint implementation rather than duplicate it.
