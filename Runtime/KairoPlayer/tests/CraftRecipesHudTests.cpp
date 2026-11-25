@@ -43,6 +43,8 @@ int main()
     bool badFood=false;
     try{(void)BuildCraftHud(inventory,20,0,0,false,21);}catch(const std::invalid_argument&){badFood=true;}
     Check(badFood,"Invalid food HUD accepted");
+    const auto combat=BuildCraftHud(inventory,20,0,0,false,std::nullopt,6);
+    Check(combat.size()==full.size()+2&&combat[0].Color==std::array{1.f,.22f,.16f}&&combat[4].Background&&combat[5].W==48.f,"Combat HUD layout differs");
     std::mt19937 rng(456);
     std::size_t rects=0;
     for(unsigned i=0;i<10000;++i)

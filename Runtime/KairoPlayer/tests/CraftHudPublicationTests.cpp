@@ -60,9 +60,13 @@ int main()
     healthKey.Hunger=19;
     Check(healthCache.Refresh(healthKey,healthSubmit)&&!healthCache.Refresh(healthKey,healthSubmit),
         "Nutrition-only change did not publish exactly once");
+    healthKey.EnemyHealth=12;
+    Check(healthCache.Refresh(healthKey,healthSubmit)&&!healthCache.Refresh(healthKey,healthSubmit),"Enemy aim HUD cache differs");
+    healthKey.EnemyHealth=8;
+    Check(healthCache.Refresh(healthKey,healthSubmit),"Enemy hit HUD cache differs");
     healthKey.Enabled=false;
     Check(healthCache.Refresh(healthKey,healthSubmit),"HUD hide did not publish");
     healthKey.Hunger=0;
-    Check(!healthCache.Refresh(healthKey,healthSubmit)&&healthUpdates==9,"Invisible hunger change republished");
+    Check(!healthCache.Refresh(healthKey,healthSubmit)&&healthUpdates==11,"Invisible hunger change republished");
     std::cout<<"100000 idle frames, 100000 state transitions and failure retry passed; "<<changes<<" state publications\n";
 }

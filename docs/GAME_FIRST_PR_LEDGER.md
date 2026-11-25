@@ -442,6 +442,17 @@ d11564515dc8e50ac93e06d8d6e0c97cf0a4216a. The real creature, navigation
 and voxel physics source hashes matched #94. No native acceptance or
 persistent enemy/ground item claim.
 
+### Aimed enemy combat HUD
+
+Both demos use a red crosshair and a 96-pixel logical enemy health bar only
+while a visible, in-range living sentinel is aimed at. Enemy health is part
+of the native HUD cache key; ordinary block targeting keeps the original
+white crosshair. Exact standalone HUD policy passed 100,000 randomized
+health states plus invalid-state and target-removal cases on both Clang and
+GCC with ASan/UBSan. Exact blobs 62093ecf32f7daa5fdc9e45fff21a0cbf89a8445
+and b80abb4d434e0b568e04b13ebe5c8db7ef67b0ce. Full integrated geometry
+and publication tests added but not yet locally executed; native CI pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

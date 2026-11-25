@@ -200,17 +200,18 @@ int main(int argc,char** argv)
         CraftNutrition nutrition;
         CraftMining mining;
         CraftCreature creature;
+        unsigned aimedHealth=0;
         std::optional<MeshHandle> creatureMesh;
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
-            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger()};
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger(),aimedHealth};
             (void)hudPublication.Refresh(key,[&]()
             {
                 std::vector<ViewportOverlayRect> rects;
                 if(hudEnabled)
                 {
-                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger());
+                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger(),aimedHealth);
                     rects.reserve(layout.size());
                     // Paint opaque backing first, then icons and numerals.
                     // No camera, world origin or depth state is involved.
@@ -261,7 +262,7 @@ int main(int argc,char** argv)
                     double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
                 const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
                 const auto up=ScreenUnit(ScreenCross(right,forward));
-                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger()))
+                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger(),aimedHealth))
                 {
                     const double depth=rect.Background?.16:.14;
                     const auto projected=ProjectCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,
@@ -788,7 +789,8 @@ int main(int argc,char** argv)
                     // immediately. Placement is preflight feedback, not a
                     // promise that a subsequent native transaction will succeed.
                     std::optional<CraftTargetKey> aim;
-                    if(mouseCaptured&&!(survival&&creature.Aimed({x,y,z},direction,query)))
+                    aimedHealth=survival&&mouseCaptured&&creature.Aimed({x,y,z},direction,query)?creature.Health():0;
+                    if(mouseCaptured&&!aimedHealth)
                         if(const auto pointed=TraceVoxels({x,y,z},direction,8,64,query))
                         {
                             const bool mineable=InStreamCraftWorld(pointed->Cell)&&(!survival||

@@ -7,7 +7,7 @@ these later changes still require exact-head acceptance.
 
 ## CPU acceptance without the graphics SDK
 
-Run the complete 30-contract C++23 suite on a source checkout:
+Run the complete 31-contract C++23 suite on a source checkout:
 
 ```bash
 CXX=clang++ bash scripts/run_craft_cpu_contracts.sh
@@ -87,7 +87,8 @@ resident spawn exists. It approaches using the voxel collision solver and
 deals two health points at most once per second, with line-of-sight required.
 Aim at the creature and click left mouse to deal four points; three hits
 defeat it, with a half-second hit cooldown. It respawns after 15 active
-seconds. It has a simple red cuboid mesh; the title reports its health.
+seconds. It has a simple red cuboid mesh; the title reports its health. When aimed at an in-range visible sentinel,
+the crosshair turns red and an enemy health bar appears above it.
 Placement is blocked inside its body. Unknown cells occlude attacks.
 The creature also uses bounded same-layer four-neighbor navigation when
 direct sight is blocked, replanning at most twice per second. Defeating the stone sentinel immediately awards up to two stone blocks; any excess above the existing stack capacity is discarded. The reward persists through the normal inventory save. There are no ground drops, animation, persistent creature state, vertical navigation or

@@ -1,5 +1,6 @@
 #pragma once
 #include "CraftInventory.hpp"
+#include "CraftCombatHud.hpp"
 
 namespace kairo::player::detail
 {
@@ -44,7 +45,7 @@ namespace kairo::player::detail
         bool Background=false;
     };
     inline std::vector<CraftHudRect> BuildCraftHud(const CraftInventory& inventory,
-        std::optional<std::uint32_t> health=std::nullopt,unsigned miningProgress=0,unsigned toolDurability=0,bool toolEquipped=false,std::optional<std::uint32_t> hunger=std::nullopt)
+        std::optional<std::uint32_t> health=std::nullopt,unsigned miningProgress=0,unsigned toolDurability=0,bool toolEquipped=false,std::optional<std::uint32_t> hunger=std::nullopt,unsigned enemyHealth=0)
     {
         if(!inventory.Valid())throw std::invalid_argument("Invalid HUD inventory.");
         std::vector<CraftHudRect> rects;rects.reserve(128);
@@ -52,8 +53,14 @@ namespace kairo::player::detail
         {rects.push_back({x,y,w,h,color});};
         constexpr std::array<float,3> white{.9f,.9f,.9f},gray{.04f,.05f,.07f},selected{1.f,.72f,.22f};
         // Four nonoverlapping crosshair arms with an open center.
-        add(469,269,8,2,white);add(483,269,8,2,white);
-        add(479,259,2,8,white);add(479,273,2,8,white);
+        const auto combat=BuildCraftCombatHud(enemyHealth);
+        add(469,269,8,2,combat.Crosshair);add(483,269,8,2,combat.Crosshair);
+        add(479,259,2,8,combat.Crosshair);add(479,273,2,8,combat.Crosshair);
+        if(combat.FillWidth>0)
+        {
+            add(430,243,100,8,gray);rects.back().Background=true;
+            add(432,245,combat.FillWidth,4,combat.Crosshair);
+        }
         constexpr std::array<unsigned,10> masks{0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f};
         const auto digit=[&](unsigned number,float x,float y)
         {
