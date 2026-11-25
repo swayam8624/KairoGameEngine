@@ -117,3 +117,7 @@ Native menu host candidate now supports pointer/keyboard input, focus, bounded l
 Local licensed asset catalog, search, staging, checksums, retained license evidence and recipe export implemented and locally tested. Generated model passes existing recipe candidate's GLB validation. Full native import and graphical catalog browser remain open; no hosted marketplace claim.
 
 Native plugin v1 manifest, shared-library ABI, explicitly trusted CLI extension and incompatible-version rejection pass real Linux dynamic loading tests. Editor/runtime extension lifecycle, macOS/Windows acceptance and full workspace CI remain open. Narrow plugin lab is not a complete ecosystem or sandbox.
+
+## Candidate progress: local matchmaking
+
+Local create/list/join/leave/close, expiry and capacity checks pass, including a 24-process race and actual discovery-to-native-connection demo. Narrow local functional gate demonstrated; accepted workspace CI and server-side token enforcement remain open. No remote service claim.

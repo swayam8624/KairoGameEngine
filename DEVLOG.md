@@ -157,3 +157,7 @@ Added 23 explicit ownership, input/output, and collaborator comments across two 
 
 - [RuntimeShippingBridge.cppm](Runtime/KairoPlayer/RuntimeShippingBridge.cppm): 15 new explanation blocks.
 - [RuntimeProductionSystemsBridge.cppm](Runtime/KairoPlayer/RuntimeProductionSystemsBridge.cppm): 8 new explanation blocks.
+
+## 2026-11-26 — local matchmaking
+
+Added [SQLite directory](scripts/kairo_matchmaking.py), transactional seat allocation, expiry, owner closure, public listing and local join/leave. Three Python tests passed, including 24 independent processes competing for four seats (exactly four admitted). Rebuilt existing network lab with GCC C++23 warnings-as-errors; [matchmaking harness](Samples/NetworkLab/run_matchmaking.py) discovered the real server, joined, converged at tick 10 position (10,0), released and removed the advertisement. Tested blobs directory 24b895fb76e41f797d3e7ec5ab424ae819c7168a, tests c0d0c4263d7be9a4538bf7a212080beccf5d86ca, harness 29237489c0ef8482aa8109981dcc9e05598171c8, existing network demo 3034bc4c9682acdede6df7f27ebee963a2fbfea7. Local trusted DB only; no server admission-token enforcement, remote matchmaking, lobby UI or actual concurrent multi-client gameplay. Workspace CTest gates registered but not run here.

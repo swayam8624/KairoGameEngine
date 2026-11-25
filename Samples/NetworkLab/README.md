@@ -19,3 +19,7 @@ authentication, encryption, NAT traversal or loss/reconciliation solution.
 
 
 The client also predicts its movement locally and reconciles the returned server snapshot. The separate RuntimeNetworkPredictionTests.cpp tests delayed, dropped and reordered snapshots, corrections and bounded journal backpressure; this does not claim UDP reliability.
+
+## Local matchmaking
+
+Run python3 Samples/NetworkLab/run_matchmaking.py PATH_TO_KairoNetworkLab scripts/kairo_matchmaking.py. The harness advertises the server's actual loopback port, discovers it, reserves one seat, runs the native client, releases the seat and closes the advertisement. The directory CLI also exposes create/list/join/leave/close, with atomic SQLite transactions and expiry. Shared database is trusted local storage; tokens are not remote authentication, and the TCP server does not enforce them. No WAN, ranking, lobby UI, or hosted service. The lab supports one client; larger capacities are directory tests only.
