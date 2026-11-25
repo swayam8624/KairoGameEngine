@@ -1,7 +1,7 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native, feat/craft-stream-survival-save, feat/craft-async-meshing, feat/craft-survival-inventory, feat/craft-upload-budget, feat/craft-vertical-caves, feat/craft-recipes-hud, feat/craft-cave-survival-session]
+    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native, feat/craft-stream-survival-save, feat/craft-async-meshing, feat/craft-survival-inventory, feat/craft-upload-budget, feat/craft-vertical-caves, feat/craft-recipes-hud, feat/craft-cave-survival-session, integration/gameplay-native-candidate]
   pull_request:
     paths:
       - 'workspace.lock'
@@ -140,11 +140,6 @@ jobs:
           repos=(KairoMath KairoGeometry KairoSpatial KairoPhysicsMath KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection KairoEngineCore KairoRenderer KairoEditor)
           bash scripts/materialize_workspace_lock.sh "${repos[@]}"
           bash scripts/verify_workspace_lock.sh "${repos[@]}"
-          # Temporary review-only override; release lock remains the merged revision.
-          candidate=fee0bfa6b74d6847826e678333c1a941a004c989
-          git -C ../KairoEngineCore fetch --no-tags origin "$candidate"
-          git -C ../KairoEngineCore checkout --detach "$candidate"
-          test "$(git -C ../KairoEngineCore rev-parse HEAD)" = "$candidate"
       - name: Install native software Vulkan and build tools
         run: |
           sudo apt-get update
@@ -154,7 +149,7 @@ jobs:
           test -n "$icd"
           echo "VK_DRIVER_FILES=$icd" >> "$GITHUB_ENV"
           echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
-      - name: Compile procedural viewport against explicit LOD review candidate
+      - name: Compile procedural viewport against exact locked dependencies
         run: |
           cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DCMAKE_BUILD_TYPE=Release
           cmake --build --preset game-player-clang --parallel 2 --target KairoCraftRecipesHudTests KairoCraftCaves KairoCraftCaveWorldTests KairoCraftStream KairoCraftInventoryTests KairoCraftMeshBatchTests KairoCraftStreamSaveTests KairoCraft KairoCraftStreamingWindowTests KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests KairoCraftWorldTests KairoVoxelChunkSurfaceTests KairoVoxelInteractionTests KairoTerrainDemo KairoTerrainExplorer KairoTerrainWalkerTests KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests KairoTerrainScreenErrorTests
@@ -183,4 +178,45 @@ jobs:
         with:
           name: streamed-terrain-diagnostics
           path: build/terrain-diagnostics/
+          if-no-files-found: warn
+  native-metal:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize and verify exact candidate lock
+        run: |
+          set -euo pipefail
+          repos=(KairoMath KairoGeometry KairoSpatial KairoPhysicsMath KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection KairoEngineCore KairoRenderer KairoEditor)
+          bash scripts/materialize_workspace_lock.sh "${repos[@]}"
+          bash scripts/verify_workspace_lock.sh "${repos[@]}"
+      - name: Install native macOS build dependencies
+        run: |
+          set -euo pipefail
+          brew update
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          echo "KAIRO_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+      - name: Compile strict player, terrain and Craft against locked Metal renderer
+        run: |
+          set -euo pipefail
+          mkdir -p build/metal-diagnostics
+          cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DCMAKE_BUILD_TYPE=Release 2>&1 | tee build/metal-diagnostics/configure.log
+          cmake --build --preset game-player-clang --parallel 2 --target KairoCraftRecipesHudTests KairoCraftCaves KairoCraftCaveWorldTests KairoCraftStream KairoCraftInventoryTests KairoCraftMeshBatchTests KairoCraftStreamSaveTests KairoCraft KairoCraftStreamingWindowTests KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests KairoCraftWorldTests KairoVoxelChunkSurfaceTests KairoVoxelInteractionTests KairoTerrainDemo KairoTerrainExplorer KairoTerrainWalkerTests KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests KairoTerrainScreenErrorTests KairoRendererMetalSkinningSmoke KairoRendererMetalInstancingSmoke 2>&1 | tee build/metal-diagnostics/build.log
+      - name: Run CPU contract suite on macOS
+        run: |
+          set -euo pipefail
+          ctest --test-dir build/game-player-clang -R '^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow|CraftStreamSave|CraftMeshBatch|CraftInventory|CraftCaveWorld|CraftRecipesHud)Tests$' --no-tests=error --output-on-failure 2>&1 | tee build/metal-diagnostics/contracts.log
+      - name: Require native Metal gameplay capture
+        run: |
+          set -euo pipefail
+          player=build/game-player-clang/Runtime/KairoPlayer
+          "$player/KairoTerrainDemo" --renderer metal --seed 42 --smoke --workers 4 --screen-px 20 2>&1 | tee build/metal-diagnostics/terrain.log
+          "$player/KairoTerrainExplorer" --renderer metal --seed 42 --smoke 2>&1 | tee build/metal-diagnostics/explorer.log
+          "$player/KairoCraftStream" --renderer metal --seed 42 --survival --workers 4 --uploads 2 --smoke 2>&1 | tee build/metal-diagnostics/craft.log
+          "$player/KairoCraftCaves" --renderer metal --seed 42 --smoke 2>&1 | tee build/metal-diagnostics/caves.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: locked-metal-gameplay-diagnostics
+          path: build/metal-diagnostics/
           if-no-files-found: warn
