@@ -1,6 +1,10 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include "CraftStreamingWindow.hpp"
+#include "CraftStreamSave.hpp"
+#include "VoxelPlayer.hpp"
+#include <filesystem>
+#include <fstream>
 #include "VoxelMeshPublication.hpp"
 #include "TerrainRenderOrigin.hpp"
 #include <chrono>
@@ -19,13 +23,16 @@ int main(int argc,char** argv)
         using namespace kairo::renderer;
         using namespace kairo::foundation::math;
         using namespace kairo::player::detail;
-        bool smoke=false;
+        bool smoke=false,survival=false;
+        std::optional<std::filesystem::path> savePath;
         std::uint64_t seed=42;
         GraphicsBackend backend=GraphicsBackend::Automatic;
         for(int i=1;i<argc;++i)
         {
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
+            else if(arg=="--survival")survival=true;
+            else if(arg=="--save"&&i+1<argc)savePath=std::filesystem::path(argv[++i]);
             else if(arg=="--renderer"&&i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
             else if(arg=="--seed"&&i+1<argc)
             {
@@ -34,7 +41,7 @@ int main(int argc,char** argv)
                 if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size())
                     throw std::invalid_argument("Invalid seed.");
             }
-            else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--smoke]");
+            else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--survival] [--save path] [--smoke]");
         }
         RendererRuntime renderer({"Kairo Craft Stream: WASD / arrows / Space / Ctrl / mouse / Esc",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960,540);
@@ -43,6 +50,40 @@ int main(int argc,char** argv)
         using Plan=CraftWindowPlan<2>;
         using Publication=VoxelMeshPublication<MeshHandle,Plan::Capacity>;
         auto world=std::make_unique<World>(StreamingCraftBaseline{seed});
+        if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
+        if(savePath&&std::filesystem::exists(*savePath))
+        {
+            const auto size=std::filesystem::file_size(*savePath);
+            if(size>CraftSaveMaximumBytes)throw std::length_error("Stream save size cap.");
+            std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
+            std::ifstream file(*savePath,std::ios::binary);
+            if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
+                file.peek()!=std::char_traits<char>::eof())
+                throw std::runtime_error("Stream save read failed.");
+            auto decoded=DecodeStreamCraftSave(bytes);
+            seed=decoded.Seed;world=std::make_unique<World>(std::move(decoded.World));
+        }
+        const auto save=[&]()
+        {
+            if(!savePath)return;
+            const auto bytes=EncodeStreamCraftSave(seed,*world);
+            auto temporary=*savePath;temporary+=".tmp";
+            if(std::filesystem::exists(temporary))throw std::runtime_error("Temporary save already exists.");
+            try
+            {
+                std::ofstream file(temporary,std::ios::binary|std::ios::trunc);
+                if(!file||!file.write(reinterpret_cast<const char*>(bytes.data()),static_cast<std::streamsize>(bytes.size())))
+                    throw std::runtime_error("Stream save write failed.");
+                file.close();
+                if(!file)throw std::runtime_error("Stream save close failed.");
+                std::filesystem::rename(temporary,*savePath);
+            }
+            catch(...)
+            {
+                std::error_code ignored;std::filesystem::remove(temporary,ignored);throw;
+            }
+            std::cout<<"Streamed Craft saved "<<world->Overrides().size()<<" edits\n";
+        };
         Plan::Slots coordinates{};
         Publication publication;
         VoxelCoordinate origin{};
@@ -111,9 +152,25 @@ int main(int argc,char** argv)
                 return {};
             return world->Get(cell);
         };
+        const VoxelPlayerConfig bodyConfig;
+        const auto bodyQuery=[&](VoxelCoordinate c)->std::optional<VoxelMaterial>
+        {
+            if(!query(c))return {};
+            if(c.Y<0||std::abs(static_cast<double>(c.X))>=999999999.0||
+                std::abs(static_cast<double>(c.Z))>=999999999.0)return CraftStone;
+            return query(c);
+        };
+        const auto spawn=[&]()
+        {
+            VoxelPlayer p{{.5,0,.5}};
+            for(int y=CraftExtent-1;y>=0;--y)
+                if(world->Get({0,y,0})!=VoxelAir){p.Feet[1]=y+1.;break;}
+            AdvanceVoxelPlayer(p,bodyConfig,{},0,bodyQuery);
+            return p;
+        };
         const auto edit=[&](VoxelCoordinate cell,VoxelMaterial material)
         {
-            if(cell.Y<0||cell.Y>=CraftExtent||!query(cell)||world->Get(cell)==material)return false;
+            if(!InStreamCraftWorld(cell)||!query(cell)||world->Get(cell)==material)return false;
             auto next=std::make_unique<World>(*world);
             if(!next->Set(cell,material))return false;
             if(!publication.Apply(StreamingCraftDirty(coordinates,cell),
@@ -164,6 +221,9 @@ int main(int argc,char** argv)
                     throw std::runtime_error("Evicted edit lost or query escaped residency.");
                 (void)capture(1000000000.5,-999999999.5);
                 updateWindow(.5,.5);
+                const auto decoded=DecodeStreamCraftSave(EncodeStreamCraftSave(seed,*world));
+                if(decoded.Seed!=seed||decoded.World.Overrides()!=world->Overrides())
+                    throw std::runtime_error("Stream save roundtrip failed.");
                 const auto revisited=capture(.5,.5);
                 if(revisited.RGBA!=changed.RGBA||query(hit->Cell)!=CraftPlaced)
                     throw std::runtime_error("Revisit failed to restore edit.");
@@ -172,11 +232,27 @@ int main(int argc,char** argv)
                 if(capture(.5,.5).RGBA!=baseline.RGBA)
                     throw std::runtime_error("Restored streamed image differs.");
                 if(loads!=80||evictions!=55||edits!=2)throw std::runtime_error("Stream accounting mismatch.");
+                if(survival)
+                {
+                    auto p=spawn();
+                    const auto start=p.Feet[1];
+                    double peak=0;
+                    for(unsigned i=0;i<240;++i)
+                    {
+                        AdvanceVoxelPlayer(p,bodyConfig,{0,0,i==0,false},1./120,bodyQuery);
+                        peak=std::max(peak,p.Feet[1]-start);
+                        if(VoxelPlayerBlocked(p,bodyConfig,bodyQuery))throw std::runtime_error("Streamed body penetration.");
+                    }
+                    if(!p.Grounded||peak<1.2||peak>1.3)throw std::runtime_error("Streamed survival jump failed.");
+                    std::cout<<"Streamed survival apex "<<peak<<" m; landing passed\n";
+                }
                 std::cout<<"Streamed Craft: 80 loads, 55 evictions, 20 retained, 6 captures, billion-meter revisit and edit restore passed\n";
             }
             else
             {
                 double x=.5,y=12,z=.5,yaw=0,pitch=-.5;
+                auto player=spawn();
+                bool jumpHeld=false,saveHeld=false;
                 bool leftHeld=false,rightHeld=false;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
@@ -192,9 +268,23 @@ int main(int argc,char** argv)
                     pitch=std::clamp(pitch+(key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN))*1.4*dt,-1.45,1.45);
                     const double f=key(GLFW_KEY_W)-key(GLFW_KEY_S),r=key(GLFW_KEY_D)-key(GLFW_KEY_A);
                     const double scale=12*dt/std::max(1.,std::hypot(f,r));
-                    x=std::clamp(x+(std::sin(yaw)*f+std::cos(yaw)*r)*scale,-1e9,1e9);
-                    z=std::clamp(z+(-std::cos(yaw)*f+std::sin(yaw)*r)*scale,-1e9,1e9);
-                    y=std::clamp(y+(key(GLFW_KEY_SPACE)-key(GLFW_KEY_LEFT_CONTROL))*12*dt,1.,32.);
+                    const bool jump=key(GLFW_KEY_SPACE)>0;
+                    if(survival)
+                    {
+                        const double norm=std::max(1.,std::hypot(f,r));
+                        AdvanceVoxelPlayer(player,bodyConfig,
+                            {(std::sin(yaw)*f+std::cos(yaw)*r)/norm,
+                            (-std::cos(yaw)*f+std::sin(yaw)*r)/norm,
+                            jump&&!jumpHeld,key(GLFW_KEY_LEFT_SHIFT)>0},dt,bodyQuery);
+                        x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
+                    }
+                    else
+                    {
+                        x=std::clamp(x+(std::sin(yaw)*f+std::cos(yaw)*r)*scale,-1e9,1e9);
+                        z=std::clamp(z+(-std::cos(yaw)*f+std::sin(yaw)*r)*scale,-1e9,1e9);
+                        y=std::clamp(y+(key(GLFW_KEY_SPACE)-key(GLFW_KEY_LEFT_CONTROL))*12*dt,1.,32.);
+                    }
+                    jumpHeld=jump;
                     updateWindow(x,z);
                     const std::array direction{std::sin(yaw)*std::cos(pitch),std::sin(pitch),-std::cos(yaw)*std::cos(pitch)};
                     camera(x,y,z,direction);
@@ -206,10 +296,14 @@ int main(int argc,char** argv)
                         if(hit)
                         {
                             if(left&&!leftHeld)(void)edit(hit->Cell,VoxelAir);
-                            else if(hit->Placement)(void)edit(*hit->Placement,CraftPlaced);
+                            else if(hit->Placement&&(!survival||!PlayerIntersectsBlock(player,bodyConfig,*hit->Placement)))
+                                (void)edit(*hit->Placement,CraftPlaced);
                         }
                     }
                     leftHeld=left;rightHeld=right;
+                    const bool saveDown=key(GLFW_KEY_F5)>0;
+                    if(saveDown&&!saveHeld){try{save();}catch(const std::exception& ex){std::cerr<<"Save failed: "<<ex.what()<<'\n';}}
+                    saveHeld=saveDown;
                     renderer.DrawFrame();
                 }
             }
