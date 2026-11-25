@@ -126,8 +126,16 @@ namespace kairo::player::detail
                 });
                 if(m_Stop)return;
                 Slot* work=nullptr;
-                for(auto& slot:m_Slots)
-                    if(slot.Status==State::Queued){work=&slot;break;}
+                for(std::size_t i=0;i<m_Slots.size();++i)
+                {
+                    const auto index=(m_NextWork+i)%m_Slots.size();
+                    if(m_Slots[index].Status==State::Queued)
+                    {
+                        work=&m_Slots[index];
+                        m_NextWork=(index+1u)%m_Slots.size();
+                        break;
+                    }
+                }
                 work->Status=State::Running;
                 const Coordinate cell=*work->Cell;
                 lock.unlock();
@@ -146,7 +154,7 @@ namespace kairo::player::detail
         std::vector<Slot> m_Slots;
         mutable std::mutex m_Mutex;
         std::condition_variable m_Wake;
-        std::size_t m_Occupied=0;
+        std::size_t m_Occupied=0,m_NextWork=0;
         bool m_Stop=false;
         std::thread m_Worker;
     };
