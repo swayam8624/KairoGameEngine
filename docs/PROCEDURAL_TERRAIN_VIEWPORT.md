@@ -106,3 +106,26 @@ guarantee. The demo currently uses creative flight, not voxel body physics;
 no infinite streaming, inventory, texture atlas or multiplayer yet.
 Native acceptance is pending. Do not treat the candidate dependency override
 as an accepted release lock.
+
+## Survival and streamed Craft (review candidates)
+
+`KairoCraft --survival --seed 42 --renderer auto --save craft.kworld`
+uses an upright AABB player body, gravity, Space jump, wall sliding, and
+Shift sprint. The finite sandbox has invisible boundary containment and a
+solid floor beneath the editable world. Placing blocks inside the body is
+rejected. Creative flight remains the default.
+
+```sh
+cmake --build --preset game-player-clang --parallel 4 --target KairoCraftStream
+./build/game-player-clang/Runtime/KairoPlayer/KairoCraftStream --seed 42 --renderer auto
+```
+
+The separate streamed prototype uses a 5 x 5 window of 16-cubed chunks.
+Overlapping chunks retain their native slots; new chunks are generated and
+uploaded synchronously, then published together. Cell-relative render
+coordinates keep geometry near the camera even far from world origin.
+Block edits remain in the bounded in-memory journal when a chunk is evicted.
+WASD/arrow/Space/Ctrl/mouse controls match creative mode. The streamed sample
+has one vertical band, no streamed-world disk persistence or survival body
+integration yet. Native acceptance is pending; do not infer frame latency or
+hardware performance from planned CI cases.
