@@ -12,6 +12,7 @@
 #include "CraftMining.hpp"
 #include "CraftEquipment.hpp"
 #include "CraftMouseLook.hpp"
+#include "CraftActionLatch.hpp"
 #include "CraftEquipmentSave.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
@@ -508,9 +509,7 @@ int main(int argc,char** argv)
                     x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
                     createHud();hudEnabled=true;
                 }
-                bool recipeOneHeld=false,recipeTwoHeld=false;
-                bool toolCraftHeld=false,toolToggleHeld=false,eatHeld=false;
-                bool jumpHeld=false,saveHeld=false;
+                CraftActionInputs actions;
                 bool leftHeld=false,rightHeld=false;
                 std::string previousTitle;
                 auto previous=std::chrono::steady_clock::now();
@@ -535,7 +534,16 @@ int main(int argc,char** argv)
                     if(nowFocused!=focused)
                     {
                         focused=nowFocused;mouseLook.Reset();mouseArmed=false;mining.Reset();
+                        actions.Reset();leftHeld=false;rightHeld=false;
                         tabHeld=glfwGetKey(window,GLFW_KEY_TAB)==GLFW_PRESS;
+                    }
+                    // Do not advance physics, hunger, mining or other gameplay
+                    // while the game has no input focus. Keep polling close events.
+                    if(!focused)
+                    {
+                        previous=std::chrono::steady_clock::now();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                        continue;
                     }
                     if(key(GLFW_KEY_ESCAPE))break;
                     const bool tab=key(GLFW_KEY_TAB)>0;
@@ -559,7 +567,7 @@ int main(int argc,char** argv)
                         key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN),dt);
                     const double f=key(GLFW_KEY_W)-key(GLFW_KEY_S),r=key(GLFW_KEY_D)-key(GLFW_KEY_A);
                     const double scale=12*dt/std::max(1.,std::hypot(f,r));
-                    const bool jump=key(GLFW_KEY_SPACE)>0;
+                    const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
                     const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
                     if(survival)
                     {
@@ -567,7 +575,7 @@ int main(int argc,char** argv)
                         AdvanceVoxelPlayer(player,bodyConfig,
                             {(std::sin(yaw)*f+std::cos(yaw)*r)/norm,
                             (-std::cos(yaw)*f+std::sin(yaw)*r)/norm,
-                            jump&&!jumpHeld,sprint},dt,bodyQuery);
+                            jump,sprint},dt,bodyQuery);
                         auto probe=player;probe.Feet[1]-=.000001;
                         const bool support=player.Grounded&&VoxelPlayerBlocked(probe,bodyConfig,
                             [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
@@ -585,7 +593,6 @@ int main(int argc,char** argv)
                         z=std::clamp(z+(-std::cos(yaw)*f+std::sin(yaw)*r)*scale,-1e9,1e9);
                         y=std::clamp(y+(key(GLFW_KEY_SPACE)-key(GLFW_KEY_LEFT_CONTROL))*12*dt,1.,32.);
                     }
-                    jumpHeld=jump;
                     // A slow worker must not allow creative flight to
                     // outrun the currently published window. The central
                     // 3x3 region remains reachable while jobs run.
@@ -602,17 +609,11 @@ int main(int argc,char** argv)
                     {
                         for(int slot=0;slot<4;++slot)
                             if(key(GLFW_KEY_1+slot))inventory.Selected=static_cast<VoxelMaterial>(slot+1);
-                        const bool one=key(GLFW_KEY_R)>0,two=key(GLFW_KEY_T)>0;
-                        if(one&&!recipeOneHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
-                        if(two&&!recipeTwoHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
-                        recipeOneHeld=one;recipeTwoHeld=two;
-                        const bool craftTool=key(GLFW_KEY_F)>0,toggleTool=key(GLFW_KEY_G)>0;
-                        if(craftTool&&!toolCraftHeld&&equipment.Craft(inventory.Counts))mining.Reset();
-                        if(toggleTool&&!toolToggleHeld&&equipment.Toggle())mining.Reset();
-                        toolCraftHeld=craftTool;toolToggleHeld=toggleTool;
-                        const bool eat=key(GLFW_KEY_E)>0;
-                        if(eat&&!eatHeld)(void)nutrition.Eat(inventory.Counts);
-                        eatHeld=eat;
+                        if(actions.RecipeOne.Press(key(GLFW_KEY_R)>0))(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
+                        if(actions.RecipeTwo.Press(key(GLFW_KEY_T)>0))(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
+                        if(actions.CraftTool.Press(key(GLFW_KEY_F)>0)&&equipment.Craft(inventory.Counts))mining.Reset();
+                        if(actions.ToggleTool.Press(key(GLFW_KEY_G)>0)&&equipment.Toggle())mining.Reset();
+                        if(actions.Eat.Press(key(GLFW_KEY_E)>0))(void)nutrition.Eat(inventory.Counts);
                         constexpr std::array<const char*,4> labels{"Grass","Dirt","Stone","Building"};
                         std::string title="Kairo Craft | HP "+std::to_string(vitals.Health())+"/20 | Food "+std::to_string(nutrition.Hunger())+"/20 | ";
                         for(unsigned i=0;i<4;++i)
@@ -659,9 +660,7 @@ int main(int argc,char** argv)
                         }
                     }
                     leftHeld=left;rightHeld=right;
-                    const bool saveDown=key(GLFW_KEY_F5)>0;
-                    if(saveDown&&!saveHeld){try{save();}catch(const std::exception& ex){std::cerr<<"Save failed: "<<ex.what()<<'\n';}}
-                    saveHeld=saveDown;
+                    if(actions.Save.Press(key(GLFW_KEY_F5)>0)){try{save();}catch(const std::exception& ex){std::cerr<<"Save failed: "<<ex.what()<<'\n';}}
                     if(nativeHud)refreshNativeHud();
                     else if(hudEnabled)committedSubmit(publication.Active());
                     renderer.DrawFrame();

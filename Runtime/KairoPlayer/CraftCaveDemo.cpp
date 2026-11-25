@@ -9,6 +9,7 @@
 #include "CraftMining.hpp"
 #include "CraftEquipment.hpp"
 #include "CraftMouseLook.hpp"
+#include "CraftActionLatch.hpp"
 #include "CraftEquipmentSave.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
@@ -387,8 +388,8 @@ int main(int argc,char** argv)
                     return query(c);
                 };
                 std::string previousTitle;
-                bool leftHeld=false,rightHeld=false,jumpHeld=false,recipeOneHeld=false,recipeTwoHeld=false,saveHeld=false;
-                bool toolCraftHeld=false,toolToggleHeld=false,eatHeld=false;
+                CraftActionInputs actions;
+                bool leftHeld=false,rightHeld=false;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
                 CraftMouseLook mouseLook;
@@ -411,7 +412,16 @@ int main(int argc,char** argv)
                     if(nowFocused!=focused)
                     {
                         focused=nowFocused;mouseLook.Reset();mouseArmed=false;mining.Reset();
+                        actions.Reset();leftHeld=false;rightHeld=false;
                         tabHeld=glfwGetKey(window,GLFW_KEY_TAB)==GLFW_PRESS;
+                    }
+                    // Do not advance physics, hunger, mining or other gameplay
+                    // while the game has no input focus. Keep polling close events.
+                    if(!focused)
+                    {
+                        previous=std::chrono::steady_clock::now();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                        continue;
                     }
                     if(key(GLFW_KEY_ESCAPE))break;
                     const bool tab=key(GLFW_KEY_TAB)>0;
@@ -434,11 +444,11 @@ int main(int argc,char** argv)
                         key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN),dt);
                     const double f=key(GLFW_KEY_W)-key(GLFW_KEY_S),r=key(GLFW_KEY_D)-key(GLFW_KEY_A),n=std::max(1.,std::hypot(f,r));
                     const double dx=(std::sin(yaw)*f+std::cos(yaw)*r)/n,dz=(-std::cos(yaw)*f+std::sin(yaw)*r)/n;
-                    const bool jump=key(GLFW_KEY_SPACE)>0;
+                    const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
                     const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
                     if(survival)
                     {
-                        AdvanceVoxelPlayer(body,config,{dx,dz,jump&&!jumpHeld,sprint},dt,bodyQuery);
+                        AdvanceVoxelPlayer(body,config,{dx,dz,jump,sprint},dt,bodyQuery);
                         auto probe=body;probe.Feet[1]-=.000001;
                         const bool support=body.Grounded&&VoxelPlayerBlocked(probe,config,
                             [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
@@ -454,7 +464,6 @@ int main(int argc,char** argv)
                         y=std::clamp(y+12*dt*(key(GLFW_KEY_SPACE)-key(GLFW_KEY_LEFT_CONTROL)),
                             std::max(-63.,double(origin.Y)-15.),std::min(31.,double(origin.Y)+30.));
                     }
-                    jumpHeld=jump;
                     (void)update(CaveObserver(x,survival?body.Feet[1]:y,z));
                     const std::array d{std::sin(yaw)*std::cos(pitch),std::sin(pitch),-std::cos(yaw)*std::cos(pitch)};
                     camera(x,y,z,d);
@@ -462,17 +471,11 @@ int main(int argc,char** argv)
                     {
                         for(unsigned slot=0;slot<4;++slot)
                             if(key(GLFW_KEY_1+static_cast<int>(slot)))inventory.Selected=static_cast<VoxelMaterial>(slot+1);
-                        const bool one=key(GLFW_KEY_R)>0,two=key(GLFW_KEY_T)>0;
-                        if(one&&!recipeOneHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
-                        if(two&&!recipeTwoHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
-                        recipeOneHeld=one;recipeTwoHeld=two;
-                        const bool craftTool=key(GLFW_KEY_F)>0,toggleTool=key(GLFW_KEY_G)>0;
-                        if(craftTool&&!toolCraftHeld&&equipment.Craft(inventory.Counts))mining.Reset();
-                        if(toggleTool&&!toolToggleHeld&&equipment.Toggle())mining.Reset();
-                        toolCraftHeld=craftTool;toolToggleHeld=toggleTool;
-                        const bool eat=key(GLFW_KEY_E)>0;
-                        if(eat&&!eatHeld)(void)nutrition.Eat(inventory.Counts);
-                        eatHeld=eat;
+                        if(actions.RecipeOne.Press(key(GLFW_KEY_R)>0))(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
+                        if(actions.RecipeTwo.Press(key(GLFW_KEY_T)>0))(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
+                        if(actions.CraftTool.Press(key(GLFW_KEY_F)>0)&&equipment.Craft(inventory.Counts))mining.Reset();
+                        if(actions.ToggleTool.Press(key(GLFW_KEY_G)>0)&&equipment.Toggle())mining.Reset();
+                        if(actions.Eat.Press(key(GLFW_KEY_E)>0))(void)nutrition.Eat(inventory.Counts);
                         std::string title="Kairo Caves | HP "+std::to_string(vitals.Health())+"/20 | Food "+std::to_string(nutrition.Hunger())+"/20 | ";
                         for(unsigned i=0;i<4;++i)
                         {
@@ -485,12 +488,10 @@ int main(int argc,char** argv)
                             " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
-                    const bool saveDown=key(GLFW_KEY_F5)>0;
-                    if(saveDown&&!saveHeld)
+                    if(actions.Save.Press(key(GLFW_KEY_F5)>0))
                     {
                         try{save();}catch(const std::exception& ex){std::cerr<<"Cave save failed: "<<ex.what()<<'\n';}
                     }
-                    saveHeld=saveDown;
                     const bool rawLeft=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
                     const bool rawRight=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
                     // Do not turn a button held during focus/capture changes

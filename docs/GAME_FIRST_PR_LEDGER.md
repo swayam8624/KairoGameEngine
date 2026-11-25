@@ -294,6 +294,10 @@ Surface survival startup and respawn now search the authoritative edited world f
 
 Both nutrition and surface-spawn standalone regressions also passed GCC 14.2 C++23 ASan/UBSan with warnings as errors (same exact source). Added integrated HUD fill bounds, invalid hunger and visibility-canonicalized cache regressions; their full-header CI execution is pending.
 
+### Focus-safe gameplay actions
+
+Both interactive Craft loops pause physics, hunger, world updates and input actions while unfocused, resetting the frame clock and continuing event polling. Seven independent release-to-rearm latches gate jump, recipes, equipment, forage and saving; held keys on startup or focus regain cannot synthesize a new action. Existing mouse release gate remains. Exact standalone Clang and GCC C++23 ASan/UBSan passed 700,000 randomized key samples with focus resets, 161,096 accepted actions and explicit held-key cases. Header/test blobs 3d3c99c3f740a9bc11b2b74c509dd2d730c4ec86 and e2a7548229c5a20e5a105e5ba1e6664f7570389c. Native focus/minimize behavior awaits real window testing; no changes to headless smoke loops.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
