@@ -220,6 +220,16 @@ Executed previous evidence: Engine #62 exact-head run 45591323290 passed CPU/nat
 
 Total campaign 60 PRs, 39 previously verified merged, 21 pending at observation. Engine #55 through #71 in stack order, required Core #31–33 and independent Renderer #38. Final actual merged pins and Metal acceptance still required. Next: multiple vertical voxel chunks, cave generation, granular upload budgets, recipes and proper HUD. No default branch modifications.
 
+### Bounded GPU staging, vertical caves and recipes/HUD (2026-11-25)
+
+[Engine #72](https://github.com/swayam8624/KairoGameEngine/pull/72), feat/craft-upload-budget, implementation head d761040591fcedf4e82bcf0f9552935c61c5012d, stacked on #71. Worker mode stages dirty native meshes in fixed slots with --uploads N call budget per update. Old scene remains until complete publication. Stale staging abort, retryable retirement and partial-submit restoration preserve ownership. Added 10,000 incremental staging cycles and fault cases. Native smoke uses two-upload cap. CI 45600204466 queued. Count budget only; startup and edit remesh remain synchronous; no measured timing/byte limit.
+
+[Engine #73](https://github.com/swayam8624/KairoGameEngine/pull/73), feat/craft-vertical-caves, implementation head cd283bea1efed2e997eebb5464422eb19bf8b6f6, stacked on #72. Separate KairoCraftCaves target uses signed 16^3 XYZ chunks, stable 3x3x3 window, six vertical bands (-64 to 31), deterministic connected galleries, chambers and shafts. Generalized immutable worker queue, four uploads/update, creative and AABB movement, in-memory block edits and face-neighbor remesh. CPU tests 10,000 XYZ plans and worker oracle; native smoke designed for 90 loads, 63 evictions, 18 retained during vertical shift, four captures and far-world edit revisit. CI 45600533758 queued. Cave mode has no disk/session save or inventory yet; legacy terrain remains unchanged. Not natural cave noise, local lighting or unlimited vertical streaming.
+
+[Engine #74](https://github.com/swayam8624/KairoGameEngine/pull/74), feat/craft-recipes-hud, implementation head ddb21c998ffc225b1e11e130bd38afb45c47a7bf, stacked on #73. R/T atomic recipes consume dirt/stone and produce building blocks, reject insufficient inputs/stack overflow. Streamed survival mode camera-aligned emissive geometry hotbar, numeric counts, selection border and crosshair, shared native quad. CPU test 10,000 randomized transactions/layouts; native HUD-on/off capture comparison. CI 45600946227 queued. Depth-tested geometry at reference 960x540, not a dedicated screen overlay; caves remain separate. No tool durability, advanced crafting grid or texture atlas.
+
+Total campaign 63 PRs, 39 previously verified merged, 24 pending at observation. Engine #55 through #74 in stack order; Core #31–33 and independent Renderer #38. All three new feature PRs implemented; none has completed CI as of this observation. Actual merged lock, Apple/Metal validation, cave session integration and UI compositor remain open. No default branch changes.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
