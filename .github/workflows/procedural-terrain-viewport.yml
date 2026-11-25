@@ -1,9 +1,10 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [feat/procedural-terrain-viewport, feat/procedural-terrain-background-jobs, feat/procedural-terrain-worker-pool, feat/procedural-terrain-floating-origin]
+    branches: [main, integration/merged-terrain-renderer]
   pull_request:
     paths:
+      - 'workspace.lock'
       - 'Runtime/KairoPlayer/TerrainRenderOrigin.hpp'
       - 'Runtime/KairoPlayer/tests/TerrainRenderOriginTests.cpp'
       - 'Runtime/KairoPlayer/TerrainGenerationQueue.hpp'
@@ -38,17 +39,12 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Materialize reviewed workspace and explicit procedural candidate
+      - name: Materialize exact locked workspace
         run: |
           set -euo pipefail
           repos=(KairoMath KairoGeometry KairoSpatial KairoPhysicsMath KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection KairoEngineCore KairoRenderer KairoEditor)
           bash scripts/materialize_workspace_lock.sh "${repos[@]}"
           bash scripts/verify_workspace_lock.sh "${repos[@]}"
-          # Review-only override in this disposable runner, NOT the release lock.
-          candidate=ab7aac6b4df24d8bcdaf5aa8508c9ada296bef2e
-          git -C ../KairoEngineCore fetch --no-tags origin "$candidate"
-          git -C ../KairoEngineCore checkout --detach "$candidate"
-          test "$(git -C ../KairoEngineCore rev-parse HEAD)" = "$candidate"
       - name: Install native software Vulkan and build tools
         run: |
           sudo apt-get update
@@ -58,7 +54,7 @@ jobs:
           test -n "$icd"
           echo "VK_DRIVER_FILES=$icd" >> "$GITHUB_ENV"
           echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
-      - name: Compile procedural viewport against exact candidate
+      - name: Compile procedural viewport against merged dependency lock
         run: |
           cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DCMAKE_BUILD_TYPE=Release
           cmake --build --preset game-player-clang --parallel 2 --target KairoTerrainDemo KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests
