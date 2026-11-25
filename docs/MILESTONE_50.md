@@ -125,3 +125,7 @@ Local create/list/join/leave/close, expiry and capacity checks pass, including a
 ## Candidate progress: platformer
 
 Complete playable terminal route with movement, jump, hazard, respawn, collectibles and goal. Both compilers passed end-to-end and randomized tests. Native presentation and workspace acceptance pending; do not confuse this fixed-grid demo with a general 2D editor.
+
+## Candidate progress: strategy
+
+Playable select/move/gather/deposit loop reaches six-resource goal through a wall-and-gap map. Portable tests pass both compilers. Native rendering, editor-authored maps, general pathfinding integration and workspace CI remain open.

@@ -474,3 +474,7 @@ After the network protocol and prediction lab, read [directory](scripts/kairo_ma
 1. [Kernel](Runtime/KairoPlayer/RuntimePlatformer.hpp): authored map, half-open box, subcell sweep, grounded detection, jump edge, tile effects and reset.
 2. [Complete route and random replay oracle](Runtime/KairoPlayer/tests/RuntimePlatformerTests.cpp).
 3. [Playable demo](Samples/PlatformerLab/PlatformerDemo.cpp) and [instructions](Samples/PlatformerLab/README.md).
+
+## M50 strategy
+
+Read [strategy kernel](Runtime/KairoPlayer/RuntimeStrategy.hpp), especially occupancy, BFS first-step propagation, deterministic unit scheduling and resource accounting. Follow [invariant tests](Runtime/KairoPlayer/tests/RuntimeStrategyTests.cpp), [terminal selection/order host](Samples/StrategyLab/StrategyDemo.cpp) and [instructions](Samples/StrategyLab/README.md). Compare the EngineCore and AI navigation contracts before integrating a general crowd system.
