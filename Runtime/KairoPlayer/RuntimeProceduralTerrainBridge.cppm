@@ -116,6 +116,11 @@ export namespace kairo::player
         [[nodiscard]] std::size_t PendingCount() const {return m_Queue?m_Queue->Occupied():0u;}
         [[nodiscard]] std::size_t PendingLoadCount() const {return PendingCount()-m_PendingReplacements.size();}
         [[nodiscard]] std::size_t PendingReplacementCount() const noexcept {return m_PendingReplacements.size();}
+        [[nodiscard]] bool IsFullDetailResident(kairo::engine::WorldCellCoordinate coordinate) const
+        {
+            const auto found=m_Store.Cells().find(coordinate);
+            return found!=m_Store.Cells().end()&&found->second.Stride==1u;
+        }
         [[nodiscard]] std::size_t ResidentLodCount(std::uint32_t stride) const noexcept
         {
             std::size_t count=0;
