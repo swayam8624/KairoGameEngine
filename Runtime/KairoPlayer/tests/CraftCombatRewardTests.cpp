@@ -26,6 +26,29 @@ int main()
     Check(credit==5&&!pool.Items()[0],"Final transfer failed");
     pool.Advance(5.);
     Check(!pool.Items()[1]&&pool.TrySpawn({1,0,0},2,1),"Expiry failed to free slot");
+    std::mt19937_64 pickupRng(421);
+    for(unsigned trial=0;trial<10000;++trial)
+    {
+        RuntimePickupPool<2> randomPool;
+        const unsigned count=1+static_cast<unsigned>(pickupRng()%1000);
+        unsigned space=static_cast<unsigned>(pickupRng()%count),credited=0;
+        Check(randomPool.TrySpawn({1e9,0,1e9},3,count,2)&&randomPool.TrySpawn({0,0,0},1,7,5),"Random pool spawn failed");
+        Check(!randomPool.TrySpawn({1,0,0},2,1),"Random pool cap failed");
+        auto transfer=[&](unsigned kind,unsigned offered){
+            Check(kind==3,"Distant item credited");
+            const auto n=std::min(space,offered);space-=n;credited+=n;return n;};
+        randomPool.Collect({1e9,0,1e9},2,[](const auto&,const auto&){return false;},transfer);
+        Check(credited==0,"Occluded random item collected");
+        for(unsigned step=0;step<2;++step)
+        {
+            randomPool.Collect({1e9,0,1e9},2,visible,transfer);
+            Check(randomPool.Items()[0]&&randomPool.Items()[0]->Count+credited==count,"Random pickup conservation failed");
+        }
+        space=count;randomPool.Collect({1e9,0,1e9},2,visible,transfer);
+        Check(credited==count&&!randomPool.Items()[0],"Random pickup final transfer failed");
+        randomPool.Advance(5);Check(!randomPool.Items()[1],"Random pickup expiration failed");
+    }
+    std::cout<<"10000 randomized pickup conservation journeys passed\n";
     const auto flat=[](VoxelCoordinate c)->std::optional<VoxelMaterial>{return c.Y<0?1:0;};
     const VoxelPlayer player{{.5,0,.5}};
     std::mt19937 rng(562);
@@ -75,6 +98,6 @@ int main()
         Check(inventory.Count(CraftStone)==999&&!loot.Items()[0],"Loot remainder lost");
         Check(!CraftStrikeDrop(mob,inventory,loot).Hit,"Dead creature paid extra loot");
     }
-    std::cout<<"128 drop journeys and bounded pickup pool passed\\n";
+    std::cout<<"128 drop journeys and bounded pickup pool passed\n";
     std::cout<<"1000 combat reward journeys and 100000 repeated dead strikes passed; stack limits and invalid inventory rollback verified\n";
 }

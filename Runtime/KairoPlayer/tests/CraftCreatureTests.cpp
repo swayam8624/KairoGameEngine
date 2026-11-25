@@ -27,6 +27,22 @@ int main()
             Check(std::abs(v[0])<=.36&&std::abs(v[2])<=.36&&v[1]>=0&&v[1]<=1.20,"Visual rig escaped collision envelope");
         }
     }
+    // Independent yaw, gait, stride and attack values cover combinations
+    // beyond the correlated sweep above. Check all transformed cube corners.
+    std::mt19937_64 visualRng(421);
+    std::uniform_real_distribution<double> angle(-std::numbers::pi,std::numbers::pi),unit(0,1);
+    for(unsigned i=0;i<100000;++i)
+    {
+        const CraftCreatureVisual sample{angle(visualRng),angle(visualRng),unit(visualRng),unit(visualRng),false};
+        for(const auto& part:BuildCraftCreatureRig(sample))for(unsigned corner=0;corner<8;++corner)
+        {
+            auto v=part.Origin;
+            for(unsigned axis=0;axis<3;++axis)if(corner&(1u<<axis))
+                for(unsigned component=0;component<3;++component)v[component]+=part.Axes[axis][component];
+            Check(std::abs(v[0])<=.36&&std::abs(v[2])<=.36&&v[1]>=0&&v[1]<=1.2,"Random rig escaped collision envelope");
+        }
+    }
+    std::cout<<"100000 randomized poses and 5600000 transformed corners passed\n";
     pose.Hit=true;
     Check(BuildCraftCreatureRig(pose)[0].Color==std::array<float,3>{1.f,.42f,.22f},"Hit flash missing");
     CraftCreature creature;VoxelPlayer player{{.5,0,.5}};
