@@ -271,6 +271,26 @@ int main(int argc,char** argv)
                 hudEnabled=false;oldSubmit(pub.Active());
                 if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=baseline.RGBA)
                     throw std::runtime_error("Removing cave HUD changed world.");
+                // Exercise actual native target resize in both aspect directions,
+                // independently of interactive window manager behavior.
+                for(const CraftHudViewport extent: {CraftHudViewport{480,720},CraftHudViewport{1280,480}})
+                {
+                    renderer.ResizeViewport(extent.Width,extent.Height);hudViewport=extent;
+                    const auto without=capture(8.5,-7.5,8.5,{0,0,-1});
+                    if(without.Width!=extent.Width||without.Height!=extent.Height)
+                        throw std::runtime_error("HUD resize capture extent differs.");
+                    hudEnabled=true;
+                    const auto with=capture(8.5,-7.5,8.5,{0,0,-1});
+                    if(with.Width!=extent.Width||with.Height!=extent.Height||with.RGBA==without.RGBA)
+                        throw std::runtime_error("HUD did not render after viewport resize.");
+                    hudEnabled=false;oldSubmit(pub.Active());
+                    if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=without.RGBA)
+                        throw std::runtime_error("Resized HUD removal changed world.");
+                }
+                renderer.ResizeViewport(960,540);hudViewport={};
+                if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=baseline.RGBA)
+                    throw std::runtime_error("Restored viewport changed baseline.");
+                std::cout<<"Native portrait and wide HUD resize captures passed\n";
                 if(loads!=90||evictions!=63||peakUploads>4)throw std::runtime_error("Cave streaming accounting.");
                 std::cout<<"Cave native: 90 loads, 63 evictions, 18 vertical retained, 6 captures, HUD and inventory roundtrip, peak uploads "<<peakUploads<<"; edit revisit passed\n";
             }

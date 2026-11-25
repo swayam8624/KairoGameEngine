@@ -399,6 +399,26 @@ int main(int argc,char** argv)
                     if(withHud.RGBA==baseline.RGBA)throw std::runtime_error("HUD did not appear in native capture.");
                     hudEnabled=false;committedSubmit(publication.Active());
                     if(capture(.5,.5).RGBA!=baseline.RGBA)throw std::runtime_error("HUD removal changed world.");
+                    // Exercise actual native target resize in both aspect directions,
+                    // independently of interactive window manager behavior.
+                    for(const CraftHudViewport extent: {CraftHudViewport{480,720},CraftHudViewport{1280,480}})
+                    {
+                        renderer.ResizeViewport(extent.Width,extent.Height);hudViewport=extent;
+                        const auto without=capture(.5,.5);
+                        if(without.Width!=extent.Width||without.Height!=extent.Height)
+                            throw std::runtime_error("HUD resize capture extent differs.");
+                        hudEnabled=true;
+                        const auto with=capture(.5,.5);
+                        if(with.Width!=extent.Width||with.Height!=extent.Height||with.RGBA==without.RGBA)
+                            throw std::runtime_error("HUD did not render after viewport resize.");
+                        hudEnabled=false;committedSubmit(publication.Active());
+                        if(capture(.5,.5).RGBA!=without.RGBA)
+                            throw std::runtime_error("Resized HUD removal changed world.");
+                    }
+                    renderer.ResizeViewport(960,540);hudViewport={};
+                    if(capture(.5,.5).RGBA!=baseline.RGBA)
+                        throw std::runtime_error("Restored viewport changed baseline.");
+                    std::cout<<"Native portrait and wide HUD resize captures passed\n";
                     CraftInventory recipeFixture;recipeFixture.Counts={0,1,2,0};
                     if(!CraftApplyRecipe(recipeFixture,CraftRecipes[0])||recipeFixture.Counts!=std::array<std::uint32_t,4>{0,0,0,2})
                         throw std::runtime_error("Recipe transaction failed.");

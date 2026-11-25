@@ -246,7 +246,7 @@ The malformed candidate workflow was reconstructed from #75 in 9ee2aca; GitHub a
 
 ### Responsive Craft HUD (2026-11-25)
 
-Separate feature branch on the combined candidate, preserving #76's acceptance head. Both Craft demos share camera-plane projection with uniform scaling, a centered crosshair and bottom-aligned hotbar. Interactive framebuffer changes explicitly resize the offscreen target, excluding zero-sized minimized windows; smoke defaults remain 960x540. Exact standalone header/test blobs f2a3a037d673ebcb3a89c03d36101b69a7deb702 and ee6259563e820e6c4fe5149ef9d2f112b451b700 passed 100,000 seeded randomized projections locally (Clang 17, Linux x86_64, ASan/UBSan). Native resized rendering and module compilation remain unverified. This is still depth-tested scene geometry, not the final screen-space compositor.
+Separate feature branch on the combined candidate, preserving #76's acceptance head. Both Craft demos share camera-plane projection with uniform scaling, a centered crosshair and bottom-aligned hotbar. Interactive framebuffer changes explicitly resize the offscreen target, excluding zero-sized minimized windows; smoke defaults remain 960x540. Exact standalone header/test blobs f2a3a037d673ebcb3a89c03d36101b69a7deb702 and ee6259563e820e6c4fe5149ef9d2f112b451b700 passed 100,000 seeded randomized projections locally (Clang 17, Linux x86_64, ASan/UBSan). Native portrait 480x720 and wide 1280x480 smoke now checks actual capture dimensions, HUD-on/off difference, world restoration and original 960x540 restoration in both demos. Native resized rendering and module compilation remain unverified. This is still depth-tested scene geometry, not the final screen-space compositor.
 
 ## Final integration gate
 
