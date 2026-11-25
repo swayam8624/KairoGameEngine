@@ -71,8 +71,7 @@ export namespace kairo::player
                 [&](kairo::renderer::MeshHandle handle){m_Renderer.DestroyMesh(handle);});
             // If detachment or final submission fails, all reservations
             // are still settled and handles remain owned for retry/cleanup.
-            if(stats.FirstFailure && stats.FailedUnloads==plan.Unloads.size() &&
-                stats.FailedLoads==plan.Loads.size() && !plan.Unloads.empty())
+            if(stats.DetachFailed)
                 return {std::move(plan),stats.Loaded,stats.Unloaded,
                     stats.FailedLoads,stats.FailedUnloads,stats.FirstFailure};
 
