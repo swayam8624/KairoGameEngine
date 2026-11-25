@@ -6,6 +6,9 @@
 #elif defined(KAIRO_PLAYER_HAS_ALSA)
 #include "RuntimeAlsaAudioOutput.hpp"
 #include <memory>
+#elif defined(_WIN32)
+#include "RuntimeWindowsAudioOutput.hpp"
+#include <memory>
 #endif
 
 namespace kairo::player::detail
@@ -13,7 +16,7 @@ namespace kairo::player::detail
     // Optional platform output. The game thread is the sole PCM producer.
     // Audio Queue owns three fixed-size buffers; its callback consumes the
     // ring without allocation or scene access. Dispose synchronously before
-    // destroying the ring. ALSA uses a nonblocking worker; unsupported
+    // destroying the ring. ALSA and WinMM use bounded workers; unsupported
     // hosts retain the headless mixer.
     class RuntimeNativeAudioOutput final
     {
@@ -57,6 +60,8 @@ namespace kairo::player::detail
         }
 #elif defined(KAIRO_PLAYER_HAS_ALSA)
         std::unique_ptr<RuntimeAlsaAudioOutput> m_Alsa;
+#elif defined(_WIN32)
+        std::unique_ptr<RuntimeWindowsAudioOutput> m_Windows;
 #endif
     public:
         explicit RuntimeNativeAudioOutput(std::uint32_t rate)
@@ -88,6 +93,8 @@ namespace kairo::player::detail
             catch(...){Close();throw;}
 #elif defined(KAIRO_PLAYER_HAS_ALSA)
             m_Alsa=std::make_unique<RuntimeAlsaAudioOutput>(rate);
+#elif defined(_WIN32)
+            m_Windows=std::make_unique<RuntimeWindowsAudioOutput>(rate);
 #endif
         }
         ~RuntimeNativeAudioOutput()
@@ -104,6 +111,8 @@ namespace kairo::player::detail
             return m_Queue!=nullptr;
 #elif defined(KAIRO_PLAYER_HAS_ALSA)
             return bool(m_Alsa);
+#elif defined(_WIN32)
+            return bool(m_Windows);
 #else
             return false;
 #endif
@@ -114,6 +123,8 @@ namespace kairo::player::detail
             return m_Error.load(std::memory_order_relaxed)!=noErr;
 #elif defined(KAIRO_PLAYER_HAS_ALSA)
             return m_Alsa&&m_Alsa->Failed();
+#elif defined(_WIN32)
+            return m_Windows&&m_Windows->Failed();
 #else
             return false;
 #endif
@@ -124,6 +135,8 @@ namespace kairo::player::detail
             return m_Pcm.Push(pcm);
 #elif defined(KAIRO_PLAYER_HAS_ALSA)
             return m_Alsa?m_Alsa->Push(pcm):0;
+#elif defined(_WIN32)
+            return m_Windows?m_Windows->Push(pcm):0;
 #else
             (void)pcm;return 0;
 #endif
