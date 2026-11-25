@@ -452,6 +452,23 @@ health states plus invalid-state and target-removal cases on both Clang and
 GCC with ASan/UBSan. Exact blobs 62093ecf32f7daa5fdc9e45fff21a0cbf89a8445
 and b80abb4d434e0b568e04b13ebe5c8db7ef67b0ce. The updated exact HUD cache header 2f99430a547ab644b20f1477d467cb8b8da43e9b and test 867249609379baa236f9f466b0740199bb02535d also passed Clang/GCC ASan/UBSan, 100,000 idle frames and 100,000 randomized transitions with 32,561 publications and combat-specific cache transitions. Both native smoke paths now require the combat HUD to change pixels and clear back to the exact normal HUD. These native tests and the full integrated HUD geometry test remain pending.
 
+### Player checkpoint persistence (v6)
+
+Both survival demos wrap the existing v5 equipment/world payload in a
+bounded little-endian v6 envelope with feet, yaw/pitch, health, hunger and
+surface daylight phase. Existing v2–v5 formats remain readable as previously
+supported. Restore only when actual world occupancy and physical support
+permit it; otherwise use existing safe spawn, retaining health/hunger.
+Creative saves preserve an existing survival checkpoint. No velocity, fall
+history, fractional nutrition timers or creature state persistence.
+Local Clang 17/GCC 14.2 strict C++23 ASan/UBSan tests: 10,000 outer codec
+roundtrips and signed restores, 40,000 invalid/corrupt cases, blocked,
+airborne and unknown-floor rejection, survival restore, dirty stamp changes.
+Autosave's prior 200,000 frame tests and 430 checkpoint events also reran.
+Header 1567545d36ea154157b56741f7a093be7f20a6e5, test
+13e653c02bd2fa7798c3ed953d984f3eedfe972a. Outer test uses synthetic v5
+payload; real nested codec and full native integration remain pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

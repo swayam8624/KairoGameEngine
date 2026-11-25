@@ -38,7 +38,7 @@ cmake --preset game-player-clang \
     -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF \
     -DCMAKE_BUILD_TYPE=Release 2>&1 | tee "$logdir/configure.log"
 targets=(
-    KairoCraftCombatHudTests KairoCraftCombatRewardTests KairoCraftCreatureNavigationTests KairoCraftCreatureTests KairoCraftAutosaveTests KairoCraftTargetFeedbackTests KairoCraftDaylightTests KairoCraftSaveFileTests KairoCraftSurvivalJourneyTests KairoCraftActionLatchTests KairoCraftSurfaceSpawnTests KairoCraftNutritionTests KairoCraftMouseLookTests KairoCraftEquipmentEnvelopeTests KairoCraftEquipmentTests KairoCraftMiningTests KairoCraftVitalsTests KairoCraftHudPublicationTests KairoCraftHudProjectionTests KairoCraftRecipesHudTests KairoCraftCaves KairoCraftCaveWorldTests
+    KairoCraftCheckpointTests KairoCraftCombatHudTests KairoCraftCombatRewardTests KairoCraftCreatureNavigationTests KairoCraftCreatureTests KairoCraftAutosaveTests KairoCraftTargetFeedbackTests KairoCraftDaylightTests KairoCraftSaveFileTests KairoCraftSurvivalJourneyTests KairoCraftActionLatchTests KairoCraftSurfaceSpawnTests KairoCraftNutritionTests KairoCraftMouseLookTests KairoCraftEquipmentEnvelopeTests KairoCraftEquipmentTests KairoCraftMiningTests KairoCraftVitalsTests KairoCraftHudPublicationTests KairoCraftHudProjectionTests KairoCraftRecipesHudTests KairoCraftCaves KairoCraftCaveWorldTests
     KairoCraftStream KairoCraftInventoryTests KairoCraftMeshBatchTests
     KairoCraftStreamSaveTests KairoCraft KairoCraftStreamingWindowTests
     KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests
@@ -51,7 +51,7 @@ targets=(
 )
 cmake --build --preset game-player-clang --parallel "${KAIRO_BUILD_JOBS:-2}" --target "${targets[@]}" 2>&1 | tee "$logdir/build.log"
 build=build/game-player-clang
-contracts='^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow|CraftStreamSave|CraftMeshBatch|CraftInventory|CraftCaveWorld|CraftRecipesHud|CraftHudProjection|CraftHudPublication|CraftVitals|CraftMining|CraftEquipment|CraftEquipmentEnvelope|CraftMouseLook|CraftNutrition|CraftSurfaceSpawn|CraftActionLatch|CraftSurvivalJourney|CraftSaveFile|CraftDaylight|CraftTargetFeedback|CraftAutosave|CraftCreature|CraftCreatureNavigation|CraftCombatReward|CraftCombatHud)Tests$'
+contracts='^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow|CraftStreamSave|CraftMeshBatch|CraftInventory|CraftCaveWorld|CraftRecipesHud|CraftHudProjection|CraftHudPublication|CraftVitals|CraftMining|CraftEquipment|CraftEquipmentEnvelope|CraftMouseLook|CraftNutrition|CraftSurfaceSpawn|CraftActionLatch|CraftSurvivalJourney|CraftSaveFile|CraftDaylight|CraftTargetFeedback|CraftAutosave|CraftCreature|CraftCreatureNavigation|CraftCombatReward|CraftCombatHud|CraftCheckpoint)Tests$'
 ctest --test-dir "$build" -R "$contracts" --no-tests=error --output-on-failure 2>&1 | tee "$logdir/contracts.log"
 ctest --test-dir "$build" -R '^KairoRendererMetal(Skinning|Instancing)Smoke$' --no-tests=error --output-on-failure 2>&1 | tee "$logdir/renderer.log"
 # CTest's skip status is useful in broad CI, but not evidence of native

@@ -73,13 +73,19 @@ int main(int argc,char** argv)
         CraftInventory inventory;
         CraftEquipment equipment;
         CraftAutosave autosave;
+        std::optional<CraftCheckpoint> checkpointState;
         std::uint64_t worldRevision=0;
         bool finalSaveFailed=false;
         const bool existingSave=savePath&&std::filesystem::exists(*savePath);
         if(existingSave)
         {
-            const auto bytes=ReadCraftSaveFile(*savePath,CaveCraftMaximumBytes+CraftEquipmentOverhead);
+            const auto bytes=ReadCraftSaveFile(*savePath,CaveCraftMaximumBytes+CraftEquipmentOverhead+CraftCheckpointOverhead);
             std::span<const std::uint8_t> payload=bytes;
+            if(HasCraftCheckpoint(payload))
+            {
+                const auto decoded=DecodeCraftCheckpoint(payload,CaveCraftMaximumBytes+CraftEquipmentOverhead);
+                checkpointState=decoded.State;payload=decoded.Payload;
+            }
             if(HasCraftEquipmentEnvelope(payload))
             {
                 const auto decoded=DecodeCraftEquipmentEnvelope(payload,CaveCraftMaximumBytes);
@@ -94,12 +100,13 @@ int main(int argc,char** argv)
         {
             if(!savePath)return;
             const auto payload=EncodeCaveCraftSession(seed,*world,inventory);
-            const auto bytes=EncodeCraftEquipmentEnvelope(payload,equipment,CaveCraftMaximumBytes);
-            WriteCraftSaveFile(*savePath,bytes,CaveCraftMaximumBytes+CraftEquipmentOverhead);
+            const auto equipped=EncodeCraftEquipmentEnvelope(payload,equipment,CaveCraftMaximumBytes);
+            const auto bytes=checkpointState?EncodeCraftCheckpoint(equipped,*checkpointState,CaveCraftMaximumBytes+CraftEquipmentOverhead):equipped;
+            WriteCraftSaveFile(*savePath,bytes,CaveCraftMaximumBytes+CraftEquipmentOverhead+CraftCheckpointOverhead);
         };
         const auto saveStamp=[&]()
         {
-            return CraftSaveStamp{worldRevision,inventory.Counts,inventory.Selected,equipment.Durability,equipment.Equipped};
+            return CraftSaveStamp{worldRevision,inventory.Counts,inventory.Selected,equipment.Durability,equipment.Equipped,checkpointState};
         };
         const auto checkpoint=[&]()
         {
@@ -438,7 +445,24 @@ int main(int argc,char** argv)
                 };
                 if(survival)
                 {
-                    respawn();
+                    std::optional<VoxelPlayer> restored;
+                    if(checkpointState)
+                        restored=RestoreCraftCheckpoint(*checkpointState,config,[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
+                            if(!InCaveWorld(c)||std::abs(double(c.X))>=999999950||std::abs(double(c.Z))>=999999950)return {};
+                            return world->Get(c);
+                        });
+                    if(restored)
+                    {
+                        settle(CaveObserver(restored->Feet[0],restored->Feet[1],restored->Feet[2]));
+                        body=*restored;
+                    }
+                    else respawn();
+                    if(checkpointState)
+                    {
+                        vitals.Restore(checkpointState->Health,body.Feet[1]);
+                        nutrition.Restore(checkpointState->Hunger);
+                        yaw=checkpointState->Yaw;pitch=checkpointState->Pitch;
+                    }
                     x=body.Feet[0];y=body.Feet[1]+config.EyeHeight;z=body.Feet[2];
                     createHud();hudEnabled=true;createCreature();
                 }
@@ -447,7 +471,13 @@ int main(int argc,char** argv)
                     return query(c);
                 };
                 std::string previousTitle;
+                const auto snapshotPlayer=[&]()
+                {
+                    if(survival)
+                        checkpointState=CraftCheckpoint{body.Feet,yaw,pitch,.25,vitals.Health(),nutrition.Hunger()};
+                };
                 autosave.Initialize(saveStamp(),existingSave||!savePath);
+                snapshotPlayer();
                 CraftActionInputs actions;
                 bool leftHeld=false,rightHeld=false;
                 auto previous=std::chrono::steady_clock::now();
@@ -616,6 +646,7 @@ int main(int argc,char** argv)
                     const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
                         (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
                     if(creatureChanged)oldSubmit(pub.Active());
+                    snapshotPlayer();
                     autosave.Observe(saveStamp());
                     const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
                     if(savePath&&(manualSave||autosave.Advance(dt)))(void)checkpoint();
@@ -625,6 +656,7 @@ int main(int argc,char** argv)
                 }
                 // Exit is a final checkpoint only for an explicitly supplied
                 // save path and changed state. Do not silently lose a failed save.
+                snapshotPlayer();
                 autosave.Observe(saveStamp());
                 if(savePath&&autosave.Dirty())finalSaveFailed=!checkpoint();
             }
