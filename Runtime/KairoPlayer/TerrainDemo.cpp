@@ -25,6 +25,7 @@ int main(int argc,char** argv)
         using namespace kairo::engine;
         bool smoke=false,asynchronous=false,farOrigin=false,lod=false;
         std::uint64_t seed=42;
+        std::optional<std::uint64_t> errorBudget;
         unsigned workerCount=1;
         GraphicsBackend backend=GraphicsBackend::Automatic;
         for(int i=1;i<argc;++i)
@@ -43,6 +44,15 @@ int main(int argc,char** argv)
                     throw std::invalid_argument("Terrain demo workers must be 1..8.");
                 asynchronous=true;
             }
+            else if(arg=="--error-mm" && i+1<argc)
+            {
+                std::uint64_t parsed=0;
+                const std::string_view value=argv[++i];
+                const auto result=std::from_chars(value.data(),value.data()+value.size(),parsed);
+                if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size())
+                    throw std::invalid_argument("Invalid unsigned terrain error budget.");
+                errorBudget=parsed;lod=true;asynchronous=true;
+            }
             else if(arg=="--seed" && i+1<argc)
             {
                 const std::string_view value=argv[++i];
@@ -51,7 +61,7 @@ int main(int argc,char** argv)
                     throw std::invalid_argument("Invalid unsigned world seed.");
             }
             else if(arg=="--renderer" && i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
-            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N] [--far-origin] [--lod]");
+            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N] [--far-origin] [--lod] [--error-mm N]");
         }
         RendererRuntime renderer({"Kairo procedural terrain",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960u,540u);
@@ -69,6 +79,7 @@ int main(int argc,char** argv)
         kairo::player::TerrainBackgroundConfig background;
         if(asynchronous){background.MaximumPendingMeshes=8; background.MaximumUploadsPerUpdate=4; background.WorkerCount=workerCount;}
         if(lod)background.Lod.SwitchDistances={16.0,40.0,56.0};
+        background.MaximumLodErrorMillimeters=errorBudget;
         kairo::player::RuntimeProceduralTerrainBridge terrain(renderer,config,background);
         RenderScene authored;
         RenderLight sun;
@@ -78,6 +89,16 @@ int main(int argc,char** argv)
         // This demonstration isolates terrain streaming from the shadow pass.
         sun.CastShadows=false;
         authored.AddLight(sun);
+        std::uint64_t peakError=0;
+        const auto validateError=[&]()
+        {
+            if(!errorBudget)return;
+            if(terrain.ResidentErrorProfileCount()!=terrain.ResidentCount())
+                throw std::runtime_error("Resident terrain missing error profile.");
+            const auto error=terrain.MaximumResidentLodErrorMillimeters();
+            if(error>*errorBudget)throw std::runtime_error("Resident terrain exceeds geometric error budget.");
+            peakError=std::max(peakError,error);
+        };
         const auto start=std::chrono::steady_clock::now();
         unsigned frame=0,captures=0;
         bool captureRequested=false;
@@ -114,6 +135,7 @@ int main(int argc,char** argv)
                 if(update.FirstFailure)std::rethrow_exception(update.FirstFailure);
                 throw std::runtime_error("Terrain streaming failed.");
             }
+            validateError();
             loads+=update.Loaded;unloads+=update.Unloaded;
             deferred+=update.DeferredLoads;stale+=update.StaleLoads;
             peakPending=std::max(peakPending,terrain.PendingCount());
@@ -152,7 +174,7 @@ int main(int argc,char** argv)
         if(smoke&&((!asynchronous&&frame!=36u)||(asynchronous&&captures!=3u)))throw std::runtime_error("Terrain smoke terminated prematurely.");
         if(smoke&&lod)
         {
-            if(terrain.ResidentLodCount(1)==0 || terrain.ResidentLodCount(1)==terrain.ResidentCount())
+            if(!errorBudget && (terrain.ResidentLodCount(1)==0 || terrain.ResidentLodCount(1)==terrain.ResidentCount()))
                 throw std::runtime_error("Expected mixed terrain LODs.");
             // Hold the world position fixed, but move the detail demand
             // inward and outward via observer scale. The closest loaded
@@ -166,6 +188,7 @@ int main(int argc,char** argv)
                 {
                     const auto update=terrain.UpdateAndSubmit(observers,authored,origin);
                     if(!update.Succeeded())throw std::runtime_error("LOD transition failed.");
+                    validateError();
                     replaced+=update.Replaced;
                     if(terrain.ResidentCount()==0||
                         terrain.ResidentCount()+terrain.PendingLoadCount()!=terrain.Streaming().Runtime().CommittedCellCount())
@@ -178,7 +201,7 @@ int main(int argc,char** argv)
             };
             settle(0.6);
             settle(1.0);
-            if(replaced==0)throw std::runtime_error("No resident LOD replacement executed.");
+            if(!errorBudget && replaced==0)throw std::runtime_error("No resident LOD replacement executed.");
             renderer.RequestViewportCapture();
             bool captured=false;
             for(unsigned attempt=0;attempt<8&&!captured;++attempt)
@@ -235,6 +258,9 @@ int main(int argc,char** argv)
             std::cout<<"Far-origin image comparison mean byte error "<<
                 absoluteError/static_cast<double>(baseline.RGBA.size())<<"; rebases "<<rebases<<'\n';
         }
+        if(errorBudget)
+            std::cout<<"Terrain error ceiling "<<*errorBudget<<" mm, maximum resident error "
+                <<peakError<<" mm; profiles verified\n";
         if(terrain.Shutdown(authored)!=0u)throw std::runtime_error("Terrain shutdown leaked handles.");
         if(smoke)
         {
