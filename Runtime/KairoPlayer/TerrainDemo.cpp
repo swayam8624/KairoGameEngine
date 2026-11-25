@@ -23,7 +23,7 @@ int main(int argc,char** argv)
     {
         using namespace kairo::renderer;
         using namespace kairo::engine;
-        bool smoke=false,asynchronous=false,farOrigin=false;
+        bool smoke=false,asynchronous=false,farOrigin=false,lod=false;
         std::uint64_t seed=42;
         unsigned workerCount=1;
         GraphicsBackend backend=GraphicsBackend::Automatic;
@@ -33,6 +33,7 @@ int main(int argc,char** argv)
             if(arg=="--smoke")smoke=true;
             else if(arg=="--async")asynchronous=true;
             else if(arg=="--far-origin")farOrigin=true;
+            else if(arg=="--lod"){lod=true;asynchronous=true;}
             else if(arg=="--workers" && i+1<argc)
             {
                 const std::string_view value=argv[++i];
@@ -50,7 +51,7 @@ int main(int argc,char** argv)
                     throw std::invalid_argument("Invalid unsigned world seed.");
             }
             else if(arg=="--renderer" && i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
-            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N] [--far-origin]");
+            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N] [--far-origin] [--lod]");
         }
         RendererRuntime renderer({"Kairo procedural terrain",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960u,540u);
@@ -67,6 +68,7 @@ int main(int argc,char** argv)
         config.Streaming.MaximumUnloadsPerUpdate=16;
         kairo::player::TerrainBackgroundConfig background;
         if(asynchronous){background.MaximumPendingMeshes=8; background.MaximumUploadsPerUpdate=4; background.WorkerCount=workerCount;}
+        if(lod)background.Lod.SwitchDistances={16.0,40.0,56.0};
         kairo::player::RuntimeProceduralTerrainBridge terrain(renderer,config,background);
         RenderScene authored;
         RenderLight sun;
@@ -117,7 +119,7 @@ int main(int argc,char** argv)
             peakPending=std::max(peakPending,terrain.PendingCount());
             if(terrain.PendingCount()>background.MaximumPendingMeshes)
                 throw std::runtime_error("Terrain pending mesh budget exceeded.");
-            if(terrain.ResidentCount()+terrain.PendingCount()!=terrain.Streaming().Runtime().CommittedCellCount() ||
+            if(terrain.ResidentCount()+terrain.PendingLoadCount()!=terrain.Streaming().Runtime().CommittedCellCount() ||
                 terrain.ResidentCount()>config.Streaming.MaximumCommittedCells)
                 throw std::runtime_error("Terrain mesh ownership differs from residency.");
             setCamera(x,z,origin);
@@ -148,6 +150,49 @@ int main(int argc,char** argv)
             }
         }
         if(smoke&&((!asynchronous&&frame!=36u)||(asynchronous&&captures!=3u)))throw std::runtime_error("Terrain smoke terminated prematurely.");
+        if(smoke&&lod)
+        {
+            if(terrain.ResidentLodCount(1)==0 || terrain.ResidentLodCount(1)==terrain.ResidentCount())
+                throw std::runtime_error("Expected mixed terrain LODs.");
+            // Hold the world position fixed, but move the detail demand
+            // inward and outward via observer scale. The closest loaded
+            // cells must survive while their meshes are replaced.
+            std::size_t replaced=0;
+            const auto settle=[&](double scale)
+            {
+                const std::array observers{WorldStreamingObserver{{lastX,0,lastZ},scale}};
+                const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+                for(unsigned step=0;step<2000;++step)
+                {
+                    const auto update=terrain.UpdateAndSubmit(observers,authored,origin);
+                    if(!update.Succeeded())throw std::runtime_error("LOD transition failed.");
+                    replaced+=update.Replaced;
+                    if(terrain.ResidentCount()==0||
+                        terrain.ResidentCount()+terrain.PendingLoadCount()!=terrain.Streaming().Runtime().CommittedCellCount())
+                        throw std::runtime_error("LOD transition lost residency accounting.");
+                    renderer.DrawFrame();
+                    if(update.Plan.Empty()&&terrain.PendingCount()==0&&update.RetainedRetirements==0)return;
+                    if(std::chrono::steady_clock::now()>deadline)break;
+                }
+                throw std::runtime_error("LOD transition did not settle.");
+            };
+            settle(0.6);
+            settle(1.0);
+            if(replaced==0)throw std::runtime_error("No resident LOD replacement executed.");
+            renderer.RequestViewportCapture();
+            bool captured=false;
+            for(unsigned attempt=0;attempt<8&&!captured;++attempt)
+            {
+                renderer.DrawFrame();
+                if(auto image=renderer.TakeViewportCapture())
+                {
+                    if(!image->IsVisuallyNonUniform())throw std::runtime_error("LOD terrain image blank.");
+                    lastTerrainCapture=*image;captured=true;
+                }
+            }
+            if(!captured)throw std::runtime_error("LOD transition capture unavailable.");
+            std::cout<<"Mixed terrain LOD transitions: "<<replaced<<" resident replacements passed\n";
+        }
         // Explicitly change only the rendering origin at the same absolute
         // observer location. Terrain residency must not depend on rebasing.
         if(smoke&&farOrigin)
