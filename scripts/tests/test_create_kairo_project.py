@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import random
 from pathlib import Path
 import struct
 import tempfile
@@ -106,6 +107,25 @@ class ProjectRecipeTests(unittest.TestCase):
         self.write()
         with self.assertRaises(ValueError):
             g.compile_recipe(self.recipe)
+
+    def test_randomized_deterministic_expansion(self):
+        rng = random.Random(72)
+        for trial in range(500):
+            self.data["instances"] = [
+                {"name": f"instance-{i}", "prefab": "box",
+                 "position": [rng.uniform(-100, 100), 0, rng.uniform(-100, 100)],
+                 "yaw": rng.uniform(-360, 360)}
+                for i in range(rng.randrange(1, 30))]
+            self.write()
+            a = g.compile_recipe(self.recipe)
+            b = g.compile_recipe(self.recipe)
+            self.assertEqual(a, b, f"Recipe {trial} was not deterministic")
+            lines = a["Scenes/PlayableArena.kscene"].decode().splitlines()
+            ids = [int(line.split()[1]) for line in lines if line.startswith("entity ")]
+            self.assertEqual(len(ids), len(set(ids)))
+            # The built-in player visual contributes one additional parent.
+            self.assertEqual(sum(line.startswith("parent ") for line in lines),
+                             len(self.data["instances"]) + 1)
 
     def test_instance_validation(self):
         for instance in [{"name": "A", "prefab": "box"},
