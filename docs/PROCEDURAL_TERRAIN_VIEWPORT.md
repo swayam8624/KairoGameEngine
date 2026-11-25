@@ -61,10 +61,25 @@ cmake --build --preset game-player-clang --parallel 4 --target KairoTerrainExplo
 ./build/game-player-clang/Runtime/KairoPlayer/KairoTerrainExplorer --seed 42 --renderer auto
 ```
 
-WASD moves, arrows look, left Shift sprints, Escape quits. The camera follows
+WASD moves, arrows look, left Shift sprints, Space jumps, Escape quits. The camera follows
 the canonical heightfield while movement is blocked by missing/full-detail
 residency or excessive sampled grade. This is a point-grounded walking sample,
-not a physical character controller. No jumping, capsule collision, inventory,
+not a physical character controller. Jumping uses ballistic vertical motion and sampled terrain landing. No capsule collision, inventory,
 object interaction, or multiplayer yet. Native smoke runs scripted travel and
 three captures. Build instructions require the final merged LOD dependency pin;
 review CI uses the explicit disposable EngineCore candidate.
+
+## Craft prototype foundations (CPU contracts)
+
+`VoxelInteraction.hpp` provides signed unit-grid material queries, bounded
+baseline-relative overrides, and first-solid ray traversal. Air is material 0.
+Unknown cells stop rays; exact simultaneous-axis crossings have no unique
+placement face. This is not yet connected to the explorer's input.
+
+`VoxelChunkSurface.hpp` builds opaque chunk-local greedy quads with a one-cell
+halo. Faces between solid voxels are omitted, including across chunks. Adjacent
+coplanar faces merge only when material IDs match. Unknown exterior samples
+produce temporary faces and set MissingNeighbors; unknown interior samples
+reject the build. A native adapter and transactional remesh/invalidation on
+block edits are required next. No persistent save format or rendered voxel
+game is claimed by these CPU helpers.
