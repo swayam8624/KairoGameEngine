@@ -409,9 +409,20 @@ int main(int argc,char** argv)
                     if(!p.Grounded||peak<1.2||peak>1.3)throw std::runtime_error("Streamed survival jump failed.");
                     std::cout<<"Streamed survival apex "<<peak<<" m; landing passed\n";
                     const auto selected=TraceVoxels({.5,12,.5},{0,-1,0},12,32,query);
-                    if(!selected||!MineCraftBlock(inventory,selected->Cell,query,edit)||
-                        inventory.Count(selected->Material)!=1)
-                        throw std::runtime_error("Survival mining did not credit inventory.");
+                    if(!selected)throw std::runtime_error("Missing survival mining target.");
+                    const auto cell=selected->Cell;
+                    const CraftMiningTarget target{{cell.X,cell.Y,cell.Z},selected->Material};
+                    const auto holds=static_cast<unsigned>(std::ceil(CraftMiningSeconds(target.Material)/.1-1e-9));
+                    for(unsigned step=0;step<holds;++step)
+                    {
+                        const bool mined=mining.Advance(true,target,.1,[&](const auto& completed){
+                            return completed==target&&MineCraftBlock(inventory,cell,query,edit);
+                        });
+                        const bool last=step+1==holds;
+                        if(mined!=last||inventory.Count(target.Material)!=(last?1u:0u)||
+                            query(cell)!=(last?VoxelAir:target.Material))
+                            throw std::runtime_error("Native timed mining transaction differed.");
+                    }
                     inventory.Selected=selected->Material;
                     const auto session=DecodeCraftSession(EncodeCraftSession(seed,*world,inventory));
                     if(session.Inventory.Count(inventory.Selected)!=1||

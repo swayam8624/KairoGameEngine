@@ -284,7 +284,19 @@ int main(int argc,char** argv)
                 capture(8.5,-7.5,8.5,{0,0,-1});
                 const VoxelCoordinate block{0,-16,0};
                 const auto material=world->Get(block);
-                if(material==VoxelAir||!MineCraftBlock(inventory,block,query,edit))throw std::runtime_error("Cave edit failed.");
+                if(material==VoxelAir)throw std::runtime_error("Missing cave mining target.");
+                const CraftMiningTarget target{{block.X,block.Y,block.Z},material};
+                const auto holds=static_cast<unsigned>(std::ceil(CraftMiningSeconds(material)/.1-1e-9));
+                for(unsigned step=0;step<holds;++step)
+                {
+                    const bool mined=mining.Advance(true,target,.1,[&](const auto& completed){
+                        return completed==target&&MineCraftBlock(inventory,block,query,edit);
+                    });
+                    const bool last=step+1==holds;
+                    if(mined!=last||inventory.Count(material)!=(last?1u:0u)||
+                        query(block)!=(last?VoxelAir:material))
+                        throw std::runtime_error("Native cave timed mining transaction differed.");
+                }
                 inventory.Selected=material;
                 const auto decoded=DecodeCaveCraftSession(EncodeCaveCraftSession(seed,*world,inventory));
                 if(decoded.Seed!=seed||decoded.World.Get(block)!=VoxelAir||decoded.Inventory.Count(material)!=1)
