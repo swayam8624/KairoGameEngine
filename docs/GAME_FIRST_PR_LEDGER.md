@@ -82,6 +82,14 @@ GitHub confirms Renderer #21–30 (including independent #28) and Engine #48 mer
 
 New independent Metal stack: [Renderer #31](https://github.com/swayam8624/KairoRenderer/pull/31), fix/metal-large-skin-palettes, head ac619cbb322e06caa97c729a6a1f71dbcfc03c30. Replaces inline skin bytes with a retained frame MTLBuffer, aligned offsets and shared shadow/main data. Host-neutral sanitizer workflow 45490490646 passed 100,000 range checks; Apple native 255-joint smoke pending. [Renderer #32](https://github.com/swayam8624/KairoRenderer/pull/32), refactor/metal-encoder-state, head ec431a02973dbce084c74750571085b4a360688a, stacked on #31. Pass-local pipeline, geometry, depth, cull and texture/sampler state reuse; no draw reordering or draw-count reduction. Native Apple validation pending. Neither pending Metal branch is pinned by this lock candidate.
 
+### Metal follow-ups (2026-11-25)
+
+[Renderer #33](https://github.com/swayam8624/KairoRenderer/pull/33), feat/metal-opaque-instancing, head a327d11a2071d1baf863f1c0a5913ba45b58e6c3, stacked on #32. Opaque static instances use retained immutable MTLBuffer, aligned run offsets, native instanceCount and independent model/normal matrices and flat integer picking/receive-shadow varyings. Exact material/texture/cull compatibility; masked, blended, skinned and shadow draws retain original paths. CPU compatibility sanitizer 45551905990 passed 100,000 instances and fallback boundaries; native image/picking test not executed on Apple hardware.
+
+[Renderer #34](https://github.com/swayam8624/KairoRenderer/pull/34), fix/metal-large-debug-stream, head 50a7de861bfd2c63961a945a78813d551b45e844, stacked on #33. Debug vertices use a retained buffer instead of oversized inline bytes; debug pipeline matches the ID attachment but disables its writes, with explicit depth-test/no-depth-write state. Added 256-line visual and ID-preservation test, and strict local Mac gate `bash scripts/require_metal_smoke.sh <configured-build-dir>`. Native validation pending.
+
+#31 and #32 remain open. On #32 Ubuntu Clang and Windows MSVC passed (jobs 138787522652 and 138787523066), but macOS LLVM was cancelled (138787523096); strict Vulkan workflow 45490586110 passed. These results are not Metal native acceptance. Review #31 -> #32 -> #33 -> #34, then refresh renderer pin after the accepted revision is known. Engine #49 remains separate and pins the already-merged Vulkan revision only.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
