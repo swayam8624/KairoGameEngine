@@ -58,17 +58,17 @@ export namespace kairo::player
             if(!m_Background.Lod.SwitchDistances.empty() && m_Background.MaximumPendingMeshes==0)
                 throw std::invalid_argument("Terrain LOD requires background generation.");
             (void)ChooseStride({}, {}, 0);
-            if(background.MaximumPendingMeshes!=0)
+            if(m_Background.MaximumPendingMeshes!=0)
             {
-                if(background.MaximumUploadsPerUpdate==0)
+                if(m_Background.MaximumUploadsPerUpdate==0)
                     throw std::invalid_argument("Background terrain upload budget must be positive.");
                 const auto validated=m_Streaming.Config();
-                m_Queue=std::make_unique<Queue>(background.MaximumPendingMeshes,
+                m_Queue=std::make_unique<Queue>(m_Background.MaximumPendingMeshes,
                     [validated](Job job)
                     {
                         return kairo::engine::BuildSeededTerrainLodMeshCell(validated.Seed,job.Cell,
                             validated.Terrain,validated.SampleSpacingMillimeters,job.Stride);
-                    },background.WorkerCount);
+                    },m_Background.WorkerCount);
             }
         }
         RuntimeProceduralTerrainBridge(const RuntimeProceduralTerrainBridge&)=delete;
