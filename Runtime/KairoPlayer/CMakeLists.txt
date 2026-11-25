@@ -134,6 +134,12 @@ if(BUILD_TESTING)
     set_property(TARGET KairoPlayerQuestSaveTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
     add_test(NAME KairoPlayerQuestSaveTests COMMAND KairoPlayerQuestSaveTests)
     # Portable authored menu parser/serializer regression.
+    # Standard-library catalog regression; Python is optional for C++ builds.
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME KairoAssetCatalogTests COMMAND "${Python3_EXECUTABLE}" -m unittest discover -s "${CMAKE_SOURCE_DIR}/scripts/tests" -p test_kairo_asset_catalog.py)
+        set_tests_properties(KairoAssetCatalogTests PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}/scripts" TIMEOUT 20)
+    endif()
     add_executable(KairoPlayerMenuFocusTests tests/RuntimeMenuFocusTests.cpp)
     target_include_directories(KairoPlayerMenuFocusTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(KairoPlayerMenuFocusTests PRIVATE cxx_std_23)

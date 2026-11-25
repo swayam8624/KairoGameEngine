@@ -113,3 +113,5 @@ Predetermined rigid cube fracture, bounded fragments and ground response passed 
 Canonical button document and shipping bridge loading implemented, with 1,000 CPU roundtrips per compiler. Sample and headless validation registered. Native interaction, visual labels, scaling, and graphical designer still open; no 50% promotion.
 
 Native menu host candidate now supports pointer/keyboard input, focus, bounded labels and a larger-text toggle through existing RuntimeUIScene and Vulkan/Metal overlay APIs. Portable focus tests pass; native execution, graphical editor designer and OS accessibility integration remain open.
+
+Local licensed asset catalog, search, staging, checksums, retained license evidence and recipe export implemented and locally tested. Generated model passes existing recipe candidate's GLB validation. Full native import and graphical catalog browser remain open; no hosted marketplace claim.
