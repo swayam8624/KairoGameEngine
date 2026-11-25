@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <exception>
 #include <iostream>
+#include <optional>
+#include <vector>
 #include <stdexcept>
 #include <string_view>
 #include <system_error>
@@ -60,6 +62,7 @@ int main(int argc,char** argv)
         authored.AddLight(sun);
         const auto start=std::chrono::steady_clock::now();
         unsigned frame=0,captures=0;
+        std::optional<ViewportCapture> lastTerrainCapture;
         std::size_t loads=0,unloads=0;
         while(!renderer.NativeWindow().ShouldClose())
         {
@@ -91,6 +94,7 @@ int main(int argc,char** argv)
                 if(const auto image=renderer.TakeViewportCapture();image.has_value())
                 {
                     if(!image->IsVisuallyNonUniform())throw std::runtime_error("Terrain capture is blank.");
+                    lastTerrainCapture=*image;
                     ++captures;
                 }
             ++frame;
@@ -103,6 +107,21 @@ int main(int argc,char** argv)
         }
         if(smoke&&frame!=36u)throw std::runtime_error("Terrain smoke terminated prematurely.");
         if(terrain.Shutdown(authored)!=0u)throw std::runtime_error("Terrain shutdown leaked handles.");
+        if(smoke)
+        {
+            renderer.RequestViewportCapture();
+            std::optional<ViewportCapture> cleared;
+            for(unsigned attempt=0;attempt<8u && !cleared;++attempt)
+            {
+                renderer.DrawFrame();
+                cleared=renderer.TakeViewportCapture();
+            }
+            if(!cleared || !lastTerrainCapture ||
+                cleared->Width!=lastTerrainCapture->Width ||
+                cleared->Height!=lastTerrainCapture->Height ||
+                cleared->RGBA==lastTerrainCapture->RGBA)
+                throw std::runtime_error("Terrain did not change the native image relative to the cleared scene.");
+        }
         std::cout<<"Terrain seed "<<seed<<": "<<loads<<" uploads, "<<unloads
             <<" unloads, "<<captures<<" captures; shutdown passed\n";
         return 0;
