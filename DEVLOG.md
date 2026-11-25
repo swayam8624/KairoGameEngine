@@ -49,3 +49,7 @@ Copied the three candidate source files into an isolated Linux test directory an
 ## 2026-11-25 — foundation study catalogs
 
 Indexed 205 filtered paths across 8 exact pinned component trees: KairoMath, KairoGeometry, KairoSpatial, KairoPhysicsMath, KairoPhysicsEngine, KairoAssets, KairoECS, KairoReflection. Added component file checklists to STUDY_ORDER.md. The other sibling trees remain linked but not yet enumerated. These inventories do not certify per-function comment coverage.
+
+## 2026-11-25 — runtime, rendering and tooling study catalogs
+
+Indexed another 390 paths across 9 pinned trees: KairoAI, KairoEngineCore, KairoRenderer, KairoEditor, KairoRayTracer, KairoGPU, KairoSIMD, KairoScheduler, KairoHub. Cumulative sibling catalogs: 17/26 repositories and 595 paths. These are file checklists, not completed annotations.
