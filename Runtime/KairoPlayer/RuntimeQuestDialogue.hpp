@@ -43,7 +43,7 @@ namespace kairo::player::detail
         // are configuration errors, whereas unmet prerequisites are normal.
         [[nodiscard]] bool IsComplete(std::string_view id) const
         {
-            RequireKnown(id);
+            (void)RequireKnown(id);
             return std::find(m_Completed.begin(),m_Completed.end(),id)!=m_Completed.end();
         }
         [[nodiscard]] bool CanComplete(std::string_view id) const
