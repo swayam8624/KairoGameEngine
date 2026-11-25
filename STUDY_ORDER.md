@@ -411,3 +411,10 @@ Follow their matching tests from the integration inventory. These six paths have
 Read [CraftDaylight](Runtime/KairoPlayer/CraftDaylight.hpp), [weather timeline](Runtime/KairoPlayer/RuntimeWeather.hpp), [weather tests](Runtime/KairoPlayer/tests/RuntimeWeatherTests.cpp), then the applyDaylight and active loop in [CraftStreamDemo](Runtime/KairoPlayer/CraftStreamDemo.cpp). Follow the quantized simulation key to RenderEnvironment and the scene submission.
 
 After the weather timeline, read [rain geometry sampling](Runtime/KairoPlayer/RuntimeRainStreaks.hpp), [rain tests](Runtime/KairoPlayer/tests/RuntimeRainStreaksTests.cpp), then the rain draw construction and native capture gate in [CraftStreamDemo](Runtime/KairoPlayer/CraftStreamDemo.cpp). Trace absolute positions into render-relative float transforms and shared GPU handle lifetime.
+
+## M50 terrain water
+
+1. [Water grid](Runtime/KairoPlayer/RuntimeWaterGrid.hpp): bed/depth representation, free-surface gradients, pairwise flux, donor bounds and transactional publication.
+2. [Conservation tests](Runtime/KairoPlayer/tests/RuntimeWaterGridTests.cpp): lake-at-rest, dry ridge and random beds.
+3. [Basin lab](Samples/WaterLab/WaterLab.cpp) and [run guide](Samples/WaterLab/README.md).
+4. Compare the narrower density diffusion in [EngineCore ProductionSystems.cppm](docs/study/KairoEngineCore.md); neither model is a full fluid solver.

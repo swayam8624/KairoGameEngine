@@ -100,3 +100,11 @@ Added [RuntimeWeather.hpp](Runtime/KairoPlayer/RuntimeWeather.hpp), seeded 30-se
 ## 2026-11-25 — visible rain geometry and native gate
 
 Added [RuntimeRainStreaks.hpp](Runtime/KairoPlayer/RuntimeRainStreaks.hpp): deterministic camera-local falling streak positions, bounded 64 instances, 10 Hz sampling and absolute double coordinates. Both GCC and Clang C++23 -Wall -Wextra -Werror passed 27,200 seeded rain frames per compiler, including large-coordinate bounds and fall/wrap invariants. Header blob 2ffb0b6b2dc153f185f8dcc4703c5975ab2e42de; test blob e515c3e197b17720ef5207a9bc68d09ecb1906c1. Craft streamed Player now submits actual streak geometry using an existing unit cube, and smoke path compares wet sky, rain, removal and restored baseline. Native capture test is added but not executed here. No rain collision or persistent weather clock.
+
+## 2026-11-25 — conservative terrain water
+
+Added [RuntimeWaterGrid.hpp](Runtime/KairoPlayer/RuntimeWaterGrid.hpp), a bounded depth-only conservative flow model distinct from the existing EngineCore density diffusion. It transfers volume across four-neighbor terrain edges with donor limiting, nonnegative depth, closed boundaries and validated dimensions. Both GCC and Clang C++23 -Wall -Wextra -Werror passed 20,000 random-bed time steps per compiler with conservation tolerance 1e-8, plus symmetric pulse, dry wall, lake-at-rest and bounds fixtures. Header blob 96b2865f6317a9ba595b7773b8ac45a98bf5c462 and test blob 3ca0bbea9573e907a0237b80ea82cbc93e3e820c. Added a basin ASCII sample (not yet run at this entry); GPU surface adapter, momentum and waves remain open.
+
+### Water lab execution
+
+The exact sample blob 0b78d533478ff67699ce7845928534a8f1733115 built and ran under GCC and Clang with C++23 -Wall -Wextra -Werror. Both produced byte-identical output, reporting volume 8 at steps 0,20,40,60,80,100. This is a terminal visualization, not a native surface renderer.
