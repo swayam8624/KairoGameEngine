@@ -1,6 +1,9 @@
 #include "../CraftSaveFile.hpp"
 #include "../CraftEquipmentSave.hpp"
 #include "../CraftCaveSession.hpp"
+#include "../CraftCheckpoint.hpp"
+#include "../CraftCaveSpawn.hpp"
+#include "../CraftSurfaceSpawn.hpp"
 #include <chrono>
 #include <iostream>
 #include <random>
@@ -84,7 +87,50 @@ int main()
             restoredCave.Inventory.Counts==inventory.Counts&&caveOuter.Equipment.Durability==pick.Durability&&
             caveOuter.Equipment.Equipped==pick.Equipped,"Real cave disk session differs");
         Check(Reject([&]{(void)DecodeCraftSession(caveOuter.Payload);}),"Cave accepted as surface");
+        // Preserve all actual nested world and equipment bytes while adding
+        // the v6 player metadata. The same decoder sequence is used by the demos.
+        const auto surfaceQuery=[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{return surface.Get(c);};
+        const auto surfaceSpawn=FindCraftSurfaceSpawn(VoxelPlayerConfig{},CraftExtent,surfaceQuery);
+        Check(surfaceSpawn.has_value(),"Surface checkpoint spawn missing");
+        const CraftCheckpoint surfaceState{surfaceSpawn->Feet,.125,-.5,.75,7,4};
+        const auto surfaceV6=EncodeCraftCheckpoint(surfaceBytes,surfaceState,CraftSessionMaximumBytes+CraftEquipmentOverhead);
+        WriteCraftSaveFile(path,surfaceV6,CraftSessionMaximumBytes+CraftEquipmentOverhead+CraftCheckpointOverhead);
+        const auto surfaceReadV6=ReadCraftSaveFile(path,CraftSessionMaximumBytes+CraftEquipmentOverhead+CraftCheckpointOverhead);
+        const auto surfaceCheckpoint=DecodeCraftCheckpoint(surfaceReadV6,CraftSessionMaximumBytes+CraftEquipmentOverhead);
+        const auto surfacePick=DecodeCraftEquipmentEnvelope(surfaceCheckpoint.Payload,CraftSessionMaximumBytes);
+        const auto surfaceWorld=DecodeCraftSession(surfacePick.Payload);
+        Check(surfaceCheckpoint.State==surfaceState&&surfaceWorld.Seed==seed&&
+            surfaceWorld.World.Overrides()==surface.Overrides()&&surfaceWorld.Inventory.Counts==inventory.Counts&&
+            surfacePick.Equipment.Durability==pick.Durability&&surfacePick.Equipment.Equipped==pick.Equipped,
+            "Real surface checkpoint differs");
+        const auto surfaceRestored=RestoreCraftCheckpoint(surfaceCheckpoint.State,VoxelPlayerConfig{},
+            [&](VoxelCoordinate c)->std::optional<VoxelMaterial>{return surfaceWorld.World.Get(c);});
+        Check(surfaceRestored&&surfaceRestored->Feet==surfaceState.Feet,"Surface checkpoint pose did not restore");
+        const auto caveQuery=[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
+            if(!InCaveWorld(c))return {};
+            return cave.Get(c);
+        };
+        const auto caveSpawn=FindCaveSpawn(VoxelPlayerConfig{},caveQuery);
+        Check(caveSpawn.has_value(),"Cave checkpoint spawn missing");
+        const CraftCheckpoint caveState{caveSpawn->Feet,-.25,.5,.25,11,2};
+        const auto caveV6=EncodeCraftCheckpoint(caveBytes,caveState,CaveCraftMaximumBytes+CraftEquipmentOverhead);
+        WriteCraftSaveFile(path,caveV6,CaveCraftMaximumBytes+CraftEquipmentOverhead+CraftCheckpointOverhead);
+        const auto caveReadV6=ReadCraftSaveFile(path,CaveCraftMaximumBytes+CraftEquipmentOverhead+CraftCheckpointOverhead);
+        const auto caveCheckpoint=DecodeCraftCheckpoint(caveReadV6,CaveCraftMaximumBytes+CraftEquipmentOverhead);
+        const auto cavePick=DecodeCraftEquipmentEnvelope(caveCheckpoint.Payload,CaveCraftMaximumBytes);
+        const auto caveWorld=DecodeCaveCraftSession(cavePick.Payload);
+        Check(caveCheckpoint.State==caveState&&caveWorld.Seed==seed&&
+            caveWorld.World.Overrides()==cave.Overrides()&&caveWorld.Inventory.Counts==inventory.Counts&&
+            cavePick.Equipment.Durability==pick.Durability&&cavePick.Equipment.Equipped==pick.Equipped,
+            "Real cave checkpoint differs");
+        const auto caveRestored=RestoreCraftCheckpoint(caveCheckpoint.State,VoxelPlayerConfig{},
+            [&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
+                if(!InCaveWorld(c))return {};
+                return caveWorld.World.Get(c);
+            });
+        Check(caveRestored&&caveRestored->Feet==caveState.Feet,"Cave checkpoint pose did not restore");
+        Check(Reject([&]{(void)DecodeCraftSession(cavePick.Payload);}),"v6 cave accepted as surface");
     }
-    std::cout<<"256 real surface/cave world sessions persisted and decoded from disk\n";
+    std::cout<<"256 v5 sessions and 256 v6 real surface/cave checkpoints persisted and decoded from disk\n";
     std::cout<<"256 actual file replacements, bounds, competing reservation, failure cleanup and prior save preservation passed\n";
 }

@@ -469,8 +469,7 @@ checkpoint 1567545d36ea154157b56741f7a093be7f20a6e5, test
 13e653c02bd2fa7798c3ed953d984f3eedfe972a, vitals
 3a7dcf3ea0e2b648e826281ef2970da938e6baa8, nutrition
 4426c7a21d63bdac5381e26f6c6b59afeff676f9, autosave
-6c42b3ed7f1974873ed173f0fd286372b41d1f63. Full nested real codec and native
-demo execution still need acceptance. No release or fsync durability claim.
+6c42b3ed7f1974873ed173f0fd286372b41d1f63. The existing real disk regression now includes 256 v6 nested v5/v3/v4 checkpoint roundtrips (128 per world), actual safe spawn validation and wrong-world rejection. This expanded test and native demo execution still need acceptance. No release or fsync durability claim.
 
 ## Final integration gate
 

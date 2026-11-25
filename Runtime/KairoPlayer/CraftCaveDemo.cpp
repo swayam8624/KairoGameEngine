@@ -454,7 +454,8 @@ int main(int argc,char** argv)
                     {
                         restored=RestoreCraftCheckpoint(*playerCheckpoint,config,
                             [&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
-                                if(!InCaveWorld(c))return {};return world->Get(c);});
+                                if(!InCaveWorld(c))return {};
+                                return world->Get(c);});
                         if(restored)
                         {
                             settle(CaveObserver(restored->Feet[0],restored->Feet[1],restored->Feet[2]));
