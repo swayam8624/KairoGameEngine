@@ -1,4 +1,5 @@
 #pragma once
+#include "CraftCheckpoint.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -14,6 +15,7 @@ namespace kairo::player::detail
         std::array<std::uint32_t,4> Counts{};
         std::uint32_t Selected=0,Durability=0;
         bool Equipped=false;
+        std::optional<CraftCheckpoint> Player={};
         bool operator==(const CraftSaveStamp&) const=default;
     };
     // A bounded active-time schedule. Continuous edits cannot postpone a

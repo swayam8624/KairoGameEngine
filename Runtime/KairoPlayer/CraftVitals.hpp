@@ -20,6 +20,12 @@ namespace kairo::player::detail
         [[nodiscard]] bool Dead() const noexcept{return m_Health==0;}
         void Damage(std::uint32_t points) noexcept{m_Health-=std::min(points,m_Health);}
         void Heal(std::uint32_t points) noexcept{if(!Dead())m_Health+=std::min(points,MaximumHealth-m_Health);}
+        void Restore(std::uint32_t health,double feetY)
+        {
+            if(!health||health>MaximumHealth||!std::isfinite(feetY)||std::abs(feetY)>1e9)
+                throw std::invalid_argument("Invalid restored vitals.");
+            m_Health=health;m_Peak=feetY;
+        }
         void Respawn(double feetY)
         {
             if(!std::isfinite(feetY))throw std::invalid_argument("Invalid respawn height.");
