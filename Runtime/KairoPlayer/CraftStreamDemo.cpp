@@ -422,19 +422,29 @@ int main(int argc,char** argv)
                     if(!selected)throw std::runtime_error("Missing survival mining target.");
                     const auto cell=selected->Cell;
                     const CraftMiningTarget target{{cell.X,cell.Y,cell.Z},selected->Material};
-                    const auto holds=static_cast<unsigned>(std::ceil(CraftMiningSeconds(target.Material)/.1-1e-9));
+                    inventory.Counts={0,2,3,0};
+                    if(!equipment.Craft(inventory.Counts))throw std::runtime_error("Native pick craft failed.");
+                    const auto speed=equipment.Speed(target.Material);
+                    const auto holds=static_cast<unsigned>(std::ceil(CraftMiningSeconds(target.Material)/speed/.1-1e-9));
                     for(unsigned step=0;step<holds;++step)
                     {
                         const bool mined=mining.Advance(true,target,.1,[&](const auto& completed){
-                            return completed==target&&MineCraftBlock(inventory,cell,query,edit);
-                        });
+                            if(completed!=target||!MineCraftBlock(inventory,cell,query,edit))return false;
+                            equipment.SuccessfulMine(completed.Material);
+                            return true;
+                        },speed);
                         const bool last=step+1==holds;
                         if(mined!=last||inventory.Count(target.Material)!=(last?1u:0u)||
                             query(cell)!=(last?VoxelAir:target.Material))
                             throw std::runtime_error("Native timed mining transaction differed.");
                     }
                     inventory.Selected=selected->Material;
-                    const auto session=DecodeCraftSession(EncodeCraftSession(seed,*world,inventory));
+                    const auto inner=EncodeCraftSession(seed,*world,inventory);
+                    const auto envelope=EncodeCraftEquipmentEnvelope(inner,equipment,CraftSessionMaximumBytes);
+                    const auto equippedSave=DecodeCraftEquipmentEnvelope(envelope,CraftSessionMaximumBytes);
+                    const auto session=DecodeCraftSession(equippedSave.Payload);
+                    if(equippedSave.Equipment.Durability!=(speed>1?63u:64u)||!equippedSave.Equipment.Equipped)
+                        throw std::runtime_error("Native pick durability/save differed.");
                     if(session.Inventory.Count(inventory.Selected)!=1||
                         session.World.Overrides()!=world->Overrides())
                         throw std::runtime_error("Survival inventory persistence failed.");

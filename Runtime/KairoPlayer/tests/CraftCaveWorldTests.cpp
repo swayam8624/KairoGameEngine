@@ -1,4 +1,5 @@
 #include "../CraftCaveSession.hpp"
+#include "../CraftEquipmentSave.hpp"
 #include "../CraftCaveSpawn.hpp"
 #include "../CraftRecipesHud.hpp"
 #include "../CraftMeshBatch.hpp"
@@ -130,6 +131,15 @@ int main()
         decoded.Inventory.Counts==inventory.Counts&&decoded.Inventory.Selected==inventory.Selected,
         "Cave session mismatch");
     Check(EncodeCaveCraftSession(decoded.Seed,decoded.World,decoded.Inventory)==bytes,"Noncanonical cave session");
+    const CraftEquipment pick{1,false};
+    const auto equipped=EncodeCraftEquipmentEnvelope(bytes,pick,CaveCraftMaximumBytes);
+    const auto wrapper=DecodeCraftEquipmentEnvelope(equipped,CaveCraftMaximumBytes);
+    const auto restored=DecodeCaveCraftSession(wrapper.Payload);
+    Check(wrapper.Equipment.Durability==1&&!wrapper.Equipment.Equipped&&
+        restored.World.Overrides()==saved.Overrides(),"Equipped cave session differs");
+    bool wrongWorld=false;
+    try{(void)DecodeCraftSession(wrapper.Payload);}catch(const std::invalid_argument&){wrongWorld=true;}
+    Check(wrongWorld,"Equipped cave payload accepted by surface decoder");
     const auto rejects=[](const std::vector<std::uint8_t>& data)
     {
         try{(void)DecodeCaveCraftSession(data);return false;}

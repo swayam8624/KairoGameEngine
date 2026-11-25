@@ -1,6 +1,9 @@
 #pragma once
 #include "CraftEquipment.hpp"
 #include "CraftSave.hpp"
+#include <limits>
+#include <span>
+#include <vector>
 
 namespace kairo::player::detail
 {
@@ -13,10 +16,15 @@ namespace kairo::player::detail
     {
         return bytes.size()>=8&&std::equal(CraftEquipmentMagic.begin(),CraftEquipmentMagic.end(),bytes.begin());
     }
+    inline bool IsCraftEquipmentPayload(std::span<const std::uint8_t> payload)
+    {
+        return payload.size()>=8&&std::equal(CraftEquipmentMagic.begin(),CraftEquipmentMagic.begin()+7,payload.begin())&&
+            (payload[7]=='3'||payload[7]=='4');
+    }
     inline std::vector<std::uint8_t> EncodeCraftEquipmentEnvelope(std::span<const std::uint8_t> payload,
         const CraftEquipment& equipment,std::size_t maximum)
     {
-        if(!equipment.Valid()||payload.empty()||payload.size()>maximum||
+        if(!equipment.Valid()||!IsCraftEquipmentPayload(payload)||payload.size()>maximum||
             payload.size()>std::numeric_limits<std::uint32_t>::max())
             throw std::invalid_argument("Invalid equipment session.");
         std::vector<std::uint8_t> bytes;
@@ -46,6 +54,8 @@ namespace kairo::player::detail
         std::size_t trailer=bytes.size()-8;
         if(CraftRead(bytes,trailer,8)!=CraftSaveChecksum(bytes.first(bytes.size()-8)))
             throw std::invalid_argument("Equipment session checksum mismatch.");
-        return {{static_cast<std::uint32_t>(durability),equipped!=0},bytes.subspan(pos,static_cast<std::size_t>(length))};
+        const auto payload=bytes.subspan(pos,static_cast<std::size_t>(length));
+        if(!IsCraftEquipmentPayload(payload))throw std::invalid_argument("Invalid equipment world payload.");
+        return {{static_cast<std::uint32_t>(durability),equipped!=0},payload};
     }
 }

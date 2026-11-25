@@ -296,19 +296,30 @@ int main(int argc,char** argv)
                 const auto material=world->Get(block);
                 if(material==VoxelAir)throw std::runtime_error("Missing cave mining target.");
                 const CraftMiningTarget target{{block.X,block.Y,block.Z},material};
-                const auto holds=static_cast<unsigned>(std::ceil(CraftMiningSeconds(material)/.1-1e-9));
+                inventory.Counts={0,2,3,0};
+                if(!equipment.Craft(inventory.Counts)||equipment.Speed(material)!=2.)
+                    throw std::runtime_error("Native cave pick craft failed.");
+                const auto speed=equipment.Speed(material);
+                const auto holds=static_cast<unsigned>(std::ceil(CraftMiningSeconds(material)/speed/.1-1e-9));
                 for(unsigned step=0;step<holds;++step)
                 {
                     const bool mined=mining.Advance(true,target,.1,[&](const auto& completed){
-                        return completed==target&&MineCraftBlock(inventory,block,query,edit);
-                    });
+                        if(completed!=target||!MineCraftBlock(inventory,block,query,edit))return false;
+                        equipment.SuccessfulMine(completed.Material);
+                        return true;
+                    },speed);
                     const bool last=step+1==holds;
                     if(mined!=last||inventory.Count(material)!=(last?1u:0u)||
                         query(block)!=(last?VoxelAir:material))
                         throw std::runtime_error("Native cave timed mining transaction differed.");
                 }
                 inventory.Selected=material;
-                const auto decoded=DecodeCaveCraftSession(EncodeCaveCraftSession(seed,*world,inventory));
+                const auto inner=EncodeCaveCraftSession(seed,*world,inventory);
+                const auto envelope=EncodeCraftEquipmentEnvelope(inner,equipment,CaveCraftMaximumBytes);
+                const auto equippedSave=DecodeCraftEquipmentEnvelope(envelope,CaveCraftMaximumBytes);
+                const auto decoded=DecodeCaveCraftSession(equippedSave.Payload);
+                if(equippedSave.Equipment.Durability!=63||!equippedSave.Equipment.Equipped)
+                    throw std::runtime_error("Native cave pick durability/save differed.");
                 if(decoded.Seed!=seed||decoded.World.Get(block)!=VoxelAir||decoded.Inventory.Count(material)!=1)
                     throw std::runtime_error("Cave session roundtrip failed.");
                 settle(CaveObserver(1e9,-24,-1e9));

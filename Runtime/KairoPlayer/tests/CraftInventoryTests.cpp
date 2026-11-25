@@ -1,5 +1,6 @@
 #include "../CraftInventory.hpp"
 #include "../CraftMining.hpp"
+#include "../CraftEquipmentSave.hpp"
 #include <iostream>
 namespace {
 using namespace kairo::player::detail;
@@ -29,6 +30,32 @@ int main()
     Check(decoded.Seed==seed&&decoded.Inventory.Count(material)==1&&decoded.Inventory.Selected==material&&
         decoded.World.Overrides()==world.Overrides(),"Inventory session roundtrip failed");
     Check(EncodeCraftSession(decoded.Seed,decoded.World,decoded.Inventory)==bytes,"Session encoding not canonical");
+    CraftEquipment pick{37,true};
+    const auto equipped=EncodeCraftEquipmentEnvelope(bytes,pick,CraftSessionMaximumBytes);
+    const auto wrapper=DecodeCraftEquipmentEnvelope(equipped,CraftSessionMaximumBytes);
+    const auto restored=DecodeCraftSession(wrapper.Payload);
+    Check(wrapper.Equipment.Durability==37&&wrapper.Equipment.Equipped&&restored.Inventory.Count(material)==1&&
+        restored.World.Overrides()==world.Overrides(),"Equipped surface session differs");
+    Check(EncodeCraftEquipmentEnvelope(wrapper.Payload,wrapper.Equipment,CraftSessionMaximumBytes)==equipped,
+        "Equipment envelope not canonical");
+    const auto rejectsEquipment=[](const std::vector<std::uint8_t>& data)
+    {
+        try{(void)DecodeCraftEquipmentEnvelope(data,CraftSessionMaximumBytes);return false;}
+        catch(const std::invalid_argument&){return true;}
+    };
+    for(std::size_t i=0;i<equipped.size();++i)
+    {
+        auto corrupt=equipped;corrupt[i]^=1;
+        Check(rejectsEquipment(corrupt),"Equipment corruption accepted");
+    }
+    auto malformed=equipped;malformed[16]=0;malformed[17]=0;malformed[18]=1;
+    malformed.resize(malformed.size()-8);CraftWrite(malformed,CraftSaveChecksum(malformed),8);
+    Check(rejectsEquipment(malformed),"Invalid equipped state accepted");
+    malformed=equipped;malformed.pop_back();Check(rejectsEquipment(malformed),"Truncated equipment accepted");
+    bool nested=false;
+    try{(void)EncodeCraftEquipmentEnvelope(equipped,pick,CraftSessionMaximumBytes);}
+    catch(const std::invalid_argument&){nested=true;}
+    Check(nested,"Nested equipment accepted");
     auto corrupted=bytes;corrupted[20]^=1;
     bool rejected=false;
     try{(void)DecodeCraftSession(corrupted);}catch(const std::invalid_argument&){rejected=true;}

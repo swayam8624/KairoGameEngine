@@ -29,6 +29,11 @@ int main()
     bool badMining=false;
     try{(void)BuildCraftHud(inventory,20,21);}catch(const std::invalid_argument&){badMining=true;}
     Check(badMining,"Invalid mining progress accepted");
+    const auto tool=BuildCraftHud(inventory,20,0,32,true);
+    Check(tool.size()==full.size()+2&&tool.back().W==122.f&&tool[tool.size()-2].Background,"Tool durability HUD differs");
+    bool badTool=false;
+    try{(void)BuildCraftHud(inventory,20,0,0,true);}catch(const std::invalid_argument&){badTool=true;}
+    Check(badTool,"Broken tool HUD accepted");
     std::mt19937 rng(456);
     std::size_t rects=0;
     for(unsigned i=0;i<10000;++i)

@@ -51,5 +51,11 @@ int main()
         "Mining progress did not publish exactly once");
     healthKey.MiningProgress=0;
     Check(healthCache.Refresh(healthKey,healthSubmit)&&healthUpdates==4,"Mining reset did not publish");
+    healthKey.ToolDurability=64;healthKey.ToolEquipped=true;
+    Check(healthCache.Refresh(healthKey,healthSubmit),"Tool crafting did not publish");
+    healthKey.ToolDurability=63;
+    Check(healthCache.Refresh(healthKey,healthSubmit)&&!healthCache.Refresh(healthKey,healthSubmit),"Tool wear publication differs");
+    healthKey.ToolEquipped=false;
+    Check(healthCache.Refresh(healthKey,healthSubmit)&&healthUpdates==7,"Tool toggle publication differs");
     std::cout<<"100000 idle frames, 100000 state transitions and failure retry passed; "<<changes<<" state publications\n";
 }
