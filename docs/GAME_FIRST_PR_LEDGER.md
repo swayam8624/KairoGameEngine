@@ -292,6 +292,8 @@ Surface and cave demos capture mouse by default, use raw motion when supported, 
 
 Surface survival startup and respawn now search the authoritative edited world for physical support and collision-free headroom, within 16 cells of origin. The chosen window is settled before the physics solver validates it. Creative startup does not need a survival spawn. Local exact-source Clang C++23 ASan/UBSan passed 10,000 signed randomized support fixtures and explicit edited shaft, top-layer, unknown/empty/solid worlds and actual voxel movement. Header/test blobs 1b17ddf8d87781be4e1d6ab85a7b9dcda299dde6 and cd770b18fe150cad12bb371360c91edc6eb117c6; existing VoxelPlayer and VoxelInteraction blobs also matched. Native startup integration awaits CI. Exhausting the finite search produces an explicit error rather than silently spawning on the artificial floor.
 
+Both nutrition and surface-spawn standalone regressions also passed GCC 14.2 C++23 ASan/UBSan with warnings as errors (same exact source). Added integrated HUD fill bounds, invalid hunger and visibility-canonicalized cache regressions; their full-header CI execution is pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

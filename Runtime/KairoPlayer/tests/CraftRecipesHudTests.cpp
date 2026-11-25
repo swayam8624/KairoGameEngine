@@ -34,6 +34,15 @@ int main()
     bool badTool=false;
     try{(void)BuildCraftHud(inventory,20,0,0,true);}catch(const std::invalid_argument&){badTool=true;}
     Check(badTool,"Broken tool HUD accepted");
+    const auto noFood=BuildCraftHud(inventory,20,0,0,false,0);
+    const auto halfFood=BuildCraftHud(inventory,20,0,0,false,10);
+    const auto fullFood=BuildCraftHud(inventory,20,0,0,false,20);
+    Check(noFood.size()==full.size()+1&&noFood.back().Background,"Empty food bar backing");
+    Check(halfFood.size()==noFood.size()+1&&fullFood.size()==halfFood.size()&&
+        halfFood.back().W==122.f&&fullFood.back().W==244.f,"Food HUD fill differs");
+    bool badFood=false;
+    try{(void)BuildCraftHud(inventory,20,0,0,false,21);}catch(const std::invalid_argument&){badFood=true;}
+    Check(badFood,"Invalid food HUD accepted");
     std::mt19937 rng(456);
     std::size_t rects=0;
     for(unsigned i=0;i<10000;++i)

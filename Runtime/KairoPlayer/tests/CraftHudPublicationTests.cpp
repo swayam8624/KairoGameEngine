@@ -57,5 +57,12 @@ int main()
     Check(healthCache.Refresh(healthKey,healthSubmit)&&!healthCache.Refresh(healthKey,healthSubmit),"Tool wear publication differs");
     healthKey.ToolEquipped=false;
     Check(healthCache.Refresh(healthKey,healthSubmit)&&healthUpdates==7,"Tool toggle publication differs");
+    healthKey.Hunger=19;
+    Check(healthCache.Refresh(healthKey,healthSubmit)&&!healthCache.Refresh(healthKey,healthSubmit),
+        "Nutrition-only change did not publish exactly once");
+    healthKey.Enabled=false;
+    Check(healthCache.Refresh(healthKey,healthSubmit),"HUD hide did not publish");
+    healthKey.Hunger=0;
+    Check(!healthCache.Refresh(healthKey,healthSubmit)&&healthUpdates==9,"Invisible hunger change republished");
     std::cout<<"100000 idle frames, 100000 state transitions and failure retry passed; "<<changes<<" state publications\n";
 }
