@@ -20,3 +20,7 @@ Linux only: other operating systems require separate build verification.
 
 
 [First verified local run summary](evidence/m50-portable-2026-11-26.json): 49 exact source blobs; 48/48 commands and 24/24 execution gates per compiler, GCC 14.2 and Clang 17.0. Full report generation is reproducible via the commands above.
+
+## Post-extraction regression
+
+The WebAssembly shared-core extraction was followed by a complete portable rerun on both compilers: 96/96 commands and 48/48 execution gates combined; all 50 source blobs matched the tested tree. [Exact-source evidence](evidence/m50-portable-web-2026-11-26.json). Browser rendering and full workspace acceptance remain separate gates.

@@ -20,7 +20,7 @@ HEADERS = ('CraftSaveFile.hpp', 'RuntimeQuestDialogue.hpp', 'RuntimeQuestSave.hp
            'RuntimeNetworkPrediction.hpp', 'RuntimeLoopbackTcp.hpp', 'RuntimeWeather.hpp',
            'RuntimeRainStreaks.hpp', 'RuntimeWaterGrid.hpp', 'RuntimeSoftBody.hpp',
            'RuntimeBreakableCube.hpp', 'RuntimeMenuDocument.hpp', 'RuntimeMenuFocus.hpp',
-           'RuntimePlatformer.hpp', 'RuntimeStrategy.hpp', 'RuntimeGridCanvas.hpp',
+           'RuntimePlatformerCore.hpp', 'RuntimePlatformer.hpp', 'RuntimeStrategy.hpp', 'RuntimeGridCanvas.hpp',
            'RuntimePluginABI.h', 'RuntimePluginLoader.hpp')
 SAMPLES = ('Samples/NetworkLab/NetworkLab.cpp', 'Samples/NetworkLab/run_pair.py',
            'Samples/NetworkLab/run_matchmaking.py', 'Samples/PluginLab/ExamplePlugin.cpp',

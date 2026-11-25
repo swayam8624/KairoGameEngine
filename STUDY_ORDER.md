@@ -497,3 +497,7 @@ Read [run guide](docs/M50_PORTABLE_ACCEPTANCE.md), then [runner](scripts/run_m50
 ## Linux installer
 
 Read [RuntimePackaging.cppm](Runtime/KairoPlayer/RuntimePackaging.cppm) first: manifest, payload, staging and publication. Then [Debian wrapper](scripts/package_kairo_deb.py), [archive relocation tests](scripts/tests/test_package_kairo_deb.py) and [guide](docs/LINUX_DEBIAN_INSTALLER.md). Trace installed immutable seed, relative launch path, writable user project, ELF architecture and exclusive output publication.
+
+## WebAssembly platformer
+
+Read [shared freestanding game core](Runtime/KairoPlayer/RuntimePlatformerCore.hpp), [native wrapper](Runtime/KairoPlayer/RuntimePlatformer.hpp), [WASM C ABI](Samples/WebPlatformer/PlatformerWasm.cpp), [browser host](Samples/WebPlatformer/game.js), [HTML](Samples/WebPlatformer/index.html), [build tool](scripts/build_web_platformer.py), [native trace](Samples/WebPlatformer/PlatformerNativeTrace.cpp), [parity oracle](Samples/WebPlatformer/verify_wasm.mjs) and [browser gate](scripts/tests/test_web_platformer.py). Follow the 60 Hz transition across different memory ownership and presentation adapters. [Guide](docs/WEB_PLATFORMER.md).
