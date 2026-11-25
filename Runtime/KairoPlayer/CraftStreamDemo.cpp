@@ -251,18 +251,21 @@ int main(int argc,char** argv)
             }
             if(creatureMesh&&creature.Body())
             {
-                const auto creatureConfig=CraftCreature::Config();
-                const auto minimum=PlayerMinimum(*creature.Body(),creatureConfig);
-                MeshDraw draw;draw.Mesh=*creatureMesh;draw.Model=Mat4f::Identity();
-                draw.Model(0,0)=static_cast<float>(2*creatureConfig.Radius);
-                draw.Model(1,1)=static_cast<float>(creatureConfig.Height);
-                draw.Model(2,2)=static_cast<float>(2*creatureConfig.Radius);
-                draw.Model(0,3)=TerrainRelativeFloat(minimum[0],base.X);
-                draw.Model(1,3)=TerrainRelativeFloat(minimum[1],base.Y);
-                draw.Model(2,3)=TerrainRelativeFloat(minimum[2],base.Z);
-                draw.Material.BaseColor={.95f,.18f,.12f};
-                draw.Material.Emissive={.12f,.02f,.01f};
-                draw.CastShadows=false;scene.Add(draw);
+                const auto& feet=creature.Body()->Feet;
+                const std::array<double,3> anchor{feet[0]-base.X,feet[1]-base.Y,feet[2]-base.Z};
+                for(const auto& part:BuildCraftCreatureRig(creature.Visual()))
+                {
+                    MeshDraw draw;draw.Mesh=*creatureMesh;draw.Model=Mat4f::Identity();
+                    for(unsigned row=0;row<3;++row)
+                    {
+                        for(unsigned col=0;col<3;++col)
+                            draw.Model(row,col)=static_cast<float>(part.Axes[col][row]);
+                        draw.Model(row,3)=TerrainRelativeFloat(anchor[row]+part.Origin[row],0);
+                    }
+                    draw.Material.BaseColor={part.Color[0],part.Color[1],part.Color[2]};
+                    draw.Material.Emissive={.06f,.02f,.01f};
+                    draw.CastShadows=false;scene.Add(draw);
+                }
             }
             // Pickups reuse the unit creature cube; no mesh upload per item.
             if(creatureMesh)for(const auto& slot:pickups.Items())if(slot)
@@ -744,6 +747,7 @@ int main(int argc,char** argv)
                     const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
                     const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
                     const auto previousCreature=creature.Body();
+                    const auto previousVisual=creature.Visual();
                     const auto previousPickups=pickups.Revision();
                     if(survival)pickups.Advance(dt);
                     if(survival)
@@ -871,7 +875,7 @@ int main(int argc,char** argv)
                     publishTarget(aim);
                     const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
                         (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
-                    const bool worldActorsChanged=creatureChanged||previousPickups!=pickups.Revision();
+                    const bool worldActorsChanged=creatureChanged||previousVisual!=creature.Visual()||previousPickups!=pickups.Revision();
                     if(worldActorsChanged)committedSubmit(publication.Active());
                     recordPlayer();autosave.Observe(saveStamp());
                     const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
