@@ -140,6 +140,10 @@ All 39 previous campaign PRs have been verified merged, including Renderer #31â€
 
 [EngineCore #31](https://github.com/swayam8624/KairoEngineCore/pull/31) adds sparse, full-resolution-border terrain LOD meshes. Independent of this lock change: the proposed EngineCore pin intentionally excludes this unmerged PR. CPU topology CI 45574085470 queued at creation. LOD selection and transactional native mesh replacement remain next steps.
 
+### Terrain LOD policy (2026-11-25)
+
+[EngineCore #32](https://github.com/swayam8624/KairoEngineCore/pull/32), feat/terrain-lod-selection, head 9f067b204bf42010412f7f9318cd26985ee7618b, stacked on #31. Opt-in multi-observer LOD selector using horizontal closed-AABB distance divided by observer radius scale, power-of-two strides, strictly increasing switch distances and separate inward/outward hysteresis. Tests 20,000 threshold oscillations and 10,000 multi-observer comparisons; CI pending. No live mesh replacement or physical surface changes. Engine #55 exact merged lock acceptance run 45574412491 queued. Review #31 before #32; #55 is independent. Total campaign 42 PRs, 39 verified merged, three pending at observation.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
