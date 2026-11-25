@@ -175,6 +175,31 @@ jobs:
           set -o pipefail
           ctest --preset ${{ matrix.preset }} --output-on-failure 2>&1 | tee test-${{ matrix.preset }}.log
 
+      - name: Validate generated project through actual KairoPlayer
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          cp Samples/SharedContentShowcase/Content/ToyCar/ToyCar.glb "$scratch/ToyCar.glb"
+          python3 - "$scratch" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+          root = Path(sys.argv[1])
+          recipe = json.loads(Path("Samples/ProjectRecipes/TempleArena.json").read_text())
+          recipe["assets"] = {"car": {"file": "ToyCar.glb", "author": "See repository asset manifest", "license": "See repository asset manifest", "source": "Samples/SharedContentShowcase/Content/ToyCar"}}
+          recipe["prefabs"]["vehicle"] = [{"name": "Toy car", "asset": "car", "scale": [12, 12, 12]}]
+          recipe["instances"].append({"name": "Imported car", "prefab": "vehicle", "position": [0, 0.1, -2]})
+          (root / "recipe.json").write_text(json.dumps(recipe))
+          PY
+          python3 scripts/create_kairo_project.py "$scratch/recipe.json" "$scratch/project"
+          player=build/ci-clang/Runtime/KairoPlayer/KairoPlayer
+          test -x "$player"
+          "$player" "$scratch/project/Project.kproject" --validate
+          xvfb-run -a "$player" "$scratch/project/Project.kproject" --renderer vulkan --smoke
+
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')
         uses: actions/upload-artifact@v7
