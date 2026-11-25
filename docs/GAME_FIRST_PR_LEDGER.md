@@ -264,6 +264,10 @@ Separates native HUD publication from world mesh submission and camera movement.
 
 Both Craft survival demos track 20 hit points and sampled peak-to-landing fall distance, with three world units safe. Physical support must be present in committed voxel queries, so artificial streaming barriers do not cause fall damage. Lethal damage returns to the existing spawn routine and resets health, retaining inventory/world edits. Adds responsive health bar and title display; native HUD key includes health. Health is session-local and resets on load; save formats unchanged. No combat, hunger or item loss yet. Standalone exact Clang 17 ASan/UBSan tests passed 100,000 randomized falls plus jump, virtual boundary, lethal saturation and respawn. Native player integration still pending; fall height uses frame samples rather than substep apex.
 
+### Timed survival mining (2026-11-25)
+
+Survival left mouse hold is now material-dependent (grass .30s, dirt .45s, stone 1.50s, building block .90s). Changing target/material, releasing input, unavailable targets, death or failed edits clear progress. Per-frame elapsed contribution capped at .1s, no carry-over. Inventory/world commit still goes through existing transactional mining. Cave survival protects the bottom layer from mining; creative mode and legacy save format unchanged. HUD gains a quantized progress bar. Local exact standalone Clang 17 C++23 ASan/UBSan test passed 100,000 randomized mining holds and explicit reset/failure cases; header/test blobs a8ab31002ebe0e5c4e549aa46bc88b2debbe5da9 and baa43112ddd4db8636618287adcfb4bba7175494. Native gameplay acceptance pending; equipment/durability not implemented.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

@@ -44,7 +44,7 @@ namespace kairo::player::detail
         bool Background=false;
     };
     inline std::vector<CraftHudRect> BuildCraftHud(const CraftInventory& inventory,
-        std::optional<std::uint32_t> health=std::nullopt)
+        std::optional<std::uint32_t> health=std::nullopt,unsigned miningProgress=0)
     {
         if(!inventory.Valid())throw std::invalid_argument("Invalid HUD inventory.");
         std::vector<CraftHudRect> rects;rects.reserve(128);
@@ -87,6 +87,12 @@ namespace kairo::player::detail
             if(*health>20)throw std::invalid_argument("Invalid HUD health.");
             add(356,455,248,10,gray);rects.back().Background=true;
             if(*health)add(358,457,244.f*static_cast<float>(*health)/20.f,6,{.85f,.12f,.15f});
+        }
+        if(miningProgress>20)throw std::invalid_argument("Invalid HUD mining progress.");
+        if(miningProgress)
+        {
+            add(430,287,100,8,gray);rects.back().Background=true;
+            add(432,289,96.f*static_cast<float>(miningProgress)/20.f,4,{.95f,.75f,.2f});
         }
         return rects;
     }

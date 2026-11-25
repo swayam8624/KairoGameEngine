@@ -7,6 +7,7 @@
 #include "CraftHudProjection.hpp"
 #include "CraftHudPublication.hpp"
 #include "CraftVitals.hpp"
+#include "CraftMining.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
@@ -139,16 +140,17 @@ int main(int argc,char** argv)
         bool hudEnabled=false;
         CraftHudPublication hudPublication;
         CraftVitals vitals;
+        CraftMining mining;
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
-            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health()};
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress()};
             (void)hudPublication.Refresh(key,[&]()
             {
                 std::vector<ViewportOverlayRect> rects;
                 if(hudEnabled)
                 {
-                    const auto layout=BuildCraftHud(inventory,vitals.Health());
+                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress());
                     rects.reserve(layout.size());
                     // Paint opaque backing first, then icons and numerals.
                     // No camera, world origin or depth state is involved.
@@ -184,7 +186,7 @@ int main(int argc,char** argv)
                     double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
                 const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
                 const auto up=ScreenUnit(ScreenCross(right,forward));
-                for(const auto& rect:BuildCraftHud(inventory,vitals.Health()))
+                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress()))
                 {
                     const double depth=rect.Background?.16:.14;
                     const auto projected=ProjectCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,
@@ -505,7 +507,7 @@ int main(int argc,char** argv)
                         if(vitals.Dead())
                         {
                             settleWindow(.5,.5);
-                            player=spawn();vitals.Respawn(player.Feet[1]);
+                            player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();
                         }
                         x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
                     }
@@ -545,27 +547,33 @@ int main(int argc,char** argv)
                             if(i+1u==inventory.Selected)title+="]";
                             title+="  ";
                         }
-                        title+="| R: 1 dirt + 2 stone -> 2 building | T: 4 stone -> 3 building";
+                        title+="| Hold LMB to mine | R/T craft | F5 save";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
                     const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
-                    if((left&&!leftHeld)||(right&&!rightHeld))
+                    if(survival)
                     {
-                        const auto hit=TraceVoxels({x,y,z},direction,8,64,query);
-                        if(hit)
+                        const auto hit=(left||(right&&!rightHeld))?TraceVoxels({x,y,z},direction,8,64,query):std::optional<VoxelHit>{};
+                        std::optional<CraftMiningTarget> target;
+                        if(hit&&hit->Material>=CraftGrass&&hit->Material<=CraftPlaced)
+                            target=CraftMiningTarget{{hit->Cell.X,hit->Cell.Y,hit->Cell.Z},hit->Material};
+                        (void)mining.Advance(left,target,dt,[&](const CraftMiningTarget& completed)
                         {
-                            if(left&&!leftHeld)
-                            {
-                                if(survival)(void)MineCraftBlock(inventory,hit->Cell,query,edit);
-                                else (void)edit(hit->Cell,VoxelAir);
-                            }
-                            else if(hit->Placement)
-                            {
-                                if(survival)(void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
-                                    [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell);});
-                                else (void)edit(*hit->Placement,CraftPlaced);
-                            }
+                            const VoxelCoordinate cell{completed.Cell[0],completed.Cell[1],completed.Cell[2]};
+                            if(query(cell)!=completed.Material)return false;
+                            return MineCraftBlock(inventory,cell,query,edit);
+                        });
+                        if(!left&&right&&!rightHeld&&hit&&hit->Placement)
+                            (void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
+                                [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell);});
+                    }
+                    else if((left&&!leftHeld)||(right&&!rightHeld))
+                    {
+                        if(const auto hit=TraceVoxels({x,y,z},direction,8,64,query))
+                        {
+                            if(left&&!leftHeld)(void)edit(hit->Cell,VoxelAir);
+                            else if(hit->Placement)(void)edit(*hit->Placement,CraftPlaced);
                         }
                     }
                     leftHeld=left;rightHeld=right;
