@@ -13,6 +13,7 @@
 #include "CraftTargetFeedback.hpp"
 #include "CraftEquipmentSave.hpp"
 #include "CraftSaveFile.hpp"
+#include "CraftAutosave.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
 #include <fstream>
@@ -69,6 +70,9 @@ int main(int argc,char** argv)
         auto world=std::make_shared<W>(CaveCraftBaseline{seed},CraftSaveMaximumEdits);
         CraftInventory inventory;
         CraftEquipment equipment;
+        CraftAutosave autosave;
+        std::uint64_t worldRevision=0;
+        bool finalSaveFailed=false;
         if(savePath&&std::filesystem::exists(*savePath))
         {
             const auto bytes=ReadCraftSaveFile(*savePath,CaveCraftMaximumBytes+CraftEquipmentOverhead);
@@ -81,7 +85,7 @@ int main(int argc,char** argv)
             auto decoded=DecodeCaveCraftSession(payload);
             seed=decoded.Seed;world=std::make_shared<W>(std::move(decoded.World));inventory=decoded.Inventory;
         }
-        // Explicit save only, using the same single-writer replacement policy
+        // Save only when a path is supplied, using the same single-writer replacement policy
         // as the streamed surface world. A failed write leaves the old save.
         const auto save=[&]()
         {
@@ -89,6 +93,20 @@ int main(int argc,char** argv)
             const auto payload=EncodeCaveCraftSession(seed,*world,inventory);
             const auto bytes=EncodeCraftEquipmentEnvelope(payload,equipment,CaveCraftMaximumBytes);
             WriteCraftSaveFile(*savePath,bytes,CaveCraftMaximumBytes+CraftEquipmentOverhead);
+        };
+        const auto saveStamp=[&]()
+        {
+            return CraftSaveStamp{worldRevision,inventory.Counts,inventory.Selected,equipment.Durability,equipment.Equipped};
+        };
+        const auto checkpoint=[&]()
+        {
+            if(!savePath)return true;
+            try{save();autosave.Saved();return true;}
+            catch(const std::exception& ex)
+            {
+                autosave.Failed();std::cerr<<"Craft save failed: "<<ex.what()<<'\n';
+                return false;
+            }
         };
         CraftMeshBatch<1,P,CaveCraftBaseline,CaveChunk> workers(4);
         Pub pub;
@@ -255,7 +273,7 @@ int main(int argc,char** argv)
                 return upload(BuildCraftMesh(BuildVoxelChunkSurface(StreamingCraftOrigin(*coords[i]),16,
                     [&](VoxelCoordinate v){return next->Get(v);})));
             },oldSubmit,destroy))return false;
-            world.swap(next);return true;
+            world.swap(next);++worldRevision;return true;
         };
         const auto createHud=[&]()
         {
@@ -392,6 +410,7 @@ int main(int argc,char** argv)
                     return query(c);
                 };
                 std::string previousTitle;
+                autosave.Initialize(saveStamp());
                 CraftActionInputs actions;
                 bool leftHeld=false,rightHeld=false;
                 auto previous=std::chrono::steady_clock::now();
@@ -492,10 +511,7 @@ int main(int argc,char** argv)
                             " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
-                    if(actions.Save.Press(key(GLFW_KEY_F5)>0))
-                    {
-                        try{save();}catch(const std::exception& ex){std::cerr<<"Cave save failed: "<<ex.what()<<'\n';}
-                    }
+
                     const bool rawLeft=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
                     const bool rawRight=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
                     // Do not turn a button held during focus/capture changes
@@ -549,10 +565,17 @@ int main(int argc,char** argv)
                             }
                         }
                     publishTarget(aim);
+                    autosave.Observe(saveStamp());
+                    const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
+                    if(savePath&&(manualSave||autosave.Advance(dt)))(void)checkpoint();
                     if(nativeHud)refreshNativeHud();
                     else if(hudEnabled)oldSubmit(pub.Active());
                     renderer.DrawFrame();
                 }
+                // Exit is a final checkpoint only for an explicitly supplied
+                // save path and changed state. Do not silently lose a failed save.
+                autosave.Observe(saveStamp());
+                if(savePath&&autosave.Dirty())finalSaveFailed=!checkpoint();
             }
         }
         catch(...){hudEnabled=false;(void)pub.Release(oldSubmit,destroy);throw;}
@@ -561,7 +584,7 @@ int main(int argc,char** argv)
         refreshNativeHud();
         if(pub.Release(oldSubmit,destroy)!=0)throw std::runtime_error("Cave cleanup failed.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);
-        return 0;
+        return finalSaveFailed?1:0;
     }
     catch(const std::exception& e){std::cerr<<"Craft Caves failed: "<<e.what()<<'\n';return 1;}
 }

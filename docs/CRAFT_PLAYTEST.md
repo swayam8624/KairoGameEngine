@@ -7,7 +7,7 @@ these later changes still require exact-head acceptance.
 
 ## CPU acceptance without the graphics SDK
 
-Run the complete 26-contract C++23 suite on a source checkout:
+Run the complete 27-contract C++23 suite on a source checkout:
 
 ```bash
 CXX=clang++ bash scripts/run_craft_cpu_contracts.sh
@@ -98,6 +98,14 @@ ambient floor. The clock pauses when focus is lost and resets on restart; it
 does not yet persist or affect cave lighting, weather or mob spawning.
 
 ## Save-file replacement and recovery
+
+When launched with a save path, both games automatically checkpoint dirty
+world edits, inventory, selected slot and equipment after 30 seconds of
+focused simulation. Repeated edits do not postpone the checkpoint. Failure
+leaves state dirty and retries after five active seconds. F5 saves immediately;
+a normal exit attempts one last dirty checkpoint and returns a failure status
+if it cannot save. Without a save path, no file is created. Clock, player pose,
+health and hunger remain session-local.
 
 Both demos reserve a sibling directory named `<save>.write-lock` before
 writing a temporary payload. A concurrent cooperating writer is refused.

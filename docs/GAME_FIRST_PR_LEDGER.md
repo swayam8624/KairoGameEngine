@@ -373,6 +373,20 @@ a063d0da09c827e4568a2ae081a8b6eb6d423a50 and test
 d0df5d0b697be0f0a7ca02ff0cc5da662063173f. Native surface smoke checks
 outline image change and removal. Full native acceptance pending.
 
+### Autosave and exit checkpoint
+
+Both games opt into automatic saving only with an explicit path. Dirty stamp
+covers committed world edits, inventory counts/selection and equipment.
+30-second focused-time checkpoint, five-second retry after write failure,
+F5 immediate checkpoint and dirty exit flush. Continuous edits cannot postpone
+saving. Existing shared file writer retains previous payload on failure.
+Local Clang/GCC C++23 ASan/UBSan passed 100,000 idle frames, 100,000 randomized
+frame partition comparisons and 430 simulated checkpoint events per compiler.
+Exact header ab3e5a5342b67fd31c869252fcd5d0608d77c567 and test
+9be9f45251b577c3584c7817cfc25477e3ae369f. Scheduler test does not write actual
+files; prior shared disk transaction regression covers I/O separately.
+Native interactive exit/save acceptance pending. No crash-durability claim.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

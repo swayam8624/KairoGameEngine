@@ -17,6 +17,7 @@
 #include "CraftTargetFeedback.hpp"
 #include "CraftEquipmentSave.hpp"
 #include "CraftSaveFile.hpp"
+#include "CraftAutosave.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
@@ -88,6 +89,9 @@ int main(int argc,char** argv)
         auto world=std::make_unique<World>(StreamingCraftBaseline{seed});
         CraftInventory inventory;
         CraftEquipment equipment;
+        CraftAutosave autosave;
+        std::uint64_t worldRevision=0;
+        bool finalSaveFailed=false;
         if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
         if(savePath&&std::filesystem::exists(*savePath))
         {
@@ -118,6 +122,20 @@ int main(int argc,char** argv)
             const auto bytes=EncodeCraftEquipmentEnvelope(payload,equipment,CraftSessionMaximumBytes);
             WriteCraftSaveFile(*savePath,bytes,CraftSessionMaximumBytes+CraftEquipmentOverhead);
             std::cout<<"Streamed Craft saved "<<world->Overrides().size()<<" edits\n";
+        };
+        const auto saveStamp=[&]()
+        {
+            return CraftSaveStamp{worldRevision,inventory.Counts,inventory.Selected,equipment.Durability,equipment.Equipped};
+        };
+        const auto checkpoint=[&]()
+        {
+            if(!savePath)return true;
+            try{save();autosave.Saved();return true;}
+            catch(const std::exception& ex)
+            {
+                autosave.Failed();std::cerr<<"Craft save failed: "<<ex.what()<<'\n';
+                return false;
+            }
         };
         Plan::Slots coordinates{};
         Publication publication;
@@ -364,7 +382,7 @@ int main(int argc,char** argv)
             if(batch)cancelPending(); // abort unsubmitted uploads before editing the committed scene
             if(!publication.Apply(StreamingCraftDirty(coordinates,cell),
                 [&](std::size_t i){return upload(*next,*coordinates[i]);},committedSubmit,destroy))return false;
-            world.swap(next);++edits;
+            world.swap(next);++edits;++worldRevision;
 
             return true;
         };
@@ -556,6 +574,7 @@ int main(int argc,char** argv)
                 CraftDaylight daylight;
                 unsigned publishedDaylight=daylight.Step();
                 applyDaylight(publishedDaylight);committedSubmit(publication.Active());
+                autosave.Initialize(saveStamp());
                 CraftActionInputs actions;
                 bool leftHeld=false,rightHeld=false;
                 std::string previousTitle;
@@ -714,7 +733,7 @@ int main(int argc,char** argv)
                         }
                     }
                     leftHeld=left;rightHeld=right;
-                    if(actions.Save.Press(key(GLFW_KEY_F5)>0)){try{save();}catch(const std::exception& ex){std::cerr<<"Save failed: "<<ex.what()<<'\n';}}
+
                     // Re-query after edits, so a removed target disappears
                     // immediately. Placement is preflight feedback, not a
                     // promise that a subsequent native transaction will succeed.
@@ -735,10 +754,17 @@ int main(int argc,char** argv)
                             }
                         }
                     publishTarget(aim);
+                    autosave.Observe(saveStamp());
+                    const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
+                    if(savePath&&(manualSave||autosave.Advance(dt)))(void)checkpoint();
                     if(nativeHud)refreshNativeHud();
                     else if(hudEnabled)committedSubmit(publication.Active());
                     renderer.DrawFrame();
                 }
+                // Exit is a final checkpoint only for an explicitly supplied
+                // save path and changed state. Do not silently lose a failed save.
+                autosave.Observe(saveStamp());
+                if(savePath&&autosave.Dirty())finalSaveFailed=!checkpoint();
             }
         }
         catch(...){hudEnabled=false;(void)publication.Release(committedSubmit,destroy);throw;}
@@ -747,7 +773,7 @@ int main(int argc,char** argv)
         refreshNativeHud();
         if(publication.Release(committedSubmit,destroy)!=0)throw std::runtime_error("Streamed Craft shutdown retained meshes.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);
-        return 0;
+        return finalSaveFailed?1:0;
     }
     catch(const std::exception& e){std::cerr<<"Streamed Craft failed: "<<e.what()<<'\n';return 1;}
 }
