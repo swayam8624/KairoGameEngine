@@ -1,4 +1,5 @@
 #include "../CraftInventory.hpp"
+#include "../CraftMining.hpp"
 #include <iostream>
 namespace {
 using namespace kairo::player::detail;
@@ -45,7 +46,25 @@ int main()
         Check(PlaceCraftBlock(inventory,block,query,apply,allow),"Repeated placement failed");
         Check(inventory.Count(material)==0&&world.Overrides().empty(),"Block or item duplication");
     }
+    CraftMining mining;
+    const CraftMiningTarget target{{block.X,block.Y,block.Z},material};
+    const auto commit=[&](const CraftMiningTarget& completed)
+    {
+        Check(completed==target,"Mining changed target");
+        return MineCraftBlock(inventory,block,query,apply);
+    };
+    for(unsigned i=0;i<10000;++i)
+    {
+        bool finished=false;
+        for(unsigned step=0;step<30&&!finished;++step)finished=mining.Advance(true,target,.1,commit);
+        Check(finished&&world.Get(block)==VoxelAir&&inventory.Count(material)==1,"Timed mine did not commit exactly once");
+        Check(PlaceCraftBlock(inventory,block,query,apply,allow)&&world.Overrides().empty()&&
+            inventory.Count(material)==0,"Timed mining conservation failed");
+    }
     inventory.Counts[material-1]=CraftInventory::StackLimit;
+    for(unsigned step=0;step<30;++step)
+        Check(!mining.Advance(true,target,.1,commit),"Full stack accepted timed mine");
+    Check(world.Get(block)==material&&inventory.Count(material)==CraftInventory::StackLimit,"Timed mine changed full inventory");
     Check(!MineCraftBlock(inventory,block,query,apply)&&world.Get(block)==material,"Stack cap failed");
     const auto unknown=[](VoxelCoordinate)->std::optional<VoxelMaterial>{return {};};
     Check(!MineCraftBlock(inventory,air,unknown,apply),"Unknown cell mined");

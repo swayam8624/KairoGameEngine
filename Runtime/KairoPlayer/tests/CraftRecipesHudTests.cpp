@@ -23,6 +23,12 @@ int main()
     bool badHealth=false;
     try{(void)BuildCraftHud(inventory,21);}catch(const std::invalid_argument&){badHealth=true;}
     Check(badHealth,"Invalid health bar accepted");
+    const auto mining=BuildCraftHud(inventory,20,10);
+    Check(mining.size()==full.size()+2&&mining.back().W==48.f,"Mining progress geometry differs");
+    Check(mining[mining.size()-2].Background,"Mining bar backing missing");
+    bool badMining=false;
+    try{(void)BuildCraftHud(inventory,20,21);}catch(const std::invalid_argument&){badMining=true;}
+    Check(badMining,"Invalid mining progress accepted");
     std::mt19937 rng(456);
     std::size_t rects=0;
     for(unsigned i=0;i<10000;++i)

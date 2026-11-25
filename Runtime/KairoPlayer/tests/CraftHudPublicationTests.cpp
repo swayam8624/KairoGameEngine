@@ -46,5 +46,10 @@ int main()
     Check(healthCache.Refresh(healthKey,healthSubmit)&&!healthCache.Refresh(healthKey,healthSubmit),
         "Health-only change did not publish exactly once");
     Check(healthUpdates==2,"Health publication count");
+    healthKey.MiningProgress=1;
+    Check(healthCache.Refresh(healthKey,healthSubmit)&&!healthCache.Refresh(healthKey,healthSubmit),
+        "Mining progress did not publish exactly once");
+    healthKey.MiningProgress=0;
+    Check(healthCache.Refresh(healthKey,healthSubmit)&&healthUpdates==4,"Mining reset did not publish");
     std::cout<<"100000 idle frames, 100000 state transitions and failure retry passed; "<<changes<<" state publications\n";
 }
