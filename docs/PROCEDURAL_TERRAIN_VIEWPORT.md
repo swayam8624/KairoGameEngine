@@ -44,3 +44,27 @@ reuse it. Unloading a cell discards its profile. The bound does not cover
 GPU float rounding, shading or projected screen-space error. The LOD stack
 requires the merged EngineCore #31–33 revisions to be pinned before acceptance;
 the temporary native CI candidate override is only for review.
+
+## Perspective-aware terrain and playable explorer
+
+`KairoTerrainDemo --workers 4 --screen-px 20` uses a perspective camera and
+cached vertical errors to estimate projected displacement. Near-plane cells
+fall back to full detail. Coarsening has 20% headroom; asynchronously replacing
+meshes means a moving camera may transiently exceed the target. The estimate
+is not a bound on visibility, shading, GPU rounding or rasterization.
+
+Build and run the separate first-person exploration sample:
+
+```sh
+cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF
+cmake --build --preset game-player-clang --parallel 4 --target KairoTerrainExplorer
+./build/game-player-clang/Runtime/KairoPlayer/KairoTerrainExplorer --seed 42 --renderer auto
+```
+
+WASD moves, arrows look, left Shift sprints, Escape quits. The camera follows
+the canonical heightfield while movement is blocked by missing/full-detail
+residency or excessive sampled grade. This is a point-grounded walking sample,
+not a physical character controller. No jumping, capsule collision, inventory,
+object interaction, or multiplayer yet. Native smoke runs scripted travel and
+three captures. Build instructions require the final merged LOD dependency pin;
+review CI uses the explicit disposable EngineCore candidate.
