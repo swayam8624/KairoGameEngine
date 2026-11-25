@@ -150,3 +150,10 @@ Added [catalog CLI](scripts/kairo_asset_catalog.py), strict bounded manifest, se
 ## 2026-11-25 — explicit native plugin ABI
 
 Added [C ABI](Runtime/KairoPlayer/RuntimePluginABI.h), [loader](Runtime/KairoPlayer/RuntimePluginLoader.hpp), [shared-library extension](Samples/PluginLab/ExamplePlugin.cpp), [CLI host](Samples/PluginLab/PluginLab.cpp), and actual dynamic-loading regression. GCC/Clang built separate good/bad .so modules, and each passed 10,001 action calls, overflow rejection and four bad manifest/ABI fixtures. Initial test filename contained '+' from the compiler name and was rejected by the intended portable basename policy; reran with good-gcc.so/good-clang.so and passed. CLI host returned double-value: 42 for input 21. Exact tested blob IDs: ABI 49c86622b483c8a4b6f39c4430295ce75aff949f, loader 4a112a409c28dabca2fa7146fe790934df24c398, extension 1c1f52ff421cb48f8fb91212ce153de956801c17, tests 8f6e7391385ed80d899e3c61c301593512800325, host 5bc89219e4980cb7bac26a5092946d36cd5e0ba7. Linux only observed; native libraries require explicit trust and are not sandboxed. No editor lifecycle hooks or hot reload. CTest registered.
+
+## 2026-11-25 — teaching pass: shipping and production adapters
+
+Added 23 explicit ownership, input/output, and collaborator comments across two existing module files. Non-comment lines compared identical. Covered shipping state versus full scene state, UI replacement lifetime, replay hashing, mixer/device distinction, optional production manifests, budget validation and streaming observer coordinates. No native build run for the comment-only change.
+
+- [RuntimeShippingBridge.cppm](Runtime/KairoPlayer/RuntimeShippingBridge.cppm): 15 new explanation blocks.
+- [RuntimeProductionSystemsBridge.cppm](Runtime/KairoPlayer/RuntimeProductionSystemsBridge.cppm): 8 new explanation blocks.

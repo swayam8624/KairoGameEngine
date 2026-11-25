@@ -460,3 +460,7 @@ Read [demo GLB generator](Samples/AssetCatalog/create_demo_catalog.py) for binar
 1. [RuntimePluginABI.h](Runtime/KairoPlayer/RuntimePluginABI.h) — ABI versus API, caller-owned storage and version negotiation.
 2. [RuntimePluginLoader.hpp](Runtime/KairoPlayer/RuntimePluginLoader.hpp) — manifest parsing, trust, native symbols and library lifetime.
 3. [ExamplePlugin](Samples/PluginLab/ExamplePlugin.cpp), [CLI host](Samples/PluginLab/PluginLab.cpp), [loader tests](Runtime/KairoPlayer/tests/RuntimePluginLoaderTests.cpp) and [build guide](Samples/PluginLab/README.md). Follow the actual function pointer across the shared-library boundary.
+
+## Teaching pass: shipping and production adapters
+
+Read [RuntimeShippingBridge](Runtime/KairoPlayer/RuntimeShippingBridge.cppm) after ShippingRuntime.cppm in the EngineCore inventory; trace UI lifetime, state snapshots, replay and audio levels. Read [RuntimeProductionSystemsBridge](Runtime/KairoPlayer/RuntimeProductionSystemsBridge.cppm) after ProductionSystemsManifest.cppm and ProductionRuntime.cppm; follow camera position, optional manifest, budget and profile. Then revisit main.cpp to see the actual frame composition.
