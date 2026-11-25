@@ -8,8 +8,8 @@ namespace kairo::player::detail
         std::array<std::uint32_t,4> Consume{},Produce{};
     };
     inline constexpr std::array<CraftRecipe,2> CraftRecipes{{
-        {{{0,1,2,0}},{{0,0,0,2}}},
-        {{{0,0,4,0}},{{0,0,0,3}}}
+        CraftRecipe{{0,1,2,0},{0,0,0,2}},
+        CraftRecipe{{0,0,4,0},{0,0,0,3}}
     }};
     // Apply all inputs and outputs to a local copy. Reject malformed
     // recipes, insufficient inputs and output overflow before mutation.
@@ -41,6 +41,7 @@ namespace kairo::player::detail
         // The native adapter maps to the actual perspective camera.
         float X,Y,W,H;
         std::array<float,3> Color;
+        bool Background=false;
     };
     inline std::vector<CraftHudRect> BuildCraftHud(const CraftInventory& inventory)
     {
@@ -68,17 +69,16 @@ namespace kairo::player::detail
             const float x=356.f+64.f*i,y=472.f;
             const bool active=inventory.Selected==i+1u;
             const auto border=active?selected:std::array<float,3>{.28f,.32f,.36f};
-            // Rectangles do not overlap in depth; inner fill and border
-            // occupy disjoint regions, avoiding equal-depth ordering.
+            // Inner fill is placed behind icons and numerals by the native adapter.
             add(x,y,56,3,border);add(x,y+53,56,3,border);
             add(x,y+3,3,50,border);add(x+53,y+3,3,50,border);
-            add(x+3,y+3,50,50,gray);
+            add(x+3,y+3,50,50,gray);rects.back().Background=true;
             const auto color=CraftColor(static_cast<VoxelMaterial>(i+1u));
             add(x+8,y+8,22,22,color);
             auto count=inventory.Counts[i];
-            if(count>=100)digit(count/100,x+31,y+35);
-            if(count>=10)digit((count/10)%10,x+39,y+35);
-            digit(count%10,x+47,y+35);
+            if(count>=100)digit(count/100,x+30,y+35);
+            if(count>=10)digit((count/10)%10,x+38,y+35);
+            digit(count%10,x+46,y+35);
             digit(i+1u,x+39,y+9);
         }
         return rects;
