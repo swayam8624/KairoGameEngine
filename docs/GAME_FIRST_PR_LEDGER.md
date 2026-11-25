@@ -252,6 +252,10 @@ Separate feature branch on the combined candidate, preserving #76's acceptance h
 
 Renderer #39 introduces bounded opaque pixel rectangles after world draws in the Vulkan viewport color attachment, before capture; depth and picking attachment remain untouched. Engine candidate pins its exact review commit 0c0c85625637b365910113c7e444e0687bac03c2. Both Craft demos route Vulkan HUDs through the rectangle list, avoid HUD mesh allocation, paint backing before glyphs and share quantized pixel edges across sizes. Metal/OpenGL/D3D12 retain the earlier camera-aligned fallback. Added CPU shared-edge and bounds regressions, plus renderer-native clipping/order/picking/capture regression. Native and new CPU results pending. This is a review lock, not the accepted merged dependency snapshot. Alpha blending, text shaping and native backend parity remain open.
 
+### Vulkan/Metal native HUD parity candidate (2026-11-25)
+
+Renderer #40 adds Metal's scissored fullscreen triangle overlay, color-only attachment write mask, always-pass no-write depth and common capability facade. Both Craft demos now use the native rectangle API on supported Vulkan/Metal backends and retain the earlier geometry fallback only on OpenGL/D3D12. Exact Renderer review pin f63f55c6b3c5e4b01196e06b5fb2fd4f9e9d0419 includes #39. Renderer smoke adds exact native overlay pixels, picking, clipping, ordering and restoration; existing engine portrait/wide tests exercise the new path. CPU-only layout test verified exact blobs 5b96d6c81a43a4918dc87556986bb1c920cd4f8d and d3835b5e60ee31176389ac7455c10502408688b0 with Clang 17 ASan/UBSan: 100,000 randomized cases passed. Native compile, MSL and GPU checks pending. Do not accept unmerged review pins as release dependencies.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

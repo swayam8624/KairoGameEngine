@@ -67,7 +67,7 @@ int main(int argc,char** argv)
         }
         RendererRuntime renderer({"Kairo Craft Stream: WASD / arrows / Space / Ctrl / mouse / Esc",960u,540u,!smoke,backend});
         CraftHudViewport hudViewport;
-        const bool nativeHud=renderer.Backend()==GraphicsBackend::Vulkan;
+        const bool nativeHud=renderer.SupportsViewportOverlay();
         renderer.ResizeViewport(hudViewport.Width,hudViewport.Height);
         renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         using World=VoxelEdits<StreamingCraftBaseline>;
@@ -165,7 +165,7 @@ int main(int argc,char** argv)
                         if(p.Width&&p.Height)rects.push_back({p.X,p.Y,p.Width,p.Height,rect.Color});
                     }
                 }
-                renderer.SetVulkanViewportOverlay(rects);
+                renderer.SetViewportOverlay(rects);
             }
             else if(hudEnabled&&hudMesh&&hudPose)
             {
