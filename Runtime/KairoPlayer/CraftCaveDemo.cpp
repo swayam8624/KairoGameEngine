@@ -161,6 +161,7 @@ int main(int argc,char** argv)
         CraftNutrition nutrition;
         CraftMining mining;
         CraftCreature creature;
+        CraftPickups pickups;
         unsigned aimedHealth=0;
         std::optional<MeshHandle> creatureMesh;
         const auto refreshNativeHud=[&]()
@@ -210,6 +211,19 @@ int main(int argc,char** argv)
                 draw.Model(2,3)=TerrainRelativeFloat(minimum[2],base.Z);
                 draw.Material.BaseColor={.95f,.18f,.12f};
                 draw.Material.Emissive={.12f,.02f,.01f};
+                draw.CastShadows=false;scene.Add(draw);
+            }
+            // Pickups reuse the unit creature cube; no mesh upload per item.
+            if(creatureMesh)for(const auto& slot:pickups.Items())if(slot)
+            {
+                const auto& pos=slot->Center;
+                if(std::abs(pos[0]-base.X)>64||std::abs(pos[1]-base.Y)>128||std::abs(pos[2]-base.Z)>64)continue;
+                MeshDraw draw;draw.Mesh=*creatureMesh;draw.Model=Mat4f::Identity();
+                for(unsigned axis=0;axis<3;++axis)draw.Model(axis,axis)=.32f;
+                draw.Model(0,3)=TerrainRelativeFloat(pos[0]-.16,base.X);
+                draw.Model(1,3)=TerrainRelativeFloat(pos[1]-.16,base.Y);
+                draw.Model(2,3)=TerrainRelativeFloat(pos[2]-.16,base.Z);
+                draw.Material.BaseColor={.64f,.82f,1.f};draw.Material.Emissive={.12f,.20f,.32f};
                 draw.CastShadows=false;scene.Add(draw);
             }
             if(!nativeHud&&hudEnabled&&hudMesh&&hudPose)
@@ -541,6 +555,8 @@ int main(int argc,char** argv)
                     const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
                     const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
                     const auto previousCreature=creature.Body();
+                    const auto previousPickups=pickups.Revision();
+                    if(survival)pickups.Advance(dt);
                     if(survival)
                     {
                         AdvanceVoxelPlayer(body,config,{dx,dz,jump,sprint},dt,bodyQuery);
@@ -598,9 +614,9 @@ int main(int argc,char** argv)
                         const bool combatAim=creature.Aimed({x,y,z},d,query);
                         if(left&&combatAim&&!leftHeld)
                         {
-                            const auto combat=CraftStrikeReward(creature,inventory.Counts);
+                            const auto combat=CraftStrikeDrop(creature,inventory,pickups);
                             if(combat.Defeated)
-                                std::cout<<"Stone sentinel defeated; "<<combat.StoneAwarded<<" stone salvaged\n";
+                                std::cout<<"Stone sentinel defeated; loot dropped (overflow award "<<combat.StoneAwarded<<")\n";
                         }
                         const auto hit=((left&&!combatAim)||(right&&!rightHeld))?TraceVoxels({x,y,z},d,8,64,query):std::optional<VoxelHit>{};
                         std::optional<CraftMiningTarget> target;
@@ -625,6 +641,7 @@ int main(int argc,char** argv)
                             else if(hit->Placement)(void)edit(*hit->Placement,CraftPlaced);
                         }
                     }
+                    if(survival)CollectCraftPickups(pickups,inventory,{x,y,z},query);
                     leftHeld=left;rightHeld=right;
                     // Re-query after edits, so a removed target disappears
                     // immediately. Placement is preflight feedback, not a
@@ -649,12 +666,13 @@ int main(int argc,char** argv)
                     publishTarget(aim);
                     const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
                         (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
-                    if(creatureChanged)oldSubmit(pub.Active());
+                    const bool worldActorsChanged=creatureChanged||previousPickups!=pickups.Revision();
+                    if(worldActorsChanged)oldSubmit(pub.Active());
                     recordPlayer();autosave.Observe(saveStamp());
                     const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
                     if(savePath&&(manualSave||autosave.Advance(dt)))(void)checkpoint();
                     if(nativeHud)refreshNativeHud();
-                    else if(hudEnabled&&!creatureChanged)oldSubmit(pub.Active());
+                    else if(hudEnabled&&!worldActorsChanged)oldSubmit(pub.Active());
                     renderer.DrawFrame();
                 }
                 // Exit is a final checkpoint only for an explicitly supplied
@@ -665,7 +683,7 @@ int main(int argc,char** argv)
         }
         catch(...){hudEnabled=false;(void)pub.Release(oldSubmit,destroy);throw;}
         hudEnabled=false;
-        creature.Reset();
+        creature.Reset();pickups.Clear();
         publishTarget(std::nullopt);
         refreshNativeHud();
         if(pub.Release(oldSubmit,destroy)!=0)throw std::runtime_error("Cave cleanup failed.");
