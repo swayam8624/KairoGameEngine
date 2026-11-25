@@ -381,3 +381,10 @@ Read [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp) first (bounded I
 2. [Tests](Runtime/KairoPlayer/tests/RuntimeAnimationRetargetTests.cpp): compare rest-relative rotations, proportions, noncommuting order and rejection.
 3. [Synthetic clip sample](Samples/AnimationLab/RetargetDemo.cpp): follow each pose into the mapped skeleton.
 4. [EngineCore animation and skinning inventory](docs/study/KairoEngineCore.md) for future native adapter integration.
+
+## M50 networking lab
+
+1. [Wire protocol and authority](Runtime/KairoPlayer/RuntimeNetworkProtocol.hpp) — fixed frame schema, network byte order, ticks, validation and authoritative state.
+2. [Protocol oracle](Runtime/KairoPlayer/tests/RuntimeNetworkProtocolTests.cpp).
+3. [TCP transport](Runtime/KairoPlayer/RuntimeLoopbackTcp.hpp) — RAII, socket setup, listen/accept/connect, partial sends/receives and timeouts.
+4. [Native pair](Samples/NetworkLab/NetworkLab.cpp), [Python process harness](Samples/NetworkLab/run_pair.py), [instructions](Samples/NetworkLab/README.md).

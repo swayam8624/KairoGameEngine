@@ -77,3 +77,7 @@ Disk save/load and cross-process terminal completion now pass locally under the 
 ## Candidate progress: animation retargeting
 
 Compatible named skeleton CPU mapping and sampled synthetic clip demo exist; 5,000 seeded poses pass per compiler. Imported source/target fixture and graphical Player integration remain open. No claim of arbitrary humanoid compatibility.
+
+## Candidate progress: network transport and authority
+
+Real two-process loopback exchange and 10,000 seeded authority ticks per compiler passed on Linux. This covers the narrow local transport scenario, but accepted workspace CI, graphical game integration, reconciliation under delay/loss and matchmaking remain open. No WAN or multiplayer readiness claim.
