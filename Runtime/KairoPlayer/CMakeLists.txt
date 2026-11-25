@@ -21,6 +21,16 @@ target_link_libraries(KairoPlayerRuntime PUBLIC
     Kairo::GameEngine KairoRealtimeRenderBridge ${_kairo_player_gameplay_ai})
 target_compile_features(KairoPlayerRuntime PUBLIC cxx_std_23)
 
+# Opt-in until the reviewed EngineCore procedural stack is accepted and pinned.
+option(KAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN "Build the procedural terrain viewport demo" OFF)
+if(KAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN)
+    target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
+        FILES RuntimeProceduralTerrainBridge.cppm)
+    add_executable(KairoTerrainDemo TerrainDemo.cpp)
+    target_link_libraries(KairoTerrainDemo PRIVATE KairoPlayerRuntime)
+    set_property(TARGET KairoTerrainDemo PROPERTY COMPILE_WARNING_AS_ERROR ON)
+endif()
+
 add_executable(KairoPlayer main.cpp)
 target_link_libraries(KairoPlayer PRIVATE KairoPlayerRuntime)
 foreach(native_target IN LISTS KAIRO_PLAYER_NATIVE_GAMEPLAY_TARGETS)
@@ -31,6 +41,9 @@ foreach(native_target IN LISTS KAIRO_PLAYER_NATIVE_GAMEPLAY_TARGETS)
 endforeach()
 
 if(BUILD_TESTING)
+    add_executable(KairoTerrainNativeStoreTests tests/TerrainNativeStoreTests.cpp)
+    target_compile_features(KairoTerrainNativeStoreTests PRIVATE cxx_std_23)
+    add_test(NAME KairoTerrainNativeStoreTests COMMAND KairoTerrainNativeStoreTests)
     # These callbacks exercise the SAME handle-adoption/cleanup helper used in
     # RuntimeRenderBridge.cppm. A native GPU/window is not required.
     add_executable(KairoPlayerRenderResourceTrackingTests
