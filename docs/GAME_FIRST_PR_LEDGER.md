@@ -186,6 +186,18 @@ Engine #58 native Vulkan run 45587962382 passed: 20 px projected error target, m
 
 Total campaign 51 PRs, 39 previously verified merged, 12 pending at observation. Engine #55 -> #56 -> #57 -> #58 -> #59 -> #60 -> #61 -> #62; Core #31 -> #32 -> #33, Renderer #38 independent. Final accepted dependency pins and Metal gate still required. No direct default-branch modifications.
 
+### Native Craft prototype and persistence (2026-11-25)
+
+Engine #59 native Vulkan run 45588373182 passed: 300 moving updates, x=256 from x=16 (240 m traversal), 58 loads, 32 unloads, three captures and clean shutdown. Engine #61 ownership job 139124835710 passed 20,000 DDA rays against independent slab oracle, 4,600 hits, bounded edits and signed/unknown/corner cases. #60 native jump remains queued; #62 geometry ownership/native still queued.
+
+[Engine #63](https://github.com/swayam8624/KairoGameEngine/pull/63), feat/voxel-native-mesh, implementation head 46b47d28deb6b51ea30efdb4503bc266f7e7703f, stacked on #62. Finite deterministic 48 x 16 x 48 block world, nine 16^3 chunks, grass/dirt/stone/placed material IDs, indexed local triangles and sharp normals/vertex colors, owner/face-neighbor dirty mask. CPU tests validate columns, seed difference, mesh vertices/indices and boundary ray edit/restore. CI 45591844695 queued.
+
+[Engine #64](https://github.com/swayam8624/KairoGameEngine/pull/64), feat/craft-interactive-native, implementation head e1e95d85eefa54430e304919a3f514a690a44559, stacked on #63. New KairoCraft executable creative fly mode, ray remove/place, synchronous dirty-chunk uploads, candidate occupancy commit only after successful scene publication. Fixed-size mesh transaction journal preserves both generations after partial submission failure until recovery; retryable destruction; empty chunks supported. CPU test 10,000 three-chunk edits and fault injection. Native smoke requires baseline/removal/placement/restoration captures and exact restored image. CI 45592081697 queued, no native acceptance claim.
+
+[Engine #65](https://github.com/swayam8624/KairoGameEngine/pull/65), feat/craft-world-saves, implementation head f2e3a2bc52d00053697ce57b3b3eee5078e139d7, stacked on #64. Canonical versioned little-endian seed+sorted overrides with checksum, rejects invalid/duplicate/noncanonical/truncated/oversized records. Explicit --save path startup load, F5 saves via same-directory temporary file and rename (single writer; no fsync/power-loss guarantee); stored seed takes precedence. CPU 10,000 random edits, 36,864 restored voxels, 100 corruptions and malformed records; native in-memory edited-world roundtrip. CI 45592289632 queued. Next: verify native Craft and CPU tests, then voxel character collision, streamed chunk residency, inventory and crafting.
+
+Total campaign 54 PRs, 39 previously verified merged, 15 pending at observation. Review Engine #55 through #65 in stack order, after required EngineCore #31–33 and independent Renderer #38; update merged pins and remove review override before release. No default branches directly modified. Finite creative prototype, no multiplayer, infinite voxel streaming, voxel body collision or measured performance.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
