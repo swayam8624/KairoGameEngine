@@ -405,3 +405,7 @@ Read in this order:
 6. [CraftAutosave.hpp](Runtime/KairoPlayer/CraftAutosave.hpp) — dirty state, active-time deadlines and retry.
 
 Follow their matching tests from the integration inventory. These six paths have additional function-level annotations; this is not an assertion of full workspace coverage.
+
+## M50 weather
+
+Read [CraftDaylight](Runtime/KairoPlayer/CraftDaylight.hpp), [weather timeline](Runtime/KairoPlayer/RuntimeWeather.hpp), [weather tests](Runtime/KairoPlayer/tests/RuntimeWeatherTests.cpp), then the applyDaylight and active loop in [CraftStreamDemo](Runtime/KairoPlayer/CraftStreamDemo.cpp). Follow the quantized simulation key to RenderEnvironment and the scene submission.

@@ -92,3 +92,7 @@ Added 36 teaching blocks in six existing headers; all non-comment lines compared
 | [CraftAutosave.hpp](Runtime/KairoPlayer/CraftAutosave.hpp) | 9 |
 
 This was a comment-only pass. No new native build run. Full all-file annotation is still open.
+
+## 2026-11-25 — weather and daylight composition
+
+Added [RuntimeWeather.hpp](Runtime/KairoPlayer/RuntimeWeather.hpp), seeded 30-second epochs with quantized transitions and lighting modulation. The existing [Craft streamed game](Runtime/KairoPlayer/CraftStreamDemo.cpp) accepts --weather; weather advances during active frames and changes the actual submitted sky, sun and ambient lighting through the existing scene publication path. GCC and Clang C++23 -Wall -Wextra -Werror each passed 120,000 seeded transitions and lighting-bound checks. Header blob c7b115916da35e7a688ee5d4515d734c7139f332; test blob 2aa6a606a2a58efbea964e3a66e418f3985fc1e1. Native renderer build/capture, visible precipitation and persistence of weather time remain unverified or unimplemented.

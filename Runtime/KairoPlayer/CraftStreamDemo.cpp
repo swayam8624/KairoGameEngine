@@ -9,6 +9,7 @@
 #include "CraftVitals.hpp"
 #include "CraftNutrition.hpp"
 #include "CraftDaylight.hpp"
+#include "RuntimeWeather.hpp"
 #include "CraftSurfaceSpawn.hpp"
 #include "CraftMining.hpp"
 #include "CraftEquipment.hpp"
@@ -46,7 +47,7 @@ int main(int argc,char** argv)
         using namespace kairo::renderer;
         using namespace kairo::foundation::math;
         using namespace kairo::player::detail;
-        bool smoke=false,survival=false;
+        bool smoke=false,survival=false,weatherEnabled=false;
         unsigned workers=0,uploadBudget=4;
         std::optional<std::filesystem::path> savePath;
         std::uint64_t seed=42;
@@ -56,6 +57,7 @@ int main(int argc,char** argv)
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
             else if(arg=="--survival")survival=true;
+            else if(arg=="--weather")weatherEnabled=true;
             else if(arg=="--uploads"&&i+1<argc)
             {
                 const std::string_view value=argv[++i];
@@ -185,9 +187,10 @@ int main(int argc,char** argv)
         authored.AddLight(sun);
         // Time-of-day modifies only authored lighting; the current native
         // mesh handles and chunk generation remain untouched.
-        const auto applyDaylight=[&](unsigned step)
+        const auto applyDaylight=[&](unsigned step,RuntimeWeatherSample weather={})
         {
-            const auto light=CraftDaylight::Sample(step);
+            // Compose weather with the existing daylight policy; no new native meshes.
+            const auto light=RuntimeWeather::Apply(CraftDaylight::Sample(step),weather);
             RenderScene next;
             auto directional=sun;
             directional.Direction={light.SunDirection[0],light.SunDirection[1],light.SunDirection[2]};
@@ -674,6 +677,8 @@ int main(int argc,char** argv)
                 }
                 CraftDaylight daylight(playerCheckpoint?playerCheckpoint->DayPhase:.25);
                 unsigned publishedDaylight=daylight.Step();
+                double weatherSeconds=0.;
+                RuntimeWeatherSample publishedWeather{};
                 applyDaylight(publishedDaylight);committedSubmit(publication.Active());
                 const auto recordPlayer=[&](){if(survival)playerCheckpoint=CraftCheckpoint{player.Feet,yaw,pitch,daylight.Phase(),vitals.Health(),nutrition.Hunger()};};
                 recordPlayer();
@@ -731,11 +736,17 @@ int main(int argc,char** argv)
                     const double dt=std::min(.1,std::chrono::duration<double>(now-previous).count());
                     previous=now;
                     daylight.Advance(dt);
-                    if(daylight.Step()!=publishedDaylight)
+                    // The weather clock advances only during active play. Publish
+                    // quantized changes through the same scene/mesh transaction.
+                    // Wrap the clock at a generous finite horizon to avoid a
+                    // floating-point-to-integer conversion outside its range.
+                    if(weatherEnabled)weatherSeconds=std::fmod(weatherSeconds+dt,31536000.);
+                    const auto weather=weatherEnabled?RuntimeWeather::At(seed,static_cast<std::uint64_t>(weatherSeconds)):RuntimeWeatherSample{};
+                    if(daylight.Step()!=publishedDaylight||weather!=publishedWeather)
                     {
-                        applyDaylight(daylight.Step());
+                        applyDaylight(daylight.Step(),weather);
                         committedSubmit(publication.Active());
-                        publishedDaylight=daylight.Step();
+                        publishedDaylight=daylight.Step();publishedWeather=weather;
                     }
                     double cursorX=0,cursorY=0;
                     glfwGetCursorPos(window,&cursorX,&cursorY);

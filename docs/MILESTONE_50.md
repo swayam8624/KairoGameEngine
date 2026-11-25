@@ -85,3 +85,7 @@ Real two-process loopback exchange and 10,000 seeded authority ticks per compile
 ## Candidate progress: network synchronization
 
 Client prediction and reconciliation now run in the real loopback sample and pass 64,000 impaired-snapshot ticks per compiler. The impairment model drops, delays and reorders snapshots while inputs reach the authority reliably and in order. Full game state, real network loss and multi-actor authority remain open.
+
+## Candidate progress: weather
+
+Seeded weather timeline and renderer-neutral light modulation pass portable tests. The streamed Craft Player now opts into actual lighting changes with --weather. Native acceptance and visible rain remain open; no 50% promotion yet.
