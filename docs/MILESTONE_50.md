@@ -65,3 +65,7 @@ percentages.
 ## Candidate progress: quest/dialogue
 
 The reusable rules engine, branching terminal example and regression fixtures are present on the candidate branch. M50 remains open until runtime sample integration, disk persistence and relevant exact-head tests pass.
+
+## Candidate progress: two-bone IK
+
+Analytic kernel, CLI pose lab and portable tests exist. 10,000 seeded cases passed under both GCC and Clang. Rendered pose integration remains open; no 50% promotion until the demonstration gate is met.
