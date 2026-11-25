@@ -441,3 +441,10 @@ Read [RuntimeBreakableCube.hpp](Runtime/KairoPlayer/RuntimeBreakableCube.hpp), t
 4. [VoxelChunkSurface.hpp](Runtime/KairoPlayer/VoxelChunkSurface.hpp) — interior/halo sampling, face ownership, greedy merge and winding; then return to BuildCraftMesh.
 5. [CraftSurfaceSpawn.hpp](Runtime/KairoPlayer/CraftSurfaceSpawn.hpp) — support and body-clearance query, deterministic search.
 6. Trace [CraftStreamDemo](Runtime/KairoPlayer/CraftStreamDemo.cpp) and [SimulationLab](Runtime/KairoPlayer/SimulationLab.cpp) from occupancy through GPU submission. Follow the matching tests from the integration inventory.
+
+## M50 menu authoring
+
+1. [RuntimeMenuDocument.hpp](Runtime/KairoPlayer/RuntimeMenuDocument.hpp): normalized integer geometry, strict parsing, canonical save and validation.
+2. [Parser tests](Runtime/KairoPlayer/tests/RuntimeMenuDocumentTests.cpp).
+3. [Authored sample](Samples/AuthoredMenu/Config/Menu.kmenu) and [project](Samples/AuthoredMenu/Project.kproject).
+4. [RuntimeShippingBridge.cppm](Runtime/KairoPlayer/RuntimeShippingBridge.cppm) maps the document into existing EngineCore RuntimeUIScene and LocalizationCatalog; read the pinned ShippingRuntime.cppm through [EngineCore study catalog](docs/study/KairoEngineCore.md).

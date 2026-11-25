@@ -107,3 +107,7 @@ A dedicated native renderer lab now submits water depth columns and a deformed t
 ## Candidate progress: destruction
 
 Predetermined rigid cube fracture, bounded fragments and ground response passed 1,000 seeded fracture events plus 240,000 body steps per compiler. Native lab and smoke registered but not run; authored physics contact and arbitrary mesh support remain open.
+
+## Candidate progress: authored UI
+
+Canonical button document and shipping bridge loading implemented, with 1,000 CPU roundtrips per compiler. Sample and headless validation registered. Native interaction, visual labels, scaling, and graphical designer still open; no 50% promotion.

@@ -1,0 +1,3 @@
+kairo-menu 1
+button "01-play" "PLAY" resume 300 320 400 140
+button "02-quit" "QUIT" quit 300 520 400 140
