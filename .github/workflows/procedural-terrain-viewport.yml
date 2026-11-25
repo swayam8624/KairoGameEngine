@@ -206,6 +206,27 @@ jobs:
         run: |
           set -euo pipefail
           ctest --test-dir build/game-player-clang -R '^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow|CraftStreamSave|CraftMeshBatch|CraftInventory|CraftCaveWorld|CraftRecipesHud)Tests$' --no-tests=error --output-on-failure 2>&1 | tee build/metal-diagnostics/contracts.log
+      - name: Require native renderer skinning and instancing captures
+        run: |
+          set -euo pipefail
+          ctest --test-dir build/game-player-clang -R '^KairoRendererMetal(Skinning|Instancing)Smoke        run: |
+          set -euo pipefail
+          player=build/game-player-clang/Runtime/KairoPlayer
+          "$player/KairoTerrainDemo" --renderer metal --seed 42 --smoke --workers 4 --screen-px 20 2>&1 | tee build/metal-diagnostics/terrain.log
+          "$player/KairoTerrainExplorer" --renderer metal --seed 42 --smoke 2>&1 | tee build/metal-diagnostics/explorer.log
+          "$player/KairoCraftStream" --renderer metal --seed 42 --survival --workers 4 --uploads 2 --smoke 2>&1 | tee build/metal-diagnostics/craft.log
+          "$player/KairoCraftCaves" --renderer metal --seed 42 --smoke 2>&1 | tee build/metal-diagnostics/caves.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: locked-metal-gameplay-diagnostics
+          path: build/metal-diagnostics/
+          if-no-files-found: warn
+ --no-tests=error --output-on-failure 2>&1 | tee build/metal-diagnostics/renderer.log
+          if grep -Ei 'Skipped|Not Run' build/metal-diagnostics/renderer.log; then
+            echo "Native Metal presentation was unavailable; acceptance is incomplete." >&2
+            exit 1
+          fi
       - name: Require native Metal gameplay capture
         run: |
           set -euo pipefail
