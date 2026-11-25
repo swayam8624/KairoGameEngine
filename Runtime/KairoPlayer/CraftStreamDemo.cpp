@@ -428,9 +428,9 @@ int main(int argc,char** argv)
                     if(session.Inventory.Count(inventory.Selected)!=1||
                         session.World.Overrides()!=world->Overrides())
                         throw std::runtime_error("Survival inventory persistence failed.");
-                    const auto target=TraceVoxels({.5,12,.5},{0,-1,0},12,32,query);
-                    if(!target||target->Placement!=selected->Cell||
-                        !PlaceCraftBlock(inventory,*target->Placement,query,edit,[](auto){return true;})||
+                    const auto placementHit=TraceVoxels({.5,12,.5},{0,-1,0},12,32,query);
+                    if(!placementHit||placementHit->Placement!=selected->Cell||
+                        !PlaceCraftBlock(inventory,*placementHit->Placement,query,edit,[](auto){return true;})||
                         inventory.Count(selected->Material)!=0||!world->Overrides().empty())
                         throw std::runtime_error("Survival placement did not consume inventory.");
                     if(capture(.5,.5).RGBA!=baseline.RGBA)
