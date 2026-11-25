@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include "CraftWorld.hpp"
 #include "CraftSave.hpp"
+#include "VoxelPlayer.hpp"
 #include <filesystem>
 #include <fstream>
 #include "VoxelMeshPublication.hpp"
@@ -25,7 +26,7 @@ int main(int argc,char** argv)
         using namespace kairo::renderer;
         using namespace kairo::foundation::math;
         using namespace kairo::player::detail;
-        bool smoke=false;
+        bool smoke=false,survival=false;
         std::uint64_t seed=42;
         std::optional<std::filesystem::path> savePath;
         GraphicsBackend backend=GraphicsBackend::Automatic;
@@ -33,6 +34,7 @@ int main(int argc,char** argv)
         {
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
+            else if(arg=="--survival")survival=true;
             else if(arg=="--save"&&i+1<argc)savePath=std::filesystem::path(argv[++i]);
             else if(arg=="--renderer"&&i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
             else if(arg=="--seed"&&i+1<argc)
@@ -42,7 +44,7 @@ int main(int argc,char** argv)
                 if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size())
                     throw std::invalid_argument("Invalid world seed.");
             }
-            else throw std::invalid_argument("Usage: KairoCraft [--seed N] [--renderer backend] [--save path] [--smoke]");
+            else throw std::invalid_argument("Usage: KairoCraft [--seed N] [--renderer backend] [--save path] [--survival] [--smoke]");
         }
         RendererRuntime renderer({"Kairo Craft: WASD / arrows / Space / Ctrl / mouse buttons / Esc",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960,540);
@@ -63,6 +65,22 @@ int main(int argc,char** argv)
             seed=loaded.Seed;
             world=std::make_unique<World>(std::move(loaded.World));
         }
+        const VoxelPlayerConfig bodyConfig;
+        const auto bodyQuery=[&](VoxelCoordinate c)->std::optional<VoxelMaterial>
+        {
+            // Invisible containment at the finite sandbox boundary; the
+            // floor remains solid if every editable block is removed.
+            if(c.X<CraftFirst||c.X>=CraftLast||c.Z<CraftFirst||c.Z>=CraftLast||c.Y<0)return CraftStone;
+            return world->Get(c);
+        };
+        const auto spawn=[&]()
+        {
+            VoxelPlayer player{{8.5,16.,12.5}};
+            for(int y=CraftExtent-1;y>=0;--y)
+                if(world->Get({8,y,12})!=VoxelAir){player.Feet[1]=y+1.;break;}
+            AdvanceVoxelPlayer(player,bodyConfig,{},0,bodyQuery);
+            return player;
+        };
         const auto save=[&]()
         {
             if(!savePath)return;
@@ -145,6 +163,34 @@ int main(int argc,char** argv)
                 throw std::runtime_error("Initial voxel mesh publication failed.");
             if(smoke)
             {
+                if(survival)
+                {
+                    auto player=spawn();
+                    const double startY=player.Feet[1];
+                    if(!player.Grounded)throw std::runtime_error("Survival spawn not supported.");
+                    double peak=0;
+                    for(unsigned i=0;i<240;++i)
+                    {
+                        AdvanceVoxelPlayer(player,bodyConfig,{0,0,i==0,false},1./120,bodyQuery);
+                        peak=std::max(peak,player.Feet[1]-startY);
+                        if(VoxelPlayerBlocked(player,bodyConfig,bodyQuery))throw std::runtime_error("Survival penetration.");
+                    }
+                    if(!player.Grounded||peak<1.2||peak>1.3)throw std::runtime_error("Survival jump failed.");
+                    CameraPose view;
+                    view.Position={float(player.Feet[0]),float(player.Feet[1]+bodyConfig.EyeHeight),float(player.Feet[2])};
+                    view.Target={view.Position.x,view.Position.y-.3f,view.Position.z-1.f};
+                    renderer.SetCameraPose(view);
+                    renderer.RequestViewportCapture();
+                    bool captured=false;
+                    for(unsigned i=0;i<12;++i)
+                    {
+                        renderer.DrawFrame();
+                        if(auto image=renderer.TakeViewportCapture())
+                        {captured=image->IsVisuallyNonUniform();break;}
+                    }
+                    if(!captured)throw std::runtime_error("Survival camera capture failed.");
+                    std::cout<<"Craft survival jump: "<<peak<<" m; grounded capture passed\n";
+                }
                 CameraPose camera;
                 camera.Position={.5f,12.f,.5f};
                 camera.Target={.5f,0.f,.5f};camera.Up={0.f,0.f,-1.f};
@@ -193,6 +239,8 @@ int main(int argc,char** argv)
                 // Creative fly mode for the bounded sandbox. No claim of
                 // player-body collision, infinite streaming or persistence.
                 double x=8,y=12,z=12,yaw=0,pitch=-.5;
+                auto player=spawn();
+                bool jumpHeld=false;
                 bool leftHeld=false,rightHeld=false,saveHeld=false;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
@@ -208,9 +256,23 @@ int main(int argc,char** argv)
                     pitch=std::clamp(pitch+(key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN))*1.4*dt,-1.45,1.45);
                     const double f=key(GLFW_KEY_W)-key(GLFW_KEY_S),r=key(GLFW_KEY_D)-key(GLFW_KEY_A);
                     const double scale=8*dt/std::max(1.,std::hypot(f,r));
-                    x=std::clamp(x+(std::sin(yaw)*f+std::cos(yaw)*r)*scale,-24.,40.);
-                    z=std::clamp(z+(-std::cos(yaw)*f+std::sin(yaw)*r)*scale,-24.,40.);
-                    y=std::clamp(y+(key(GLFW_KEY_SPACE)-key(GLFW_KEY_LEFT_CONTROL))*8*dt,1.,32.);
+                    const bool jump=key(GLFW_KEY_SPACE)>0;
+                    if(survival)
+                    {
+                        const double norm=std::max(1.,std::hypot(f,r));
+                        AdvanceVoxelPlayer(player,bodyConfig,
+                            {(std::sin(yaw)*f+std::cos(yaw)*r)/norm,
+                            (-std::cos(yaw)*f+std::sin(yaw)*r)/norm,
+                            jump&&!jumpHeld,key(GLFW_KEY_LEFT_SHIFT)>0},dt,bodyQuery);
+                        x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
+                    }
+                    else
+                    {
+                        x=std::clamp(x+(std::sin(yaw)*f+std::cos(yaw)*r)*scale,-24.,40.);
+                        z=std::clamp(z+(-std::cos(yaw)*f+std::sin(yaw)*r)*scale,-24.,40.);
+                        y=std::clamp(y+(key(GLFW_KEY_SPACE)-key(GLFW_KEY_LEFT_CONTROL))*8*dt,1.,32.);
+                    }
+                    jumpHeld=jump;
                     const std::array direction{std::sin(yaw)*std::cos(pitch),std::sin(pitch),-std::cos(yaw)*std::cos(pitch)};
                     CameraPose camera;
                     camera.Position={float(x),float(y),float(z)};
@@ -224,7 +286,8 @@ int main(int argc,char** argv)
                         if(hit)
                         {
                             if(left&&!leftHeld)(void)edit(hit->Cell,VoxelAir);
-                            else if(hit->Placement)(void)edit(*hit->Placement,CraftPlaced);
+                            else if(hit->Placement&&(!survival||!PlayerIntersectsBlock(player,bodyConfig,*hit->Placement)))
+                                (void)edit(*hit->Placement,CraftPlaced);
                         }
                     }
                     leftHeld=left;rightHeld=right;
