@@ -1,6 +1,7 @@
 #include "CraftWorld.hpp"
 #include "RuntimeWaterGrid.hpp"
-#include "RuntimeSoftBody.hpp"
+#include "RuntimeTetraSurface.hpp"
+#include "VoxelMeshPublication.hpp"
 #include "RuntimeBreakableCube.hpp"
 #include <chrono>
 #include <iostream>
@@ -58,29 +59,18 @@ namespace
         return scene;
     }
 
-    // Construct outward-facing triangles from the current four vertices.
-    // Recompute face normals after every deformation, not from rest pose.
-    // Opposite vertex chooses orientation even if the authored order changes.
+    // Adapt the tested CPU boundary geometry to the renderer vertex ABI.
+    // Each face owns three vertices with one outward normal.
     Mesh TetraMesh(const RuntimeSoftBody& body)
     {
-        using namespace soft_detail;
-        const std::array<std::array<unsigned,4>,4> faces{{{{0,1,2,3}},{{0,3,1,2}},{{0,2,3,1}},{{1,3,2,0}}}};
+        const auto surface=BuildTetraSurface(body);
         std::vector<MeshVertex> vertices;std::vector<std::uint32_t> indices;
-        for(const auto& face:faces)
+        vertices.reserve(surface.size());indices.reserve(surface.size());
+        for(const auto& v:surface)
         {
-            auto a=body.Vertices()[face[0]].Position,b=body.Vertices()[face[1]].Position,c=body.Vertices()[face[2]].Position;
-            const auto opposite=body.Vertices()[face[3]].Position;
-            auto normal=Cross(Sub(b,a),Sub(c,a));
-            if(Dot(normal,Sub(opposite,a))>0){std::swap(b,c);normal=Scale(normal,-1.);}
-            const auto length=Length(normal);
-            if(length<1e-10)throw std::runtime_error("Degenerate visual tetra face.");
-            normal=Scale(normal,1./length);
-            for(const auto& p:{a,b,c})
-            {
-                indices.push_back(static_cast<std::uint32_t>(vertices.size()));
-                vertices.push_back({{float(p[0]),float(p[1]),float(p[2])},{1,1,1},
-                    {float(normal[0]),float(normal[1]),float(normal[2])},{0,0}});
-            }
+            const auto& p=v.Position;const auto& n=v.Normal;
+            indices.push_back(static_cast<std::uint32_t>(vertices.size()));
+            vertices.push_back({{float(p[0]),float(p[1]),float(p[2])},{1,1,1},{float(n[0]),float(n[1]),float(n[2])},{0,0}});
         }
         return Mesh(std::move(vertices),std::move(indices));
     }
@@ -126,7 +116,9 @@ int main(int argc,char** argv)
         }
         if(soft&&destruction)throw std::invalid_argument("Select one simulation mode.");
         RendererRuntime renderer({"Kairo simulation lab",960u,540u,!smoke,backend});
-        renderer.ResizeViewport(960,540);renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
+        const auto [initialWidth,initialHeight]=renderer.NativeWindow().FramebufferExtent();
+        if(!initialWidth||!initialHeight)throw std::runtime_error("Simulation lab framebuffer unavailable.");
+        renderer.ResizeViewport(initialWidth,initialHeight);renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         CameraPose camera;
         if(soft||destruction){camera.Position={5,5,9};camera.Target={0,1.8f,0};}
         else{camera.Position={12,18,20};camera.Target={8,0,4.5f};}
@@ -146,7 +138,30 @@ int main(int argc,char** argv)
         unsigned destructionFrame=0;
 
         const auto cube=renderer.CreateMesh(UnitCube());
-        MeshHandle tetra=InvalidMeshHandle;
+        // Reuse Craft's bounded publication contract for one deformable mesh.
+        // A failed submit may have partially replaced the scene; keep both
+        // generations until a successful restore or empty-scene submission.
+        using TetraPublication=VoxelMeshPublication<MeshHandle,1>;
+        TetraPublication tetraPublication;
+        const auto submitTetra=[&](const TetraPublication::Slots& slots)
+        {
+            RenderScene scene;
+            if(slots[0])
+            {
+                Light(scene);Box(scene,cube,{-3,-.2f,-3},{6,.2f,6},{.22f,.28f,.24f});
+                MeshDraw draw;draw.Mesh=*slots[0];draw.Material.BaseColor={.88f,.25f,.07f};
+                draw.CastShadows=false;draw.ReceiveShadows=false;scene.Add(draw);
+            }
+            renderer.SubmitRenderScene(scene);
+        };
+        const auto destroy=[&](MeshHandle handle){renderer.DestroyMesh(handle);};
+        const auto cleanup=[&]()
+        {
+            // Empty submission also unbinds the shared cube in every mode.
+            if(tetraPublication.Release(submitTetra,destroy)!=0)
+                throw std::runtime_error("Simulation lab retained dynamic mesh handles.");
+            renderer.DestroyMesh(cube);
+        };
         const auto publish=[&]()
         {
             if(destruction)
@@ -168,21 +183,8 @@ int main(int argc,char** argv)
             {
                 auto scene=WaterScene(water,cube);Light(scene);renderer.SubmitRenderScene(scene);return;
             }
-            // Upload the newly deformed tetrahedron before changing the
-            // scene. Once submission succeeds, the previous mesh is unbound
-            // and can be destroyed. Never delete a still-submitted handle.
-            const auto next=renderer.CreateMesh(TetraMesh(body));
-            try
-            {
-                RenderScene scene;Light(scene);
-                Box(scene,cube,{-3,-.2f,-3},{6,.2f,6},{.22f,.28f,.24f});
-                MeshDraw draw;draw.Mesh=next;draw.Material.BaseColor={.88f,.25f,.07f};
-                draw.CastShadows=false;draw.ReceiveShadows=false;scene.Add(draw);
-                renderer.SubmitRenderScene(scene);
-            }
-            catch(...){renderer.DestroyMesh(next);throw;}
-            const auto previous=tetra;tetra=next;
-            if(previous!=InvalidMeshHandle)renderer.DestroyMesh(previous);
+            if(!tetraPublication.Apply({true},[&](std::size_t){return renderer.CreateMesh(TetraMesh(body));},submitTetra,destroy))
+                throw std::runtime_error("Simulation lab mesh retirement retry failed.");
         };
         const auto advance=[&]()
         {
@@ -197,6 +199,8 @@ int main(int argc,char** argv)
             else if(soft)for(unsigned i=0;i<4;++i)body.Step();
             else water.Step(.2);
         };
+        try
+        {
         publish();
         if(smoke)
         {
@@ -221,7 +225,7 @@ int main(int argc,char** argv)
             // Throttle dynamic mesh uploads to 30 Hz. Poll events even when
             // minimized; never submit a zero-size viewport to the backend.
             auto previous=std::chrono::steady_clock::now();
-            std::uint32_t width=960,height=540;
+            std::uint32_t width=initialWidth,height=initialHeight;
             while(!renderer.NativeWindow().ShouldClose())
             {
                 renderer.NativeWindow().PollEvents();
@@ -234,10 +238,16 @@ int main(int argc,char** argv)
                 renderer.DrawFrame();
             }
         }
-        // Unbind scene references first, then release renderer-owned meshes.
-        renderer.SubmitRenderScene(RenderScene{});
-        if(tetra!=InvalidMeshHandle)renderer.DestroyMesh(tetra);
-        renderer.DestroyMesh(cube);
+        }
+        catch(...)
+        {
+            // Never destroy a potentially submitted handle to hide a failure.
+            // Best effort cleanup preserves the original exception; the
+            // renderer remains the final owner if its device is unusable.
+            try{cleanup();}catch(...){}
+            throw;
+        }
+        cleanup();
         return 0;
     }
     catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

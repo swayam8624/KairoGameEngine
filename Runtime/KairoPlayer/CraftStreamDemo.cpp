@@ -944,12 +944,15 @@ int main(int argc,char** argv)
                 if(savePath&&autosave.Dirty())finalSaveFailed=!checkpoint();
             }
         }
-        catch(...){hudEnabled=false;(void)publication.Release(committedSubmit,destroy);throw;}
+        catch(...){hudEnabled=false;rainStreaks.clear();creature.Reset();pickups.Clear();(void)publication.Release(committedSubmit,destroy);throw;}
         hudEnabled=false;
-        creature.Reset();pickups.Clear();
+        // Rain borrows the creature cube, so remove its draw references
+        // before releasing the native handle, including exit during rain.
+        rainStreaks.clear();creature.Reset();pickups.Clear();
         publishTarget(std::nullopt);
         refreshNativeHud();
         if(publication.Release(committedSubmit,destroy)!=0)throw std::runtime_error("Streamed Craft shutdown retained meshes.");
+        renderer.SubmitRenderScene(RenderScene{});
         if(hudMesh)renderer.DestroyMesh(*hudMesh);
         if(creatureMesh)renderer.DestroyMesh(*creatureMesh);
         return finalSaveFailed?1:0;

@@ -509,3 +509,7 @@ Read [RuntimeMenuPresentation](Runtime/KairoPlayer/RuntimeMenuPresentation.hpp) 
 ## Game lab integration follow-up
 
 Read [RuntimeGameLabView](Runtime/KairoPlayer/RuntimeGameLabView.hpp) and [CPU painter test](Runtime/KairoPlayer/tests/RuntimeGameLabViewTests.cpp) after game rules and RuntimeGridCanvas. Follow the tested painter-order rectangles into GameLab's native overlay translation and then the pinned VulkanTriangle::Record / MetalBackend scene encoding. Capture reads the same viewport after overlay; CPU reference and native GPU acceptance are distinct.
+
+## Simulation lab integration follow-up
+
+After RuntimeSoftBody, read [tetra surface](Runtime/KairoPlayer/RuntimeTetraSurface.hpp) and [surface tests](Runtime/KairoPlayer/tests/RuntimeTetraSurfaceTests.cpp). Follow signed volume to outward winding, flat normals and MeshVertex conversion in SimulationLab. Then read [VoxelMeshPublication](Runtime/KairoPlayer/VoxelMeshPublication.hpp) and [single-slot recovery tests](Runtime/KairoPlayer/tests/RuntimeTetraPublicationTests.cpp), tracing both generations through submission, rollback and release. Read CraftStreamDemo shutdown to understand shared rain/creature mesh references.
