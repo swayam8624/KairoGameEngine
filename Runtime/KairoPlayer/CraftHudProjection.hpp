@@ -10,6 +10,29 @@ namespace kairo::player::detail
     {
         std::uint32_t Width=960,Height=540;
     };
+    struct CraftHudPixelRect
+    {
+        std::int32_t X,Y;
+        std::uint32_t Width,Height;
+    };
+    // Quantize shared edges, rather than rounding sizes independently.
+    // At tiny viewport sizes, collapsed rectangles are valid no-ops.
+    inline CraftHudPixelRect QuantizeCraftHudRect(CraftHudViewport viewport,
+        double x,double y,double w,double h,bool bottomAligned)
+    {
+        if(!viewport.Width||!viewport.Height||viewport.Width>32768||viewport.Height>32768||
+            !std::isfinite(x)||!std::isfinite(y)||!std::isfinite(w)||!std::isfinite(h)||
+            x<0||y<0||w<=0||h<=0||x+w>960||y+h>540)
+            throw std::invalid_argument("Invalid HUD pixel rectangle.");
+        const double scale=std::min(viewport.Width/960.,viewport.Height/540.);
+        const double ox=(viewport.Width-960*scale)*.5;
+        const double oy=bottomAligned?viewport.Height-540*scale:(viewport.Height-540*scale)*.5;
+        const auto x0=static_cast<std::int32_t>(std::lround(ox+x*scale));
+        const auto y0=static_cast<std::int32_t>(std::lround(oy+y*scale));
+        const auto x1=static_cast<std::int32_t>(std::lround(ox+(x+w)*scale));
+        const auto y1=static_cast<std::int32_t>(std::lround(oy+(y+h)*scale));
+        return {x0,y0,static_cast<std::uint32_t>(x1-x0),static_cast<std::uint32_t>(y1-y0)};
+    }
     struct CraftHudPlaneRect
     {
         double X,Y,Width,Height;

@@ -244,15 +244,272 @@ Confirmed earlier: #55, #56 and racing integration failed MetalBackend.mm warnin
 
 The malformed candidate workflow was reconstructed from #75 in 9ee2aca; GitHub accepted all three jobs (ownership, native-vulkan, native-metal) in run 45602979574. Subsequent candidate work replaces hardcoded survival spawn with deterministic bounded search of the edited authoritative world before selecting resident chunks. The CPU regression covers 1,024 seeds, determinism, unsupported shafts, unavailable/empty/solid worlds and an actual serialized edited spawn column. Search covers 17x17 horizontal cells and supported surface positions only; if no admissible position exists, startup fails explicitly rather than spawning inside geometry. Creative camera startup and session format are unchanged. Native acceptance and the new CPU regressions remain pending.
 
-### Accepted combined review candidate and merged dependency lock (2026-11-25)
-
-Engine #76 exact head 1321d5351b813bfbac53d892c0dc6d92044124ea passed all six PR workflows: procedural terrain 45603914470, racing macOS 45603914513, Wave C/E 45603914479, racing compile 45603914828, full Build/Test/Package 45603914792 and scope 45603915061. Procedural Vulkan job 139169678209: 18/18 contracts, native Craft and cave captures; Metal job 139169678712: 18/18 contracts, 2/2 Metal skin/instance smokes, actual gameplay captures, clean exact lock before/after. Cave 90 loads, 63 evictions, peak four uploads.
-
-Merged Core #31 4a36ac2362ed7cb0743cff87890d9cae1dafb3b1, #32 d06860cf7cebe0269c3c7039dcbc7ab22bf33458, #33 523ed41da74ee117256281a3ebc45cde91368bc6; Renderer #38 f46e1bbacb6235d9714896e281beb695b5dbc52d. Core merged/review tree SHA identical (32dc2194f2ff0612e0637f8cf710aad4e263a580), Renderer merged/review tree SHA identical (82bda21678dd44f635e904da661323dfec86e967). Standalone Linux/Windows passed; standalone macOS jobs cancelled, combined exact review lock native macOS acceptance passed. This branch aggregates #55–76 against main, replaces ONLY those two dependency SHA values and reruns all acceptance against the actual merged lock. Earlier individual engine branches still contain historical pins; do not merge them independently with stale dependencies. Later UI/survival feature branches remain outside this integration candidate. New exact-lock runs pending.
-
 ### Responsive Craft HUD (2026-11-25)
 
 Separate feature branch on the combined candidate, preserving #76's acceptance head. Both Craft demos share camera-plane projection with uniform scaling, a centered crosshair and bottom-aligned hotbar. Interactive framebuffer changes explicitly resize the offscreen target, excluding zero-sized minimized windows; smoke defaults remain 960x540. Exact standalone header/test blobs f2a3a037d673ebcb3a89c03d36101b69a7deb702 and ee6259563e820e6c4fe5149ef9d2f112b451b700 passed 100,000 seeded randomized projections locally (Clang 17, Linux x86_64, ASan/UBSan). Native portrait 480x720 and wide 1280x480 smoke now checks actual capture dimensions, HUD-on/off difference, world restoration and original 960x540 restoration in both demos. Native resized rendering and module compilation remain unverified. This is still depth-tested scene geometry, not the final screen-space compositor.
+
+### Native Vulkan Craft overlay (2026-11-25)
+
+Renderer #39 introduces bounded opaque pixel rectangles after world draws in the Vulkan viewport color attachment, before capture; depth and picking attachment remain untouched. Engine candidate pins its exact review commit 0c0c85625637b365910113c7e444e0687bac03c2. Both Craft demos route Vulkan HUDs through the rectangle list, avoid HUD mesh allocation, paint backing before glyphs and share quantized pixel edges across sizes. Metal/OpenGL/D3D12 retain the earlier camera-aligned fallback. Added CPU shared-edge and bounds regressions, plus renderer-native clipping/order/picking/capture regression. Native and new CPU results pending. This is a review lock, not the accepted merged dependency snapshot. Alpha blending, text shaping and native backend parity remain open.
+
+### Vulkan/Metal native HUD parity candidate (2026-11-25)
+
+Renderer #40 adds Metal's scissored fullscreen triangle overlay, color-only attachment write mask, always-pass no-write depth and common capability facade. Both Craft demos now use the native rectangle API on supported Vulkan/Metal backends and retain the earlier geometry fallback only on OpenGL/D3D12. Exact Renderer review pin f63f55c6b3c5e4b01196e06b5fb2fd4f9e9d0419 includes #39. Renderer smoke adds exact native overlay pixels, picking, clipping, ordering and restoration; existing engine portrait/wide tests exercise the new path. CPU-only layout test verified exact blobs 5b96d6c81a43a4918dc87556986bb1c920cd4f8d and d3835b5e60ee31176389ac7455c10502408688b0 with Clang 17 ASan/UBSan: 100,000 randomized cases passed. Native compile, MSL and GPU checks pending. Do not accept unmerged review pins as release dependencies.
+
+### Native HUD publication isolation (2026-11-25)
+
+Separates native HUD publication from world mesh submission and camera movement. A key containing enable state, inventory, selected slot and physical viewport extent suppresses unchanged updates; disabled keys collapse to one state. Failed renderer submission leaves the previous key retryable. Existing fallback geometry behavior unchanged. Standalone Clang 17 C++23 ASan/UBSan passed 100,000 idle frames, 100,000 seeded state transitions (32,561 state publications) and injected failure retry. Exact local source hashes 30f7490ecc963a1f57d2376d6ceeee4e9aea1421 and e82dad8ce9f62747319942f06a0f21a9963fc808; native integration remains pending. No measured GPU speedup claimed.
+
+### Survival vitals and fall damage (2026-11-25)
+
+Both Craft survival demos track 20 hit points and sampled peak-to-landing fall distance, with three world units safe. Physical support must be present in committed voxel queries, so artificial streaming barriers do not cause fall damage. Lethal damage returns to the existing spawn routine and resets health, retaining inventory/world edits. Adds responsive health bar and title display; native HUD key includes health. Health is session-local and resets on load; save formats unchanged. No combat, hunger or item loss yet. Standalone exact Clang 17 ASan/UBSan tests passed 100,000 randomized falls plus jump, virtual boundary, lethal saturation and respawn. Native player integration still pending; fall height uses frame samples rather than substep apex.
+
+### Timed survival mining (2026-11-25)
+
+Survival left mouse hold is now material-dependent (grass .30s, dirt .45s, stone 1.50s, building block .90s). Changing target/material, releasing input, unavailable targets, death or failed edits clear progress. Per-frame elapsed contribution capped at .1s, no carry-over. Inventory/world commit still goes through existing transactional mining. Cave survival protects the bottom layer from mining; creative mode and legacy save format unchanged. HUD gains a quantized progress bar. Local exact standalone Clang 17 C++23 ASan/UBSan test passed 100,000 randomized mining holds and explicit reset/failure cases; header/test blobs a8ab31002ebe0e5c4e549aa46bc88b2debbe5da9 and baa43112ddd4db8636618287adcfb4bba7175494. Both native smoke paths now perform the timed hold through the actual mesh/edit/inventory transaction and check the material and inventory every step. CPU integration regressions add 10,000 timed mine/place conservation cycles, full-stack rejection, and HUD progress/cache transitions. These additional integrated tests and native gameplay acceptance remain pending; equipment/durability not implemented.
+
+### Equipment progression and repaired overlay candidate (2026-11-25)
+
+Craft a stone pick (F: 2 dirt + 3 stone), toggle equipped/stowed (G), 2x mining speed for stone/building, 64 successful eligible edits to break. Failed/full inventory edits consume no durability; speed changes reset accumulated hold. HUD durability bar and cache key; existing inventory material counts stay compatible. v5 checked envelope carries equipment state around v3 surface or v4 cave payload; old v2/v3 surface and v4 cave saves load without equipment. Health remains session-local. Standalone local Clang 17 C++23 ASan/UBSan: 100,000 randomized equipment transactions, 64-use breakage, speed reset and failed commit passed. Exact tested blobs 97356092d345aa6810eeb7b5dd238fa8da6ee3e6, 2bec832b0d8de65d46bbf3cf4a2be830603b3524, f87c844515a6d3bfbb6ed95d1974c64918436847. Native smoke now crafts and uses the pick through actual mesh/edit/inventory transactions on both demos, verifies durability and roundtrips the v5 envelope. Full CPU regressions cover every single-byte corruption of a surface fixture, invalid state with correct checksum, truncation, nested envelope rejection, cave payload type separation and HUD publication. Native integrated and codec tests pending.
+
+Renderer #40 Linux and required Vulkan build failed due duplicate local variable in VulkanInstancingSmoke; both #39/#40 fixed, this candidate pins corrected #40 head 8d002fa441ed6748470c4e38373776e9d35f5d44 and already-merged Core #33 tree 523ed41da74ee117256281a3ebc45cde91368bc6. Baseline merged-lock acceptance is separate Engine #83. No claim that the overlay repair passes native tests yet.
+
+### Actual standalone Vulkan presentation candidate (2026-11-25)
+
+Renderer #39 repaired exact head 8cc5f13d5b616d43da371c707190d4c3e48faa2b passed required software Vulkan smoke 45624713524, including native depth-independent viewport UI, clipping, painter order, picking and untouched image pixels. Renderer #40 repaired head 8d002fa441ed6748470c4e38373776e9d35f5d44 still awaits native Metal. Renderer #41 implements missing default standalone swapchain draw: sample HDR viewport with fullscreen triangle, preserve editor callback, rebind descriptor by viewport generation after fence, global image dependencies, correct orientation and UNORM/SRGB handling. New required Xvfb test samples the actual visible window after viewport resize, not the renderer's capture. This candidate pins #41 exact review head 1312532edf3d19123ffba66172df74e6a51cc01a; native presentation not yet validated.
+
+Equipment v5 outer codec exact blob 5ac607962efd8bc5f779d9d5c1217ea50484daca passed a local isolated Clang C++23 ASan/UBSan harness: 10,000 synthetic v3/v4-tagged envelope roundtrips and 40,000 corruption/truncation/invalid-state/size-limit rejections, using identical CraftSave checksum and byte helper implementations extracted from existing source. This verifies outer envelope only; the checked-in regression compiles against full real headers and the integrated surface/cave codec tests separately exercise genuine world data. New merged-lock baseline Engine #83 remains queued; do not conflate with this later candidate.
+
+### First-person mouse controls (2026-11-25)
+
+Surface and cave demos capture mouse by default, use raw motion when supported, Tab toggles capture and arrow keys remain fallback. Mouse samples use per-pixel deltas (not scaled again by dt), focus/capture changes reset baseline and mining progress, button actions require release after recapture. Cursor warp cap and pitch/yaw constraints preserve camera basis. Standalone Clang 17 C++23 ASan/UBSan passed 100,000 randomized mouse/focus transitions, exact header/test blobs a7f8a8ec158079897145ac4a7ef964d45f79d93f and fdec532be1e45de6f64575907d2129fe55f23d06. Actual GLFW focus, raw input and interactive behavior need native verification. No claim of completed game.
+
+### Fixed-clock survival nutrition
+
+20 Hz survival clock with idle drain every 30 seconds, 3x drain while moving and sprinting, sprint disabled at hunger <=4, starvation damage and food-funded regeneration every four seconds under respective conditions. E consumes two harvested grass blocks for six hunger (prototype forage abstraction). Full hunger or insufficient inputs do not spend materials. Nutrition paused when unfocused, reset on death/load; health and hunger remain session-local. HUD/cache includes hunger. Local Clang C++23 ASan/UBSan passed 100,000 randomized frame partition comparisons, 100,000 forage transactions, explicit sprint, starvation, regeneration, respawn and stall guards. Exact tested blobs b631d874687630b56e3b1a1b0f0b930023279338, 5a76b2c335c50f3f23f9e5e3319419d58fb4726b, 3f74af0fafdf1a32015b64d97e8b4b64f837e467. Native integrated results pending. Time partition equivalence applies to constant activity within each interval, not arbitrary input changes.
+
+### Edited surface spawn safety
+
+Surface survival startup and respawn now search the authoritative edited world for physical support and collision-free headroom, within 16 cells of origin. The chosen window is settled before the physics solver validates it. Creative startup does not need a survival spawn. Local exact-source Clang C++23 ASan/UBSan passed 10,000 signed randomized support fixtures and explicit edited shaft, top-layer, unknown/empty/solid worlds and actual voxel movement. Header/test blobs 1b17ddf8d87781be4e1d6ab85a7b9dcda299dde6 and cd770b18fe150cad12bb371360c91edc6eb117c6; existing VoxelPlayer and VoxelInteraction blobs also matched. Native startup integration awaits CI. Exhausting the finite search produces an explicit error rather than silently spawning on the artificial floor.
+
+Both nutrition and surface-spawn standalone regressions also passed GCC 14.2 C++23 ASan/UBSan with warnings as errors (same exact source). Added integrated HUD fill bounds, invalid hunger and visibility-canonicalized cache regressions; their full-header CI execution is pending.
+
+### Focus-safe gameplay actions
+
+Both interactive Craft loops pause physics, hunger, world updates and input actions while unfocused, resetting the frame clock and continuing event polling. Seven independent release-to-rearm latches gate jump, recipes, equipment, forage and saving; held keys on startup or focus regain cannot synthesize a new action. Existing mouse release gate remains. Exact standalone Clang and GCC C++23 ASan/UBSan passed 700,000 randomized key samples with focus resets, 161,096 accepted actions and explicit held-key cases. Header/test blobs 3d3c99c3f740a9bc11b2b74c509dd2d730c4ec86 and e2a7548229c5a20e5a105e5ba1e6664f7570389c. Native focus/minimize behavior awaits real window testing; no changes to headless smoke loops.
+
+### Cross-system CPU survival journey acceptance
+
+Reconstructed real source files from the exact candidate by GitHub blob hash, without substitute helpers or baseline stubs. Clang 17 and GCC 14.2 C++23 with -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer, leak detection and halt-on-UB each passed the existing full CraftInventoryTests (20,000 mine/place cycles, real v2/v3/v5 codec roundtrip and corruption rejection), plus 512 deterministic survival journeys (256 seeds per surface/cave world) in the new test. Journey uses actual world ray queries, timed edits, inventory, equipment, recipes, food/healing, HUD bounds, real nested world/equipment encoding, canonical reload and spawn/collision. It is a CPU subsystem integration test, not interactive player traversal, GPU publication or native presentation.
+
+Exact existing inventory test 0a5027e2446c3e1dda0a9f8cf4b5dfd723791f8c; full world dependencies CraftSave ce516f0a634c96d9cba1f8101de77acc9ff82ae3, CraftStreamSave bc5e6adee11cf82693ecf22ef0fa9aeb0227c3c1, CraftInventory 7b250a8f8535cfa3527406e949a33733976c97ee, CraftStreamingWindow 7c4291cbf287da2228d4fa2439d32bfd1b62dc4d, CraftWorld 8c1c96186b2d67f003267d8bd64804f1c0c4cd6d, VoxelChunkSurface eb86aa49ec68f41f3e87071652e700d75a267bdf, VoxelInteraction 18557fc2d5ace936591dd5a6af2f21440ad3f500, CraftCaveSession 63f1dc5f500c87642ed5be23c90d5919ee5aae71, CraftCaveWorld 05ff96a0286f500fa5f254783e13ba71a29ffcfe, CraftCaveSpawn f7727fadb7ac9ea566b16309a13ef2794ed357fe, CraftRecipesHud f86253bf6f0da162e6601fdb5a422f56f578e742. New exact journey test bbbb933fc212d301565594da2c276b7fd0882828. Native acceptance and merged-lock baseline remain separate and pending.
+
+### Reusable SDK-free Craft CPU gate
+
+Added scripts/run_craft_cpu_contracts.sh with 23 named C++23 contracts, strict warnings, ASan/UBSan, isolated temporary outputs and fail-closed missing/unknown-test checks. Replaces the 23 duplicated compile/run snippets in the ownership job with the same test inventory (compared programmatically). The script exact blob 989d81ebfd1d55bbdf2985381e458e1c276b8df4 passed bash syntax and selected 7/7 contracts on Clang 17 in the reconstructed source workspace. The full 23-test invocation requires the remaining repository files and is pending CI. Native tests unchanged.
+
+### Shared save-file transaction
+
+New shared bounded regular-file read and same-filesystem replacement writer,
+used by both demos. An atomic directory reservation prevents check-then-open
+races between cooperating writers; failure leaves the previous save intact
+and removes only this writer's staged file/reservation. A stale reservation
+fails closed. No fsync or adversarial filesystem guarantee. Exact header
+dfcdb23da3b637177a76fdcfa1941853f9f3cf77 and test
+1a0340020962a0dc0e678b32ed47087e0f9ce132 passed on Clang and GCC C++23,
+strict warnings, ASan/UBSan: 256 actual disk replacements each, size caps,
+competing writer refusal and failed rename cleanup. Registered as 24th CPU
+contract and native CTest gate. Native Windows/macOS filesystem behavior
+and demo integration pending. Added 256 actual encoded world-session disk roundtrips (128 seeds per world) on each compiler, verifying world edits, inventory, tool state and wrong-world rejection. Current tested exact blobs ebe97d3ab55c64ff9573208b18f79fa61fc4055c and ef82f481cd44df47de2ba6a88d3269e083f2f848. Prior #87 head unchanged.
+
+### Relocatable development bundle candidate
+
+Renderer #42 embeds all 12 SPIR-V blobs at build time, eliminating the
+absolute runtime build shader directory. Exact generator, manifest and word
+comparison test verified locally on synthetic binary fixtures: 63,426 words
+on Clang/GCC, invalid magic/size rejected and deterministic output. Native
+shader/module verification remains pending. This engine branch pins review
+head 6b70ed2ed15fbd2c57ae601609afd2978c62e240. Added development bundle staging
+with copied binaries, SHA-256 manifest, relative launchers, separate save paths
+and refusal to overwrite an existing output among cooperating writers.
+Local CMake 3.31 fixture test passed paths with spaces, copy hashes, default
+arguments, explicit argument forwarding and existing-output rejection.
+Exact staging script blob 8b2b38b74a56528dc5ca25f8a9594475ea2e2c43.
+The fixture executables are scripts, not actual Craft builds. Native Vulkan
+and Metal CI run copied surface/cave executables outside the build tree.
+No claim of self-contained distribution, Windows launcher execution or
+native acceptance; earlier integration candidates unchanged.
+
+### Surface day/night lighting and MSVC repair
+
+Renderer #39–42 repaired C4457 (viewport overlay extent shadowed swapchain
+extent in VulkanTriangle::Record). Latest exact renderer pin
+617f3eceb26b56932f91788f0d6629edd2f13cf4. Fresh Windows/native validation
+pending. Earlier queued review heads remain unchanged.
+
+Surface daylight uses a ten-minute simulation cycle, 240 quantized samples,
+bounded frame contribution, continuous sky/ambient/sun colors and normalized
+sun direction. Updates authored light/environment without regenerating
+terrain meshes. Local Clang and GCC C++23 ASan/UBSan passed all 240 phase
+samples and 100,000 randomized frame partition comparisons per compiler.
+Exact header d0ae9a75574b2c612e13d42e3a1d992980c5d0d0 and test
+597c62379e14da8198e108a5b7adc699c0922a28. Native smoke checks noon/night
+capture difference, unchanged residency/edit counts and exact restored
+baseline. Full native acceptance remains pending. No persistent world clock,
+dynamic shadows, weather, mobs or underground lighting change in this pass.
+
+### Block target and placement feedback
+
+Both demos submit depth-tested debug AABBs for the current aimed block and
+face-adjacent placement candidate. Use int64 subtraction before float
+conversion and a small expansion to avoid coplanar edges. Cache by target,
+render origin, placement and preflight state; re-query after editing.
+Target gold/red and placement green/red reflect inventory, protection,
+bounds and player overlap. Does not promise edit capacity or native
+publication success. Local Clang/GCC C++23 ASan/UBSan passed 100,000 idle
+target frames and 100,000 rebased geometry fixtures per compiler, plus
+color changes, empty state and retry. Exact header
+a063d0da09c827e4568a2ae081a8b6eb6d423a50 and test
+d0df5d0b697be0f0a7ca02ff0cc5da662063173f. Native surface smoke checks
+outline image change and removal. Full native acceptance pending.
+
+### Autosave and exit checkpoint
+
+Both games opt into automatic saving only with an explicit path. Dirty stamp
+covers committed world edits, inventory counts/selection and equipment.
+30-second focused-time checkpoint, five-second retry after write failure,
+F5 immediate checkpoint and dirty exit flush. Continuous edits cannot postpone
+saving. Existing shared file writer retains previous payload on failure.
+Local Clang/GCC C++23 ASan/UBSan passed 100,000 idle frames, 100,000 randomized
+frame partition comparisons and 430 simulated checkpoint events per compiler.
+Exact header ab3e5a5342b67fd31c869252fcd5d0608d77c567 and test
+9be9f45251b577c3584c7817cfc25477e3ae369f. Scheduler test does not write actual
+files; prior shared disk transaction regression covers I/O separately.
+Native interactive exit/save acceptance pending. No crash-durability claim.
+
+### First checkpoint for new save slots
+
+Missing explicit save paths are now dirty from initialization, so even an
+unchanged new world gets a first checkpoint or exit save. Existing saves
+remain clean until state changes. Both actual modified autosave source files
+passed Clang 17/GCC 14.2 C++23 strict ASan/UBSan with the original 200,000
+cases, 430 checkpoints, and new missing-slot/retry cases. Exact blobs
+8f2e64dd782c628397a8dcaa0b6e7538306855d8 and
+aeb370149a368a6493aa974d45303c83ef7fd81b. Native demo integration pending.
+
+### First hostile creature and melee prototype
+
+Single bounded session-local enemy in both survival demos. Supported resident
+spawn, 20 Hz pursuit through actual VoxelPlayer collision, blocked/unknown
+cells occlude melee, two HP/second enemy damage, four HP per player hit with
+half-second cooldown, death/removal and 15-second respawn. Entity uses one
+retained indexed cuboid mesh; placement preflight/commit excludes its body.
+No combat tool wear, drops, pathfinding, animation or persistent entities.
+Local actual VoxelPlayer and VoxelInteraction hashes matched prior candidate;
+Clang 17/GCC 14.2 strict C++23 ASan/UBSan passed 1,000 signed fixtures and
+80,000 frame partition comparisons, wall and unknown occlusion, death and
+respawn. Exact header 6926432cac364147d49ee9605a8fc4d16c9271db and test
+28566081f6abc0d5f5ae0e0370fac97bc08c1792. Native surface mesh visibility
+and removal regression added; native integration pending.
+
+### Bounded creature navigation
+
+Grounded creatures use a 25x25 same-layer four-neighbor shortest-path
+fallback on blocked direct sight. Only supported clear cells are eligible;
+unknown cells never become traversable. Navigation replans at most twice
+per second; the actual voxel collision solver remains authoritative.
+No climbing, jumping or vertical navigation. Both local compilers passed
+500 signed randomized navigation grids against independent BFS (491
+reachable), actual pursuit through a finite wall gap, solid-wall isolation,
+and the earlier 80,000 frame partition regression. Exact navigation header
+919b2f873c87f67441a47ace979e34de728630eb, test
+064e1d10cf061927db2664b5628d0ea16c35bca7, revised creature header
+7936cf59a25233f6887e1103aa279752b9fddc18 and test
+9c96811eb706a8e5ff6ad14fd595377ee17ed621. Full native acceptance pending.
+
+### Stone sentinel combat reward
+
+Killing blow awards up to two stone blocks directly into the existing
+inventory, bounded at 999; excess is discarded, not queued. Nonlethal,
+cooldown and absent-creature strikes cannot award loot. Invalid inventory
+is rejected before mutating the creature. Both demos use the same helper
+after the existing range/visibility checks; inventory autosave tracks
+the reward automatically. Exact source Clang/GCC C++23 ASan/UBSan passed
+1,000 complete combat reward journeys and 100,000 repeated dead strikes,
+plus stack limit and invalid inventory rollback checks. Header
+8e11b8f767df69826ddf3bd50e34d0dfb12b28da, test
+d11564515dc8e50ac93e06d8d6e0c97cf0a4216a. The real creature, navigation
+and voxel physics source hashes matched #94. No native acceptance or
+persistent enemy/ground item claim.
+
+### Aimed enemy combat HUD
+
+Both demos use a red crosshair and a 96-pixel logical enemy health bar only
+while a visible, in-range living sentinel is aimed at. Enemy health is part
+of the native HUD cache key; ordinary block targeting keeps the original
+white crosshair. Exact standalone HUD policy passed 100,000 randomized
+health states plus invalid-state and target-removal cases on both Clang and
+GCC with ASan/UBSan. Exact blobs 62093ecf32f7daa5fdc9e45fff21a0cbf89a8445
+and b80abb4d434e0b568e04b13ebe5c8db7ef67b0ce. The updated exact HUD cache header 2f99430a547ab644b20f1477d467cb8b8da43e9b and test 867249609379baa236f9f466b0740199bb02535d also passed Clang/GCC ASan/UBSan, 100,000 idle frames and 100,000 randomized transitions with 32,561 publications and combat-specific cache transitions. Both native smoke paths now require the combat HUD to change pixels and clear back to the exact normal HUD. These native tests and the full integrated HUD geometry test remain pending.
+
+### Player checkpoint v6
+
+Adds a bounded 74-byte outer checkpoint envelope around existing v5 equipment
+and v3/v4 world codecs. Stores feet, camera yaw/pitch, surface daylight phase,
+health and hunger, with explicit little-endian scalar words and checksum.
+Legacy readers are unchanged; new demos read older saves. Grounded, physically
+supported resume required, otherwise safe spawn retains saved health/hunger.
+Autosave dirty stamp covers checkpoint changes, including new legacy upgrades.
+Creative retains loaded checkpoint. Partial timers, velocity and enemies reset.
+Local Clang/GCC strict C++23 ASan/UBSan: 10,000 synthetic v5-tagged outer
+roundtrips and signed restores, 40,000 rejection cases, blocked/unknown/airborne
+fallback, vitals/nutrition restore and dirty stamp. Original autosave 200,000
+cases and 430 checkpoints also passed with changed header. Exact hashes:
+checkpoint 1567545d36ea154157b56741f7a093be7f20a6e5, test
+13e653c02bd2fa7798c3ed953d984f3eedfe972a, vitals
+3a7dcf3ea0e2b648e826281ef2970da938e6baa8, nutrition
+4426c7a21d63bdac5381e26f6c6b59afeff676f9, autosave
+6c42b3ed7f1974873ed173f0fd286372b41d1f63. The existing real disk regression now includes 256 v6 nested v5/v3/v4 checkpoint roundtrips (128 per world), actual safe spawn validation and wrong-world rejection. This expanded test and native demo execution still need acceptance. No release or fsync durability claim.
+
+### Interactive drawable and focus gate
+
+Both demos now skip simulation, input processing, resize and draw when
+unfocused, iconified or without a nonzero framebuffer. Poll close events
+and recheck immediately, reset input/mouse/mining on active state changes,
+reset elapsed time during pause and baseline Tab on startup. Clang 17 and
+GCC 14.2 strict C++23 ASan/UBSan passed the actual latch header/test (exact
+blobs 94facf4d6e22bb03e28fa8f5937dc92ff3e6d4e3 and
+81d3ac109463277eee4c770ddc08138a0aeb26b6): all 16 state combinations,
+100,000 randomized frame transitions (93,646 inactive, 5,934 resumes,
+109 valid actions) and the original 700,000 samples (161,096 actions)
+per compiler. No native window event validation claim. Canonical checkpoint
+stack #96–97 retained; redundant #98 closed with its commits preserved.
+
+### Consolidated main-based Craft and shared runtime candidate
+
+Merged Core #31 4a36ac2362ed7cb0743cff87890d9cae1dafb3b1, #32 d06860cf7cebe0269c3c7039dcbc7ab22bf33458, #33 523ed41da74ee117256281a3ebc45cde91368bc6; Renderer #38 f46e1bbacb6235d9714896e281beb695b5dbc52d. Core merged/review tree SHA identical (32dc2194f2ff0612e0637f8cf710aad4e263a580), Renderer merged/review tree SHA identical (82bda21678dd44f635e904da661323dfec86e967). Standalone Linux/Windows passed; standalone macOS jobs cancelled, combined exact review lock native macOS acceptance passed. This branch aggregates #55–76 against main, replaces ONLY those two dependency SHA values and reruns all acceptance against the actual merged lock. Earlier individual engine branches still contain historical pins; do not merge them independently with stale dependencies. Later UI/survival feature branches remain outside this integration candidate. New exact-lock runs pending.
+
+Engine #83 was observed merged into main at 8bfc27a86c106c7ab307dfe145fff38ef29ca720; comparison to the
+review head 1d8a3187c79caf2913972c839edc9a15457ee067 showed zero changed
+files. Native Vulkan, ownership, Linux and Windows acceptance passed
+before this observation; final macOS jobs were still pending. This
+integration preserves the exact #97 Craft tree (including Renderer #42
+review pin) and all independent shared runtime changes from #99–102.
+The only overlapping runtime implementation file is Player CMakeLists:
+both sets of test targets and platform audio link rules are retained.
+The historical main and Craft workflow branch triggers are combined.
+No tests are considered passed merely because a tree was combined.
+Native renderer review pin must be replaced with an approved merged
+revision before a final release lock is certified.
+
+Engine #77 responsive HUD also merged while this candidate was being
+created, at 50df678b179b56be7937c524195ca4ca06d14aa6. Three-way comparison against the historical #77 head
+ced02cb9fdc41f71331a212c1de34afcda5deee0 found no main-only source changes
+and only workflow branch-list, ledger and renderer lock conflicts.
+The combined candidate already retains the main workflow triggers and
+responsive HUD evidence; renderer review pin remains intentionally distinct.
+Merge current main into the integration branch without changing source
+blobs, apart from this ledger note.
 
 ## Final integration gate
 

@@ -2,6 +2,8 @@
 
 Kairo is a game-development engine first: build, author, play, debug and ship games. The ordinary workspace contains only dependencies required by the Editor and Player. Independent research, DCC tools, compute experiments and the offline renderer are not prerequisites.
 
+**Craft development playtest:** [build, launch, controls, progression and verification](docs/CRAFT_PLAYTEST.md).
+
 ## Start here: game-first workspace
 
 ```bash
