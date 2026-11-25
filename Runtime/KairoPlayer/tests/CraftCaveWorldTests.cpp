@@ -1,4 +1,5 @@
-#include "../CraftCaveWorld.hpp"
+#include "../CraftCaveSession.hpp"
+#include "../CraftRecipesHud.hpp"
 #include "../CraftMeshBatch.hpp"
 #include <iostream>
 #include <set>
@@ -62,5 +63,58 @@ int main()
         triangles+=mesh.Indices.size()/3;
     }
     Check(triangles>0,"Empty underground world");
+    // The cave codec preserves edits at negative heights and large signed
+    // coordinates, without importing incompatible flat-world generation.
+    CaveCraftWorldEdits saved(baseline,CraftSaveMaximumEdits);
+    CraftInventory inventory;
+    const auto read=[&](VoxelCoordinate v)->std::optional<VoxelMaterial>{return saved.Get(v);};
+    const auto write=[&](VoxelCoordinate v,VoxelMaterial m){return InCaveWorld(v)&&saved.Set(v,m);};
+    for(int i=0;i<10000;++i)
+    {
+        const VoxelCoordinate cell{16*i,-16,0};
+        const auto old=saved.Get(cell);
+        Check(old==CraftStone,"Unexpected cave fixture");
+        inventory.Selected=old;
+        Check(MineCraftBlock(inventory,cell,read,write),"Cave mining failed");
+        Check(inventory.Count(old)==1&&saved.Get(cell)==VoxelAir,"Cave mine conservation");
+        Check(!PlaceCraftBlock(inventory,cell,read,write,[](auto){return false;}),"Body rejection failed");
+        Check(inventory.Count(old)==1&&saved.Get(cell)==VoxelAir,"Rejected placement changed state");
+        Check(PlaceCraftBlock(inventory,cell,read,write,[](auto){return true;}),"Cave placement failed");
+        Check(inventory.Count(old)==0&&saved.Overrides().empty(),"Cave restore conservation");
+    }
+    for(int i=0;i<10000;++i)
+    {
+        const VoxelCoordinate cell{1000000000+16*i,-16,-1000000000};
+        Check(saved.Set(cell,VoxelAir),"Cave far edit failed");
+    }
+    inventory.Counts={0,1,2,0};
+    Check(CraftApplyRecipe(inventory,CraftRecipes[0]),"Cave recipe failed");
+    const auto bytes=EncodeCaveCraftSession(42,saved,inventory);
+    const auto decoded=DecodeCaveCraftSession(bytes);
+    Check(decoded.Seed==42&&decoded.World.Overrides()==saved.Overrides()&&
+        decoded.Inventory.Counts==inventory.Counts&&decoded.Inventory.Selected==inventory.Selected,
+        "Cave session mismatch");
+    Check(EncodeCaveCraftSession(decoded.Seed,decoded.World,decoded.Inventory)==bytes,"Noncanonical cave session");
+    const auto rejects=[](const std::vector<std::uint8_t>& data)
+    {
+        try{(void)DecodeCaveCraftSession(data);return false;}
+        catch(const std::invalid_argument&){return true;}
+    };
+    for(unsigned i=0;i<100;++i)
+    {
+        auto corrupt=bytes;corrupt[rng()%corrupt.size()]^=1;
+        Check(rejects(corrupt),"Cave corruption accepted");
+    }
+    auto truncated=bytes;truncated.pop_back();
+    Check(rejects(truncated),"Truncated cave session accepted");
+    StreamCraftWorldEdits flat(StreamingCraftBaseline{42});
+    Check(rejects(EncodeCraftSession(42,flat,inventory)),"Flat session accepted as cave");
+    auto malformed=bytes;
+    // Invalid selected slot with valid checksum must still be rejected.
+    malformed[40]=0;malformed[41]=0;
+    malformed.resize(malformed.size()-8);
+    CraftWrite(malformed,CraftSaveChecksum(malformed),8);
+    Check(rejects(malformed),"Malformed inventory accepted");
+    std::cout<<"10000 cave inventory cycles, 10000 far edits and 100 corrupt saves passed\\n";
     std::cout<<"10000 XYZ transitions, "<<retained<<" retained, "<<loaded<<" loaded; connected galleries, vertical invalidation and "<<triangles<<" worker triangles passed\n";
 }
