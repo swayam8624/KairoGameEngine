@@ -363,3 +363,10 @@ A link in this inventory does not certify that every function is annotated.
 ## Inventory coverage at M50 baseline
 
 All 26 sibling trees from the current workspace.lock have individual file checklists: 700 filtered sibling paths, plus 254 baseline integration paths and the new quest/dialogue reading path. Generated artifacts, vendored trees, binaries and media are outside the first-party teaching inventory. Update checklists when the lock changes; file-level dependency traces and substantive comments still require review.
+
+## M50 animation lab
+
+1. [Analytic IK kernel](Runtime/KairoPlayer/RuntimeTwoBoneIK.hpp): vector projection, triangle geometry, clamping and pole singularities.
+2. [IK regression](Runtime/KairoPlayer/tests/RuntimeTwoBoneIKTests.cpp): bone length and target invariants.
+3. [Interactive CPU lab](Samples/AnimationLab/TwoBoneIKDemo.cpp) and [instructions](Samples/AnimationLab/README.md).
+4. [Pinned animation runtime and skin palette](docs/study/KairoEngineCore.md): read AnimationRuntime.cppm and GltfSkinningRuntime.cppm before the future joint rotation adapter.

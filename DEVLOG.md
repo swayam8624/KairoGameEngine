@@ -57,3 +57,7 @@ Indexed another 390 paths across 9 pinned trees: KairoAI, KairoEngineCore, Kairo
 ## 2026-11-25 — remaining research and DCC study catalogs
 
 Indexed another 105 paths across 9 pinned trees: KairoONNX, KairoTransformers, KairoMacPerception, KairoPipelineCore, KairoBlender, KairoProductionTools, KairoHoudini, KairoMaya, KairoNuke. All 26 sibling inventories now present, 700 matching paths. This completes baseline file navigation, not all-function annotation.
+
+## 2026-11-25 — analytic two-bone IK
+
+Implemented a pure Cartesian two-bone kernel in [RuntimeTwoBoneIK.hpp](Runtime/KairoPlayer/RuntimeTwoBoneIK.hpp), with bounded input validation, inner/outer reach shell, folded and collinear-pole behavior. [Tests](Runtime/KairoPlayer/tests/RuntimeTwoBoneIKTests.cpp) passed under GCC and Clang with C++23 -Wall -Wextra -Werror: 10,000 seeded cases per compiler plus singularity and invalid inputs. [Terminal demo](Samples/AnimationLab/TwoBoneIKDemo.cpp) reached a valid target and clamped both unreachable targets. Locally tested blob IDs: 91a57d786ed88c631e47ddaf160a3a14a1becbf7 (header), 38ee1ac831a44ea3cb241dc99aaba43405b43a68 (tests), d8168d82dbfc1896b8d113e8b2e50660571c9ec3 (demo). No native joint-rotation/skin presentation tested. Next integrate pose adapter.
