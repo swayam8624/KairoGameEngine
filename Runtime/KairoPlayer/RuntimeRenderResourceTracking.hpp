@@ -36,6 +36,8 @@ namespace kairo::player::detail
     [[nodiscard]] Handle CreateTrackBind(std::vector<Handle>& owned,
         Create&& create, Bind&& bind)
     {
+        // Tracking must not itself fail after the native allocation succeeded.
+        // These type traits constrain the handle value, not the native driver.
         static_assert(std::is_nothrow_copy_constructible_v<Handle>,
             "Renderer handles must be noexcept-copyable values.");
         static_assert(std::is_nothrow_move_assignable_v<Handle>,
@@ -55,6 +57,8 @@ namespace kairo::player::detail
             owned.reserve(next); // may throw; no new GPU handle yet
         }
 
+        // Invoke permits a lambda or other callable. Forward preserves its
+        // value category; the renderer still owns the underlying resource.
         const Handle handle = std::invoke(std::forward<Create>(create));
         owned.push_back(handle);            // capacity reserved; no new alloc
         std::invoke(std::forward<Bind>(bind), handle); // may throw; now tracked
@@ -89,6 +93,8 @@ namespace kairo::player::detail
             }
         }
 
+        // Suffix now contains only failed destroy requests in original order.
+        // Compact them to the front so the next teardown retries those handles.
         const auto failures = size - retained;
         for (std::size_t index = 0u; index < failures; ++index)
             if (retained != 0u)
@@ -121,6 +127,8 @@ namespace kairo::player::detail
             return 1u + meshes.size() + textures.size();
         }
 
+        // Meshes are retired before textures after unbinding the submitted
+        // scene. The return value counts failed callbacks, not GPU fences.
         const std::size_t meshFailures = ReleaseReverse(meshes,
             std::forward<DestroyMesh>(destroyMesh));
         const std::size_t textureFailures = ReleaseReverse(textures,

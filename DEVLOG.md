@@ -77,3 +77,18 @@ Added versioned bounded wire protocol, integer world-state authority with strict
 ## 2026-11-25 — client prediction and reconciliation
 
 Added [RuntimeNetworkPrediction.hpp](Runtime/KairoPlayer/RuntimeNetworkPrediction.hpp), bounded 256-input journal, stale/future snapshot handling, authoritative correction and pending-input replay. Integrated it into the actual loopback client. GCC and Clang with C++23 -Wall -Wextra -Werror each passed 64,000 simulated delayed/dropped/reordered snapshot ticks, explicit divergence/correction, journal saturation and resumed prediction; each native pair again converged on tick 10. Tested blobs: header 49034205b47f1cf0a17c34b3e8526d5327e2aa48, test 83821ddd199cdae6f9fdf5bf1d0b615df88ea6d1, lab 3034bc4c9682acdede6df7f27ebee963a2fbfea7. Snapshot impairment is simulated; reliable ordered input delivery is assumed. No UDP retransmission or real physics replication claim.
+
+## 2026-11-25 — teaching pass: audio, GPU lifetime and persistence
+
+Added 36 teaching blocks in six existing headers; all non-comment lines compared identical before commit. The changes document every principal function/ownership boundary in these files, including SPSC acquire/release memory ordering, PCM quantization, partial device writes, GPU handle rollback, bounded save I/O, and autosave scheduling.
+
+| File | New explanation blocks |
+|---|---:|
+| [RuntimePcm16.hpp](Runtime/KairoPlayer/RuntimePcm16.hpp) | 2 |
+| [RuntimePcmQueue.hpp](Runtime/KairoPlayer/RuntimePcmQueue.hpp) | 11 |
+| [RuntimePcmPump.hpp](Runtime/KairoPlayer/RuntimePcmPump.hpp) | 5 |
+| [RuntimeRenderResourceTracking.hpp](Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp) | 4 |
+| [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp) | 5 |
+| [CraftAutosave.hpp](Runtime/KairoPlayer/CraftAutosave.hpp) | 9 |
+
+This was a comment-only pass. No new native build run. Full all-file annotation is still open.

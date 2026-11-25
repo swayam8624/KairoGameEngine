@@ -392,3 +392,16 @@ Read [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp) first (bounded I
 ## M50 network synchronization follow-up
 
 After the protocol/authority and socket lab, read [prediction](Runtime/KairoPlayer/RuntimeNetworkPrediction.hpp), [impairment and correction tests](Runtime/KairoPlayer/tests/RuntimeNetworkPredictionTests.cpp), and the [integrated client](Samples/NetworkLab/NetworkLab.cpp). Trace the difference between authoritative and predicted state, acknowledgment removal, replay order and backpressure.
+
+## Teaching pass: audio, GPU and persistence
+
+Read in this order:
+
+1. [RuntimePcm16.hpp](Runtime/KairoPlayer/RuntimePcm16.hpp) — sample ranges and device conversion.
+2. [RuntimePcmQueue.hpp](Runtime/KairoPlayer/RuntimePcmQueue.hpp) — SPSC ring storage and acquire/release publication.
+3. [RuntimePcmPump.hpp](Runtime/KairoPlayer/RuntimePcmPump.hpp) — device partial writes and underflow.
+4. [RuntimeRenderResourceTracking.hpp](Runtime/KairoPlayer/RuntimeRenderResourceTracking.hpp) — native handle ownership and rollback.
+5. [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp) — bounded byte I/O and file publication.
+6. [CraftAutosave.hpp](Runtime/KairoPlayer/CraftAutosave.hpp) — dirty state, active-time deadlines and retry.
+
+Follow their matching tests from the integration inventory. These six paths have additional function-level annotations; this is not an assertion of full workspace coverage.
