@@ -234,6 +234,12 @@ Total campaign 63 PRs, 39 previously verified merged, 24 pending at observation.
 
 Branch `feat/craft-cave-survival-session`, stacked on #74. Separate v4 cave session codec persists the seed, ordered signed XYZ overrides and four inventory stacks with selected slot; rejects older incompatible world formats, invalid coordinates/materials, malformed inventory, checksum corruption and oversized records. Native cave survival reuses transactional mining/placement, R/T recipes, 1–4 selection, camera-aligned hotbar and crosshair; F5 explicitly saves through same-directory temporary rename. CPU regression adds 10,000 conservation cycles, 10,000 far underground overrides, 100 corruptions, canonical encode/decode and incompatible format rejection. Native smoke exercises edit retention, save codec and HUD-on/off image comparison. CI pending; no power-loss durability, player pose persistence, dedicated screen compositor or general GPU latency claim. Renderer #38 macOS job 139104861077 rerun requested successfully after cancellation. No default branch modifications.
 
+### Exact combined gameplay review candidate (2026-11-25)
+
+Candidate branch `integration/gameplay-native-candidate` stacks on #75. It pins Core #33 review head fee0bfa6b74d6847826e678333c1a941a004c989 (includes #31–32) and Renderer #38 review head f81208c6bbecd3068b9a944b3d69d841efcd3eb3 in the actual lock. Other 24 lock entries remain unchanged. The terrain workflow removes its post-lock override and checks both software Vulkan and a separate native Metal build/capture job against that exact lock. This is an explicitly disposable review candidate, not the final merged release lock: after sibling merges, replace with their actual main revisions and repeat exact-lock acceptance.
+
+Confirmed earlier: #55, #56 and racing integration failed MetalBackend.mm warnings-as-errors at lines 732 and 860; renderer #38 addresses these. Core #31–33 terrain contracts, Linux and Windows jobs passed, their macOS jobs were cancelled. Reruns requested for jobs 139068470508, 139069322255 and 139088123995; renderer macOS job 139104861077 also queued. Native candidate results are pending. Do not treat an unavailable presentation session as a passing Metal capture; local Apple Silicon interactive verification remains separate.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
