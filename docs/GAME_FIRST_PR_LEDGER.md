@@ -427,6 +427,21 @@ and the earlier 80,000 frame partition regression. Exact navigation header
 7936cf59a25233f6887e1103aa279752b9fddc18 and test
 9c96811eb706a8e5ff6ad14fd595377ee17ed621. Full native acceptance pending.
 
+### Stone sentinel combat reward
+
+Killing blow awards up to two stone blocks directly into the existing
+inventory, bounded at 999; excess is discarded, not queued. Nonlethal,
+cooldown and absent-creature strikes cannot award loot. Invalid inventory
+is rejected before mutating the creature. Both demos use the same helper
+after the existing range/visibility checks; inventory autosave tracks
+the reward automatically. Exact source Clang/GCC C++23 ASan/UBSan passed
+1,000 complete combat reward journeys and 100,000 repeated dead strikes,
+plus stack limit and invalid inventory rollback checks. Header
+8e11b8f767df69826ddf3bd50e34d0dfb12b28da, test
+d11564515dc8e50ac93e06d8d6e0c97cf0a4216a. The real creature, navigation
+and voxel physics source hashes matched #94. No native acceptance or
+persistent enemy/ground item claim.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

@@ -19,6 +19,7 @@
 #include "CraftSaveFile.hpp"
 #include "CraftAutosave.hpp"
 #include "CraftCreature.hpp"
+#include "CraftCombatReward.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
@@ -739,7 +740,7 @@ int main(int argc,char** argv)
                         }
                         title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
                             " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
-                        if(creature.Body())title+=" | Creature HP "+std::to_string(creature.Health())+"/12";
+                        if(creature.Body())title+=" | Sentinel HP "+std::to_string(creature.Health())+"/12";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool rawLeft=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
@@ -752,7 +753,12 @@ int main(int argc,char** argv)
                     if(survival)
                     {
                         const bool combatAim=creature.Aimed({x,y,z},direction,query);
-                        if(left&&combatAim&&!leftHeld)(void)creature.Strike();
+                        if(left&&combatAim&&!leftHeld)
+                        {
+                            const auto combat=CraftStrikeReward(creature,inventory.Counts);
+                            if(combat.Defeated)
+                                std::cout<<"Stone sentinel defeated; "<<combat.StoneAwarded<<" stone salvaged\n";
+                        }
                         const auto hit=((left&&!combatAim)||(right&&!rightHeld))?TraceVoxels({x,y,z},direction,8,64,query):std::optional<VoxelHit>{};
                         std::optional<CraftMiningTarget> target;
                         if(hit&&hit->Material>=CraftGrass&&hit->Material<=CraftPlaced)
