@@ -5,6 +5,7 @@
 #include "CraftInventory.hpp"
 #include "CraftRecipesHud.hpp"
 #include "CraftHudProjection.hpp"
+#include "CraftHudPublication.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
@@ -135,21 +136,12 @@ int main(int argc,char** argv)
         std::optional<MeshHandle> hudMesh;
         std::optional<CameraPose> hudPose;
         bool hudEnabled=false;
-        const auto submit=[&](const Publication::Slots& slots,const Plan::Slots& coords,VoxelCoordinate base)
+        CraftHudPublication hudPublication;
+        const auto refreshNativeHud=[&]()
         {
-            auto scene=authored;
-            for(std::size_t i=0;i<slots.size();++i)if(slots[i])
-            {
-                if(!coords[i])throw std::logic_error("Craft native slot lacks coordinate.");
-                const auto cell=StreamingCraftOrigin(*coords[i]);
-                MeshDraw draw;
-                draw.Mesh=*slots[i];
-                draw.Model=MakeTranslation(Vec3f{TerrainRelativeFloat(cell.X,base.X),
-                    TerrainRelativeFloat(cell.Y,base.Y),TerrainRelativeFloat(cell.Z,base.Z)});
-                draw.CastShadows=false;
-                scene.Add(draw);
-            }
-            if(nativeHud)
+            if(!nativeHud)return;
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height};
+            (void)hudPublication.Refresh(key,[&]()
             {
                 std::vector<ViewportOverlayRect> rects;
                 if(hudEnabled)
@@ -166,8 +158,23 @@ int main(int argc,char** argv)
                     }
                 }
                 renderer.SetViewportOverlay(rects);
+            });
+        };
+        const auto submit=[&](const Publication::Slots& slots,const Plan::Slots& coords,VoxelCoordinate base)
+        {
+            auto scene=authored;
+            for(std::size_t i=0;i<slots.size();++i)if(slots[i])
+            {
+                if(!coords[i])throw std::logic_error("Craft native slot lacks coordinate.");
+                const auto cell=StreamingCraftOrigin(*coords[i]);
+                MeshDraw draw;
+                draw.Mesh=*slots[i];
+                draw.Model=MakeTranslation(Vec3f{TerrainRelativeFloat(cell.X,base.X),
+                    TerrainRelativeFloat(cell.Y,base.Y),TerrainRelativeFloat(cell.Z,base.Z)});
+                draw.CastShadows=false;
+                scene.Add(draw);
             }
-            else if(hudEnabled&&hudMesh&&hudPose)
+            if(!nativeHud&&hudEnabled&&hudMesh&&hudPose)
             {
                 const auto& pose=*hudPose;
                 const ScreenVec eye{pose.Position.x,pose.Position.y,pose.Position.z};
@@ -336,7 +343,8 @@ int main(int argc,char** argv)
             if(overhead)view.Up={0.f,0.f,-1.f};
             renderer.SetCameraPose(view);
             hudPose=view;
-            if(hudEnabled)committedSubmit(publication.Active());
+            if(nativeHud)refreshNativeHud();
+            else if(hudEnabled)committedSubmit(publication.Active());
         };
         try
         {
@@ -552,13 +560,15 @@ int main(int argc,char** argv)
                     const bool saveDown=key(GLFW_KEY_F5)>0;
                     if(saveDown&&!saveHeld){try{save();}catch(const std::exception& ex){std::cerr<<"Save failed: "<<ex.what()<<'\n';}}
                     saveHeld=saveDown;
-                    if(hudEnabled)committedSubmit(publication.Active());
+                    if(nativeHud)refreshNativeHud();
+                    else if(hudEnabled)committedSubmit(publication.Active());
                     renderer.DrawFrame();
                 }
             }
         }
         catch(...){hudEnabled=false;(void)publication.Release(committedSubmit,destroy);throw;}
         hudEnabled=false;
+        refreshNativeHud();
         if(publication.Release(committedSubmit,destroy)!=0)throw std::runtime_error("Streamed Craft shutdown retained meshes.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);
         return 0;

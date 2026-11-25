@@ -256,6 +256,10 @@ Renderer #39 introduces bounded opaque pixel rectangles after world draws in the
 
 Renderer #40 adds Metal's scissored fullscreen triangle overlay, color-only attachment write mask, always-pass no-write depth and common capability facade. Both Craft demos now use the native rectangle API on supported Vulkan/Metal backends and retain the earlier geometry fallback only on OpenGL/D3D12. Exact Renderer review pin f63f55c6b3c5e4b01196e06b5fb2fd4f9e9d0419 includes #39. Renderer smoke adds exact native overlay pixels, picking, clipping, ordering and restoration; existing engine portrait/wide tests exercise the new path. CPU-only layout test verified exact blobs 5b96d6c81a43a4918dc87556986bb1c920cd4f8d and d3835b5e60ee31176389ac7455c10502408688b0 with Clang 17 ASan/UBSan: 100,000 randomized cases passed. Native compile, MSL and GPU checks pending. Do not accept unmerged review pins as release dependencies.
 
+### Native HUD publication isolation (2026-11-25)
+
+Separates native HUD publication from world mesh submission and camera movement. A key containing enable state, inventory, selected slot and physical viewport extent suppresses unchanged updates; disabled keys collapse to one state. Failed renderer submission leaves the previous key retryable. Existing fallback geometry behavior unchanged. Standalone Clang 17 C++23 ASan/UBSan passed 100,000 idle frames, 100,000 seeded state transitions (32,561 state publications) and injected failure retry. Exact local source hashes 30f7490ecc963a1f57d2376d6ceeee4e9aea1421 and e82dad8ce9f62747319942f06a0f21a9963fc808; native integration remains pending. No measured GPU speedup claimed.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

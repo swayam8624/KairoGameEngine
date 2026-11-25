@@ -3,6 +3,7 @@
 #include "CraftCaveSession.hpp"
 #include "CraftRecipesHud.hpp"
 #include "CraftHudProjection.hpp"
+#include "CraftHudPublication.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
 #include <fstream>
@@ -105,18 +106,12 @@ int main(int argc,char** argv)
         std::optional<MeshHandle> hudMesh;
         std::optional<CameraPose> hudPose;
         bool hudEnabled=false;
-        const auto submit=[&](const Pub::Slots& handles,const P::Slots& cells,VoxelCoordinate base)
+        CraftHudPublication hudPublication;
+        const auto refreshNativeHud=[&]()
         {
-            auto scene=authored;
-            for(std::size_t i=0;i<handles.size();++i)if(handles[i])
-            {
-                const auto o=StreamingCraftOrigin(*cells[i]);
-                MeshDraw draw;draw.Mesh=*handles[i];
-                draw.Model=MakeTranslation(Vec3f{TerrainRelativeFloat(o.X,base.X),
-                    TerrainRelativeFloat(o.Y,base.Y),TerrainRelativeFloat(o.Z,base.Z)});
-                draw.CastShadows=false;scene.Add(draw);
-            }
-            if(nativeHud)
+            if(!nativeHud)return;
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height};
+            (void)hudPublication.Refresh(key,[&]()
             {
                 std::vector<ViewportOverlayRect> rects;
                 if(hudEnabled)
@@ -133,8 +128,20 @@ int main(int argc,char** argv)
                     }
                 }
                 renderer.SetViewportOverlay(rects);
+            });
+        };
+        const auto submit=[&](const Pub::Slots& handles,const P::Slots& cells,VoxelCoordinate base)
+        {
+            auto scene=authored;
+            for(std::size_t i=0;i<handles.size();++i)if(handles[i])
+            {
+                const auto o=StreamingCraftOrigin(*cells[i]);
+                MeshDraw draw;draw.Mesh=*handles[i];
+                draw.Model=MakeTranslation(Vec3f{TerrainRelativeFloat(o.X,base.X),
+                    TerrainRelativeFloat(o.Y,base.Y),TerrainRelativeFloat(o.Z,base.Z)});
+                draw.CastShadows=false;scene.Add(draw);
             }
-            else if(hudEnabled&&hudMesh&&hudPose)
+            if(!nativeHud&&hudEnabled&&hudMesh&&hudPose)
             {
                 const auto& pose=*hudPose;
                 const ScreenVec eye{pose.Position.x,pose.Position.y,pose.Position.z};
@@ -245,7 +252,8 @@ int main(int argc,char** argv)
             pose.Target={TerrainRelativeFloat(x+d[0],origin.X),TerrainRelativeFloat(y+d[1],origin.Y),TerrainRelativeFloat(z+d[2],origin.Z)};
             renderer.SetCameraPose(pose);
             hudPose=pose;
-            if(hudEnabled)oldSubmit(pub.Active());
+            if(nativeHud)refreshNativeHud();
+            else if(hudEnabled)oldSubmit(pub.Active());
         };
         try
         {
@@ -417,13 +425,15 @@ int main(int argc,char** argv)
                             }
                         }
                     leftHeld=left;rightHeld=right;
-                    if(hudEnabled)oldSubmit(pub.Active());
+                    if(nativeHud)refreshNativeHud();
+                    else if(hudEnabled)oldSubmit(pub.Active());
                     renderer.DrawFrame();
                 }
             }
         }
         catch(...){hudEnabled=false;(void)pub.Release(oldSubmit,destroy);throw;}
         hudEnabled=false;
+        refreshNativeHud();
         if(pub.Release(oldSubmit,destroy)!=0)throw std::runtime_error("Cave cleanup failed.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);
         return 0;
