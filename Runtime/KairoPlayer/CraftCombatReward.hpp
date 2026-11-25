@@ -1,5 +1,7 @@
 #pragma once
 #include "CraftCreature.hpp"
+#include "CraftInventory.hpp"
+#include "RuntimePickupPool.hpp"
 
 namespace kairo::player::detail
 {
@@ -21,5 +23,46 @@ namespace kairo::player::detail
         const auto awarded=std::min(2u,999u-counts[2]);
         counts[2]+=awarded;
         return {true,true,awarded};
+    }
+    using CraftPickups=RuntimePickupPool<128>;
+
+    // On death, leave a real world item rather than teleporting the loot.
+    // Saturation uses the old bounded inventory award instead of allocating
+    // unbounded objects or evicting an unrelated player's loot.
+    inline CraftCombatResult CraftStrikeDrop(CraftCreature& creature,CraftInventory& inventory,CraftPickups& pickups)
+    {
+        if(!inventory.Valid())throw std::invalid_argument("Invalid combat inventory.");
+        if(!creature.Body())return {};
+        auto center=creature.Body()->Feet;center[1]+=.4;
+        if(!creature.Strike())return {};
+        if(creature.Body())return {true,false,0};
+        if(pickups.TrySpawn(center,CraftStone,2))return {true,true,0};
+        const auto award=std::min(2u,CraftInventory::StackLimit-inventory.Count(CraftStone));
+        inventory.Counts[CraftStone-1]+=award;
+        return {true,true,award};
+    }
+
+    template<class Query>
+    void CollectCraftPickups(CraftPickups& pickups,CraftInventory& inventory,
+        const std::array<double,3>& eye,Query&& query)
+    {
+        if(!inventory.Valid())throw std::invalid_argument("Invalid pickup inventory.");
+        pickups.Collect(eye,2.,[&](const auto& from,const auto& to)
+        {
+            // Unknown space must be treated as solid, not as an unobstructed ray.
+            const auto solid=[&](VoxelCoordinate c){return query(c).value_or(VoxelMaterial{65535});};
+            const auto cell=VoxelCoordinate{static_cast<std::int32_t>(std::floor(to[0])),
+                static_cast<std::int32_t>(std::floor(to[1])),static_cast<std::int32_t>(std::floor(to[2]))};
+            if(solid(cell)!=VoxelAir)return false;
+            const std::array direction{to[0]-from[0],to[1]-from[1],to[2]-from[2]};
+            const double length=std::hypot(direction[0],direction[1],direction[2]);
+            return length<=1e-12||!TraceVoxels(from,direction,length,64,solid);
+        },[&](std::uint32_t kind,std::uint32_t count)
+        {
+            if(kind<CraftGrass||kind>CraftPlaced)return 0u;
+            auto& held=inventory.Counts[kind-1];
+            const auto accepted=std::min(count,CraftInventory::StackLimit-held);
+            held+=accepted;return accepted;
+        });
     }
 }
