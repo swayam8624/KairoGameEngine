@@ -120,3 +120,17 @@ Added [SimulationLab.cpp](Runtime/KairoPlayer/SimulationLab.cpp) with two modes 
 ## 2026-11-25 — predetermined rigid fracture
 
 Added [RuntimeBreakableCube.hpp](Runtime/KairoPlayer/RuntimeBreakableCube.hpp), one-shot impulse threshold, eight equal subcubes, mass/volume/center-of-mass and impulse momentum checks, authored separation speed, fixed-step gravity/ground restitution and reset. GCC and Clang C++23 -O2 -Wall -Wextra -Werror each passed 1,000 fracture events and 240,000 body steps. Tested blobs fa733c83c79aa533ebb1dbe1814cb6258106a039 and b6eaa1cc30f8f5768a5992a0f295822ce5649081. Added --destruction mode to SimulationLab, native capture and ground gate (not run here). Predetermined cube topology only; no fragment rotation, inter-fragment collisions, arbitrary mesh fracture or contact-event integration.
+
+## 2026-11-25 — teaching pass: terrain and voxel mesh architecture
+
+Added 40 teaching blocks across five existing runtime headers. Compared all non-comment lines to the preceding exact revision: identical. The explanations cover negative-coordinate floor division, precision rebasing, bounded spawn search, occupancy/material contracts, stable streaming slots, halo ownership, and deterministic greedy meshing.
+
+| File | New explanation blocks |
+|---|---:|
+| [TerrainRenderOrigin.hpp](Runtime/KairoPlayer/TerrainRenderOrigin.hpp) | 3 |
+| [CraftSurfaceSpawn.hpp](Runtime/KairoPlayer/CraftSurfaceSpawn.hpp) | 3 |
+| [CraftWorld.hpp](Runtime/KairoPlayer/CraftWorld.hpp) | 12 |
+| [CraftStreamingWindow.hpp](Runtime/KairoPlayer/CraftStreamingWindow.hpp) | 12 |
+| [VoxelChunkSurface.hpp](Runtime/KairoPlayer/VoxelChunkSurface.hpp) | 10 |
+
+No native build performed for this comment-only change. All-files annotation remains open.

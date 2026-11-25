@@ -432,3 +432,12 @@ After the water and soft-body kernels, read [SimulationLab.cpp](Runtime/KairoPla
 ## M50 destruction
 
 Read [RuntimeBreakableCube.hpp](Runtime/KairoPlayer/RuntimeBreakableCube.hpp), then [conservation/ground tests](Runtime/KairoPlayer/tests/RuntimeBreakableCubeTests.cpp), then the destruction branch of [SimulationLab.cpp](Runtime/KairoPlayer/SimulationLab.cpp). Trace impact impulse, mass-weighted velocities, fixed-step motion, ground response and mesh instance ownership. Compare PhysicsEngine's actual rigid contact contracts before integrating arbitrary collision-driven fracture.
+
+## Teaching pass: terrain and voxel mesh architecture
+
+1. [TerrainRenderOrigin.hpp](Runtime/KairoPlayer/TerrainRenderOrigin.hpp) — double-to-float rendering boundary, signed cell indices.
+2. [CraftWorld.hpp](Runtime/KairoPlayer/CraftWorld.hpp) — pure finite occupancy, material and chunk identity. Read its mesh adapter after the greedy mesher.
+3. [CraftStreamingWindow.hpp](Runtime/KairoPlayer/CraftStreamingWindow.hpp) — negative floor division, stable residency plans, dirty slots.
+4. [VoxelChunkSurface.hpp](Runtime/KairoPlayer/VoxelChunkSurface.hpp) — interior/halo sampling, face ownership, greedy merge and winding; then return to BuildCraftMesh.
+5. [CraftSurfaceSpawn.hpp](Runtime/KairoPlayer/CraftSurfaceSpawn.hpp) — support and body-clearance query, deterministic search.
+6. Trace [CraftStreamDemo](Runtime/KairoPlayer/CraftStreamDemo.cpp) and [SimulationLab](Runtime/KairoPlayer/SimulationLab.cpp) from occupancy through GPU submission. Follow the matching tests from the integration inventory.

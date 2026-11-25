@@ -8,9 +8,13 @@ namespace kairo::player::detail
     // World v2: unbounded in horizontal directions within the signed
     // coordinate domain; one editable vertical band for the first slice.
     // Same integer terrain rule as the finite v1 sample, without its X/Z clip.
+    // Same seed/tile rule as CraftBaseline, but horizontally unbounded within
+    // the signed voxel coordinate type. The vertical band remains finite.
     struct StreamingCraftBaseline
     {
         std::uint64_t Seed=42;
+        // Pure world occupancy function. Int64 arithmetic handles negative
+        // extreme coordinates without overflowing when adjusting floor division.
         VoxelMaterial operator()(VoxelCoordinate c) const noexcept
         {
             if(c.Y<0||c.Y>=CraftExtent)return VoxelAir;
@@ -28,18 +32,26 @@ namespace kairo::player::detail
         }
     };
 
+    // Identity of a vertical column in chunk units, not world meters. Default
+    // comparison enables deterministic map/set ordering when used as a key.
     struct CraftColumn
     {
         std::int32_t X=0,Z=0;
         auto operator<=>(const CraftColumn&) const=default;
     };
+    // Convert one absolute voxel axis to a column by floor division. C++ signed
+    // division truncates toward zero, so widen and correct negative values.
     inline std::int32_t CraftColumnIndex(std::int32_t coordinate) noexcept
     {
         const auto wide=static_cast<std::int64_t>(coordinate);
         return static_cast<std::int32_t>(wide>=0?wide/CraftExtent:(wide-(CraftExtent-1))/CraftExtent);
     }
+    // Resolve a voxel's owning column from X/Z; Y stays within the same band.
     inline CraftColumn CraftOwner(VoxelCoordinate voxel) noexcept
     {return {CraftColumnIndex(voxel.X),CraftColumnIndex(voxel.Z)};}
+    // Multiply in int64, then check both the interior and the one-cell halo.
+    // BuildVoxelChunkSurface will sample that halo, so checking only origin
+    // would allow overflow at the positive/negative edge.
     inline VoxelCoordinate StreamingCraftOrigin(CraftColumn cell)
     {
         const auto x=static_cast<std::int64_t>(cell.X)*CraftExtent;
@@ -50,6 +62,8 @@ namespace kairo::player::detail
             throw std::out_of_range("Streaming Craft chunk halo out of range.");
         return {static_cast<std::int32_t>(x),0,static_cast<std::int32_t>(z)};
     }
+    // The camera/player position is continuous. Floor to a voxel before
+    // mapping to a column, retaining the half-open ownership convention.
     inline CraftColumn CraftObserverColumn(double x,double z)
     {
         const auto convert=[](double value)
@@ -61,6 +75,9 @@ namespace kairo::player::detail
         };
         return {convert(x),convert(z)};
     }
+    // Bounded square residency plan. Optional slots distinguish not-yet-loaded
+    // chunks from real column (0,0). Dirty means the slot requires new mesh data;
+    // retained/loaded/evicted are accounting, not native resource ownership.
     template<unsigned Radius>
     struct CraftWindowPlan
     {
@@ -77,6 +94,9 @@ namespace kairo::player::detail
     // Pure planning permits a native transaction to fail without changing
     // the committed window. Caller commits Next only after publication.
     template<unsigned Radius>
+    // Input is the previously committed slot array. Output is a candidate
+    // array preserving overlap indices. CraftMeshBatch and VoxelMeshPublication
+    // produce/upload the dirty slots before the host commits this plan.
     CraftWindowPlan<Radius> PlanCraftWindow(
         const typename CraftWindowPlan<Radius>::Slots& current,CraftColumn center)
     {
@@ -95,6 +115,8 @@ namespace kairo::player::detail
                 (void)StreamingCraftOrigin(cell);
                 desired[count++]=cell;
             }
+        // Mark each desired coordinate once. Reject duplicate committed slots
+        // rather than allowing two GPU resources to represent one column.
         std::array<bool,Plan::Capacity> assigned{};
         for(std::size_t i=0;i<current.size();++i)if(current[i])
         {
@@ -104,6 +126,8 @@ namespace kairo::player::detail
             if(assigned[j])throw std::invalid_argument("Duplicate committed Craft chunk.");
             assigned[j]=true;plan.Next[i]=current[i];++plan.Retained;
         }
+        // Every retained slot consumes exactly one desired coordinate, leaving
+        // the same number of unassigned coordinates as empty candidate slots.
         std::size_t next=0;
         for(std::size_t i=0;i<plan.Next.size();++i)if(!plan.Next[i])
         {
@@ -114,6 +138,8 @@ namespace kairo::player::detail
         return plan;
     }
 
+    // Map an edited voxel to the resident slots whose meshing halo intersects
+    // it. This only identifies invalidation; it does not schedule uploads.
     template<std::size_t N>
     std::array<bool,N> StreamingCraftDirty(
         const std::array<std::optional<CraftColumn>,N>& slots,VoxelCoordinate voxel)
