@@ -40,7 +40,7 @@ int main(int argc,char** argv)
             }
             else throw std::invalid_argument("Usage: KairoTerrainExplorer [--seed N] [--renderer backend] [--smoke]");
         }
-        RendererRuntime renderer({"Kairo Explorer: WASD / arrows / Shift / Esc",960u,540u,!smoke,backend});
+        RendererRuntime renderer({"Kairo Explorer: WASD / arrows / Shift / Space / Esc",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960,540);
         renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         ProceduralWorldConfig world;
@@ -84,7 +84,8 @@ int main(int argc,char** argv)
         auto previous=start;
         unsigned frames=0,moves=0,captures=0;
         std::size_t loads=0,unloads=0;
-        bool requested=false;
+        bool requested=false,jumpHeld=false,jumpStarted=false,jumpLanded=false;
+        double peakJumpHeight=0;
         auto* window=renderer.NativeWindow().NativeHandle();
         const auto key=[&](int code){return glfwGetKey(window,code)==GLFW_PRESS?1.0:0.0;};
         while(!renderer.NativeWindow().ShouldClose())
@@ -94,7 +95,12 @@ int main(int argc,char** argv)
             const double dt=smoke?0.1:std::min(0.1,std::chrono::duration<double>(now-previous).count());
             previous=now;
             TerrainWalkInput input;
-            if(smoke)input.Forward=moves<300?1.0:0.0;
+            if(smoke)
+            {
+                if(!jumpStarted&&walker.Initialized&&walker.Grounded)
+                {input.JumpPressed=true;jumpStarted=true;}
+                if(jumpStarted&&jumpLanded)input.Forward=moves<300?1.0:0.0;
+            }
             else
             {
                 if(key(GLFW_KEY_ESCAPE)){renderer.NativeWindow().RequestClose();break;}
@@ -103,17 +109,24 @@ int main(int argc,char** argv)
                 input.YawDelta=(key(GLFW_KEY_RIGHT)-key(GLFW_KEY_LEFT))*1.8*dt;
                 input.PitchDelta=(key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN))*1.4*dt;
                 input.Sprint=key(GLFW_KEY_LEFT_SHIFT)>0;
+                const bool jump=key(GLFW_KEY_SPACE)>0;
+                input.JumpPressed=jump&&!jumpHeld;jumpHeld=jump;
             }
             if(AdvanceTerrainWalker(walker,input,dt,movement,ground))++moves;
+            if(jumpStarted)
+            {
+                peakJumpHeight=std::max(peakJumpHeight,walker.FootY-walker.GroundY);
+                if(walker.Grounded&&peakJumpHeight>0.5)jumpLanded=true;
+            }
             const auto o=ChooseTerrainRenderOrigin(walker.X,walker.Z,extent);
             const kairo::foundation::math::Vec3d origin{o[0],o[1],o[2]};
             const std::array observers{WorldStreamingObserver{{walker.X,walker.GroundY,walker.Z},1.0}};
             const auto update=terrain.UpdateAndSubmit(observers,authored,origin);
             if(!update.Succeeded())throw std::runtime_error("Explorer terrain update failed.");
             loads+=update.Loaded;unloads+=update.Unloaded;
-            if(const auto h=ground(walker.X,walker.Z))walker.GroundY=*h;
+            if(!walker.Initialized)(void)AdvanceTerrainWalker(walker,{},0,movement,ground);
             CameraPose camera;
-            const double y=walker.GroundY+movement.EyeHeight;
+            const double y=walker.FootY+movement.EyeHeight;
             const double cp=std::cos(walker.Pitch);
             camera.Position={TerrainRelativeFloat(walker.X,origin.x),TerrainRelativeFloat(y,origin.y),
                 TerrainRelativeFloat(walker.Z,origin.z)};
@@ -136,9 +149,10 @@ int main(int argc,char** argv)
                     throw std::runtime_error("Explorer smoke timed out.");
             }
         }
-        if(smoke&&(captures!=3||walker.X<200||loads==0||unloads==0))
+        if(smoke&&(!jumpLanded||peakJumpHeight<1.0||peakJumpHeight>1.4||captures!=3||walker.X<200||loads==0||unloads==0))
             throw std::runtime_error("Explorer did not cross streamed terrain.");
         if(terrain.Shutdown(authored)!=0)throw std::runtime_error("Explorer shutdown retained meshes.");
+        if(smoke)std::cout<<"Explorer jump and landing passed; peak sampled height "<<peakJumpHeight<<" m\n";
         std::cout<<"Terrain explorer: "<<moves<<" moving updates, x "<<walker.X
             <<", "<<loads<<" loads, "<<unloads<<" unloads, "<<captures<<" captures; shutdown passed\n";
         return 0;
