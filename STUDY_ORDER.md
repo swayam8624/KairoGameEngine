@@ -454,3 +454,9 @@ After the authored menu/ShippingBridge, read [RuntimeMenuFocus](Runtime/KairoPla
 ## M50 licensed asset catalog
 
 Read [demo GLB generator](Samples/AssetCatalog/create_demo_catalog.py) for binary layout and accessor metadata, then [catalog CLI](scripts/kairo_asset_catalog.py) for provenance and trust boundaries, [regressions](scripts/tests/test_kairo_asset_catalog.py), and [run instructions](Samples/AssetCatalog/README.md). Compare the #106 recipe import candidate before tracking staged bytes to native renderer assets.
+
+## M50 native plugins
+
+1. [RuntimePluginABI.h](Runtime/KairoPlayer/RuntimePluginABI.h) — ABI versus API, caller-owned storage and version negotiation.
+2. [RuntimePluginLoader.hpp](Runtime/KairoPlayer/RuntimePluginLoader.hpp) — manifest parsing, trust, native symbols and library lifetime.
+3. [ExamplePlugin](Samples/PluginLab/ExamplePlugin.cpp), [CLI host](Samples/PluginLab/PluginLab.cpp), [loader tests](Runtime/KairoPlayer/tests/RuntimePluginLoaderTests.cpp) and [build guide](Samples/PluginLab/README.md). Follow the actual function pointer across the shared-library boundary.

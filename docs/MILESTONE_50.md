@@ -115,3 +115,5 @@ Canonical button document and shipping bridge loading implemented, with 1,000 CP
 Native menu host candidate now supports pointer/keyboard input, focus, bounded labels and a larger-text toggle through existing RuntimeUIScene and Vulkan/Metal overlay APIs. Portable focus tests pass; native execution, graphical editor designer and OS accessibility integration remain open.
 
 Local licensed asset catalog, search, staging, checksums, retained license evidence and recipe export implemented and locally tested. Generated model passes existing recipe candidate's GLB validation. Full native import and graphical catalog browser remain open; no hosted marketplace claim.
+
+Native plugin v1 manifest, shared-library ABI, explicitly trusted CLI extension and incompatible-version rejection pass real Linux dynamic loading tests. Editor/runtime extension lifecycle, macOS/Windows acceptance and full workspace CI remain open. Narrow plugin lab is not a complete ecosystem or sandbox.
