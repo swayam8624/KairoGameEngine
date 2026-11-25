@@ -374,3 +374,10 @@ All 26 sibling trees from the current workspace.lock have individual file checkl
 ## Quest persistence follow-up
 
 Read [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp) first (bounded I/O and publication), then [RuntimeQuestSave.hpp](Runtime/KairoPlayer/RuntimeQuestSave.hpp) (versioned format and two-object transaction), [save tests](Runtime/KairoPlayer/tests/RuntimeQuestSaveTests.cpp), and [the demo](Samples/QuestDialogue/QuestDialogueDemo.cpp).
+
+## M50 animation retarget follow-up
+
+1. [Retarget kernel](Runtime/KairoPlayer/RuntimeAnimationRetarget.hpp): quaternion normalization, Hamilton product, inverse, name and parent mapping, root motion scaling.
+2. [Tests](Runtime/KairoPlayer/tests/RuntimeAnimationRetargetTests.cpp): compare rest-relative rotations, proportions, noncommuting order and rejection.
+3. [Synthetic clip sample](Samples/AnimationLab/RetargetDemo.cpp): follow each pose into the mapped skeleton.
+4. [EngineCore animation and skinning inventory](docs/study/KairoEngineCore.md) for future native adapter integration.

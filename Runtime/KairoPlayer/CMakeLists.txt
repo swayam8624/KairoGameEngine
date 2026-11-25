@@ -93,6 +93,11 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
     # CPU-only quest state test: no renderer/OS window dependency.
     # Analytic IK is a portable CPU kernel; no window or GPU needed.
+    # Compatible-rig retarget test is CPU-only; native skinning is separate.
+    add_executable(KairoPlayerAnimationRetargetTests tests/RuntimeAnimationRetargetTests.cpp)
+    target_compile_features(KairoPlayerAnimationRetargetTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerAnimationRetargetTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerAnimationRetargetTests COMMAND KairoPlayerAnimationRetargetTests)
     add_executable(KairoPlayerTwoBoneIKTests tests/RuntimeTwoBoneIKTests.cpp)
     target_compile_features(KairoPlayerTwoBoneIKTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerTwoBoneIKTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
