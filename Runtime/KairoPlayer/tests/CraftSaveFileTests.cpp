@@ -1,4 +1,6 @@
 #include "../CraftSaveFile.hpp"
+#include "../CraftEquipmentSave.hpp"
+#include "../CraftCaveSession.hpp"
 #include <chrono>
 #include <iostream>
 #include <random>
@@ -56,5 +58,33 @@ int main()
     Check(Reject([&]{(void)ReadCraftSaveFile(directory,limit);}),"Directory read accepted");
     Check(Reject([&]{(void)ReadCraftSaveFile(scratch.Path/"missing",limit);}),"Missing save accepted");
     Check(ReadCraftSaveFile(path,limit)==previous,"Failed writes damaged previous save");
+    // Exercise the real v5 envelope and both underlying world codecs on disk.
+    for(std::uint64_t seed=0;seed<128;++seed)
+    {
+        CraftInventory inventory;inventory.Counts={1,2,3,4};
+        CraftEquipment pick{static_cast<std::uint32_t>(1+seed%64),seed%2==0};
+        StreamCraftWorldEdits surface(StreamingCraftBaseline{seed});
+        Check(surface.Set({-1000000000,15,1000000000},CraftPlaced),"Surface edit failed");
+        const auto surfaceBytes=EncodeCraftEquipmentEnvelope(EncodeCraftSession(seed,surface,inventory),pick,CraftSessionMaximumBytes);
+        WriteCraftSaveFile(path,surfaceBytes,CraftSessionMaximumBytes+CraftEquipmentOverhead);
+        const auto readSurface=ReadCraftSaveFile(path,CraftSessionMaximumBytes+CraftEquipmentOverhead);
+        const auto surfaceOuter=DecodeCraftEquipmentEnvelope(readSurface,CraftSessionMaximumBytes);
+        const auto restoredSurface=DecodeCraftSession(surfaceOuter.Payload);
+        Check(restoredSurface.Seed==seed&&restoredSurface.World.Overrides()==surface.Overrides()&&
+            restoredSurface.Inventory.Counts==inventory.Counts&&surfaceOuter.Equipment.Durability==pick.Durability&&
+            surfaceOuter.Equipment.Equipped==pick.Equipped,"Real surface disk session differs");
+        CaveCraftWorldEdits cave(CaveCraftBaseline{seed});
+        Check(cave.Set({16,-64,0},VoxelAir),"Cave edit failed");
+        const auto caveBytes=EncodeCraftEquipmentEnvelope(EncodeCaveCraftSession(seed,cave,inventory),pick,CaveCraftMaximumBytes);
+        WriteCraftSaveFile(path,caveBytes,CaveCraftMaximumBytes+CraftEquipmentOverhead);
+        const auto readCave=ReadCraftSaveFile(path,CaveCraftMaximumBytes+CraftEquipmentOverhead);
+        const auto caveOuter=DecodeCraftEquipmentEnvelope(readCave,CaveCraftMaximumBytes);
+        const auto restoredCave=DecodeCaveCraftSession(caveOuter.Payload);
+        Check(restoredCave.Seed==seed&&restoredCave.World.Overrides()==cave.Overrides()&&
+            restoredCave.Inventory.Counts==inventory.Counts&&caveOuter.Equipment.Durability==pick.Durability&&
+            caveOuter.Equipment.Equipped==pick.Equipped,"Real cave disk session differs");
+        Check(Reject([&]{(void)DecodeCraftSession(caveOuter.Payload);}),"Cave accepted as surface");
+    }
+    std::cout<<"256 real surface/cave world sessions persisted and decoded from disk\n";
     std::cout<<"256 actual file replacements, bounds, competing reservation, failure cleanup and prior save preservation passed\n";
 }

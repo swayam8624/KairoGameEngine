@@ -37,9 +37,9 @@ namespace kairo::player::detail
             bytes.size()>static_cast<std::uintmax_t>(std::numeric_limits<std::streamsize>::max()))
             throw std::invalid_argument("Invalid Craft save write request.");
         auto reservation=path;reservation+=".write-lock";
+        const auto staged=reservation/"payload";
         if(!std::filesystem::create_directory(reservation))
             throw std::runtime_error("Craft save writer reservation already exists.");
-        const auto staged=reservation/"payload";
         const auto cleanup=[&]() noexcept
         {
             std::error_code ignored;

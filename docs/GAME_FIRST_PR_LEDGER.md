@@ -320,7 +320,7 @@ dfcdb23da3b637177a76fdcfa1941853f9f3cf77 and test
 strict warnings, ASan/UBSan: 256 actual disk replacements each, size caps,
 competing writer refusal and failed rename cleanup. Registered as 24th CPU
 contract and native CTest gate. Native Windows/macOS filesystem behavior
-and demo integration pending. Prior #87 head unchanged.
+and demo integration pending. Added 256 actual encoded world-session disk roundtrips (128 seeds per world) on each compiler, verifying world edits, inventory, tool state and wrong-world rejection. Current tested exact blobs ebe97d3ab55c64ff9573208b18f79fa61fc4055c and ef82f481cd44df47de2ba6a88d3269e083f2f848. Prior #87 head unchanged.
 
 ## Final integration gate
 
