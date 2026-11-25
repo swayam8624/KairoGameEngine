@@ -2,6 +2,8 @@
 #include <GLFW/glfw3.h>
 #include "CraftStreamingWindow.hpp"
 #include "CraftStreamSave.hpp"
+#include "CraftMeshBatch.hpp"
+#include <thread>
 #include "VoxelPlayer.hpp"
 #include <filesystem>
 #include <fstream>
@@ -24,6 +26,7 @@ int main(int argc,char** argv)
         using namespace kairo::foundation::math;
         using namespace kairo::player::detail;
         bool smoke=false,survival=false;
+        unsigned workers=0;
         std::optional<std::filesystem::path> savePath;
         std::uint64_t seed=42;
         GraphicsBackend backend=GraphicsBackend::Automatic;
@@ -32,6 +35,13 @@ int main(int argc,char** argv)
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
             else if(arg=="--survival")survival=true;
+            else if(arg=="--workers"&&i+1<argc)
+            {
+                const std::string_view value=argv[++i];
+                const auto result=std::from_chars(value.data(),value.data()+value.size(),workers);
+                if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size()||workers<1||workers>8)
+                    throw std::invalid_argument("Craft workers must be 1..8.");
+            }
             else if(arg=="--save"&&i+1<argc)savePath=std::filesystem::path(argv[++i]);
             else if(arg=="--renderer"&&i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
             else if(arg=="--seed"&&i+1<argc)
@@ -41,7 +51,7 @@ int main(int argc,char** argv)
                 if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size())
                     throw std::invalid_argument("Invalid seed.");
             }
-            else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--survival] [--save path] [--smoke]");
+            else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--survival] [--workers N] [--save path] [--smoke]");
         }
         RendererRuntime renderer({"Kairo Craft Stream: WASD / arrows / Space / Ctrl / mouse / Esc",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960,540);
@@ -87,7 +97,10 @@ int main(int argc,char** argv)
         Plan::Slots coordinates{};
         Publication publication;
         VoxelCoordinate origin{};
-        std::optional<CraftColumn> center;
+        std::optional<CraftColumn> center,pendingCenter;
+        std::optional<Plan> pendingPlan;
+        std::unique_ptr<CraftMeshBatch<2>> batch;
+        if(workers)batch=std::make_unique<CraftMeshBatch<2>>(workers);
         std::size_t loads=0,evictions=0,retained=0,edits=0;
         RenderScene authored;
         RenderLight sun;
@@ -112,13 +125,8 @@ int main(int argc,char** argv)
         };
         const auto committedSubmit=[&](const Publication::Slots& slots){submit(slots,coordinates,origin);};
         const auto destroy=[&](MeshHandle h){renderer.DestroyMesh(h);};
-        const auto upload=[&](const World& source,CraftColumn cell)->std::optional<MeshHandle>
+        const auto uploadMesh=[&](CraftMeshData mesh)->std::optional<MeshHandle>
         {
-            // Full deterministic halo, including nonresident neighbors.
-            // Streaming itself does not change any existing mesh's faces.
-            const auto surface=BuildVoxelChunkSurface(StreamingCraftOrigin(cell),CraftExtent,
-                [&](VoxelCoordinate c){return source.Get(c);});
-            auto mesh=BuildCraftMesh(surface);
             if(mesh.Indices.empty())return {};
             std::vector<MeshVertex> vertices;
             vertices.reserve(mesh.Vertices.size());
@@ -129,21 +137,59 @@ int main(int argc,char** argv)
                     {v.UV[0],v.UV[1]}});
             return renderer.CreateMesh(Mesh(std::move(vertices),std::move(mesh.Indices)));
         };
-        const auto updateWindow=[&](double x,double z)
+        const auto upload=[&](const World& source,CraftColumn cell)
+        {
+            return uploadMesh(BuildCraftMesh(BuildVoxelChunkSurface(StreamingCraftOrigin(cell),CraftExtent,
+                [&](VoxelCoordinate c){return source.Get(c);})));
+        };
+        const auto cancelPending=[&]()
+        {
+            if(batch)batch->Cancel();
+            pendingCenter.reset();pendingPlan.reset();
+        };
+        const auto updateWindow=[&](double x,double z)->bool
         {
             // Restore old mapping before staging a new mapping; a partially
             // failed scene must never recover using the new slot coordinates.
             if(!publication.Recover(committedSubmit,destroy))
                 throw std::runtime_error("Craft retirement retry failed.");
             const auto nextCenter=CraftObserverColumn(x,z);
-            if(center&&*center==nextCenter)return;
-            const auto plan=PlanCraftWindow<2>(coordinates,nextCenter);
+            if(center&&*center==nextCenter)
+            {
+                if(pendingCenter)cancelPending();
+                if(batch)(void)batch->Poll(); // drain obsolete completions
+                return true;
+            }
+            if(batch)
+            {
+                if(!pendingCenter||*pendingCenter!=nextCenter)
+                {
+                    pendingPlan=PlanCraftWindow<2>(coordinates,nextCenter);
+                    batch->Begin(*pendingPlan,std::make_shared<const World>(*world));
+                    pendingCenter=nextCenter;
+                }
+                if(!batch->Poll())return false;
+            }
+            const auto plan=batch?*pendingPlan:PlanCraftWindow<2>(coordinates,nextCenter);
             const auto nextOrigin=StreamingCraftOrigin(nextCenter);
-            if(!publication.Apply(plan.Dirty,[&](std::size_t i){return upload(*world,*plan.Next[i]);},
-                [&](const Publication::Slots& slots){submit(slots,plan.Next,nextOrigin);},destroy))
+            if(!publication.Apply(plan.Dirty,[&](std::size_t i){
+                    return batch?uploadMesh(batch->Take(i)):upload(*world,*plan.Next[i]);
+                },[&](const Publication::Slots& slots){submit(slots,plan.Next,nextOrigin);},destroy))
                 throw std::runtime_error("Craft window publication deferred.");
             coordinates=plan.Next;origin=nextOrigin;center=nextCenter;
             loads+=plan.Loaded;evictions+=plan.Evicted;retained+=plan.Retained;
+            if(batch)cancelPending();
+            return true;
+        };
+        const auto settleWindow=[&](double x,double z)
+        {
+            const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+            while(!updateWindow(x,z))
+            {
+                if(std::chrono::steady_clock::now()>deadline)
+                    throw std::runtime_error("Craft meshing batch timed out.");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
         };
         const auto query=[&](VoxelCoordinate cell)->std::optional<VoxelMaterial>
         {
@@ -176,6 +222,7 @@ int main(int argc,char** argv)
             if(!publication.Apply(StreamingCraftDirty(coordinates,cell),
                 [&](std::size_t i){return upload(*next,*coordinates[i]);},committedSubmit,destroy))return false;
             world.swap(next);++edits;
+            if(batch)cancelPending(); // old snapshots no longer describe the committed world
             return true;
         };
         const auto camera=[&](double x,double y,double z,const std::array<double,3>& direction,bool overhead=false)
@@ -189,7 +236,7 @@ int main(int argc,char** argv)
         };
         try
         {
-            updateWindow(.5,.5);
+            settleWindow(.5,.5);
             if(smoke)
             {
                 const auto capture=[&](double x,double z)
@@ -212,15 +259,15 @@ int main(int argc,char** argv)
                 if(!hit||!edit(hit->Cell,CraftPlaced))throw std::runtime_error("Stream edit failed.");
                 const auto changed=capture(.5,.5);
                 if(changed.RGBA==baseline.RGBA)throw std::runtime_error("Stream edit image unchanged.");
-                updateWindow(16.5,.5);
+                settleWindow(16.5,.5);
                 if(loads!=30||evictions!=5||retained!=20)
                     throw std::runtime_error("One-cell stream did not retain overlap.");
                 (void)capture(16.5,.5);
-                updateWindow(1000000000.5,-999999999.5);
+                settleWindow(1000000000.5,-999999999.5);
                 if(query(hit->Cell)||world->Get(hit->Cell)!=CraftPlaced)
                     throw std::runtime_error("Evicted edit lost or query escaped residency.");
                 (void)capture(1000000000.5,-999999999.5);
-                updateWindow(.5,.5);
+                settleWindow(.5,.5);
                 const auto decoded=DecodeStreamCraftSave(EncodeStreamCraftSave(seed,*world));
                 if(decoded.Seed!=seed||decoded.World.Overrides()!=world->Overrides())
                     throw std::runtime_error("Stream save roundtrip failed.");
@@ -246,6 +293,7 @@ int main(int argc,char** argv)
                     if(!p.Grounded||peak<1.2||peak>1.3)throw std::runtime_error("Streamed survival jump failed.");
                     std::cout<<"Streamed survival apex "<<peak<<" m; landing passed\n";
                 }
+                if(batch)std::cout<<"Craft worker batch mode: "<<workers<<" workers, "<<batch->StaleCount()<<" discarded jobs\n";
                 std::cout<<"Streamed Craft: 80 loads, 55 evictions, 20 retained, 6 captures, billion-meter revisit and edit restore passed\n";
             }
             else
@@ -285,7 +333,16 @@ int main(int argc,char** argv)
                         y=std::clamp(y+(key(GLFW_KEY_SPACE)-key(GLFW_KEY_LEFT_CONTROL))*12*dt,1.,32.);
                     }
                     jumpHeld=jump;
-                    updateWindow(x,z);
+                    // A slow worker must not allow creative flight to
+                    // outrun the currently published window. The central
+                    // 3x3 region remains reachable while jobs run.
+                    if(batch&&center&&!survival)
+                    {
+                        const auto base=StreamingCraftOrigin(*center);
+                        x=std::clamp(x,double(base.X)-16.,double(base.X)+31.999);
+                        z=std::clamp(z,double(base.Z)-16.,double(base.Z)+31.999);
+                    }
+                    (void)updateWindow(x,z);
                     const std::array direction{std::sin(yaw)*std::cos(pitch),std::sin(pitch),-std::cos(yaw)*std::cos(pitch)};
                     camera(x,y,z,direction);
                     const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
