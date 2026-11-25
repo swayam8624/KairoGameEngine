@@ -388,3 +388,7 @@ Read [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp) first (bounded I
 2. [Protocol oracle](Runtime/KairoPlayer/tests/RuntimeNetworkProtocolTests.cpp).
 3. [TCP transport](Runtime/KairoPlayer/RuntimeLoopbackTcp.hpp) — RAII, socket setup, listen/accept/connect, partial sends/receives and timeouts.
 4. [Native pair](Samples/NetworkLab/NetworkLab.cpp), [Python process harness](Samples/NetworkLab/run_pair.py), [instructions](Samples/NetworkLab/README.md).
+
+## M50 network synchronization follow-up
+
+After the protocol/authority and socket lab, read [prediction](Runtime/KairoPlayer/RuntimeNetworkPrediction.hpp), [impairment and correction tests](Runtime/KairoPlayer/tests/RuntimeNetworkPredictionTests.cpp), and the [integrated client](Samples/NetworkLab/NetworkLab.cpp). Trace the difference between authoritative and predicted state, acknowledgment removal, replay order and backpressure.

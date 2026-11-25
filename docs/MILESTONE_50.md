@@ -81,3 +81,7 @@ Compatible named skeleton CPU mapping and sampled synthetic clip demo exist; 5,0
 ## Candidate progress: network transport and authority
 
 Real two-process loopback exchange and 10,000 seeded authority ticks per compiler passed on Linux. This covers the narrow local transport scenario, but accepted workspace CI, graphical game integration, reconciliation under delay/loss and matchmaking remain open. No WAN or multiplayer readiness claim.
+
+## Candidate progress: network synchronization
+
+Client prediction and reconciliation now run in the real loopback sample and pass 64,000 impaired-snapshot ticks per compiler. The impairment model drops, delays and reorders snapshots while inputs reach the authority reliably and in order. Full game state, real network loss and multi-actor authority remain open.

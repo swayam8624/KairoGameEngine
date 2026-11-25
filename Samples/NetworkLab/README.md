@@ -16,3 +16,6 @@ protocol tests and this sample. The versioned 20-byte big-endian frame is
 independent of sockets. TCP partial reads/writes are handled explicitly.
 This is a narrow local one-client prototype, not a distributed game,
 authentication, encryption, NAT traversal or loss/reconciliation solution.
+
+
+The client also predicts its movement locally and reconciles the returned server snapshot. The separate RuntimeNetworkPredictionTests.cpp tests delayed, dropped and reordered snapshots, corrections and bounded journal backpressure; this does not claim UDP reliability.
