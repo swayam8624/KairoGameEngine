@@ -121,3 +121,7 @@ Native plugin v1 manifest, shared-library ABI, explicitly trusted CLI extension 
 ## Candidate progress: local matchmaking
 
 Local create/list/join/leave/close, expiry and capacity checks pass, including a 24-process race and actual discovery-to-native-connection demo. Narrow local functional gate demonstrated; accepted workspace CI and server-side token enforcement remain open. No remote service claim.
+
+## Candidate progress: platformer
+
+Complete playable terminal route with movement, jump, hazard, respawn, collectibles and goal. Both compilers passed end-to-end and randomized tests. Native presentation and workspace acceptance pending; do not confuse this fixed-grid demo with a general 2D editor.
