@@ -183,6 +183,19 @@ jobs:
           path: test-${{ matrix.preset }}.log
           if-no-files-found: error
 
+      - name: Relocated Beacon Run release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          player="build/${{ matrix.preset }}/Runtime/KairoPlayer/KairoPlayer"
+          if [[ "${{ matrix.platform }}" == "windows" ]]; then player="${player}.exe"; fi
+          test -f "$player"
+          if [[ "${{ matrix.platform }}" == "linux" && "${{ matrix.preset }}" == "ci-clang" ]]; then
+            xvfb-run -a python3 scripts/verify_project_release.py "$player" Samples/BeaconRun/Project.kproject --smoke
+          else
+            python scripts/verify_project_release.py "$player" Samples/BeaconRun/Project.kproject
+          fi
+
       - name: Create source package
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
