@@ -1,5 +1,8 @@
 module;
 
+#include "RuntimeMenuDocument.hpp"
+#include "CraftSaveFile.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -25,6 +28,27 @@ export namespace kairo::player
         {
             m_State.Values["project.name"]=project.Descriptor().Name;
             m_State.Values["scene.entities"]=static_cast<std::int64_t>(project.Scene().Size());
+            // Optional authored UI is validated even during --validate.
+            const auto path=ProjectPath("Config/Menu.kmenu");
+            if(std::filesystem::exists(path))
+            {
+                const auto bytes=detail::ReadCraftSaveFile(path,detail::MaximumMenuBytes);
+                const auto doc=detail::ParseRuntimeMenu(std::string_view(
+                    reinterpret_cast<const char*>(bytes.data()),bytes.size()));
+                kairo::engine::LocalizationCatalog catalog;
+                for(const auto& button:doc)catalog.Set("en",button.ID,button.Label);
+                kairo::engine::RuntimeUIScene ui(std::move(catalog));
+                for(const auto& button:doc)
+                {
+                    kairo::engine::RuntimeWidget widget;
+                    widget.ID=button.ID;widget.Kind=kairo::engine::RuntimeWidgetKind::Button;
+                    widget.Anchors={button.X/1000.,button.Y/1000.,button.W/1000.,button.H/1000.};
+                    widget.TextKey=button.ID;widget.AccessibleLabelKey=button.ID;
+                    widget.Action=button.Action;widget.Focusable=true;
+                    ui.Add(std::move(widget));
+                }
+                InstallUI(std::move(ui));
+            }
         }
         [[nodiscard]] kairo::engine::RuntimeAudioMixer& Audio() noexcept { return m_Audio; }
         [[nodiscard]] const kairo::engine::RuntimeStateSnapshot& State() const noexcept { return m_State; }

@@ -134,3 +134,7 @@ Added 40 teaching blocks across five existing runtime headers. Compared all non-
 | [VoxelChunkSurface.hpp](Runtime/KairoPlayer/VoxelChunkSurface.hpp) | 10 |
 
 No native build performed for this comment-only change. All-files annotation remains open.
+
+## 2026-11-25 — authored UI document and shipping bridge
+
+Added [RuntimeMenuDocument.hpp](Runtime/KairoPlayer/RuntimeMenuDocument.hpp), bounded canonical menu document, overlap/identity/label/action validation and serialization. GCC and Clang C++23 -Wall -Wextra -Werror each passed 1,000 geometry roundtrips and malformed document fixtures. Tested blob IDs d14bb5d4cad8e8ccdabd156eb8860f633caf32e7 and 4598ccbe6d9d49ddbfddfebacd6aee3fb608ec42. The existing shipping bridge optionally loads Config/Menu.kmenu into RuntimeUIScene and LocalizationCatalog during project validation. Added copied playable sample and headless CTest gate. Native input/overlay adapter remains open and full module build has not run.
