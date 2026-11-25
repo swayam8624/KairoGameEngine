@@ -1,13 +1,12 @@
-# Procedural terrain viewport (review candidate)
+# Procedural terrain viewport
 
-This standalone demo is deliberately opt-in until the EngineCore procedural
-stack (#26–30) is reviewed and integrated. The normal KairoPlayer and release
-workspace lock remain unchanged.
+This standalone demo remains opt-in. The proposed workspace lock now pins
+the merged EngineCore procedural stack and renderer. Materialize and verify
+the game workspace lock in a clean checkout; no review-only sibling override
+is needed. Do not overwrite a dirty working tree.
 
-For a disposable review workspace, materialize the game workspace lock, then
-check out EngineCore candidate `ab7aac6b4df24d8bcdaf5aa8508c9ada296bef2e` in the
-sibling KairoEngineCore repository. Do not switch a dirty working tree or
-overwrite an accepted lock. The candidate CI does this in a clean runner.
+The exact merged combination must pass the native acceptance workflow before
+being called validated.
 
 ```sh
 cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF
@@ -17,7 +16,7 @@ cmake --build --preset game-player-clang --parallel 4 --target KairoTerrainDemo
 
 Use `--smoke --renderer vulkan` for the bounded three-region travel regression.
 It requires three nonuniform captures, actual mesh loads and unloads, matching
-resident/committed counts and successful shutdown. The candidate CI executes
+resident/committed counts and successful shutdown. The locked-workspace CI executes
 it directly under Lavapipe/Xvfb and fails on detected validation errors.
 
 The demo is an automatic camera circuit, not a controllable game or physics
@@ -26,8 +25,8 @@ CPU worker (eight pending meshes, four completion slots consumed per update).
 Use `--workers 4` to enable parallel generation; queued obsolete jobs can be cancelled while running jobs retain their slots. Only the render thread uploads/destroys native meshes. Obsolete completions
 outside the keep region are discarded and acknowledged. The async smoke waits
 for three settled regions before capturing, with a 60-second deadline.
-Both paths directly upload canonical artifacts,
-and releases native handles only after removing terrain draws from the submitted
+Both paths directly upload canonical artifacts
+and release native handles only after removing terrain draws from the submitted
 scene. Individual failed retirements retain handles for retry. All requests
 are acknowledged, including failures. Shutdown is terminal and retryable;
 the planner's reservation snapshot is no longer an active runtime after shutdown.
