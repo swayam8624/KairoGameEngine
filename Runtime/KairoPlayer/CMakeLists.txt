@@ -197,6 +197,12 @@ if(BUILD_TESTING)
     set_property(TARGET KairoPlayerRainStreaksTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
     add_test(NAME KairoPlayerRainStreaksTests COMMAND KairoPlayerRainStreaksTests)
     # Depth-only water conservation is tested without the GPU.
+    # Deformable volume and contact regression is a pure CPU test.
+    add_executable(KairoPlayerSoftBodyTests tests/RuntimeSoftBodyTests.cpp)
+    target_include_directories(KairoPlayerSoftBodyTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(KairoPlayerSoftBodyTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerSoftBodyTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerSoftBodyTests COMMAND KairoPlayerSoftBodyTests)
     add_executable(KairoPlayerWaterGridTests tests/RuntimeWaterGridTests.cpp)
     target_include_directories(KairoPlayerWaterGridTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(KairoPlayerWaterGridTests PRIVATE cxx_std_23)
