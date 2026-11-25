@@ -450,3 +450,7 @@ Read [RuntimeBreakableCube.hpp](Runtime/KairoPlayer/RuntimeBreakableCube.hpp), t
 4. [RuntimeShippingBridge.cppm](Runtime/KairoPlayer/RuntimeShippingBridge.cppm) maps the document into existing EngineCore RuntimeUIScene and LocalizationCatalog; read the pinned ShippingRuntime.cppm through [EngineCore study catalog](docs/study/KairoEngineCore.md).
 
 After the authored menu/ShippingBridge, read [RuntimeMenuFocus](Runtime/KairoPlayer/RuntimeMenuFocus.hpp), [focus tests](Runtime/KairoPlayer/tests/RuntimeMenuFocusTests.cpp), [RuntimeMenuHost](Runtime/KairoPlayer/RuntimeMenuHost.cppm) and the menu-frame branch of [main.cpp](Runtime/KairoPlayer/main.cpp). Follow GLFW logical pixels to physical framebuffer layout, release edges, capture, glyph rectangles and gameplay pause.
+
+## M50 licensed asset catalog
+
+Read [demo GLB generator](Samples/AssetCatalog/create_demo_catalog.py) for binary layout and accessor metadata, then [catalog CLI](scripts/kairo_asset_catalog.py) for provenance and trust boundaries, [regressions](scripts/tests/test_kairo_asset_catalog.py), and [run instructions](Samples/AssetCatalog/README.md). Compare the #106 recipe import candidate before tracking staged bytes to native renderer assets.
