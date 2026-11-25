@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include "CraftCaveSession.hpp"
 #include "CraftRecipesHud.hpp"
+#include "TerrainScreenError.hpp"
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -97,6 +98,9 @@ int main(int argc,char** argv)
         RenderLight light;light.Type=RenderLightType::Directional;
         light.Direction={.6f,1.f,.4f};light.Intensity=3;light.CastShadows=false;
         authored.AddLight(light);
+        std::optional<MeshHandle> hudMesh;
+        std::optional<CameraPose> hudPose;
+        bool hudEnabled=false;
         const auto submit=[&](const Pub::Slots& handles,const P::Slots& cells,VoxelCoordinate base)
         {
             auto scene=authored;
@@ -107,6 +111,36 @@ int main(int argc,char** argv)
                 draw.Model=MakeTranslation(Vec3f{TerrainRelativeFloat(o.X,base.X),
                     TerrainRelativeFloat(o.Y,base.Y),TerrainRelativeFloat(o.Z,base.Z)});
                 draw.CastShadows=false;scene.Add(draw);
+            }
+            if(hudEnabled&&hudMesh&&hudPose)
+            {
+                const auto& pose=*hudPose;
+                const ScreenVec eye{pose.Position.x,pose.Position.y,pose.Position.z};
+                const auto forward=ScreenUnit(ScreenVec{double(pose.Target.x)-eye[0],
+                    double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
+                const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
+                const auto up=ScreenUnit(ScreenCross(right,forward));
+                for(const auto& rect:BuildCraftHud(inventory))
+                {
+                    const double depth=rect.Background?.16:.14;
+                    const double half=depth*std::tan(pose.VerticalFovRadians*.5);
+                    const double pixel=2*half/540;
+                    const double dx=(rect.X+rect.W*.5-480)*pixel,dy=(270-rect.Y-rect.H*.5)*pixel;
+                    const double width=rect.W*pixel,height=rect.H*pixel;
+                    MeshDraw draw;
+                    draw.Mesh=*hudMesh;draw.Model=Mat4f::Identity();
+                    for(unsigned axis=0;axis<3;++axis)
+                    {
+                        draw.Model(axis,0)=static_cast<float>(right[axis]*width);
+                        draw.Model(axis,1)=static_cast<float>(up[axis]*height);
+                        draw.Model(axis,2)=static_cast<float>(-forward[axis]*std::max(width,height));
+                        draw.Model(axis,3)=static_cast<float>(eye[axis]+forward[axis]*depth+right[axis]*dx+up[axis]*dy);
+                    }
+                    draw.Material.BaseColor={0,0,0};
+                    draw.Material.Emissive={rect.Color[0],rect.Color[1],rect.Color[2]};
+                    draw.Material.DoubleSided=true;draw.CastShadows=false;draw.ReceiveShadows=false;
+                    scene.Add(draw);
+                }
             }
             renderer.SubmitRenderScene(scene);
         };
@@ -172,12 +206,24 @@ int main(int argc,char** argv)
             },oldSubmit,destroy))return false;
             world.swap(next);return true;
         };
+        const auto createHud=[&]()
+        {
+            if(hudMesh)return;
+            std::vector<MeshVertex> vertices{
+                {{-.5f,-.5f,0},{1,1,1},{0,0,1},{0,0}},
+                {{ .5f,-.5f,0},{1,1,1},{0,0,1},{1,0}},
+                {{ .5f, .5f,0},{1,1,1},{0,0,1},{1,1}},
+                {{-.5f, .5f,0},{1,1,1},{0,0,1},{0,1}}};
+            hudMesh=renderer.CreateMesh(Mesh(std::move(vertices),{0,1,2,0,2,3}));
+        };
         const auto camera=[&](double x,double y,double z,const std::array<double,3>& d)
         {
             CameraPose pose;
             pose.Position={TerrainRelativeFloat(x,origin.X),TerrainRelativeFloat(y,origin.Y),TerrainRelativeFloat(z,origin.Z)};
             pose.Target={TerrainRelativeFloat(x+d[0],origin.X),TerrainRelativeFloat(y+d[1],origin.Y),TerrainRelativeFloat(z+d[2],origin.Z)};
             renderer.SetCameraPose(pose);
+            hudPose=pose;
+            if(hudEnabled)oldSubmit(pub.Active());
         };
         try
         {
@@ -193,7 +239,7 @@ int main(int argc,char** argv)
                         if(auto image=renderer.TakeViewportCapture())
                         {
                             if(!image->IsVisuallyNonUniform())throw std::runtime_error("Blank cave capture.");
-                            return;
+                            return *image;
                         }
                     }
                     throw std::runtime_error("Missing cave capture.");
@@ -215,19 +261,27 @@ int main(int argc,char** argv)
                 if(query(block)!=VoxelAir||!PlaceCraftBlock(inventory,block,query,edit,[](auto){return true;})||
                     inventory.Count(material)!=0||!world->Overrides().empty())
                     throw std::runtime_error("Cave revisit failed.");
-                capture(8.5,-7.5,8.5,{0,0,-1});
+                const auto baseline=capture(8.5,-7.5,8.5,{0,0,-1});
+                createHud();hudEnabled=true;
+                if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA==baseline.RGBA)
+                    throw std::runtime_error("Cave HUD did not appear.");
+                hudEnabled=false;oldSubmit(pub.Active());
+                if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=baseline.RGBA)
+                    throw std::runtime_error("Removing cave HUD changed world.");
                 if(loads!=90||evictions!=63||peakUploads>4)throw std::runtime_error("Cave streaming accounting.");
-                std::cout<<"Cave native: 90 loads, 63 evictions, 18 vertical retained, 4 captures, peak uploads "<<peakUploads<<"; edit revisit passed\n";
+                std::cout<<"Cave native: 90 loads, 63 evictions, 18 vertical retained, 6 captures, HUD and inventory roundtrip, peak uploads "<<peakUploads<<"; edit revisit passed\n";
             }
             else
             {
                 double x=8.5,y=12,z=8.5,yaw=0,pitch=-.5;
                 VoxelPlayer body{{8.5,12,8.5}};
+                if(survival){createHud();hudEnabled=true;}
                 VoxelPlayerConfig config;
                 const auto bodyQuery=[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
                     if(c.Y<CaveBottom||c.Y>=CaveTop||std::abs(double(c.X))>=999999950||std::abs(double(c.Z))>=999999950)return CraftStone;
                     return query(c);
                 };
+                std::string previousTitle;
                 bool leftHeld=false,rightHeld=false,jumpHeld=false,recipeOneHeld=false,recipeTwoHeld=false,saveHeld=false;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
@@ -275,7 +329,7 @@ int main(int argc,char** argv)
                             title+=" ";
                         }
                         title+="| R/T craft | F5 save";
-                        glfwSetWindowTitle(window,title.c_str());
+                        if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool saveDown=key(GLFW_KEY_F5)>0;
                     if(saveDown&&!saveHeld)
@@ -300,12 +354,16 @@ int main(int argc,char** argv)
                                 else (void)edit(*hit->Placement,CraftPlaced);
                             }
                         }
-                    leftHeld=left;rightHeld=right;renderer.DrawFrame();
+                    leftHeld=left;rightHeld=right;
+                    if(hudEnabled)oldSubmit(pub.Active());
+                    renderer.DrawFrame();
                 }
             }
         }
-        catch(...){(void)pub.Release(oldSubmit,destroy);throw;}
+        catch(...){hudEnabled=false;(void)pub.Release(oldSubmit,destroy);throw;}
+        hudEnabled=false;
         if(pub.Release(oldSubmit,destroy)!=0)throw std::runtime_error("Cave cleanup failed.");
+        if(hudMesh)renderer.DestroyMesh(*hudMesh);
         return 0;
     }
     catch(const std::exception& e){std::cerr<<"Craft Caves failed: "<<e.what()<<'\n';return 1;}
