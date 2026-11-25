@@ -230,6 +230,10 @@ Total campaign 60 PRs, 39 previously verified merged, 21 pending at observation.
 
 Total campaign 63 PRs, 39 previously verified merged, 24 pending at observation. Engine #55 through #74 in stack order; Core #31–33 and independent Renderer #38. All three new feature PRs implemented; none has completed CI as of this observation. Actual merged lock, Apple/Metal validation, cave session integration and UI compositor remain open. No default branch changes.
 
+### Unified cave survival session (2026-11-25)
+
+Branch `feat/craft-cave-survival-session`, stacked on #74. Separate v4 cave session codec persists the seed, ordered signed XYZ overrides and four inventory stacks with selected slot; rejects older incompatible world formats, invalid coordinates/materials, malformed inventory, checksum corruption and oversized records. Native cave survival reuses transactional mining/placement, R/T recipes, 1–4 selection, camera-aligned hotbar and crosshair; F5 explicitly saves through same-directory temporary rename. CPU regression adds 10,000 conservation cycles, 10,000 far underground overrides, 100 corruptions, canonical encode/decode and incompatible format rejection. Native smoke exercises edit retention, save codec and HUD-on/off image comparison. CI pending; no power-loss durability, player pose persistence, dedicated screen compositor or general GPU latency claim. Renderer #38 macOS job 139104861077 rerun requested successfully after cancellation. No default branch modifications.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
