@@ -448,3 +448,5 @@ Read [RuntimeBreakableCube.hpp](Runtime/KairoPlayer/RuntimeBreakableCube.hpp), t
 2. [Parser tests](Runtime/KairoPlayer/tests/RuntimeMenuDocumentTests.cpp).
 3. [Authored sample](Samples/AuthoredMenu/Config/Menu.kmenu) and [project](Samples/AuthoredMenu/Project.kproject).
 4. [RuntimeShippingBridge.cppm](Runtime/KairoPlayer/RuntimeShippingBridge.cppm) maps the document into existing EngineCore RuntimeUIScene and LocalizationCatalog; read the pinned ShippingRuntime.cppm through [EngineCore study catalog](docs/study/KairoEngineCore.md).
+
+After the authored menu/ShippingBridge, read [RuntimeMenuFocus](Runtime/KairoPlayer/RuntimeMenuFocus.hpp), [focus tests](Runtime/KairoPlayer/tests/RuntimeMenuFocusTests.cpp), [RuntimeMenuHost](Runtime/KairoPlayer/RuntimeMenuHost.cppm) and the menu-frame branch of [main.cpp](Runtime/KairoPlayer/main.cpp). Follow GLFW logical pixels to physical framebuffer layout, release edges, capture, glyph rectangles and gameplay pause.

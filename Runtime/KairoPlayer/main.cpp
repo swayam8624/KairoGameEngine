@@ -40,6 +40,7 @@ import Kairo.Player.RuntimeLogicBridge;
 import Kairo.Player.RuntimeNativeGameplayBridge;
 import Kairo.Player.RuntimeProductionSystemsBridge;
 import Kairo.Player.RuntimeShippingBridge;
+import Kairo.Player.RuntimeMenuHost;
 import Kairo.Player.RuntimePackaging;
 import Kairo.Renderer;
 
@@ -187,6 +188,11 @@ int main(int argc, char** argv)
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true,
             backend });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
+        // An authored menu is optional. The same shipping scene is used by
+        // the native host for layout, labels and command activation.
+        std::unique_ptr<kairo::player::RuntimeMenuHost> menu;
+        if(auto* ui=shipping.UI())
+            menu=std::make_unique<kairo::player::RuntimeMenuHost>(*ui,renderer,project.Descriptor().Name+" - KairoPlayer");
 
         // Camera follow is an authored opt-in, not a hidden global behaviour.
         // An ordinary imported or hand-authored camera remains completely
@@ -229,13 +235,18 @@ int main(int argc, char** argv)
             const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
             const bool drawable=frameWidth!=0&&frameHeight!=0;
             const auto elapsed=std::chrono::duration<double>(std::chrono::steady_clock::now()-clockOrigin).count();
-            const float elapsedSeconds=static_cast<float>(frameClock.Sample(elapsed,drawable));
+            const bool menuFrame=menu&&menu->Poll(frameWidth,frameHeight);
+            const float elapsedSeconds=static_cast<float>(frameClock.Sample(elapsed,drawable&&!menuFrame));
             if(!drawable)
             {
                 if(arguments.SmokeTest)throw std::runtime_error("Native smoke window has no drawable framebuffer.");
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 continue;
             }
+            // Menu frames pause simulation, and activation cannot leak into
+            // the gameplay frame. Both branches use the common draw/capture.
+            if(!menuFrame)
+            {
             if (input.HasAction("Quit") && input.Action("Quit").Pressed)
                 renderer.NativeWindow().RequestClose();
 
@@ -267,6 +278,7 @@ int main(int argc, char** argv)
                 else (void)audioOutput->Push(pcm);
             }
 
+            }
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.SetCameraPose(activeCameraPose());
             renderer.DrawFrame();
