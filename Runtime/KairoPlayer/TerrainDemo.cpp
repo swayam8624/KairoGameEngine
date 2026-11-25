@@ -1,4 +1,5 @@
 #include <array>
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -58,7 +59,7 @@ int main(int argc,char** argv)
         RenderScene authored;
         RenderLight sun;
         sun.Type=RenderLightType::Directional;
-        sun.Direction={-.6f,-1.f,-.4f};
+        sun.Direction={.6f,1.f,.4f};
         sun.Intensity=3.f;
         // This demonstration isolates terrain streaming from the shadow pass.
         sun.CastShadows=false;
@@ -67,7 +68,7 @@ int main(int argc,char** argv)
         unsigned frame=0,captures=0;
         bool captureRequested=false;
         std::optional<ViewportCapture> lastTerrainCapture;
-        std::size_t loads=0,unloads=0;
+        std::size_t loads=0,unloads=0,deferred=0,stale=0,peakPending=0;
         while(!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
@@ -85,6 +86,10 @@ int main(int argc,char** argv)
                 throw std::runtime_error("Terrain streaming failed.");
             }
             loads+=update.Loaded;unloads+=update.Unloaded;
+            deferred+=update.DeferredLoads;stale+=update.StaleLoads;
+            peakPending=std::max(peakPending,terrain.PendingCount());
+            if(terrain.PendingCount()>background.MaximumPendingMeshes)
+                throw std::runtime_error("Terrain pending mesh budget exceeded.");
             if(terrain.ResidentCount()+terrain.PendingCount()!=terrain.Streaming().Runtime().CommittedCellCount() ||
                 terrain.ResidentCount()>config.Streaming.MaximumCommittedCells)
                 throw std::runtime_error("Terrain mesh ownership differs from residency.");
@@ -136,7 +141,8 @@ int main(int argc,char** argv)
                 throw std::runtime_error("Terrain did not change the native image relative to the cleared scene.");
         }
         std::cout<<"Terrain seed "<<seed<<": "<<loads<<" uploads, "<<unloads
-            <<" unloads, "<<captures<<" captures; shutdown passed\n";
+            <<" unloads, "<<captures<<" captures, "<<deferred<<" deferred, "<<stale
+            <<" stale, peak pending "<<peakPending<<"; shutdown passed\n";
         return 0;
     }
     catch(const std::exception& e)
