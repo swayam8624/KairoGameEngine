@@ -7,6 +7,8 @@
 
 namespace kairo::player::detail
 {
+    // Renderer-facing colors, unit direction toward sun and intensity scalars.
+    // This is a stylized lighting policy, not atmospheric scattering.
     struct CraftDaylightSample
     {
         std::array<float,3> Sky{},Ambient{},SunDirection{},SunColor{};
@@ -18,21 +20,30 @@ namespace kairo::player::detail
     {
         double m_Phase=.25;
     public:
+        // Quantized publication reduces repeated native lighting updates.
         static constexpr unsigned Steps=240;
+        // Real simulation seconds per complete in-game day.
         static constexpr double PeriodSeconds=600.;
+        // Initialize a normalized phase; reject invalid checkpoint values.
         explicit CraftDaylight(double phase=.25):m_Phase(phase)
         {
             if(!std::isfinite(phase)||phase<0||phase>=1)throw std::invalid_argument("Invalid daylight phase.");
         }
+        // Advance only capped active time; wrap the phase into [0,1).
         void Advance(double dt)
         {
             if(!std::isfinite(dt)||dt<0)throw std::invalid_argument("Invalid daylight elapsed time.");
             m_Phase+=std::min(dt,.1)/PeriodSeconds;
             if(m_Phase>=1)m_Phase-=1;
         }
+        // Convert continuous simulation phase to a stable integer sample key.
         [[nodiscard]] unsigned Step() const noexcept
         {return std::min(Steps-1,static_cast<unsigned>(std::floor(m_Phase*Steps)));}
+        // Exact continuous phase for saving/restoring; never reconstruct from Step.
         [[nodiscard]] double Phase() const noexcept{return m_Phase;}
+        // Pure mapping from quantized phase to light parameters. Sine models
+        // elevation; smoothstep softens horizon transitions, warm tint peaks
+        // near the horizon, and normalization keeps the sun direction unit length.
         [[nodiscard]] static CraftDaylightSample Sample(unsigned step)
         {
             if(step>=Steps)throw std::invalid_argument("Invalid daylight step.");

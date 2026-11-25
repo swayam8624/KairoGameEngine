@@ -4,6 +4,8 @@ Kairo is a game-development engine first: build, author, play, debug and ship ga
 
 **Craft development playtest:** [build, launch, controls, progression and verification](docs/CRAFT_PLAYTEST.md).
 
+**Current development:** [M50 milestone](docs/MILESTONE_50.md) · [DEVLOG](DEVLOG.md) · [STUDY ORDER](STUDY_ORDER.md).
+
 ## Start here: game-first workspace
 
 ```bash

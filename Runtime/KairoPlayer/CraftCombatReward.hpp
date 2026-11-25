@@ -5,6 +5,8 @@
 
 namespace kairo::player::detail
 {
+    // Return separate hit/kill facts and immediate stone award. World drops
+    // are represented by CraftPickups and do not inflate StoneAwarded.
     struct CraftCombatResult
     {
         bool Hit=false,Defeated=false;
@@ -14,6 +16,7 @@ namespace kairo::player::detail
     // The caller must establish a visible, in-range target before striking.
     // No overflow, no delayed or repeatable reward: the creature is removed
     // on the killing blow, and any excess above stack capacity is discarded.
+    // Legacy immediate credit path: clamp award to inventory stack capacity.
     inline CraftCombatResult CraftStrikeReward(CraftCreature& creature,std::array<std::uint32_t,4>& counts)
     {
         if(std::any_of(counts.begin(),counts.end(),[](auto n){return n>999;}))
@@ -24,11 +27,14 @@ namespace kairo::player::detail
         counts[2]+=awarded;
         return {true,true,awarded};
     }
+    // RuntimePickupPool stores the world drops independently of renderer.
     using CraftPickups=RuntimePickupPool<128>;
 
     // On death, leave a real world item rather than teleporting the loot.
     // Saturation uses the old bounded inventory award instead of allocating
     // unbounded objects or evicting an unrelated player's loot.
+    // Read the death position before Strike removes the body. Prefer world
+    // drop; bounded inventory credit is a fallback only when pool is full.
     inline CraftCombatResult CraftStrikeDrop(CraftCreature& creature,CraftInventory& inventory,CraftPickups& pickups)
     {
         if(!inventory.Valid())throw std::invalid_argument("Invalid combat inventory.");
@@ -42,6 +48,9 @@ namespace kairo::player::detail
         return {true,true,award};
     }
 
+    // Query supplies optional voxel occupancy in absolute coordinates.
+    // TraceVoxels performs occlusion; inventory callback credits only the
+    // accepted stack portion and the pool retains any remainder.
     template<class Query>
     void CollectCraftPickups(CraftPickups& pickups,CraftInventory& inventory,
         const std::array<double,3>& eye,Query&& query)
