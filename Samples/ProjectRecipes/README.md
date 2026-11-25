@@ -6,7 +6,9 @@ Generate an ordinary Kairo project, not a new game executable:
     build/game-clang/Runtime/KairoPlayer/KairoPlayer /tmp/KairoTemple/Project.kproject
 
 The current template includes the existing controllable player, camera,
-lighting, floor, input actions and arena obstacles. A recipe adds reusable
+lighting, floor, input actions and arena obstacles. Set the optional JSON
+field `"layout": "empty"` to keep the floor, boundary walls and playable
+runtime setup but remove decorative arena obstacles. A recipe adds reusable
 groups of primitive objects or self-contained glTF 2.0 GLB scene instances.
 Every placement expands to independent scene entities with a common parent,
 local transforms and stable deterministic numbering. Edit the resulting

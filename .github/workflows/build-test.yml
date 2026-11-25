@@ -75,7 +75,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev
+          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev mesa-vulkan-drivers xauth
           echo "KAIRO_CXX_COMPILER=$(command -v clang++)" >> "$GITHUB_ENV"
 
       - name: Install macOS dependencies
@@ -189,7 +189,11 @@ jobs:
           import sys
           root = Path(sys.argv[1])
           recipe = json.loads(Path("Samples/ProjectRecipes/TempleArena.json").read_text())
-          recipe["assets"] = {"car": {"file": "ToyCar.glb", "author": "See repository asset manifest", "license": "See repository asset manifest", "source": "Samples/SharedContentShowcase/Content/ToyCar"}}
+          import hashlib
+          corpus = json.loads(Path("TestContent/Compatibility/ASSET_LICENSES.json").read_text())
+          record = next(asset for asset in corpus["assets"] if asset["id"] == "khronos-toy-car")
+          assert hashlib.sha256((root / "ToyCar.glb").read_bytes()).hexdigest() == record["sha256"]
+          recipe["assets"] = {"car": {"file": "ToyCar.glb", "author": ", ".join(record["authors"]), "license": record["license"], "source": record["source"]}}
           recipe["prefabs"]["vehicle"] = [{"name": "Toy car", "asset": "car", "scale": [12, 12, 12]}]
           recipe["instances"].append({"name": "Imported car", "prefab": "vehicle", "position": [0, 0.1, -2]})
           (root / "recipe.json").write_text(json.dumps(recipe))

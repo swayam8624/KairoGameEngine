@@ -149,8 +149,10 @@ def entity(entity_id, label, obj, parent=None, component=None, collider=False):
 def compile_recipe(recipe_path, template=TEMPLATE):
     recipe_path = recipe_path.resolve(strict=True)
     recipe = parse_json(read_bounded(recipe_path, MAX_RECIPE))
-    fields(recipe, ("name", "assets", "prefabs", "instances"), ("name", "prefabs", "instances"))
+    fields(recipe, ("name", "layout", "assets", "prefabs", "instances"), ("name", "prefabs", "instances"))
     project_name = name(recipe["name"])
+    layout = recipe.get("layout", "arena")
+    require(layout in ("arena", "empty"), "Layout must be arena or empty")
     assets = recipe.get("assets", {})
     prefabs = recipe["prefabs"]
     instances = recipe["instances"]
@@ -163,6 +165,14 @@ def compile_recipe(recipe_path, template=TEMPLATE):
     manifest = (template / "Assets.kassets").read_text(encoding="utf-8")
     scene = (template / "Scenes/PlayableArena.kscene").read_text(encoding="utf-8")
     next_id = max(map(int, re.findall(r"(?m)^entity (\d+) ", scene))) + 1
+    if layout == "empty":
+        # Preserve the known-good player, floor, boundary walls, player
+        # visual, camera and lighting. Remove the arena's decorative props.
+        # Use the template's stable IDs, never rename or renumber references.
+        omit = {3, 4, 5, 6, 7, 12, 13}
+        blocks = re.split(r"(?m)(?=^entity \d+ )", scene)
+        scene = blocks[0] + "".join(block for block in blocks[1:]
+            if int(re.match(r"entity (\d+) ", block).group(1)) not in omit)
     files = {"Project.kproject": descriptor.encode(), "Config/Input.kinput":
              (template / "Config/Input.kinput").read_bytes()}
     imports = {}

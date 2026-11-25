@@ -91,6 +91,22 @@ class ProjectRecipeTests(unittest.TestCase):
         files = g.compile_recipe(ROOT / "Samples/ProjectRecipes/TempleArena.json")
         self.assertIn(b"North gateway", files["Scenes/PlayableArena.kscene"])
 
+    def test_empty_layout_preserves_runtime_dependencies(self):
+        self.data["layout"] = "empty"
+        self.write()
+        scene = g.compile_recipe(self.recipe)["Scenes/PlayableArena.kscene"].decode()
+        self.assertIn('entity 1 "Player"', scene)
+        self.assertIn('entity 2 "Arena Floor"', scene)
+        self.assertIn('entity 14 "Player Visual"\nparent 1', scene)
+        self.assertIn('entity 20 "Gameplay Camera"', scene)
+        self.assertIn('entity 25 "A"', scene)
+        self.assertNotIn('entity 3 "Center Plinth"', scene)
+        self.assertNotIn('entity 12 "Beacon A"', scene)
+        self.data["layout"] = "unknown"
+        self.write()
+        with self.assertRaises(ValueError):
+            g.compile_recipe(self.recipe)
+
     def test_instance_validation(self):
         for instance in [{"name": "A", "prefab": "box"},
                          {"name": "B", "prefab": "missing"},
