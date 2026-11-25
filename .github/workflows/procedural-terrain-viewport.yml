@@ -1,10 +1,12 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod]
+    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod]
   pull_request:
     paths:
       - 'workspace.lock'
+      - 'Runtime/KairoPlayer/TerrainErrorProfile.hpp'
+      - 'Runtime/KairoPlayer/tests/TerrainErrorProfileTests.cpp'
       - 'Runtime/KairoPlayer/TerrainRenderOrigin.hpp'
       - 'Runtime/KairoPlayer/tests/TerrainRenderOriginTests.cpp'
       - 'Runtime/KairoPlayer/TerrainGenerationQueue.hpp'
@@ -34,6 +36,10 @@ jobs:
         run: |
           g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/TerrainRenderOriginTests.cpp -o /tmp/terrain-origin-test
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/terrain-origin-test
+      - name: Validate cached error profiles under sanitizers
+        run: |
+          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/TerrainErrorProfileTests.cpp -o /tmp/terrain-error-profile-test
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/terrain-error-profile-test
   native-vulkan:
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -46,7 +52,7 @@ jobs:
           bash scripts/materialize_workspace_lock.sh "${repos[@]}"
           bash scripts/verify_workspace_lock.sh "${repos[@]}"
           # Temporary review-only override; release lock remains the merged revision.
-          candidate=9f067b204bf42010412f7f9318cd26985ee7618b
+          candidate=fee0bfa6b74d6847826e678333c1a941a004c989
           git -C ../KairoEngineCore fetch --no-tags origin "$candidate"
           git -C ../KairoEngineCore checkout --detach "$candidate"
           test "$(git -C ../KairoEngineCore rev-parse HEAD)" = "$candidate"
@@ -62,18 +68,19 @@ jobs:
       - name: Compile procedural viewport against explicit LOD review candidate
         run: |
           cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DCMAKE_BUILD_TYPE=Release
-          cmake --build --preset game-player-clang --parallel 2 --target KairoTerrainDemo KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests
+          cmake --build --preset game-player-clang --parallel 2 --target KairoTerrainDemo KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests
       - name: Run required native streamed-terrain capture
         run: |
           set -euo pipefail
           mkdir -p build/terrain-diagnostics
-          ctest --test-dir build/game-player-clang -R '^KairoTerrain(NativeStore|GenerationQueue|RenderOrigin)Tests$' --output-on-failure
+          ctest --test-dir build/game-player-clang -R '^KairoTerrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile)Tests$' --output-on-failure
           export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --async 2>&1 | tee build/terrain-diagnostics/async-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --workers 4 2>&1 | tee build/terrain-diagnostics/pool-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --workers 4 --far-origin 2>&1 | tee build/terrain-diagnostics/far-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --workers 4 --lod 2>&1 | tee build/terrain-diagnostics/lod-smoke.log
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --workers 4 --error-mm 1000 2>&1 | tee build/terrain-diagnostics/error-smoke.log
           if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/*smoke.log; then exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()
