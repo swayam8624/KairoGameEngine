@@ -280,6 +280,10 @@ Renderer #39 repaired exact head 8cc5f13d5b616d43da371c707190d4c3e48faa2b passed
 
 Equipment v5 outer codec exact blob 5ac607962efd8bc5f779d9d5c1217ea50484daca passed a local isolated Clang C++23 ASan/UBSan harness: 10,000 synthetic v3/v4-tagged envelope roundtrips and 40,000 corruption/truncation/invalid-state/size-limit rejections, using identical CraftSave checksum and byte helper implementations extracted from existing source. This verifies outer envelope only; the checked-in regression compiles against full real headers and the integrated surface/cave codec tests separately exercise genuine world data. New merged-lock baseline Engine #83 remains queued; do not conflate with this later candidate.
 
+### First-person mouse controls (2026-11-25)
+
+Surface and cave demos capture mouse by default, use raw motion when supported, Tab toggles capture and arrow keys remain fallback. Mouse samples use per-pixel deltas (not scaled again by dt), focus/capture changes reset baseline and mining progress, button actions require release after recapture. Cursor warp cap and pitch/yaw constraints preserve camera basis. Standalone Clang 17 C++23 ASan/UBSan passed 100,000 randomized mouse/focus transitions, exact header/test blobs a7f8a8ec158079897145ac4a7ef964d45f79d93f and fdec532be1e45de6f64575907d2129fe55f23d06. Actual GLFW focus, raw input and interactive behavior need native verification. No claim of completed game.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

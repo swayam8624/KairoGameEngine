@@ -7,6 +7,7 @@
 #include "CraftVitals.hpp"
 #include "CraftMining.hpp"
 #include "CraftEquipment.hpp"
+#include "CraftMouseLook.hpp"
 #include "CraftEquipmentSave.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
@@ -388,11 +389,32 @@ int main(int argc,char** argv)
                 bool toolCraftHeld=false,toolToggleHeld=false;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
-                const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
+                CraftMouseLook mouseLook;
+                bool focused=glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE;
+                bool mouseCaptured=true,tabHeld=false,mouseArmed=false;
+                const auto captureMouse=[&]()
+                {
+                    if(glfwRawMouseMotionSupported())glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION,GLFW_FALSE);
+                    glfwSetInputMode(window,GLFW_CURSOR,mouseCaptured?GLFW_CURSOR_DISABLED:GLFW_CURSOR_NORMAL);
+                    if(mouseCaptured&&glfwRawMouseMotionSupported())
+                        glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION,GLFW_TRUE);
+                    mouseLook.Reset();mouseArmed=false;mining.Reset();
+                };
+                captureMouse();
+                const auto key=[&](int k){return focused&&glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
                 while(!renderer.NativeWindow().ShouldClose())
                 {
                     renderer.NativeWindow().PollEvents();
+                    const bool nowFocused=glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE;
+                    if(nowFocused!=focused)
+                    {
+                        focused=nowFocused;mouseLook.Reset();mouseArmed=false;mining.Reset();
+                        tabHeld=glfwGetKey(window,GLFW_KEY_TAB)==GLFW_PRESS;
+                    }
                     if(key(GLFW_KEY_ESCAPE))break;
+                    const bool tab=key(GLFW_KEY_TAB)>0;
+                    if(tab&&!tabHeld){mouseCaptured=!mouseCaptured;captureMouse();}
+                    tabHeld=tab;
                     const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
                     // Minimized windows do not provide a drawable extent. Preserve
                     // the previous target and avoid a zero-sized GPU allocation.
@@ -403,8 +425,11 @@ int main(int argc,char** argv)
                     }
                     const auto now=std::chrono::steady_clock::now();
                     const double dt=std::min(.1,std::chrono::duration<double>(now-previous).count());previous=now;
-                    yaw=std::remainder(yaw+(key(GLFW_KEY_RIGHT)-key(GLFW_KEY_LEFT))*1.8*dt,6.283185307179586);
-                    pitch=std::clamp(pitch+(key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN))*1.4*dt,-1.45,1.45);
+                    double cursorX=0,cursorY=0;
+                    glfwGetCursorPos(window,&cursorX,&cursorY);
+                    const auto look=mouseLook.Observe(focused&&mouseCaptured,cursorX,cursorY);
+                    ApplyCraftLook(yaw,pitch,look,key(GLFW_KEY_RIGHT)-key(GLFW_KEY_LEFT),
+                        key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN),dt);
                     const double f=key(GLFW_KEY_W)-key(GLFW_KEY_S),r=key(GLFW_KEY_D)-key(GLFW_KEY_A),n=std::max(1.,std::hypot(f,r));
                     const double dx=(std::sin(yaw)*f+std::cos(yaw)*r)/n,dz=(-std::cos(yaw)*f+std::sin(yaw)*r)/n;
                     const bool jump=key(GLFW_KEY_SPACE)>0;
@@ -450,7 +475,7 @@ int main(int argc,char** argv)
                             title+=" ";
                         }
                         title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
-                            " | F craft pick (2 dirt + 3 stone), G equip | R/T craft | F5 save";
+                            " | F craft pick, G equip | R/T craft | F5 save | Tab mouse";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool saveDown=key(GLFW_KEY_F5)>0;
@@ -459,8 +484,13 @@ int main(int argc,char** argv)
                         try{save();}catch(const std::exception& ex){std::cerr<<"Cave save failed: "<<ex.what()<<'\n';}
                     }
                     saveHeld=saveDown;
-                    const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
-                    const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
+                    const bool rawLeft=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+                    const bool rawRight=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
+                    // Do not turn a button held during focus/capture changes
+                    // into a new mining or placement action. Require release.
+                    if(focused&&mouseCaptured&&!rawLeft&&!rawRight)mouseArmed=true;
+                    const bool left=focused&&mouseCaptured&&mouseArmed&&rawLeft;
+                    const bool right=focused&&mouseCaptured&&mouseArmed&&rawRight;
                     if(survival)
                     {
                         const auto hit=(left||(right&&!rightHeld))?TraceVoxels({x,y,z},d,8,64,query):std::optional<VoxelHit>{};
