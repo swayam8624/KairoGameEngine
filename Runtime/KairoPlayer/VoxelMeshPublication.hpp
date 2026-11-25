@@ -35,12 +35,63 @@ namespace kairo::player::detail
             return RetiredCount()==0;
         }
 
+        // Stage at most a caller-specified number of native uploads per
+        // update, without changing the submitted scene or active handles.
+        [[nodiscard]] bool Staging() const noexcept {return m_Staging;}
+        template<class Submit,class Destroy>
+        bool BeginStaging(const std::array<bool,N>& dirty,Submit&& submit,Destroy&& destroy)
+        {
+            if(m_Staging)throw std::logic_error("Voxel staging already active.");
+            if(!Recover(submit,destroy))return false;
+            m_Dirty=dirty;m_Cursor=0;m_Staging=true;
+            return true;
+        }
+        template<class Create>
+        bool Stage(std::size_t budget,Create&& create)
+        {
+            if(!m_Staging||budget==0)throw std::invalid_argument("Invalid voxel staging request.");
+            for(;m_Cursor<N;++m_Cursor)
+            {
+                if(!m_Dirty[m_Cursor])continue;
+                if(budget==0)return false;
+                m_Staged[m_Cursor]=create(m_Cursor);
+                --budget;
+            }
+            return true;
+        }
+        template<class Destroy>
+        void AbortStaging(Destroy&& destroy) noexcept
+        {
+            if(!m_Staging)return;
+            // BeginStaging required an empty retirement journal. No
+            // staged handle was submitted, so these can retire immediately.
+            m_Retired=m_Staged;m_Staged={};m_Staging=false;
+            Drain(destroy);
+        }
+        template<class Submit,class Destroy>
+        void CommitStaging(Submit&& submit,Destroy&& destroy)
+        {
+            if(!m_Staging||m_Cursor!=N)throw std::logic_error("Voxel staging incomplete.");
+            auto next=m_Active;
+            for(std::size_t i=0;i<N;++i)if(m_Dirty[i])next[i]=m_Staged[i];
+            try{submit(next);}
+            catch(...)
+            {
+                m_Retired=m_Staged;m_Staged={};m_Staging=false;m_Restore=true;
+                throw;
+            }
+            for(std::size_t i=0;i<N;++i)if(m_Dirty[i])m_Retired[i]=m_Active[i];
+            m_Active=next;m_Staged={};m_Staging=false;
+            Drain(destroy);
+        }
+
         // True means the new scene was published, even if a retirement
         // failed. False means the old scene remains and no upload started.
         template<class Create,class Submit,class Destroy>
         bool Apply(const std::array<bool,N>& dirty,Create&& create,
             Submit&& submit,Destroy&& destroy)
         {
+            if(m_Staging)throw std::logic_error("Cannot publish an edit during staging.");
             if(!Recover(submit,destroy))return false;
             Slots staged{};
             auto next=m_Active;
@@ -79,6 +130,7 @@ namespace kairo::player::detail
         template<class Submit,class Destroy>
         std::size_t Release(Submit&& submit,Destroy&& destroy) noexcept
         {
+            AbortStaging(destroy);
             try{submit(Slots{});}catch(...){return CountActive()+RetiredCount();}
             m_Restore=false;
             Drain(destroy);
@@ -102,7 +154,10 @@ namespace kairo::player::detail
             for(const auto& h:m_Active)n+=h.has_value();
             return n;
         }
-        Slots m_Active{},m_Retired{};
+        Slots m_Active{},m_Retired{},m_Staged{};
+        std::array<bool,N> m_Dirty{};
+        std::size_t m_Cursor=0;
+        bool m_Staging=false;
         bool m_Restore=false;
     };
 }
