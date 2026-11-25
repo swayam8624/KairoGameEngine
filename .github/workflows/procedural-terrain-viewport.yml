@@ -9,6 +9,7 @@ on:
       - 'Runtime/KairoPlayer/CraftRecipesHud.hpp'
       - 'Runtime/KairoPlayer/tests/CraftRecipesHudTests.cpp'
       - 'Runtime/KairoPlayer/CraftCaveSession.hpp'
+      - 'Runtime/KairoPlayer/CraftCaveSpawn.hpp'
       - 'Runtime/KairoPlayer/CraftCaveWorld.hpp'
       - 'Runtime/KairoPlayer/CraftCaveDemo.cpp'
       - 'Runtime/KairoPlayer/tests/CraftCaveWorldTests.cpp'

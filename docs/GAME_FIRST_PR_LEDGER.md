@@ -240,6 +240,10 @@ Candidate branch `integration/gameplay-native-candidate` stacks on #75. It pins 
 
 Confirmed earlier: #55, #56 and racing integration failed MetalBackend.mm warnings-as-errors at lines 732 and 860; renderer #38 addresses these. Core #31–33 terrain contracts, Linux and Windows jobs passed, their macOS jobs were cancelled. Reruns requested for jobs 139068470508, 139069322255 and 139088123995; renderer macOS job 139104861077 also queued. Native candidate results are pending. Do not treat an unavailable presentation session as a passing Metal capture; local Apple Silicon interactive verification remains separate.
 
+### Integration repair and cave spawn safety (2026-11-25)
+
+The malformed candidate workflow was reconstructed from #75 in 9ee2aca; GitHub accepted all three jobs (ownership, native-vulkan, native-metal) in run 45602979574. Subsequent candidate work replaces hardcoded survival spawn with deterministic bounded search of the edited authoritative world before selecting resident chunks. The CPU regression covers 1,024 seeds, determinism, unsupported shafts, unavailable/empty/solid worlds and an actual serialized edited spawn column. Search covers 17x17 horizontal cells and supported surface positions only; if no admissible position exists, startup fails explicitly rather than spawning inside geometry. Creative camera startup and session format are unchanged. Native acceptance and the new CPU regressions remain pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

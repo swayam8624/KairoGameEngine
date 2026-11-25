@@ -50,6 +50,15 @@ int main()
     Check(!FindCaveSpawn(config,[](VoxelCoordinate)->std::optional<VoxelMaterial>{return VoxelAir;}),"Empty world spawn");
     Check(!FindCaveSpawn(config,[](VoxelCoordinate)->std::optional<VoxelMaterial>{return CraftStone;}),"Solid world spawn");
     Check(!FindCaveSpawn(config,[](VoxelCoordinate)->std::optional<VoxelMaterial>{return {};}),"Unavailable world spawn");
+    CaveCraftWorldEdits blockedColumn(baseline,CraftSaveMaximumEdits);
+    const auto original=checkSpawn([&](VoxelCoordinate c)->std::optional<VoxelMaterial>{return blockedColumn.Get(c);});
+    const int sx=static_cast<int>(std::floor(original.Feet[0])),sz=static_cast<int>(std::floor(original.Feet[2]));
+    for(int y=-1;y<CaveTop;++y)
+        if(blockedColumn.Get({sx,y,sz})!=CraftStone)
+            Check(blockedColumn.Set({sx,y,sz},CraftStone),"Could not block previous spawn");
+    const auto reloaded=DecodeCaveCraftSession(EncodeCaveCraftSession(42,blockedColumn,CraftInventory{}));
+    const auto relocated=checkSpawn([&](VoxelCoordinate c)->std::optional<VoxelMaterial>{return reloaded.World.Get(c);});
+    Check(relocated.Feet[0]!=original.Feet[0]||relocated.Feet[2]!=original.Feet[2],"Saved solid column did not relocate spawn");
     std::mt19937 rng(411);
     std::uint64_t retained=0,loaded=0;
     for(unsigned i=0;i<10000;++i)
