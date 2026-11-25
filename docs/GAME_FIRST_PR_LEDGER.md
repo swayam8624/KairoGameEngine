@@ -198,6 +198,16 @@ Engine #59 native Vulkan run 45588373182 passed: 300 moving updates, x=256 from 
 
 Total campaign 54 PRs, 39 previously verified merged, 15 pending at observation. Review Engine #55 through #65 in stack order, after required EngineCore #31–33 and independent Renderer #38; update merged pins and remove review override before release. No default branches directly modified. Finite creative prototype, no multiplayer, infinite voxel streaming, voxel body collision or measured performance.
 
+### Craft survival and native streaming (2026-11-25)
+
+[Engine #66](https://github.com/swayam8624/KairoGameEngine/pull/66), feat/craft-survival-controller, implementation head 1476175791e6ad18931f127decdbc25b0e51e90f, stacked on #65. Upright AABB body, bounded <=1/8-unit per-axis motion, nonpenetrating contact bisection, gravity, jump, wall sliding, missing-cell blocking, block placement overlap rejection. Optional --survival on finite Craft sample retains creative default; boundary/floor containment. CPU test includes floor/wall/ceiling, high-speed fall, 10,000 large-coordinate steps; native smoke checks jump and capture. CI 45593821945 queued.
+
+[Engine #67](https://github.com/swayam8624/KairoGameEngine/pull/67), feat/craft-streaming-window, implementation head 7c426754e36733074e1c48304ddaad9de473a381, stacked on #66. Seeded signed X/Z baseline with one 16-voxel editable vertical band; exact finite v1 equivalence. Stable fixed-capacity window planner preserves overlapping slots, recycles only expired slots, pure transaction plan and exact face-neighbor dirty mask. CPU tests 10,000 window transitions, one-column 20/25 overlap, signed mapping, billion-meter mesh and halo-domain rejection. CI 45594077069 queued.
+
+[Engine #68](https://github.com/swayam8624/KairoGameEngine/pull/68), feat/craft-streamed-native, implementation head b8121ba99bfb5b7d3a8be7ba63c20b5054088fbc, stacked on #67. KairoCraftStream creative sample with 25-slot stable native window, cell-relative render origin, synchronous mesh generation/upload, transactional coordinate/handle publication and sparse in-memory edits preserved across eviction. Native smoke designed to check 80 loads, 55 evictions, 20 retained slots, six captures, billion-meter teleport and exact edited/reverted images on return. CI 45594282560 queued. No actual execution claim. Streamed-world disk persistence, background mesh jobs, survival-body integration and multiple vertical chunk bands still required. Previous #62–65 native/CPU CI remains queued or running; no newer successful evidence observed.
+
+Total campaign 57 PRs, 39 previously verified merged, 18 pending review. Engine #55 through #68 in stack order; Core #31–33 and independent Renderer #38 dependencies; final merged-lock and Metal acceptance required. No default branch mutations.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
