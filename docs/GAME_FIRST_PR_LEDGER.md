@@ -244,6 +244,10 @@ Confirmed earlier: #55, #56 and racing integration failed MetalBackend.mm warnin
 
 The malformed candidate workflow was reconstructed from #75 in 9ee2aca; GitHub accepted all three jobs (ownership, native-vulkan, native-metal) in run 45602979574. Subsequent candidate work replaces hardcoded survival spawn with deterministic bounded search of the edited authoritative world before selecting resident chunks. The CPU regression covers 1,024 seeds, determinism, unsupported shafts, unavailable/empty/solid worlds and an actual serialized edited spawn column. Search covers 17x17 horizontal cells and supported surface positions only; if no admissible position exists, startup fails explicitly rather than spawning inside geometry. Creative camera startup and session format are unchanged. Native acceptance and the new CPU regressions remain pending.
 
+### Responsive Craft HUD (2026-11-25)
+
+Separate feature branch on the combined candidate, preserving #76's acceptance head. Both Craft demos share camera-plane projection with uniform scaling, a centered crosshair and bottom-aligned hotbar. Interactive framebuffer changes explicitly resize the offscreen target, excluding zero-sized minimized windows; smoke defaults remain 960x540. Exact standalone header/test blobs f2a3a037d673ebcb3a89c03d36101b69a7deb702 and ee6259563e820e6c4fe5149ef9d2f112b451b700 passed 100,000 seeded randomized projections locally (Clang 17, Linux x86_64, ASan/UBSan). Native resized rendering and module compilation remain unverified. This is still depth-tested scene geometry, not the final screen-space compositor.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
