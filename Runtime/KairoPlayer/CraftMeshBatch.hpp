@@ -9,23 +9,23 @@ namespace kairo::player::detail
     // drawing the committed window until every dirty chunk is ready.
     // A new window or edit invalidates the entire previous batch; running
     // workers retain their snapshot and obsolete completions are discarded.
-    template<unsigned Radius>
+    template<unsigned Radius,class PlanType=CraftWindowPlan<Radius>,class Baseline=StreamingCraftBaseline,class Cell=CraftColumn>
     class CraftMeshBatch final
     {
-        using Plan=CraftWindowPlan<Radius>;
-        using World=VoxelEdits<StreamingCraftBaseline>;
+        using Plan=PlanType;
+        using World=VoxelEdits<Baseline>;
         struct Job
         {
             std::uint64_t Generation=0;
             std::size_t Slot=0;
-            CraftColumn Cell;
+            Cell Coordinate;
             std::shared_ptr<const World> Snapshot;
         };
         using Queue=TerrainGenerationQueue<Job,CraftMeshData>;
     public:
         explicit CraftMeshBatch(std::size_t workers,std::size_t capacity=8)
             :m_Queue(capacity,[](Job job){
-                return BuildCraftMesh(BuildVoxelChunkSurface(StreamingCraftOrigin(job.Cell),CraftExtent,
+                return BuildCraftMesh(BuildVoxelChunkSurface(StreamingCraftOrigin(job.Coordinate),CraftExtent,
                     [&](VoxelCoordinate c){return job.Snapshot->Get(c);}));
             },workers) {}
         void Cancel()
