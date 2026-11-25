@@ -8,6 +8,7 @@
 #include <exception>
 #include <iostream>
 #include <optional>
+#include <span>
 #include <vector>
 #include <stdexcept>
 #include <string_view>
@@ -26,6 +27,7 @@ int main(int argc,char** argv)
         bool smoke=false,asynchronous=false,farOrigin=false,lod=false;
         std::uint64_t seed=42;
         std::optional<std::uint64_t> errorBudget;
+        std::optional<double> pixelBudget;
         unsigned workerCount=1;
         GraphicsBackend backend=GraphicsBackend::Automatic;
         for(int i=1;i<argc;++i)
@@ -44,6 +46,16 @@ int main(int argc,char** argv)
                     throw std::invalid_argument("Terrain demo workers must be 1..8.");
                 asynchronous=true;
             }
+            else if(arg=="--screen-px" && i+1<argc)
+            {
+                double parsed=0;
+                const std::string_view value=argv[++i];
+                const auto result=std::from_chars(value.data(),value.data()+value.size(),parsed);
+                if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size()||
+                    !std::isfinite(parsed)||parsed<=0)
+                    throw std::invalid_argument("Invalid terrain pixel error budget.");
+                pixelBudget=parsed;lod=true;asynchronous=true;
+            }
             else if(arg=="--error-mm" && i+1<argc)
             {
                 std::uint64_t parsed=0;
@@ -61,7 +73,7 @@ int main(int argc,char** argv)
                     throw std::invalid_argument("Invalid unsigned world seed.");
             }
             else if(arg=="--renderer" && i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
-            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N] [--far-origin] [--lod] [--error-mm N]");
+            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N] [--far-origin] [--lod] [--error-mm N] [--screen-px N]");
         }
         RendererRuntime renderer({"Kairo procedural terrain",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960u,540u);
@@ -80,6 +92,7 @@ int main(int argc,char** argv)
         if(asynchronous){background.MaximumPendingMeshes=8; background.MaximumUploadsPerUpdate=4; background.WorkerCount=workerCount;}
         if(lod)background.Lod.SwitchDistances={16.0,40.0,56.0};
         background.MaximumLodErrorMillimeters=errorBudget;
+        background.MaximumLodErrorPixels=pixelBudget;
         kairo::player::RuntimeProceduralTerrainBridge terrain(renderer,config,background);
         RenderScene authored;
         RenderLight sun;
@@ -115,6 +128,31 @@ int main(int argc,char** argv)
             camera.Target={TerrainRelativeFloat(x,base.x),0.f,TerrainRelativeFloat(z,base.z)};
             renderer.SetCameraPose(camera);
         };
+        const auto viewFor=[&](double x,double z)
+        {
+            kairo::player::TerrainLodView view;
+            view.Position={x,38.0,z+40.0};
+            view.Forward={0.0,-38.0,-40.0};
+            view.VerticalFovRadians=CameraPose{}.VerticalFovRadians;
+            view.NearPlane=CameraPose{}.NearPlane;
+            return view;
+        };
+        const auto updateTerrain=[&](std::span<const WorldStreamingObserver> observers,
+            const kairo::foundation::math::Vec3d& base)
+        {
+            const auto view=viewFor(lastX,lastZ);
+            return terrain.UpdateAndSubmit(observers,authored,base,pixelBudget?&view:nullptr);
+        };
+        double maximumSettledPixels=0;
+        const auto validateSettledProjection=[&]()
+        {
+            if(!pixelBudget)return;
+            if(terrain.ResidentErrorProfileCount()!=terrain.ResidentCount())
+                throw std::runtime_error("Missing camera LOD profile.");
+            const double error=terrain.MaximumResidentProjectedErrorPixels(viewFor(lastX,lastZ));
+            if(error>*pixelBudget)throw std::runtime_error("Settled terrain exceeds projected error estimate.");
+            maximumSettledPixels=std::max(maximumSettledPixels,error);
+        };
         while(!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
@@ -129,7 +167,7 @@ int main(int argc,char** argv)
             if(origin.x!=chosen[0]||origin.z!=chosen[2])++rebases;
             origin={chosen[0],chosen[1],chosen[2]};
             const std::array observers{WorldStreamingObserver{{x,0,z},1.0}};
-            const auto update=terrain.UpdateAndSubmit(observers,authored,origin);
+            const auto update=updateTerrain(observers,origin);
             if(!update.Succeeded())
             {
                 if(update.FirstFailure)std::rethrow_exception(update.FirstFailure);
@@ -149,6 +187,7 @@ int main(int argc,char** argv)
                 (asynchronous && !captureRequested && update.Plan.Empty() &&
                     terrain.PendingCount()==0 && terrain.ResidentCount()!=0)))
             {
+                validateSettledProjection();
                 renderer.RequestViewportCapture();
                 captureRequested=true;
             }
@@ -174,7 +213,7 @@ int main(int argc,char** argv)
         if(smoke&&((!asynchronous&&frame!=36u)||(asynchronous&&captures!=3u)))throw std::runtime_error("Terrain smoke terminated prematurely.");
         if(smoke&&lod)
         {
-            if(!errorBudget && (terrain.ResidentLodCount(1)==0 || terrain.ResidentLodCount(1)==terrain.ResidentCount()))
+            if(!errorBudget && !pixelBudget && (terrain.ResidentLodCount(1)==0 || terrain.ResidentLodCount(1)==terrain.ResidentCount()))
                 throw std::runtime_error("Expected mixed terrain LODs.");
             // Hold the world position fixed, but move the detail demand
             // inward and outward via observer scale. The closest loaded
@@ -186,7 +225,7 @@ int main(int argc,char** argv)
                 const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
                 for(unsigned step=0;step<2000;++step)
                 {
-                    const auto update=terrain.UpdateAndSubmit(observers,authored,origin);
+                    const auto update=updateTerrain(observers,origin);
                     if(!update.Succeeded())throw std::runtime_error("LOD transition failed.");
                     validateError();
                     replaced+=update.Replaced;
@@ -194,14 +233,15 @@ int main(int argc,char** argv)
                         terrain.ResidentCount()+terrain.PendingLoadCount()!=terrain.Streaming().Runtime().CommittedCellCount())
                         throw std::runtime_error("LOD transition lost residency accounting.");
                     renderer.DrawFrame();
-                    if(update.Plan.Empty()&&terrain.PendingCount()==0&&update.RetainedRetirements==0)return;
+                    if(update.Plan.Empty()&&terrain.PendingCount()==0&&update.RetainedRetirements==0)
+                    {validateSettledProjection();return;}
                     if(std::chrono::steady_clock::now()>deadline)break;
                 }
                 throw std::runtime_error("LOD transition did not settle.");
             };
             settle(0.6);
             settle(1.0);
-            if(!errorBudget && replaced==0)throw std::runtime_error("No resident LOD replacement executed.");
+            if(!errorBudget && !pixelBudget && replaced==0)throw std::runtime_error("No resident LOD replacement executed.");
             renderer.RequestViewportCapture();
             bool captured=false;
             for(unsigned attempt=0;attempt<8&&!captured;++attempt)
@@ -223,7 +263,7 @@ int main(int argc,char** argv)
             if(rebases<3u)throw std::runtime_error("Far-origin test did not cross cell origins.");
             const auto before=terrain.ResidentCount();
             const std::array observers{WorldStreamingObserver{{lastX,0,lastZ},1.0}};
-            const auto baselineUpdate=terrain.UpdateAndSubmit(observers,authored,origin);
+            const auto baselineUpdate=updateTerrain(observers,origin);
             if(!baselineUpdate.Succeeded())throw std::runtime_error("Baseline rebase update failed.");
             setCamera(lastX,lastZ,origin);
             const auto capture=[&]()
@@ -238,7 +278,7 @@ int main(int argc,char** argv)
             };
             const auto baseline=capture();
             const auto shifted=kairo::foundation::math::Vec3d{origin.x+cellExtent,0.0,origin.z-cellExtent};
-            const auto update=terrain.UpdateAndSubmit(observers,authored,shifted);
+            const auto update=updateTerrain(observers,shifted);
             if(!update.Succeeded()||update.Loaded||update.Unloaded||
                 terrain.ResidentCount()!=before)
                 throw std::runtime_error("Render origin changed terrain residency.");
@@ -257,6 +297,11 @@ int main(int argc,char** argv)
             lastTerrainCapture=rebased;
             std::cout<<"Far-origin image comparison mean byte error "<<
                 absoluteError/static_cast<double>(baseline.RGBA.size())<<"; rebases "<<rebases<<'\n';
+        }
+        if(pixelBudget)
+        {
+            if(smoke&&maximumSettledPixels==0)throw std::runtime_error("No nonzero projected LOD error exercised.");
+            std::cout<<"Terrain projected error target "<<*pixelBudget<<" px, maximum settled estimate "<<maximumSettledPixels<<" px\n";
         }
         if(errorBudget)
             std::cout<<"Terrain error ceiling "<<*errorBudget<<" mm, maximum resident error "
