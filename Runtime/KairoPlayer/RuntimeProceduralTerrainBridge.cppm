@@ -35,6 +35,7 @@ export namespace kairo::player
         // Zero preserves the synchronous reference path.
         std::size_t MaximumPendingMeshes=0;
         std::size_t MaximumUploadsPerUpdate=4;
+        std::size_t WorkerCount=1;
     };
 
     // Owns GPU mesh handles, not a duplicate resident CPU terrain store.
@@ -58,7 +59,7 @@ export namespace kairo::player
                     {
                         return kairo::engine::BuildSeededTerrainMeshCell(validated.Seed,coordinate,
                             validated.Terrain,validated.SampleSpacingMillimeters);
-                    });
+                    },background.WorkerCount);
             }
         }
         RuntimeProceduralTerrainBridge(const RuntimeProceduralTerrainBridge&)=delete;
@@ -170,6 +171,14 @@ export namespace kairo::player
                 catch(...){failure();}
                 m_Streaming.CompleteUnload(request.Coordinate,ok);
                 if(ok)++result.Unloaded;else ++result.FailedUnloads;
+            }
+            // Reclaim obsolete queued reservations before consuming ready
+            // meshes. Running jobs retain ownership until they complete.
+            while(auto cancelled=m_Queue->CancelQueued(
+                [&](auto coordinate){return !WantsKeep(coordinate,observers);}))
+            {
+                m_Streaming.CompleteLoad(*cancelled,false);
+                ++result.StaleLoads;
             }
             // Bound completion processing, including failed and stale work.
             // A camera teleport can invalidate a mesh while it is generated;

@@ -14,10 +14,10 @@
 
 namespace kairo::player::detail
 {
-    // One CPU producer, one render-thread consumer. Fixed slots bound the
+    // Multiple CPU producers, one render-thread consumer. Fixed slots bound the
     // number of queued, running AND completed (not yet uploaded) meshes.
     // No renderer API may be called by the generator. Destroying this queue
-    // joins its worker before any captured configuration is destroyed.
+    // joins all workers before any captured configuration is destroyed.
     template<class Coordinate,class Mesh>
     class TerrainGenerationQueue final
     {
@@ -34,20 +34,26 @@ namespace kairo::player::detail
         };
 
         TerrainGenerationQueue(std::size_t capacity,
-            std::function<Mesh(Coordinate)> generate)
-            : m_Generate(std::move(generate)),m_Slots(ValidateCapacity(capacity)),
-              m_Worker([this]{Run();}) {}
+            std::function<Mesh(Coordinate)> generate,std::size_t workers=1)
+            : m_Generate(std::move(generate)),m_Slots(ValidateCapacity(capacity))
+        {
+            if(workers==0 || workers>32 || workers>capacity)
+                throw std::invalid_argument("Terrain worker count must be 1..min(32,capacity).");
+            m_Workers.reserve(workers);
+            try
+            {
+                for(std::size_t i=0;i<workers;++i)
+                    m_Workers.emplace_back([this]{Run();});
+            }
+            catch(...)
+            {
+                StopAndJoin();
+                throw;
+            }
+        }
         TerrainGenerationQueue(const TerrainGenerationQueue&)=delete;
         TerrainGenerationQueue& operator=(const TerrainGenerationQueue&)=delete;
-        ~TerrainGenerationQueue()
-        {
-            {
-                std::lock_guard lock(m_Mutex);
-                m_Stop=true;
-            }
-            m_Wake.notify_one();
-            m_Worker.join();
-        }
+        ~TerrainGenerationQueue() { StopAndJoin(); }
 
         // False means no reservation was adopted. The caller must settle
         // the corresponding planner load as failed and may retry next frame.
@@ -94,6 +100,25 @@ namespace kairo::player::detail
             return std::nullopt;
         }
 
+        // Only queued work can be cancelled here. Running slots remain
+        // owned by their worker and are discarded by the consumer when ready.
+        // Return exactly one coordinate for planner completion; no allocation.
+        template<class Obsolete>
+        [[nodiscard]] std::optional<Coordinate> CancelQueued(Obsolete obsolete)
+        {
+            std::lock_guard lock(m_Mutex);
+            for(auto& slot:m_Slots)
+                if(slot.Status==State::Queued && obsolete(*slot.Cell))
+                {
+                    auto cell=slot.Cell;
+                    slot.Cell.reset();
+                    slot.Status=State::Free;
+                    --m_Occupied;
+                    return cell;
+                }
+            return std::nullopt;
+        }
+
         [[nodiscard]] std::size_t Occupied() const
         {
             std::lock_guard lock(m_Mutex);
@@ -114,6 +139,17 @@ namespace kairo::player::detail
             if(capacity==0 || capacity>1024)
                 throw std::invalid_argument("Terrain generation capacity must be 1..1024.");
             return capacity;
+        }
+
+        void StopAndJoin() noexcept
+        {
+            {
+                std::lock_guard lock(m_Mutex);
+                m_Stop=true;
+            }
+            m_Wake.notify_all();
+            for(auto& worker:m_Workers)
+                if(worker.joinable())worker.join();
         }
 
         // Slot selection and publication are protected; the expensive
@@ -161,6 +197,8 @@ namespace kairo::player::detail
         std::condition_variable m_Wake;
         std::size_t m_Occupied=0,m_NextWork=0,m_NextReady=0;
         bool m_Stop=false;
-        std::thread m_Worker;
+        // Generator must be safe for concurrent invocation. The terrain
+        // bridge captures immutable validated configuration by value.
+        std::vector<std::thread> m_Workers;
     };
 }

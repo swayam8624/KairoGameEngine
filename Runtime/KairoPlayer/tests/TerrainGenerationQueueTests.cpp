@@ -30,7 +30,7 @@ int main()
         }
         if(coordinate%7==0)throw std::runtime_error("Injected generation failure");
         return std::vector<int>(64,coordinate);
-    });
+    },4);
     for(int i=1;i<=static_cast<int>(capacity);++i)
         Check(queue.TrySubmit(i),"Initial slots rejected");
     Check(!queue.TrySubmit(99999)&&queue.Occupied()==capacity,"Queue exceeded capacity");
@@ -82,5 +82,53 @@ int main()
         }
     }
     Check(finished,"Worker outlived queue");
-    std::cout<<"10000 background jobs, 1428 failures, capacity 8 and worker join passed\n";
+    // Hold four workers in the generator, then cancel only the four
+    // remaining queued slots. This proves actual overlap without timing
+    // assumptions and ensures cancellation cannot steal a running slot.
+    std::atomic<unsigned> active=0;
+    std::atomic<bool> proceed=false;
+    Queue pool(8,[&](int coordinate){
+        ++active;
+        const auto until=std::chrono::steady_clock::now()+5s;
+        while(!proceed)
+        {
+            if(std::chrono::steady_clock::now()>until)
+                throw std::runtime_error("Parallel test gate timed out");
+            std::this_thread::yield();
+        }
+        return std::vector<int>{coordinate};
+    },4);
+    for(int i=1;i<=8;++i)Check(pool.TrySubmit(i),"Pool initial submission failed");
+    const auto overlapDeadline=std::chrono::steady_clock::now()+3s;
+    while(active<4)
+    {
+        Check(std::chrono::steady_clock::now()<overlapDeadline,"Four workers did not overlap");
+        std::this_thread::yield();
+    }
+    std::set<int> cancelled,parallelCompleted;
+    while(auto cell=pool.CancelQueued([](int){return true;}))
+        Check(cancelled.insert(*cell).second,"Duplicate cancellation");
+    Check(cancelled.size()==4&&pool.Occupied()==4,"Cancellation stole running work");
+    for(int i=9;i<=12;++i)Check(pool.TrySubmit(i),"Cancelled slot not reclaimed");
+    proceed=true;
+    const auto poolDeadline=std::chrono::steady_clock::now()+5s;
+    while(parallelCompleted.size()<8)
+    {
+        Check(std::chrono::steady_clock::now()<poolDeadline,"Parallel completion stalled");
+        if(auto done=pool.TryTake())
+        {
+            Check(!done->Failure&&done->Value&&done->Value->front()==done->Cell,
+                "Parallel completion corrupted");
+            Check(!cancelled.contains(done->Cell),"Cancelled job executed");
+            Check(parallelCompleted.insert(done->Cell).second,"Parallel duplicate completion");
+        }
+        else std::this_thread::yield();
+    }
+    Check(active==8&&pool.Occupied()==0,"Parallel accounting differs");
+    bool rejected=false;
+    try{Queue invalid(2,[](int c){return std::vector<int>{c};},3);}
+    catch(const std::invalid_argument&){rejected=true;}
+    Check(rejected,"Worker count exceeded capacity");
+    std::cout<<"10000 four-worker background jobs, 1428 failures, capacity 8 and worker join passed\n"
+        <<"4 simultaneous workers, 4 queued cancellations, 8 parallel completions passed\n";
 }

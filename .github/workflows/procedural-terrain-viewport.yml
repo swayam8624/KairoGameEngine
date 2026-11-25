@@ -1,7 +1,7 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [feat/procedural-terrain-viewport, feat/procedural-terrain-background-jobs]
+    branches: [feat/procedural-terrain-viewport, feat/procedural-terrain-background-jobs, feat/procedural-terrain-worker-pool]
   pull_request:
     paths:
       - 'Runtime/KairoPlayer/TerrainGenerationQueue.hpp'
@@ -64,6 +64,7 @@ jobs:
           export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --async 2>&1 | tee build/terrain-diagnostics/async-smoke.log
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --workers 4 2>&1 | tee build/terrain-diagnostics/pool-smoke.log
           if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/*smoke.log; then exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()

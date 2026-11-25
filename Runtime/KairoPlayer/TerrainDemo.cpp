@@ -24,12 +24,22 @@ int main(int argc,char** argv)
         using namespace kairo::engine;
         bool smoke=false,asynchronous=false;
         std::uint64_t seed=42;
+        unsigned workerCount=1;
         GraphicsBackend backend=GraphicsBackend::Automatic;
         for(int i=1;i<argc;++i)
         {
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
             else if(arg=="--async")asynchronous=true;
+            else if(arg=="--workers" && i+1<argc)
+            {
+                const std::string_view value=argv[++i];
+                const auto result=std::from_chars(value.data(),value.data()+value.size(),workerCount);
+                if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size()||
+                    workerCount==0||workerCount>8)
+                    throw std::invalid_argument("Terrain demo workers must be 1..8.");
+                asynchronous=true;
+            }
             else if(arg=="--seed" && i+1<argc)
             {
                 const std::string_view value=argv[++i];
@@ -38,7 +48,7 @@ int main(int argc,char** argv)
                     throw std::invalid_argument("Invalid unsigned world seed.");
             }
             else if(arg=="--renderer" && i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
-            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async]");
+            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N]");
         }
         RendererRuntime renderer({"Kairo procedural terrain",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960u,540u);
@@ -54,7 +64,7 @@ int main(int argc,char** argv)
         config.Streaming.MaximumLoadsPerUpdate=8;
         config.Streaming.MaximumUnloadsPerUpdate=16;
         kairo::player::TerrainBackgroundConfig background;
-        if(asynchronous){background.MaximumPendingMeshes=8; background.MaximumUploadsPerUpdate=4;}
+        if(asynchronous){background.MaximumPendingMeshes=8; background.MaximumUploadsPerUpdate=4; background.WorkerCount=workerCount;}
         kairo::player::RuntimeProceduralTerrainBridge terrain(renderer,config,background);
         RenderScene authored;
         RenderLight sun;
