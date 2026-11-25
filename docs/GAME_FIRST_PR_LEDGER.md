@@ -134,6 +134,12 @@ Engine #53 four-worker CPU ownership job 139057043829 passed: 10,000 jobs, 1,428
 
 [Engine #54](https://github.com/swayam8624/KairoGameEngine/pull/54), feat/procedural-terrain-floating-origin, implementation head 9da6bc5338c6ce3c8ff561b1d0aa07344eb6809d, stacked on #53. Cell-aligned double origin, subtract-before-float conversion shared by terrain and camera, demo --far-origin at (+1e9,-1e9) meters, same-world rebase image comparison (mean absolute RGBA byte error <=0.1) and unchanged residency requirement. CPU contract 100,000 large-coordinate rebases with eighth-meter local offsets and range rejection. Native/CPU run 45571755452 queued. This is terrain/demo rendering only; no authored-scene/physics/networking rebase. Review #49 -> #50 -> #51 -> #53 -> #54 after EngineCore #26–30; #52 after #49 independently; #37 independent of Metal #31–36. Release dependency lock unchanged.
 
+### Merged terrain and renderer integration (2026-11-25)
+
+All 39 previous campaign PRs have been verified merged, including Renderer #31–37, EngineCore #26–30 and Engine #49–54. The earlier review-queue entries above are historical. EngineCore merged head 7da2be438e84fa51b04057dc8cee780d478db74c and Renderer merged head 392c6758a23393c7da919b3944b428e25988435e are proposed as exact workspace pins. Renderer #37 final review head differs from the originally observed 1dfdf827; that earlier head's strict Vulkan run 45571522766 and ownership run 45571522708 passed. Engine #53 native three-mode terrain run 45570914115 passed (66 uploads, 44 unloads, three captures in each mode). Racing repair 45570859914 passed. Engine #54 CPU origin job 139059846022 passed 100,000 large-coordinate rebases; native large-world acceptance 45571755452 remains pending at this observation. New lock CI removes the temporary procedural candidate override; all tests must exercise exact merged pins. Native Metal still requires Apple acceptance. Do not infer physical GPU performance or whole-engine correctness from the software Vulkan runs.
+
+[EngineCore #31](https://github.com/swayam8624/KairoEngineCore/pull/31) adds sparse, full-resolution-border terrain LOD meshes. Independent of this lock change: the proposed EngineCore pin intentionally excludes this unmerged PR. CPU topology CI 45574085470 queued at creation. LOD selection and transactional native mesh replacement remain next steps.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
