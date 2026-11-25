@@ -412,6 +412,21 @@ respawn. Exact header 6926432cac364147d49ee9605a8fc4d16c9271db and test
 28566081f6abc0d5f5ae0e0370fac97bc08c1792. Native surface mesh visibility
 and removal regression added; native integration pending.
 
+### Bounded creature navigation
+
+Grounded creatures use a 25x25 same-layer four-neighbor shortest-path
+fallback on blocked direct sight. Only supported clear cells are eligible;
+unknown cells never become traversable. Navigation replans at most twice
+per second; the actual voxel collision solver remains authoritative.
+No climbing, jumping or vertical navigation. Both local compilers passed
+500 signed randomized navigation grids against independent BFS (491
+reachable), actual pursuit through a finite wall gap, solid-wall isolation,
+and the earlier 80,000 frame partition regression. Exact navigation header
+919b2f873c87f67441a47ace979e34de728630eb, test
+064e1d10cf061927db2664b5628d0ea16c35bca7, revised creature header
+7936cf59a25233f6887e1103aa279752b9fddc18 and test
+9c96811eb706a8e5ff6ad14fd595377ee17ed621. Full native acceptance pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

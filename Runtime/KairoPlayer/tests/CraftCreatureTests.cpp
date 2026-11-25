@@ -28,6 +28,10 @@ int main()
     // Wall isolates the player even while the creature is pursuing.
     creature.Reset();const auto wall=[](VoxelCoordinate c)->std::optional<VoxelMaterial>{return c.Y<0||(c.X==-2&&c.Y<3)?1:0;};
     for(unsigned i=0;i<400;++i){Check(creature.Advance(.05,player,wall)==0,"Attack through wall");if(creature.Body())Check(!VoxelPlayerBlocked(*creature.Body(),CraftCreature::Config(),wall),"Wall penetration");}
+    creature.Reset();const auto gap=[](VoxelCoordinate c)->std::optional<VoxelMaterial>{return c.Y<0||(c.X==-2&&c.Y<3&&std::abs(c.Z)>1)?1:0;};
+    unsigned routedDamage=0;
+    for(unsigned i=0;i<600;++i){routedDamage+=creature.Advance(.05,player,gap);if(creature.Body())Check(!VoxelPlayerBlocked(*creature.Body(),CraftCreature::Config(),gap),"Navigation penetration");}
+    Check(routedDamage>0,"Creature failed to route through wall gap");
     creature.Reset();for(unsigned i=0;i<120;++i)Check(!creature.Advance(.05,player,[](VoxelCoordinate)->std::optional<VoxelMaterial>{return {};})&&!creature.Body(),"Spawned in unknown cells");
     std::mt19937 rng(97);
     for(unsigned i=0;i<1000;++i)

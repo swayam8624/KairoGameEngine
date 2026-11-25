@@ -1,5 +1,5 @@
 #pragma once
-#include "VoxelPlayer.hpp"
+#include "CraftCreatureNavigation.hpp"
 
 namespace kairo::player::detail
 {
@@ -10,6 +10,9 @@ namespace kairo::player::detail
         std::optional<VoxelPlayer> m_Body;
         unsigned m_Health=0,m_Respawn=60,m_Attack=0,m_Hit=0;
         double m_Remainder=0;
+        std::vector<std::array<double,2>> m_Path;
+        std::size_t m_Next=0;
+        unsigned m_Replan=0;
         static constexpr unsigned MaxHealth=12;
         static double Distance(const std::array<double,3>& a,const std::array<double,3>& b) noexcept
         {return std::hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);}
@@ -42,7 +45,7 @@ namespace kairo::player::detail
                 }
             m_Respawn=20; // No valid resident spawn: try again after one second.
         }
-        void Remove() noexcept{m_Body.reset();m_Health=0;m_Respawn=300;m_Attack=0;m_Hit=0;}
+        void Remove() noexcept{m_Body.reset();m_Health=0;m_Respawn=300;m_Attack=0;m_Hit=0;m_Path.clear();m_Next=0;m_Replan=0;}
     public:
         static VoxelPlayerConfig Config() noexcept
         {VoxelPlayerConfig c;c.Radius=.36;c.Height=1.20;c.EyeHeight=.9;c.Speed=2.0;return c;}
@@ -64,13 +67,29 @@ namespace kairo::player::detail
                 m_Remainder=std::max(0.,m_Remainder-.05);
                 if(m_Attack)--m_Attack;
                 if(m_Hit)--m_Hit;
+                if(m_Replan)--m_Replan;
                 if(!m_Body){if(m_Respawn)--m_Respawn;if(!m_Respawn)Spawn(player,query);continue;}
                 if(Distance(m_Body->Feet,player.Feet)>24||VoxelPlayerBlocked(*m_Body,config,query))
                 {Remove();continue;}
-                const double dx=player.Feet[0]-m_Body->Feet[0],dz=player.Feet[2]-m_Body->Feet[2];
+                double dx=player.Feet[0]-m_Body->Feet[0],dz=player.Feet[2]-m_Body->Feet[2];
                 const double horizontal=std::hypot(dx,dz);
+                const std::array fromBefore{m_Body->Feet[0],m_Body->Feet[1]+.8,m_Body->Feet[2]};
+                const std::array toBefore{player.Feet[0],player.Feet[1]+.8,player.Feet[2]};
+                const bool direct=Clear(fromBefore,toBefore,query);
+                if(direct){m_Path.clear();m_Next=0;m_Replan=0;}
+                else if(!m_Replan&&m_Body->Grounded)
+                {
+                    m_Path=FindCraftCreaturePath(*m_Body,player,config,query);
+                    m_Next=0;m_Replan=10;
+                }
+                while(m_Next<m_Path.size()&&std::hypot(m_Path[m_Next][0]-m_Body->Feet[0],m_Path[m_Next][1]-m_Body->Feet[2])<.025)++m_Next;
                 VoxelPlayerInput input;
-                if(horizontal>1.05){input.X=dx/horizontal;input.Z=dz/horizontal;}
+                if(m_Next<m_Path.size())
+                {
+                    dx=m_Path[m_Next][0]-m_Body->Feet[0];dz=m_Path[m_Next][1]-m_Body->Feet[2];
+                    const double scale=std::max(.1,std::hypot(dx,dz));input.X=dx/scale;input.Z=dz/scale;
+                }
+                else if(horizontal>1.05){input.X=dx/horizontal;input.Z=dz/horizontal;}
                 AdvanceVoxelPlayer(*m_Body,config,input,.05,query);
                 const std::array from{m_Body->Feet[0],m_Body->Feet[1]+.8,m_Body->Feet[2]};
                 const std::array to{player.Feet[0],player.Feet[1]+.8,player.Feet[2]};
