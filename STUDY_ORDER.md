@@ -352,3 +352,10 @@ transitions, callers, downstream consumers, exceptions and the test oracle.
 Read the relevant tests immediately after each function or subsystem.
 Reimplement a small example without copying, then compare its behavior.
 A link in this inventory does not certify that every function is annotated.
+
+## New M50 gameplay reading path
+
+1. [Quest and dialogue runtime](Runtime/KairoPlayer/RuntimeQuestDialogue.hpp) — read objective invariants, completion, restore, then dialogue choice routing.
+2. [Regression tests](Runtime/KairoPlayer/tests/RuntimeQuestDialogueTests.cpp) — trace invalid restore and randomized prerequisites.
+3. [Terminal RPG sample](Samples/QuestDialogue/QuestDialogueDemo.cpp) — trace a player choice to a winning state.
+4. [Build and play instructions](Samples/QuestDialogue/README.md).

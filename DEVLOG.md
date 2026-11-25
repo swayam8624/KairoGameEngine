@@ -37,3 +37,7 @@ No C++ code changes in these eight files. Native tests not run for this
 documentation pass. The first-party inventory is a tracking boundary, not
 a claim that all files are annotated. Next: implement and test the first
 under-floor gameplay capability and continue annotation in dependency order.
+
+## 2026-11-25 — quest/dialogue foundation
+
+Added [RuntimeQuestDialogue.hpp](Runtime/KairoPlayer/RuntimeQuestDialogue.hpp), [CPU regression](Runtime/KairoPlayer/tests/RuntimeQuestDialogueTests.cpp), and [terminal RPG sample](Samples/QuestDialogue/QuestDialogueDemo.cpp). Prerequisites form an authored DAG; duplicate completions are idempotent, restore is transactional, and dialogue choices can gate or award objectives. Added CTest target and 500 seeded chain fixtures. Candidate implementation only until test execution is observed. Native Player integration, disk save envelope and visual authoring remain open.

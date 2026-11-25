@@ -91,6 +91,11 @@ endforeach()
 
 if(BUILD_TESTING)
     find_package(Threads REQUIRED)
+    # CPU-only quest state test: no renderer/OS window dependency.
+    add_executable(KairoPlayerQuestDialogueTests tests/RuntimeQuestDialogueTests.cpp)
+    target_compile_features(KairoPlayerQuestDialogueTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerQuestDialogueTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerQuestDialogueTests COMMAND KairoPlayerQuestDialogueTests)
     add_executable(KairoPlayerFrameClockTests tests/RuntimeFrameClockTests.cpp)
     target_compile_features(KairoPlayerFrameClockTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerFrameClockTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
