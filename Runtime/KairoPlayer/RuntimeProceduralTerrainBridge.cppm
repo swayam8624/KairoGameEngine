@@ -1,6 +1,9 @@
 module;
 
 #include "TerrainNativeStore.hpp"
+#include "TerrainGenerationQueue.hpp"
+#include <algorithm>
+#include <memory>
 #include <cmath>
 #include <cstdio>
 #include <exception>
@@ -22,8 +25,16 @@ export namespace kairo::player
         kairo::engine::WorldStreamingPlan Plan;
         std::size_t Loaded=0,Unloaded=0,FailedLoads=0,FailedUnloads=0;
         std::exception_ptr FirstFailure;
+        std::size_t DeferredLoads=0,StaleLoads=0,PendingLoads=0;
         [[nodiscard]] bool Succeeded() const noexcept
         { return FailedLoads==0 && FailedUnloads==0; }
+    };
+
+    struct TerrainBackgroundConfig final
+    {
+        // Zero preserves the synchronous reference path.
+        std::size_t MaximumPendingMeshes=0;
+        std::size_t MaximumUploadsPerUpdate=4;
     };
 
     // Owns GPU mesh handles, not a duplicate resident CPU terrain store.
@@ -33,8 +44,23 @@ export namespace kairo::player
     {
     public:
         RuntimeProceduralTerrainBridge(kairo::renderer::RendererRuntime& renderer,
-            kairo::engine::ProceduralWorldConfig config={})
-            : m_Renderer(renderer),m_Streaming(std::move(config)) {}
+            kairo::engine::ProceduralWorldConfig config={},
+            TerrainBackgroundConfig background={})
+            : m_Renderer(renderer),m_Streaming(std::move(config)),m_Background(background)
+        {
+            if(background.MaximumPendingMeshes!=0)
+            {
+                if(background.MaximumUploadsPerUpdate==0)
+                    throw std::invalid_argument("Background terrain upload budget must be positive.");
+                const auto validated=m_Streaming.Config();
+                m_Queue=std::make_unique<Queue>(background.MaximumPendingMeshes,
+                    [validated](kairo::engine::WorldCellCoordinate coordinate)
+                    {
+                        return kairo::engine::BuildSeededTerrainMeshCell(validated.Seed,coordinate,
+                            validated.Terrain,validated.SampleSpacingMillimeters);
+                    });
+            }
+        }
         RuntimeProceduralTerrainBridge(const RuntimeProceduralTerrainBridge&)=delete;
         RuntimeProceduralTerrainBridge& operator=(const RuntimeProceduralTerrainBridge&)=delete;
 
@@ -45,6 +71,7 @@ export namespace kairo::player
         }
 
         [[nodiscard]] std::size_t ResidentCount() const noexcept {return m_Store.Cells().size();}
+        [[nodiscard]] std::size_t PendingCount() const {return m_Queue?m_Queue->Occupied():0u;}
         [[nodiscard]] const kairo::engine::ProceduralWorldStreamingRuntime& Streaming() const noexcept
         {return m_Streaming;}
 
@@ -60,6 +87,7 @@ export namespace kairo::player
             if(!std::isfinite(renderOrigin.x)||!std::isfinite(renderOrigin.y)||!std::isfinite(renderOrigin.z))
                 throw std::invalid_argument("Terrain render origin must be finite.");
             auto plan=m_Streaming.PlanUpdate(observers);
+            if(m_Queue)return UpdateBackground(std::move(plan),observers,authored,renderOrigin);
             const auto stats=detail::ApplyTerrainNativePlan(m_Store,m_Streaming,plan,
                 [&]{m_Renderer.SubmitRenderScene(authored);},
                 [&](kairo::engine::WorldCellCoordinate coordinate)
@@ -75,6 +103,124 @@ export namespace kairo::player
                 return {std::move(plan),stats.Loaded,stats.Unloaded,
                     stats.FailedLoads,stats.FailedUnloads,stats.FirstFailure};
 
+            SubmitResident(authored,renderOrigin);
+            return {std::move(plan),stats.Loaded,stats.Unloaded,
+                stats.FailedLoads,stats.FailedUnloads,stats.FirstFailure};
+        }
+
+        // Terminal operation, retryable if backend retirement fails.
+        // Join the worker before destroying renderer handles or configuration.
+        [[nodiscard]] std::size_t Shutdown(const kairo::renderer::RenderScene& authored) noexcept
+        {
+            m_Closed=true;
+            m_Queue.reset();
+            return m_Store.Release([&]{m_Renderer.SubmitRenderScene(authored);},
+                [&](kairo::renderer::MeshHandle handle){m_Renderer.DestroyMesh(handle);});
+        }
+
+    private:
+        using Queue=detail::TerrainGenerationQueue<kairo::engine::WorldCellCoordinate,
+            kairo::engine::SeededTerrainMeshCell>;
+
+        [[nodiscard]] bool WantsKeep(kairo::engine::WorldCellCoordinate coordinate,
+            std::span<const kairo::engine::WorldStreamingObserver> observers) const noexcept
+        {
+            const auto& config=m_Streaming.Config().Streaming;
+            const double x=coordinate.X*config.CellSize,z=coordinate.Z*config.CellSize;
+            for(const auto& observer:observers)
+            {
+                const double dx=std::max({x-observer.Position.x,0.0,
+                    observer.Position.x-(x+config.CellSize)});
+                const double dz=std::max({z-observer.Position.z,0.0,
+                    observer.Position.z-(z+config.CellSize)});
+                const double radius=config.KeepRadius*observer.RadiusScale;
+                if(dx*dx+dz*dz<=radius*radius)return true;
+            }
+            return false;
+        }
+
+        RuntimeProceduralTerrainUpdate UpdateBackground(kairo::engine::WorldStreamingPlan plan,
+            std::span<const kairo::engine::WorldStreamingObserver> observers,
+            const kairo::renderer::RenderScene& authored,
+            const kairo::foundation::math::Vec3d& renderOrigin)
+        {
+            RuntimeProceduralTerrainUpdate result;
+            result.Plan=std::move(plan);
+            const auto failure=[&]{if(!result.FirstFailure)result.FirstFailure=std::current_exception();};
+            if(!result.Plan.Unloads.empty())
+            {
+                try{m_Renderer.SubmitRenderScene(authored);}
+                catch(...)
+                {
+                    failure();
+                    for(const auto& request:result.Plan.Unloads)
+                        m_Streaming.CompleteUnload(request.Coordinate,false);
+                    for(const auto& request:result.Plan.Loads)
+                        m_Streaming.CompleteLoad(request.Coordinate,false);
+                    result.FailedUnloads=result.Plan.Unloads.size();
+                    result.FailedLoads=result.Plan.Loads.size();
+                    result.PendingLoads=PendingCount();
+                    return result;
+                }
+            }
+            for(const auto& request:result.Plan.Unloads)
+            {
+                bool ok=false;
+                try{m_Store.Unload(request.Coordinate,[&](auto handle){m_Renderer.DestroyMesh(handle);});ok=true;}
+                catch(...){failure();}
+                m_Streaming.CompleteUnload(request.Coordinate,ok);
+                if(ok)++result.Unloaded;else ++result.FailedUnloads;
+            }
+            // Bound completion processing, including failed and stale work.
+            // A camera teleport can invalidate a mesh while it is generated;
+            // do not upload that mesh merely to retire it next frame.
+            for(std::size_t i=0;i<m_Background.MaximumUploadsPerUpdate;++i)
+            {
+                auto ready=m_Queue->TryTake();
+                if(!ready)break;
+                bool ok=false;
+                if(!WantsKeep(ready->Cell,observers))
+                    ++result.StaleLoads;
+                else if(ready->Failure)
+                {
+                    ++result.FailedLoads;
+                    if(!result.FirstFailure)result.FirstFailure=ready->Failure;
+                }
+                else
+                {
+                    try
+                    {
+                        if(!ready->Value)throw std::logic_error("Terrain worker returned no mesh.");
+                        m_Store.Load(ready->Cell,[&](auto)
+                        {
+                            return m_Renderer.CreateMesh(kairo::renderer::Mesh::FromArtifact(
+                                ready->Value->Mesh,{0.32f,0.63f,0.22f}));
+                        });
+                        ok=true;++result.Loaded;
+                    }
+                    catch(...){failure();++result.FailedLoads;}
+                }
+                m_Streaming.CompleteLoad(ready->Cell,ok);
+            }
+            for(const auto& request:result.Plan.Loads)
+            {
+                bool accepted=false;
+                try
+                {
+                    accepted=m_Queue->TrySubmit(request.Coordinate);
+                    if(!accepted)++result.DeferredLoads;
+                }
+                catch(...){failure();++result.FailedLoads;}
+                if(!accepted)m_Streaming.CompleteLoad(request.Coordinate,false);
+            }
+            result.PendingLoads=PendingCount();
+            SubmitResident(authored,renderOrigin);
+            return result;
+        }
+
+        void SubmitResident(const kairo::renderer::RenderScene& authored,
+            const kairo::foundation::math::Vec3d& renderOrigin)
+        {
             auto scene=authored;
             const double extent=m_Streaming.Config().Streaming.CellSize;
             for(const auto& [coordinate,handle]:m_Store.Cells())
@@ -91,20 +237,8 @@ export namespace kairo::player
                 scene.Add(draw);
             }
             m_Renderer.SubmitRenderScene(scene);
-            return {std::move(plan),stats.Loaded,stats.Unloaded,
-                stats.FailedLoads,stats.FailedUnloads,stats.FirstFailure};
         }
 
-        // Terminal operation, retryable if backend retirement fails.
-        // Restore the caller's authored scene before destroying terrain.
-        [[nodiscard]] std::size_t Shutdown(const kairo::renderer::RenderScene& authored) noexcept
-        {
-            m_Closed=true;
-            return m_Store.Release([&]{m_Renderer.SubmitRenderScene(authored);},
-                [&](kairo::renderer::MeshHandle handle){m_Renderer.DestroyMesh(handle);});
-        }
-
-    private:
         static float RenderFloat(double value)
         {
             if(!std::isfinite(value)||std::abs(value)>std::numeric_limits<float>::max())
@@ -114,6 +248,8 @@ export namespace kairo::player
         kairo::renderer::RendererRuntime& m_Renderer;
         kairo::engine::ProceduralWorldStreamingRuntime m_Streaming;
         detail::TerrainNativeStore<kairo::engine::WorldCellCoordinate,kairo::renderer::MeshHandle> m_Store;
+        TerrainBackgroundConfig m_Background;
+        std::unique_ptr<Queue> m_Queue;
         bool m_Closed=false;
     };
 }
