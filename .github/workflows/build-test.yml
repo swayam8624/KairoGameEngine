@@ -75,7 +75,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb
+          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev
           echo "KAIRO_CXX_COMPILER=$(command -v clang++)" >> "$GITHUB_ENV"
 
       - name: Install macOS dependencies

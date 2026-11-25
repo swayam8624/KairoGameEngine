@@ -3,6 +3,9 @@
 #include <string>
 #if defined(__APPLE__)
 #include <AudioToolbox/AudioToolbox.h>
+#elif defined(KAIRO_PLAYER_HAS_ALSA)
+#include "RuntimeAlsaAudioOutput.hpp"
+#include <memory>
 #endif
 
 namespace kairo::player::detail
@@ -10,7 +13,8 @@ namespace kairo::player::detail
     // Optional platform output. The game thread is the sole PCM producer.
     // Audio Queue owns three fixed-size buffers; its callback consumes the
     // ring without allocation or scene access. Dispose synchronously before
-    // destroying the ring. Non-Apple hosts retain the headless mixer.
+    // destroying the ring. ALSA uses a nonblocking worker; unsupported
+    // hosts retain the headless mixer.
     class RuntimeNativeAudioOutput final
     {
 #if defined(__APPLE__)
@@ -51,6 +55,8 @@ namespace kairo::player::detail
                 m_Queue=nullptr;
             }
         }
+#elif defined(KAIRO_PLAYER_HAS_ALSA)
+        std::unique_ptr<RuntimeAlsaAudioOutput> m_Alsa;
 #endif
     public:
         explicit RuntimeNativeAudioOutput(std::uint32_t rate)
@@ -80,6 +86,8 @@ namespace kairo::player::detail
                 Check(AudioQueueStart(m_Queue,nullptr),"AudioQueueStart");
             }
             catch(...){Close();throw;}
+#elif defined(KAIRO_PLAYER_HAS_ALSA)
+            m_Alsa=std::make_unique<RuntimeAlsaAudioOutput>(rate);
 #endif
         }
         ~RuntimeNativeAudioOutput()
@@ -94,6 +102,8 @@ namespace kairo::player::detail
         {
 #if defined(__APPLE__)
             return m_Queue!=nullptr;
+#elif defined(KAIRO_PLAYER_HAS_ALSA)
+            return bool(m_Alsa);
 #else
             return false;
 #endif
@@ -102,6 +112,8 @@ namespace kairo::player::detail
         {
 #if defined(__APPLE__)
             return m_Error.load(std::memory_order_relaxed)!=noErr;
+#elif defined(KAIRO_PLAYER_HAS_ALSA)
+            return m_Alsa&&m_Alsa->Failed();
 #else
             return false;
 #endif
@@ -110,6 +122,8 @@ namespace kairo::player::detail
         {
 #if defined(__APPLE__)
             return m_Pcm.Push(pcm);
+#elif defined(KAIRO_PLAYER_HAS_ALSA)
+            return m_Alsa?m_Alsa->Push(pcm):0;
 #else
             (void)pcm;return 0;
 #endif
