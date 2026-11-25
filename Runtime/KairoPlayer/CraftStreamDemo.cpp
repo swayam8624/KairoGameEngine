@@ -28,7 +28,7 @@ int main(int argc,char** argv)
         using namespace kairo::foundation::math;
         using namespace kairo::player::detail;
         bool smoke=false,survival=false;
-        unsigned workers=0;
+        unsigned workers=0,uploadBudget=4;
         std::optional<std::filesystem::path> savePath;
         std::uint64_t seed=42;
         GraphicsBackend backend=GraphicsBackend::Automatic;
@@ -37,6 +37,13 @@ int main(int argc,char** argv)
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
             else if(arg=="--survival")survival=true;
+            else if(arg=="--uploads"&&i+1<argc)
+            {
+                const std::string_view value=argv[++i];
+                const auto result=std::from_chars(value.data(),value.data()+value.size(),uploadBudget);
+                if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size()||uploadBudget<1||uploadBudget>25)
+                    throw std::invalid_argument("Craft uploads must be 1..25.");
+            }
             else if(arg=="--workers"&&i+1<argc)
             {
                 const std::string_view value=argv[++i];
@@ -53,7 +60,7 @@ int main(int argc,char** argv)
                 if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size())
                     throw std::invalid_argument("Invalid seed.");
             }
-            else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--survival] [--workers N] [--save path] [--smoke]");
+            else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--survival] [--workers N] [--uploads N] [--save path] [--smoke]");
         }
         RendererRuntime renderer({"Kairo Craft Stream: WASD / arrows / Space / Ctrl / mouse / Esc",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960,540);
@@ -114,7 +121,7 @@ int main(int argc,char** argv)
         std::optional<Plan> pendingPlan;
         std::unique_ptr<CraftMeshBatch<2>> batch;
         if(workers)batch=std::make_unique<CraftMeshBatch<2>>(workers);
-        std::size_t loads=0,evictions=0,retained=0,edits=0;
+        std::size_t loads=0,evictions=0,retained=0,edits=0,peakUploads=0;
         RenderScene authored;
         RenderLight sun;
         sun.Type=RenderLightType::Directional;
@@ -157,6 +164,7 @@ int main(int argc,char** argv)
         };
         const auto cancelPending=[&]()
         {
+            publication.AbortStaging(destroy);
             if(batch)batch->Cancel();
             pendingCenter.reset();pendingPlan.reset();
         };
@@ -177,18 +185,32 @@ int main(int argc,char** argv)
             {
                 if(!pendingCenter||*pendingCenter!=nextCenter)
                 {
+                    cancelPending();
                     pendingPlan=PlanCraftWindow<2>(coordinates,nextCenter);
                     batch->Begin(*pendingPlan,std::make_shared<const World>(*world));
                     pendingCenter=nextCenter;
                 }
-                if(!batch->Poll())return false;
+                if(!publication.Staging())
+                {
+                    if(!batch->Poll())return false;
+                    if(!publication.BeginStaging(pendingPlan->Dirty,committedSubmit,destroy))return false;
+                }
             }
             const auto plan=batch?*pendingPlan:PlanCraftWindow<2>(coordinates,nextCenter);
             const auto nextOrigin=StreamingCraftOrigin(nextCenter);
-            if(!publication.Apply(plan.Dirty,[&](std::size_t i){
-                    return batch?uploadMesh(batch->Take(i)):upload(*world,*plan.Next[i]);
-                },[&](const Publication::Slots& slots){submit(slots,plan.Next,nextOrigin);},destroy))
-                throw std::runtime_error("Craft window publication deferred.");
+            const auto nextSubmit=[&](const Publication::Slots& slots){submit(slots,plan.Next,nextOrigin);};
+            if(batch)
+            {
+                std::size_t uploads=0;
+                const bool complete=publication.Stage(uploadBudget,[&](std::size_t i){
+                    ++uploads;return uploadMesh(batch->Take(i));
+                });
+                peakUploads=std::max(peakUploads,uploads);
+                if(!complete)return false;
+                publication.CommitStaging(nextSubmit,destroy);
+            }
+            else if(!publication.Apply(plan.Dirty,[&](std::size_t i){return upload(*world,*plan.Next[i]);},
+                nextSubmit,destroy))throw std::runtime_error("Craft window publication deferred.");
             coordinates=plan.Next;origin=nextOrigin;center=nextCenter;
             loads+=plan.Loaded;evictions+=plan.Evicted;retained+=plan.Retained;
             if(batch)cancelPending();
@@ -232,10 +254,11 @@ int main(int argc,char** argv)
             if(!InStreamCraftWorld(cell)||!query(cell)||world->Get(cell)==material)return false;
             auto next=std::make_unique<World>(*world);
             if(!next->Set(cell,material))return false;
+            if(batch)cancelPending(); // abort unsubmitted uploads before editing the committed scene
             if(!publication.Apply(StreamingCraftDirty(coordinates,cell),
                 [&](std::size_t i){return upload(*next,*coordinates[i]);},committedSubmit,destroy))return false;
             world.swap(next);++edits;
-            if(batch)cancelPending(); // old snapshots no longer describe the committed world
+
             return true;
         };
         const auto camera=[&](double x,double y,double z,const std::array<double,3>& direction,bool overhead=false)
@@ -323,6 +346,8 @@ int main(int argc,char** argv)
                         throw std::runtime_error("Survival inventory edit did not restore image.");
                     std::cout<<"Survival mining, inventory save roundtrip and material-consuming placement passed\n";
                 }
+                if(batch&&(peakUploads==0||peakUploads>uploadBudget))throw std::runtime_error("Upload budget exceeded.");
+                if(batch)std::cout<<"Craft peak streaming upload calls per update "<<peakUploads<<"; budget "<<uploadBudget<<"\n";
                 if(batch)std::cout<<"Craft worker batch mode: "<<workers<<" workers, "<<batch->StaleCount()<<" discarded jobs\n";
                 std::cout<<"Streamed Craft: 80 loads, 55 evictions, 20 retained, 6 captures, billion-meter revisit and edit restore passed\n";
             }
