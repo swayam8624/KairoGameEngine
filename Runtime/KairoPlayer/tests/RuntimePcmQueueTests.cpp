@@ -1,4 +1,5 @@
 #include "../RuntimePcmQueue.hpp"
+#include <array>
 #include <deque>
 #include <iostream>
 #include <limits>
