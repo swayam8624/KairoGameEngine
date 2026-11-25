@@ -2,6 +2,8 @@
 #include <GLFW/glfw3.h>
 #include "CraftStreamingWindow.hpp"
 #include "CraftStreamSave.hpp"
+#include "CraftInventory.hpp"
+#include <string>
 #include "CraftMeshBatch.hpp"
 #include <thread>
 #include "VoxelPlayer.hpp"
@@ -60,23 +62,34 @@ int main(int argc,char** argv)
         using Plan=CraftWindowPlan<2>;
         using Publication=VoxelMeshPublication<MeshHandle,Plan::Capacity>;
         auto world=std::make_unique<World>(StreamingCraftBaseline{seed});
+        CraftInventory inventory;
         if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
         if(savePath&&std::filesystem::exists(*savePath))
         {
             const auto size=std::filesystem::file_size(*savePath);
-            if(size>CraftSaveMaximumBytes)throw std::length_error("Stream save size cap.");
+            if(size>CraftSessionMaximumBytes)throw std::length_error("Stream save size cap.");
             std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
             std::ifstream file(*savePath,std::ios::binary);
             if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
                 file.peek()!=std::char_traits<char>::eof())
                 throw std::runtime_error("Stream save read failed.");
-            auto decoded=DecodeStreamCraftSave(bytes);
-            seed=decoded.Seed;world=std::make_unique<World>(std::move(decoded.World));
+            if(bytes.size()>=CraftSessionMagic.size()&&
+                std::equal(CraftSessionMagic.begin(),CraftSessionMagic.end(),bytes.begin()))
+            {
+                auto decoded=DecodeCraftSession(bytes);
+                seed=decoded.Seed;world=std::make_unique<World>(std::move(decoded.World));
+                inventory=decoded.Inventory;
+            }
+            else
+            {
+                auto decoded=DecodeStreamCraftSave(bytes);
+                seed=decoded.Seed;world=std::make_unique<World>(std::move(decoded.World));
+            }
         }
         const auto save=[&]()
         {
             if(!savePath)return;
-            const auto bytes=EncodeStreamCraftSave(seed,*world);
+            const auto bytes=EncodeCraftSession(seed,*world,inventory);
             auto temporary=*savePath;temporary+=".tmp";
             if(std::filesystem::exists(temporary))throw std::runtime_error("Temporary save already exists.");
             try
@@ -292,6 +305,23 @@ int main(int argc,char** argv)
                     }
                     if(!p.Grounded||peak<1.2||peak>1.3)throw std::runtime_error("Streamed survival jump failed.");
                     std::cout<<"Streamed survival apex "<<peak<<" m; landing passed\n";
+                    const auto selected=TraceVoxels({.5,12,.5},{0,-1,0},12,32,query);
+                    if(!selected||!MineCraftBlock(inventory,selected->Cell,query,edit)||
+                        inventory.Count(selected->Material)!=1)
+                        throw std::runtime_error("Survival mining did not credit inventory.");
+                    inventory.Selected=selected->Material;
+                    const auto session=DecodeCraftSession(EncodeCraftSession(seed,*world,inventory));
+                    if(session.Inventory.Count(inventory.Selected)!=1||
+                        session.World.Overrides()!=world->Overrides())
+                        throw std::runtime_error("Survival inventory persistence failed.");
+                    const auto target=TraceVoxels({.5,12,.5},{0,-1,0},12,32,query);
+                    if(!target||target->Placement!=selected->Cell||
+                        !PlaceCraftBlock(inventory,*target->Placement,query,edit,[](auto){return true;})||
+                        inventory.Count(selected->Material)!=0||!world->Overrides().empty())
+                        throw std::runtime_error("Survival placement did not consume inventory.");
+                    if(capture(.5,.5).RGBA!=baseline.RGBA)
+                        throw std::runtime_error("Survival inventory edit did not restore image.");
+                    std::cout<<"Survival mining, inventory save roundtrip and material-consuming placement passed\n";
                 }
                 if(batch)std::cout<<"Craft worker batch mode: "<<workers<<" workers, "<<batch->StaleCount()<<" discarded jobs\n";
                 std::cout<<"Streamed Craft: 80 loads, 55 evictions, 20 retained, 6 captures, billion-meter revisit and edit restore passed\n";
@@ -302,6 +332,7 @@ int main(int argc,char** argv)
                 auto player=spawn();
                 bool jumpHeld=false,saveHeld=false;
                 bool leftHeld=false,rightHeld=false;
+                std::string previousTitle;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
                 const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
@@ -345,6 +376,21 @@ int main(int argc,char** argv)
                     (void)updateWindow(x,z);
                     const std::array direction{std::sin(yaw)*std::cos(pitch),std::sin(pitch),-std::cos(yaw)*std::cos(pitch)};
                     camera(x,y,z,direction);
+                    if(survival)
+                    {
+                        for(int slot=0;slot<4;++slot)
+                            if(key(GLFW_KEY_1+slot))inventory.Selected=static_cast<VoxelMaterial>(slot+1);
+                        constexpr std::array<const char*,4> labels{"Grass","Dirt","Stone","Building"};
+                        std::string title="Kairo Craft | Survival | ";
+                        for(unsigned i=0;i<4;++i)
+                        {
+                            if(i+1u==inventory.Selected)title+="[";
+                            title+=std::to_string(i+1u)+":"+labels[i]+" "+std::to_string(inventory.Counts[i]);
+                            if(i+1u==inventory.Selected)title+="]";
+                            title+="  ";
+                        }
+                        if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
+                    }
                     const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
                     const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
                     if((left&&!leftHeld)||(right&&!rightHeld))
@@ -352,9 +398,17 @@ int main(int argc,char** argv)
                         const auto hit=TraceVoxels({x,y,z},direction,8,64,query);
                         if(hit)
                         {
-                            if(left&&!leftHeld)(void)edit(hit->Cell,VoxelAir);
-                            else if(hit->Placement&&(!survival||!PlayerIntersectsBlock(player,bodyConfig,*hit->Placement)))
-                                (void)edit(*hit->Placement,CraftPlaced);
+                            if(left&&!leftHeld)
+                            {
+                                if(survival)(void)MineCraftBlock(inventory,hit->Cell,query,edit);
+                                else (void)edit(hit->Cell,VoxelAir);
+                            }
+                            else if(hit->Placement)
+                            {
+                                if(survival)(void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
+                                    [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell);});
+                                else (void)edit(*hit->Placement,CraftPlaced);
+                            }
                         }
                     }
                     leftHeld=left;rightHeld=right;
