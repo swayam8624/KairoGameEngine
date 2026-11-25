@@ -104,3 +104,7 @@ Added [RuntimeRainStreaks.hpp](Runtime/KairoPlayer/RuntimeRainStreaks.hpp): dete
 ## 2026-11-25 — conservative terrain water
 
 Added [RuntimeWaterGrid.hpp](Runtime/KairoPlayer/RuntimeWaterGrid.hpp), a bounded depth-only conservative flow model distinct from the existing EngineCore density diffusion. It transfers volume across four-neighbor terrain edges with donor limiting, nonnegative depth, closed boundaries and validated dimensions. Both GCC and Clang C++23 -Wall -Wextra -Werror passed 20,000 random-bed time steps per compiler with conservation tolerance 1e-8, plus symmetric pulse, dry wall, lake-at-rest and bounds fixtures. Header blob 96b2865f6317a9ba595b7773b8ac45a98bf5c462 and test blob 3ca0bbea9573e907a0237b80ea82cbc93e3e820c. Added a basin ASCII sample (not yet run at this entry); GPU surface adapter, momentum and waves remain open.
+
+### Water lab execution
+
+The exact sample blob 0b78d533478ff67699ce7845928534a8f1733115 built and ran under GCC and Clang with C++23 -Wall -Wextra -Werror. Both produced byte-identical output, reporting volume 8 at steps 0,20,40,60,80,100. This is a terminal visualization, not a native surface renderer.
