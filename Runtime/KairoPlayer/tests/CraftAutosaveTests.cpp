@@ -10,6 +10,11 @@ void BeforeDue(CraftAutosave& a,unsigned steps,double dt){for(unsigned i=0;i<ste
 int main()
 {
     CraftAutosave a;CraftSaveStamp initial{};a.Initialize(initial);
+    CraftAutosave fresh;fresh.Initialize(initial,false);
+    Check(fresh.Dirty(),"Missing save not dirty");
+    BeforeDue(fresh,299,.1);Check(fresh.Advance(.1),"Missing save never created");
+    fresh.Failed();BeforeDue(fresh,49,.1);Check(fresh.Advance(.1),"New save retry missing");
+    fresh.Saved();Check(!fresh.Dirty(),"New save still dirty");
     BeforeDue(a,100000,.1);Check(!a.Dirty(),"Unchanged world dirty");
     auto next=initial;next.WorldRevision=1;a.Observe(next);
     BeforeDue(a,299,.1);Check(a.Advance(.1)&&a.Dirty(),"Checkpoint missing");

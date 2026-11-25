@@ -25,8 +25,8 @@ namespace kairo::player::detail
         double m_Delay=30;
     public:
         static constexpr double Interval=30.,RetryInterval=5.;
-        void Initialize(CraftSaveStamp stamp) noexcept
-        {m_Saved=stamp;m_Current=stamp;m_Elapsed=0;m_Delay=Interval;}
+        void Initialize(CraftSaveStamp stamp,bool existing=true) noexcept
+        {m_Saved=existing?std::optional<CraftSaveStamp>{stamp}:std::nullopt;m_Current=stamp;m_Elapsed=0;m_Delay=Interval;}
         [[nodiscard]] bool Dirty() const noexcept{return m_Current!=m_Saved;}
         void Observe(CraftSaveStamp stamp) noexcept
         {

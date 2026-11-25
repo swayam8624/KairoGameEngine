@@ -93,7 +93,8 @@ int main(int argc,char** argv)
         std::uint64_t worldRevision=0;
         bool finalSaveFailed=false;
         if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
-        if(savePath&&std::filesystem::exists(*savePath))
+        const bool existingSave=savePath&&std::filesystem::exists(*savePath);
+        if(existingSave)
         {
             const auto bytes=ReadCraftSaveFile(*savePath,CraftSessionMaximumBytes+CraftEquipmentOverhead);
             std::span<const std::uint8_t> payload=bytes;
@@ -574,7 +575,7 @@ int main(int argc,char** argv)
                 CraftDaylight daylight;
                 unsigned publishedDaylight=daylight.Step();
                 applyDaylight(publishedDaylight);committedSubmit(publication.Active());
-                autosave.Initialize(saveStamp());
+                autosave.Initialize(saveStamp(),existingSave||!savePath);
                 CraftActionInputs actions;
                 bool leftHeld=false,rightHeld=false;
                 std::string previousTitle;

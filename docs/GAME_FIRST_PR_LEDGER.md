@@ -387,6 +387,16 @@ Exact header ab3e5a5342b67fd31c869252fcd5d0608d77c567 and test
 files; prior shared disk transaction regression covers I/O separately.
 Native interactive exit/save acceptance pending. No crash-durability claim.
 
+### First checkpoint for new save slots
+
+Missing explicit save paths are now dirty from initialization, so even an
+unchanged new world gets a first checkpoint or exit save. Existing saves
+remain clean until state changes. Both actual modified autosave source files
+passed Clang 17/GCC 14.2 C++23 strict ASan/UBSan with the original 200,000
+cases, 430 checkpoints, and new missing-slot/retry cases. Exact blobs
+8f2e64dd782c628397a8dcaa0b6e7538306855d8 and
+aeb370149a368a6493aa974d45303c83ef7fd81b. Native demo integration pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

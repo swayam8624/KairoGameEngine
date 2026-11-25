@@ -104,7 +104,7 @@ world edits, inventory, selected slot and equipment after 30 seconds of
 focused simulation. Repeated edits do not postpone the checkpoint. Failure
 leaves state dirty and retries after five active seconds. F5 saves immediately;
 a normal exit attempts one last dirty checkpoint and returns a failure status
-if it cannot save. Without a save path, no file is created. Clock, player pose,
+if it cannot save. A new save slot is dirty initially, even before edits; its first checkpoint creates the file. Without a save path, no file is created. Clock, player pose,
 health and hunger remain session-local.
 
 Both demos reserve a sibling directory named `<save>.write-lock` before

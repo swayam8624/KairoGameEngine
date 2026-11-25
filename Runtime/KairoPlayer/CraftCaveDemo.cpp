@@ -73,7 +73,8 @@ int main(int argc,char** argv)
         CraftAutosave autosave;
         std::uint64_t worldRevision=0;
         bool finalSaveFailed=false;
-        if(savePath&&std::filesystem::exists(*savePath))
+        const bool existingSave=savePath&&std::filesystem::exists(*savePath);
+        if(existingSave)
         {
             const auto bytes=ReadCraftSaveFile(*savePath,CaveCraftMaximumBytes+CraftEquipmentOverhead);
             std::span<const std::uint8_t> payload=bytes;
@@ -410,7 +411,7 @@ int main(int argc,char** argv)
                     return query(c);
                 };
                 std::string previousTitle;
-                autosave.Initialize(saveStamp());
+                autosave.Initialize(saveStamp(),existingSave||!savePath);
                 CraftActionInputs actions;
                 bool leftHeld=false,rightHeld=false;
                 auto previous=std::chrono::steady_clock::now();
