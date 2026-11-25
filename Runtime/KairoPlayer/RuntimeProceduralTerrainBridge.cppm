@@ -2,6 +2,7 @@ module;
 
 #include "TerrainNativeStore.hpp"
 #include "TerrainGenerationQueue.hpp"
+#include "TerrainRenderOrigin.hpp"
 #include <algorithm>
 #include <memory>
 #include <cmath>
@@ -238,9 +239,9 @@ export namespace kairo::player
                 draw.Mesh=handle;
                 draw.Model=kairo::foundation::math::MakeTranslation(
                     kairo::foundation::math::Vec3f{
-                        RenderFloat(coordinate.X*extent-renderOrigin.x),
-                        RenderFloat(-renderOrigin.y),
-                        RenderFloat(coordinate.Z*extent-renderOrigin.z)});
+                        detail::TerrainRelativeFloat(coordinate.X*extent,renderOrigin.x),
+                        detail::TerrainRelativeFloat(0.0,renderOrigin.y),
+                        detail::TerrainRelativeFloat(coordinate.Z*extent,renderOrigin.z)});
                 // Terrain is non-pickable until a stable terrain picking ID
                 // scheme is integrated with authored entity IDs.
                 scene.Add(draw);
@@ -248,12 +249,6 @@ export namespace kairo::player
             m_Renderer.SubmitRenderScene(scene);
         }
 
-        static float RenderFloat(double value)
-        {
-            if(!std::isfinite(value)||std::abs(value)>std::numeric_limits<float>::max())
-                throw std::overflow_error("Terrain render-relative coordinate exceeds float range.");
-            return static_cast<float>(value);
-        }
         kairo::renderer::RendererRuntime& m_Renderer;
         kairo::engine::ProceduralWorldStreamingRuntime m_Streaming;
         detail::TerrainNativeStore<kairo::engine::WorldCellCoordinate,kairo::renderer::MeshHandle> m_Store;

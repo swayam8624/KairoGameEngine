@@ -1,3 +1,4 @@
+#include "TerrainRenderOrigin.hpp"
 #include <array>
 #include <algorithm>
 #include <charconv>
@@ -22,7 +23,7 @@ int main(int argc,char** argv)
     {
         using namespace kairo::renderer;
         using namespace kairo::engine;
-        bool smoke=false,asynchronous=false;
+        bool smoke=false,asynchronous=false,farOrigin=false;
         std::uint64_t seed=42;
         unsigned workerCount=1;
         GraphicsBackend backend=GraphicsBackend::Automatic;
@@ -31,6 +32,7 @@ int main(int argc,char** argv)
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
             else if(arg=="--async")asynchronous=true;
+            else if(arg=="--far-origin")farOrigin=true;
             else if(arg=="--workers" && i+1<argc)
             {
                 const std::string_view value=argv[++i];
@@ -48,7 +50,7 @@ int main(int argc,char** argv)
                     throw std::invalid_argument("Invalid unsigned world seed.");
             }
             else if(arg=="--renderer" && i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
-            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N]");
+            else throw std::invalid_argument("Usage: KairoTerrainDemo [--seed N] [--renderer auto|vulkan|metal|d3d12|opengl] [--smoke] [--async] [--workers N] [--far-origin]");
         }
         RendererRuntime renderer({"Kairo procedural terrain",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960u,540u);
@@ -78,7 +80,18 @@ int main(int argc,char** argv)
         unsigned frame=0,captures=0;
         bool captureRequested=false;
         std::optional<ViewportCapture> lastTerrainCapture;
-        std::size_t loads=0,unloads=0,deferred=0,stale=0,peakPending=0;
+        std::size_t loads=0,unloads=0,deferred=0,stale=0,peakPending=0,rebases=0;
+        double lastX=0.0,lastZ=0.0;
+        kairo::foundation::math::Vec3d origin{};
+        const double cellExtent=terrain.Streaming().Config().Streaming.CellSize;
+        const auto setCamera=[&](double x,double z,const kairo::foundation::math::Vec3d& base)
+        {
+            using kairo::player::detail::TerrainRelativeFloat;
+            CameraPose camera;
+            camera.Position={TerrainRelativeFloat(x,base.x),38.f,TerrainRelativeFloat(z+40.0,base.z)};
+            camera.Target={TerrainRelativeFloat(x,base.x),0.f,TerrainRelativeFloat(z,base.z)};
+            renderer.SetCameraPose(camera);
+        };
         while(!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
@@ -86,10 +99,14 @@ int main(int argc,char** argv)
                 std::chrono::steady_clock::now()-start).count();
             // Three distant regions in the bounded smoke; normal mode
             // continuously flies around a large deterministic circuit.
-            const double x=smoke?double(asynchronous?captures:frame/12u)*256.0:180.0*std::sin(seconds*.08);
-            const double z=smoke?16.0:180.0*std::cos(seconds*.08);
+            const double x=(farOrigin?1000000000.0:0.0)+(smoke?double(asynchronous?captures:frame/12u)*256.0:180.0*std::sin(seconds*.08));
+            const double z=(farOrigin?-1000000000.0:0.0)+(smoke?16.0:180.0*std::cos(seconds*.08));
+            lastX=x;lastZ=z;
+            const auto chosen=kairo::player::detail::ChooseTerrainRenderOrigin(x,z,cellExtent);
+            if(origin.x!=chosen[0]||origin.z!=chosen[2])++rebases;
+            origin={chosen[0],chosen[1],chosen[2]};
             const std::array observers{WorldStreamingObserver{{x,0,z},1.0}};
-            const auto update=terrain.UpdateAndSubmit(observers,authored);
+            const auto update=terrain.UpdateAndSubmit(observers,authored,origin);
             if(!update.Succeeded())
             {
                 if(update.FirstFailure)std::rethrow_exception(update.FirstFailure);
@@ -103,10 +120,7 @@ int main(int argc,char** argv)
             if(terrain.ResidentCount()+terrain.PendingCount()!=terrain.Streaming().Runtime().CommittedCellCount() ||
                 terrain.ResidentCount()>config.Streaming.MaximumCommittedCells)
                 throw std::runtime_error("Terrain mesh ownership differs from residency.");
-            CameraPose camera;
-            camera.Position={static_cast<float>(x),38.f,static_cast<float>(z+40)};
-            camera.Target={static_cast<float>(x),0.f,static_cast<float>(z)};
-            renderer.SetCameraPose(camera);
+            setCamera(x,z,origin);
             if(smoke && ((!asynchronous && frame%12u==9u) ||
                 (asynchronous && !captureRequested && update.Plan.Empty() &&
                     terrain.PendingCount()==0 && terrain.ResidentCount()!=0)))
@@ -134,6 +148,48 @@ int main(int argc,char** argv)
             }
         }
         if(smoke&&((!asynchronous&&frame!=36u)||(asynchronous&&captures!=3u)))throw std::runtime_error("Terrain smoke terminated prematurely.");
+        // Explicitly change only the rendering origin at the same absolute
+        // observer location. Terrain residency must not depend on rebasing.
+        if(smoke&&farOrigin)
+        {
+            if(rebases<3u)throw std::runtime_error("Far-origin test did not cross cell origins.");
+            const auto before=terrain.ResidentCount();
+            const std::array observers{WorldStreamingObserver{{lastX,0,lastZ},1.0}};
+            const auto baselineUpdate=terrain.UpdateAndSubmit(observers,authored,origin);
+            if(!baselineUpdate.Succeeded())throw std::runtime_error("Baseline rebase update failed.");
+            setCamera(lastX,lastZ,origin);
+            const auto capture=[&]()
+            {
+                renderer.RequestViewportCapture();
+                for(unsigned attempt=0;attempt<8u;++attempt)
+                {
+                    renderer.DrawFrame();
+                    if(auto image=renderer.TakeViewportCapture())return *image;
+                }
+                throw std::runtime_error("Rebase capture unavailable.");
+            };
+            const auto baseline=capture();
+            const auto shifted=kairo::foundation::math::Vec3d{origin.x+cellExtent,0.0,origin.z-cellExtent};
+            const auto update=terrain.UpdateAndSubmit(observers,authored,shifted);
+            if(!update.Succeeded()||update.Loaded||update.Unloaded||
+                terrain.ResidentCount()!=before)
+                throw std::runtime_error("Render origin changed terrain residency.");
+            setCamera(lastX,lastZ,shifted);
+            const auto rebased=capture();
+            if(!baseline.IsVisuallyNonUniform()||baseline.Width!=rebased.Width||
+                baseline.Height!=rebased.Height||baseline.RGBA.size()!=rebased.RGBA.size())
+                throw std::runtime_error("Rebased image unavailable.");
+            // Rasterization may differ by a few edge pixels after a different
+            // floating-point operation sequence. Compare mean absolute byte error.
+            double absoluteError=0.0;
+            for(std::size_t i=0;i<baseline.RGBA.size();++i)
+                absoluteError+=std::abs(int(baseline.RGBA[i])-int(rebased.RGBA[i]));
+            if(absoluteError>0.1*static_cast<double>(baseline.RGBA.size()))
+                throw std::runtime_error("Render origin materially changed captured image.");
+            lastTerrainCapture=rebased;
+            std::cout<<"Far-origin image comparison mean byte error "<<
+                absoluteError/static_cast<double>(baseline.RGBA.size())<<"; rebases "<<rebases<<'\n';
+        }
         if(terrain.Shutdown(authored)!=0u)throw std::runtime_error("Terrain shutdown leaked handles.");
         if(smoke)
         {
