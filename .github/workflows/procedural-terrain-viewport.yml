@@ -1,12 +1,14 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native, feat/craft-stream-survival-save, feat/craft-async-meshing, feat/craft-survival-inventory, feat/craft-upload-budget, feat/craft-vertical-caves, feat/craft-recipes-hud, feat/craft-cave-survival-session, integration/gameplay-native-candidate, integration/gameplay-merged-lock]
+    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native, feat/craft-stream-survival-save, feat/craft-async-meshing, feat/craft-survival-inventory, feat/craft-upload-budget, feat/craft-vertical-caves, feat/craft-recipes-hud, feat/craft-cave-survival-session, integration/gameplay-native-candidate, integration/gameplay-merged-lock, feat/craft-responsive-hud]
   pull_request:
     paths:
       - 'workspace.lock'
       - 'scripts/run_native_metal_gameplay_acceptance.sh'
       - 'Runtime/KairoPlayer/CraftRecipesHud.hpp'
+      - 'Runtime/KairoPlayer/CraftHudProjection.hpp'
+      - 'Runtime/KairoPlayer/tests/CraftHudProjectionTests.cpp'
       - 'Runtime/KairoPlayer/tests/CraftRecipesHudTests.cpp'
       - 'Runtime/KairoPlayer/CraftCaveSession.hpp'
       - 'Runtime/KairoPlayer/CraftCaveSpawn.hpp'
@@ -131,6 +133,10 @@ jobs:
         run: |
           g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftRecipesHudTests.cpp -o /tmp/craft-recipes-hud-test
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-recipes-hud-test
+      - name: Verify aspect-safe HUD projection under sanitizers
+        run: |
+          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftHudProjectionTests.cpp -o /tmp/craft-hud-projection-test
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-hud-projection-test
   native-vulkan:
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -154,12 +160,12 @@ jobs:
       - name: Compile procedural viewport against exact locked dependencies
         run: |
           cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DCMAKE_BUILD_TYPE=Release
-          cmake --build --preset game-player-clang --parallel 2 --target KairoCraftRecipesHudTests KairoCraftCaves KairoCraftCaveWorldTests KairoCraftStream KairoCraftInventoryTests KairoCraftMeshBatchTests KairoCraftStreamSaveTests KairoCraft KairoCraftStreamingWindowTests KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests KairoCraftWorldTests KairoVoxelChunkSurfaceTests KairoVoxelInteractionTests KairoTerrainDemo KairoTerrainExplorer KairoTerrainWalkerTests KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests KairoTerrainScreenErrorTests
+          cmake --build --preset game-player-clang --parallel 2 --target KairoCraftHudProjectionTests KairoCraftRecipesHudTests KairoCraftCaves KairoCraftCaveWorldTests KairoCraftStream KairoCraftInventoryTests KairoCraftMeshBatchTests KairoCraftStreamSaveTests KairoCraft KairoCraftStreamingWindowTests KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests KairoCraftWorldTests KairoVoxelChunkSurfaceTests KairoVoxelInteractionTests KairoTerrainDemo KairoTerrainExplorer KairoTerrainWalkerTests KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests KairoTerrainScreenErrorTests
       - name: Run required native streamed-terrain capture
         run: |
           set -euo pipefail
           mkdir -p build/terrain-diagnostics
-          ctest --test-dir build/game-player-clang -R '^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow|CraftStreamSave|CraftMeshBatch|CraftInventory|CraftCaveWorld|CraftRecipesHud)Tests$' --no-tests=error --output-on-failure
+          ctest --test-dir build/game-player-clang -R '^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow|CraftStreamSave|CraftMeshBatch|CraftInventory|CraftCaveWorld|CraftRecipesHud|CraftHudProjection)Tests$' --no-tests=error --output-on-failure
           export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --async 2>&1 | tee build/terrain-diagnostics/async-smoke.log

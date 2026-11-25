@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include "CraftCaveSession.hpp"
 #include "CraftRecipesHud.hpp"
+#include "CraftHudProjection.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
 #include <fstream>
@@ -48,7 +49,8 @@ int main(int argc,char** argv)
         }
         if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
         RendererRuntime renderer({"Kairo Craft Caves",960u,540u,!smoke,backend});
-        renderer.ResizeViewport(960,540);
+        CraftHudViewport hudViewport;
+        renderer.ResizeViewport(hudViewport.Width,hudViewport.Height);
         renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         using P=CaveWindowPlan<1>;
         using W=CaveCraftWorldEdits;
@@ -124,10 +126,10 @@ int main(int argc,char** argv)
                 for(const auto& rect:BuildCraftHud(inventory))
                 {
                     const double depth=rect.Background?.16:.14;
-                    const double half=depth*std::tan(pose.VerticalFovRadians*.5);
-                    const double pixel=2*half/540;
-                    const double dx=(rect.X+rect.W*.5-480)*pixel,dy=(270-rect.Y-rect.H*.5)*pixel;
-                    const double width=rect.W*pixel,height=rect.H*pixel;
+                    const auto projected=ProjectCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,
+                        pose.VerticalFovRadians,depth,rect.Y>=472);
+                    const double dx=projected.X,dy=projected.Y;
+                    const double width=projected.Width,height=projected.Height;
                     MeshDraw draw;
                     draw.Mesh=*hudMesh;draw.Model=Mat4f::Identity();
                     for(unsigned axis=0;axis<3;++axis)
@@ -269,6 +271,26 @@ int main(int argc,char** argv)
                 hudEnabled=false;oldSubmit(pub.Active());
                 if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=baseline.RGBA)
                     throw std::runtime_error("Removing cave HUD changed world.");
+                // Exercise actual native target resize in both aspect directions,
+                // independently of interactive window manager behavior.
+                for(const CraftHudViewport extent: {CraftHudViewport{480,720},CraftHudViewport{1280,480}})
+                {
+                    renderer.ResizeViewport(extent.Width,extent.Height);hudViewport=extent;
+                    const auto without=capture(8.5,-7.5,8.5,{0,0,-1});
+                    if(without.Width!=extent.Width||without.Height!=extent.Height)
+                        throw std::runtime_error("HUD resize capture extent differs.");
+                    hudEnabled=true;
+                    const auto with=capture(8.5,-7.5,8.5,{0,0,-1});
+                    if(with.Width!=extent.Width||with.Height!=extent.Height||with.RGBA==without.RGBA)
+                        throw std::runtime_error("HUD did not render after viewport resize.");
+                    hudEnabled=false;oldSubmit(pub.Active());
+                    if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=without.RGBA)
+                        throw std::runtime_error("Resized HUD removal changed world.");
+                }
+                renderer.ResizeViewport(960,540);hudViewport={};
+                if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=baseline.RGBA)
+                    throw std::runtime_error("Restored viewport changed baseline.");
+                std::cout<<"Native portrait and wide HUD resize captures passed\n";
                 if(loads!=90||evictions!=63||peakUploads>4)throw std::runtime_error("Cave streaming accounting.");
                 std::cout<<"Cave native: 90 loads, 63 evictions, 18 vertical retained, 6 captures, HUD and inventory roundtrip, peak uploads "<<peakUploads<<"; edit revisit passed\n";
             }
@@ -300,7 +322,16 @@ int main(int argc,char** argv)
                 const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
                 while(!renderer.NativeWindow().ShouldClose())
                 {
-                    renderer.NativeWindow().PollEvents();if(key(GLFW_KEY_ESCAPE))break;
+                    renderer.NativeWindow().PollEvents();
+                    if(key(GLFW_KEY_ESCAPE))break;
+                    const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
+                    // Minimized windows do not provide a drawable extent. Preserve
+                    // the previous target and avoid a zero-sized GPU allocation.
+                    if(frameWidth&&frameHeight&&(frameWidth!=hudViewport.Width||frameHeight!=hudViewport.Height))
+                    {
+                        renderer.ResizeViewport(frameWidth,frameHeight);
+                        hudViewport={frameWidth,frameHeight};
+                    }
                     const auto now=std::chrono::steady_clock::now();
                     const double dt=std::min(.1,std::chrono::duration<double>(now-previous).count());previous=now;
                     yaw=std::remainder(yaw+(key(GLFW_KEY_RIGHT)-key(GLFW_KEY_LEFT))*1.8*dt,6.283185307179586);
