@@ -6,6 +6,8 @@
 #include "CraftHudPublication.hpp"
 #include "CraftVitals.hpp"
 #include "CraftMining.hpp"
+#include "CraftEquipment.hpp"
+#include "CraftEquipmentSave.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
 #include <fstream>
@@ -61,15 +63,22 @@ int main(int argc,char** argv)
         using Pub=VoxelMeshPublication<MeshHandle,P::Capacity>;
         auto world=std::make_shared<W>(CaveCraftBaseline{seed},CraftSaveMaximumEdits);
         CraftInventory inventory;
+        CraftEquipment equipment;
         if(savePath&&std::filesystem::exists(*savePath))
         {
             const auto size=std::filesystem::file_size(*savePath);
-            if(size>CaveCraftMaximumBytes)throw std::length_error("Cave save size cap.");
+            if(size>CaveCraftMaximumBytes+CraftEquipmentOverhead)throw std::length_error("Cave save size cap.");
             std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
             std::ifstream file(*savePath,std::ios::binary);
             if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
                 file.peek()!=std::char_traits<char>::eof())throw std::runtime_error("Cave save read failed.");
-            auto decoded=DecodeCaveCraftSession(bytes);
+            std::span<const std::uint8_t> payload=bytes;
+            if(HasCraftEquipmentEnvelope(payload))
+            {
+                const auto decoded=DecodeCraftEquipmentEnvelope(payload,CaveCraftMaximumBytes);
+                equipment=decoded.Equipment;payload=decoded.Payload;
+            }
+            auto decoded=DecodeCaveCraftSession(payload);
             seed=decoded.Seed;world=std::make_shared<W>(std::move(decoded.World));inventory=decoded.Inventory;
         }
         // Explicit save only, using the same single-writer replacement policy
@@ -77,7 +86,8 @@ int main(int argc,char** argv)
         const auto save=[&]()
         {
             if(!savePath)return;
-            const auto bytes=EncodeCaveCraftSession(seed,*world,inventory);
+            const auto payload=EncodeCaveCraftSession(seed,*world,inventory);
+            const auto bytes=EncodeCraftEquipmentEnvelope(payload,equipment,CaveCraftMaximumBytes);
             auto temp=*savePath;temp+=".tmp";
             if(std::filesystem::exists(temp))throw std::runtime_error("Temporary cave save already exists.");
             try
@@ -114,20 +124,20 @@ int main(int argc,char** argv)
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
-            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress()};
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped};
             (void)hudPublication.Refresh(key,[&]()
             {
                 std::vector<ViewportOverlayRect> rects;
                 if(hudEnabled)
                 {
-                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress());
+                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped);
                     rects.reserve(layout.size());
                     // Paint opaque backing first, then icons and numerals.
                     // No camera, world origin or depth state is involved.
                     for(bool backing:{true,false})for(const auto& rect:layout)
                     {
                         if(rect.Background!=backing)continue;
-                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=450);
+                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=430);
                         if(p.Width&&p.Height)rects.push_back({p.X,p.Y,p.Width,p.Height,rect.Color});
                     }
                 }
@@ -153,11 +163,11 @@ int main(int argc,char** argv)
                     double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
                 const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
                 const auto up=ScreenUnit(ScreenCross(right,forward));
-                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress()))
+                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped))
                 {
                     const double depth=rect.Background?.16:.14;
                     const auto projected=ProjectCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,
-                        pose.VerticalFovRadians,depth,rect.Y>=450);
+                        pose.VerticalFovRadians,depth,rect.Y>=430);
                     const double dx=projected.X,dy=projected.Y;
                     const double width=projected.Width,height=projected.Height;
                     MeshDraw draw;
@@ -364,6 +374,7 @@ int main(int argc,char** argv)
                 };
                 std::string previousTitle;
                 bool leftHeld=false,rightHeld=false,jumpHeld=false,recipeOneHeld=false,recipeTwoHeld=false,saveHeld=false;
+                bool toolCraftHeld=false,toolToggleHeld=false;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
                 const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
@@ -415,6 +426,10 @@ int main(int argc,char** argv)
                         if(one&&!recipeOneHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
                         if(two&&!recipeTwoHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
                         recipeOneHeld=one;recipeTwoHeld=two;
+                        const bool craftTool=key(GLFW_KEY_F)>0,toggleTool=key(GLFW_KEY_G)>0;
+                        if(craftTool&&!toolCraftHeld&&equipment.Craft(inventory.Counts))mining.Reset();
+                        if(toggleTool&&!toolToggleHeld&&equipment.Toggle())mining.Reset();
+                        toolCraftHeld=craftTool;toolToggleHeld=toggleTool;
                         std::string title="Kairo Caves | HP "+std::to_string(vitals.Health())+"/20 | ";
                         for(unsigned i=0;i<4;++i)
                         {
@@ -423,7 +438,8 @@ int main(int argc,char** argv)
                             if(inventory.Selected==i+1u)title+="]";
                             title+=" ";
                         }
-                        title+="| Hold LMB to mine | R/T craft | F5 save";
+                        title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
+                            " | F craft pick (2 dirt + 3 stone), G equip | R/T craft | F5 save";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool saveDown=key(GLFW_KEY_F5)>0;
@@ -443,9 +459,10 @@ int main(int argc,char** argv)
                         (void)mining.Advance(left,target,dt,[&](const CraftMiningTarget& completed)
                         {
                             const VoxelCoordinate cell{completed.Cell[0],completed.Cell[1],completed.Cell[2]};
-                            if(query(cell)!=completed.Material)return false;
-                            return MineCraftBlock(inventory,cell,query,edit);
-                        });
+                            if(query(cell)!=completed.Material||!MineCraftBlock(inventory,cell,query,edit))return false;
+                            equipment.SuccessfulMine(completed.Material);
+                            return true;
+                        },target?equipment.Speed(target->Material):1.);
                         if(!left&&right&&!rightHeld&&hit&&hit->Placement)
                             (void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
                                 [&](auto cell){return !PlayerIntersectsBlock(body,config,cell);});

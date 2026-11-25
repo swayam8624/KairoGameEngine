@@ -11,7 +11,8 @@ namespace kairo::player::detail
     {
         bool Enabled=false;
         std::array<std::uint32_t,4> Counts{};
-        std::uint32_t Selected=0,Width=0,Height=0,Health=20,MiningProgress=0;
+        std::uint32_t Selected=0,Width=0,Height=0,Health=20,MiningProgress=0,ToolDurability=0;
+        bool ToolEquipped=false;
         bool operator==(const CraftHudKey&) const=default;
     };
     class CraftHudPublication

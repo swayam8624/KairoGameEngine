@@ -8,6 +8,8 @@
 #include "CraftHudPublication.hpp"
 #include "CraftVitals.hpp"
 #include "CraftMining.hpp"
+#include "CraftEquipment.hpp"
+#include "CraftEquipmentSave.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
@@ -78,33 +80,41 @@ int main(int argc,char** argv)
         using Publication=VoxelMeshPublication<MeshHandle,Plan::Capacity>;
         auto world=std::make_unique<World>(StreamingCraftBaseline{seed});
         CraftInventory inventory;
+        CraftEquipment equipment;
         if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
         if(savePath&&std::filesystem::exists(*savePath))
         {
             const auto size=std::filesystem::file_size(*savePath);
-            if(size>CraftSessionMaximumBytes)throw std::length_error("Stream save size cap.");
+            if(size>CraftSessionMaximumBytes+CraftEquipmentOverhead)throw std::length_error("Stream save size cap.");
             std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
             std::ifstream file(*savePath,std::ios::binary);
             if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
                 file.peek()!=std::char_traits<char>::eof())
                 throw std::runtime_error("Stream save read failed.");
-            if(bytes.size()>=CraftSessionMagic.size()&&
-                std::equal(CraftSessionMagic.begin(),CraftSessionMagic.end(),bytes.begin()))
+            std::span<const std::uint8_t> payload=bytes;
+            if(HasCraftEquipmentEnvelope(payload))
             {
-                auto decoded=DecodeCraftSession(bytes);
+                const auto decoded=DecodeCraftEquipmentEnvelope(payload,CraftSessionMaximumBytes);
+                equipment=decoded.Equipment;payload=decoded.Payload;
+            }
+            if(payload.size()>=CraftSessionMagic.size()&&
+                std::equal(CraftSessionMagic.begin(),CraftSessionMagic.end(),payload.begin()))
+            {
+                auto decoded=DecodeCraftSession(payload);
                 seed=decoded.Seed;world=std::make_unique<World>(std::move(decoded.World));
                 inventory=decoded.Inventory;
             }
             else
             {
-                auto decoded=DecodeStreamCraftSave(bytes);
+                auto decoded=DecodeStreamCraftSave(payload);
                 seed=decoded.Seed;world=std::make_unique<World>(std::move(decoded.World));
             }
         }
         const auto save=[&]()
         {
             if(!savePath)return;
-            const auto bytes=EncodeCraftSession(seed,*world,inventory);
+            const auto payload=EncodeCraftSession(seed,*world,inventory);
+            const auto bytes=EncodeCraftEquipmentEnvelope(payload,equipment,CraftSessionMaximumBytes);
             auto temporary=*savePath;temporary+=".tmp";
             if(std::filesystem::exists(temporary))throw std::runtime_error("Temporary save already exists.");
             try
@@ -144,20 +154,20 @@ int main(int argc,char** argv)
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
-            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress()};
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped};
             (void)hudPublication.Refresh(key,[&]()
             {
                 std::vector<ViewportOverlayRect> rects;
                 if(hudEnabled)
                 {
-                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress());
+                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped);
                     rects.reserve(layout.size());
                     // Paint opaque backing first, then icons and numerals.
                     // No camera, world origin or depth state is involved.
                     for(bool backing:{true,false})for(const auto& rect:layout)
                     {
                         if(rect.Background!=backing)continue;
-                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=450);
+                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=430);
                         if(p.Width&&p.Height)rects.push_back({p.X,p.Y,p.Width,p.Height,rect.Color});
                     }
                 }
@@ -186,11 +196,11 @@ int main(int argc,char** argv)
                     double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
                 const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
                 const auto up=ScreenUnit(ScreenCross(right,forward));
-                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress()))
+                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped))
                 {
                     const double depth=rect.Background?.16:.14;
                     const auto projected=ProjectCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,
-                        pose.VerticalFovRadians,depth,rect.Y>=450);
+                        pose.VerticalFovRadians,depth,rect.Y>=430);
                     const double dx=projected.X,dy=projected.Y;
                     const double width=projected.Width,height=projected.Height;
                     MeshDraw draw;
@@ -478,6 +488,7 @@ int main(int argc,char** argv)
                 vitals.Respawn(player.Feet[1]);
                 if(survival){createHud();hudEnabled=true;}
                 bool recipeOneHeld=false,recipeTwoHeld=false;
+                bool toolCraftHeld=false,toolToggleHeld=false;
                 bool jumpHeld=false,saveHeld=false;
                 bool leftHeld=false,rightHeld=false;
                 std::string previousTitle;
@@ -549,6 +560,10 @@ int main(int argc,char** argv)
                         if(one&&!recipeOneHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
                         if(two&&!recipeTwoHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
                         recipeOneHeld=one;recipeTwoHeld=two;
+                        const bool craftTool=key(GLFW_KEY_F)>0,toggleTool=key(GLFW_KEY_G)>0;
+                        if(craftTool&&!toolCraftHeld&&equipment.Craft(inventory.Counts))mining.Reset();
+                        if(toggleTool&&!toolToggleHeld&&equipment.Toggle())mining.Reset();
+                        toolCraftHeld=craftTool;toolToggleHeld=toggleTool;
                         constexpr std::array<const char*,4> labels{"Grass","Dirt","Stone","Building"};
                         std::string title="Kairo Craft | HP "+std::to_string(vitals.Health())+"/20 | ";
                         for(unsigned i=0;i<4;++i)
@@ -558,7 +573,8 @@ int main(int argc,char** argv)
                             if(i+1u==inventory.Selected)title+="]";
                             title+="  ";
                         }
-                        title+="| Hold LMB to mine | R/T craft | F5 save";
+                        title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
+                            " | F craft pick (2 dirt + 3 stone), G equip | R/T craft | F5 save";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
@@ -572,9 +588,10 @@ int main(int argc,char** argv)
                         (void)mining.Advance(left,target,dt,[&](const CraftMiningTarget& completed)
                         {
                             const VoxelCoordinate cell{completed.Cell[0],completed.Cell[1],completed.Cell[2]};
-                            if(query(cell)!=completed.Material)return false;
-                            return MineCraftBlock(inventory,cell,query,edit);
-                        });
+                            if(query(cell)!=completed.Material||!MineCraftBlock(inventory,cell,query,edit))return false;
+                            equipment.SuccessfulMine(completed.Material);
+                            return true;
+                        },target?equipment.Speed(target->Material):1.);
                         if(!left&&right&&!rightHeld&&hit&&hit->Placement)
                             (void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
                                 [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell);});
