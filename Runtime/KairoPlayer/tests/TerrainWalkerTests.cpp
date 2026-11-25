@@ -33,5 +33,36 @@ int main()
     TerrainWalkInput look;look.PitchDelta=100;look.YawDelta=100;
     (void)AdvanceTerrainWalker(walker,look,0,config,hill);
     Check(walker.Pitch==1.45&&std::abs(walker.Yaw)<=3.141592653589793,"Invalid camera angles");
+    TerrainWalker jumper;
+    (void)AdvanceTerrainWalker(jumper,{},0,config,flat);
+    TerrainWalkInput jump;jump.JumpPressed=true;
+    double peak=0;
+    for(unsigned i=0;i<240;++i)
+    {
+        (void)AdvanceTerrainWalker(jumper,i==0?jump:TerrainWalkInput{},1.0/120,config,flat);
+        peak=std::max(peak,jumper.FootY-3);
+        Check(jumper.FootY>=3,"Jump penetrated surface");
+        if(i==59)
+            Check(!jumper.Grounded&&std::abs(jumper.FootY-(3+2.5-.5*9.81*.25))<1e-10,
+                "Ballistic trajectory differs");
+    }
+    Check(jumper.Grounded&&jumper.FootY==3&&jumper.VerticalVelocity==0,"Landing failed");
+    Check(std::abs(peak-25/(2*9.81))<.0002,"Jump apex differs");
+    TerrainWalker air;
+    (void)AdvanceTerrainWalker(air,{},0,config,flat);
+    (void)AdvanceTerrainWalker(air,jump,.1,config,flat);
+    const double velocity=air.VerticalVelocity;
+    (void)AdvanceTerrainWalker(air,jump,.1,config,flat);
+    Check(air.VerticalVelocity<velocity,"Double jump accepted");
+    TerrainWalker moving;
+    (void)AdvanceTerrainWalker(moving,{},0,config,missing);
+    jump.Right=1;
+    (void)AdvanceTerrainWalker(moving,jump,.1,config,missing);
+    Check(moving.X==16&&!moving.Grounded&&moving.FootY>0,"Air movement entered unloaded cell");
+    const auto step=[](double x,double)->std::optional<double>{return x>16?10.0:0.0;};
+    TerrainWalker wall;
+    (void)AdvanceTerrainWalker(wall,jump,.1,config,step);
+    Check(wall.X==16&&wall.FootY<10,"Air movement penetrated tall step");
     std::cout<<"10000 grounded large-world steps, normalized diagonal speed, missing cells and grade rejection passed\n";
+    std::cout<<"Ballistic apex "<<peak<<" m, landing, no double jump and airborne barriers passed\n";
 }
