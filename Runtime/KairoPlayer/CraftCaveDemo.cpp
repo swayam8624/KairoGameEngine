@@ -15,7 +15,7 @@
 #include "CraftSaveFile.hpp"
 #include "CraftAutosave.hpp"
 #include "CraftCheckpoint.hpp"
-#include "CraftCreature.hpp"
+#include "CraftCreatureGroup.hpp"
 #include "CraftCombatReward.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
@@ -160,7 +160,7 @@ int main(int argc,char** argv)
         CraftVitals vitals;
         CraftNutrition nutrition;
         CraftMining mining;
-        CraftCreature creature;
+        CraftCreatureGroup creatures;
         CraftPickups pickups;
         unsigned aimedHealth=0;
         std::optional<MeshHandle> creatureMesh;
@@ -198,7 +198,7 @@ int main(int argc,char** argv)
                     TerrainRelativeFloat(o.Y,base.Y),TerrainRelativeFloat(o.Z,base.Z)});
                 draw.CastShadows=false;scene.Add(draw);
             }
-            if(creatureMesh&&creature.Body())
+            if(creatureMesh)for(const auto& creature:creatures.Members())if(creature.Body())
             {
                 const auto& feet=creature.Body()->Feet;
                 const std::array<double,3> anchor{feet[0]-base.X,feet[1]-base.Y,feet[2]-base.Z};
@@ -461,7 +461,7 @@ int main(int argc,char** argv)
                     });
                     if(!spawn)throw std::runtime_error("No supported clear cave spawn near the origin.");
                     settle(CaveObserver(spawn->Feet[0],spawn->Feet[1],spawn->Feet[2]));
-                    body=*spawn;vitals.Respawn(body.Feet[1]);mining.Reset();nutrition.Reset();creature.Reset();
+                    body=*spawn;vitals.Respawn(body.Feet[1]);mining.Reset();nutrition.Reset();creatures.Reset();
                 };
                 if(survival)
                 {
@@ -557,8 +557,7 @@ int main(int argc,char** argv)
                     const double dx=(std::sin(yaw)*f+std::cos(yaw)*r)/n,dz=(-std::cos(yaw)*f+std::sin(yaw)*r)/n;
                     const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
                     const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
-                    const auto previousCreature=creature.Body();
-                    const auto previousVisual=creature.Visual();
+                    const auto previousCreatures=creatures.State();
                     const auto previousPickups=pickups.Revision();
                     if(survival)pickups.Advance(dt);
                     if(survival)
@@ -569,7 +568,7 @@ int main(int argc,char** argv)
                             [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
                         (void)vitals.Observe(body.Feet[1],body.Grounded,support);
                         if(focused)nutrition.Advance(dt,sprint,vitals);
-                        if(!vitals.Dead())vitals.Damage(creature.Advance(dt,body,query));
+                        if(!vitals.Dead())vitals.Damage(creatures.Advance(dt,body,query));
                         if(vitals.Dead())respawn();
                         x=body.Feet[0];y=body.Feet[1]+config.EyeHeight;z=body.Feet[2];
                     }
@@ -602,7 +601,7 @@ int main(int argc,char** argv)
                         }
                         title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
                             " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
-                        if(creature.Body())title+=" | Sentinel HP "+std::to_string(creature.Health())+"/12";
+                        title+=" | Sentinels "+std::to_string(creatures.Count());
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
 
@@ -615,10 +614,10 @@ int main(int argc,char** argv)
                     const bool right=focused&&mouseCaptured&&mouseArmed&&rawRight;
                     if(survival)
                     {
-                        const bool combatAim=creature.Aimed({x,y,z},d,query);
+                        const auto combatAim=creatures.Aim({x,y,z},d,query);
                         if(left&&combatAim&&!leftHeld)
                         {
-                            const auto combat=CraftStrikeDrop(creature,inventory,pickups);
+                            const auto combat=CraftStrikeDrop(creatures.At(*combatAim),inventory,pickups);
                             if(combat.Defeated)
                                 std::cout<<"Stone sentinel defeated; loot dropped (overflow award "<<combat.StoneAwarded<<")\n";
                         }
@@ -635,7 +634,7 @@ int main(int argc,char** argv)
                         },target?equipment.Speed(target->Material):1.);
                         if(!left&&right&&!rightHeld&&hit&&hit->Placement)
                             (void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
-                                [&](auto cell){return !PlayerIntersectsBlock(body,config,cell)&&!creature.Occupies(cell);});
+                                [&](auto cell){return !PlayerIntersectsBlock(body,config,cell)&&!creatures.Occupies(cell);});
                     }
                     else if((left&&!leftHeld)||(right&&!rightHeld))
                     {
@@ -651,7 +650,7 @@ int main(int argc,char** argv)
                     // immediately. Placement is preflight feedback, not a
                     // promise that a subsequent native transaction will succeed.
                     std::optional<CraftTargetKey> aim;
-                    aimedHealth=survival&&mouseCaptured&&creature.Aimed({x,y,z},d,query)?creature.Health():0;
+                    aimedHealth=survival&&mouseCaptured?creatures.AimedHealth({x,y,z},d,query):0;
                     if(mouseCaptured&&!aimedHealth)
                         if(const auto pointed=TraceVoxels({x,y,z},d,8,64,query))
                         {
@@ -664,13 +663,11 @@ int main(int argc,char** argv)
                                 const auto cell=*pointed->Placement;
                                 aim->Placement=targetCell(cell);
                                 aim->Placeable=InCaveWorld(cell)&&query(cell)==VoxelAir&&(!survival||
-                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(body,config,cell)&&!creature.Occupies(cell)));
+                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(body,config,cell)&&!creatures.Occupies(cell)));
                             }
                         }
                     publishTarget(aim);
-                    const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
-                        (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
-                    const bool worldActorsChanged=creatureChanged||previousVisual!=creature.Visual()||previousPickups!=pickups.Revision();
+                    const bool worldActorsChanged=previousCreatures!=creatures.State()||previousPickups!=pickups.Revision();
                     if(worldActorsChanged)oldSubmit(pub.Active());
                     recordPlayer();autosave.Observe(saveStamp());
                     const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
@@ -687,7 +684,7 @@ int main(int argc,char** argv)
         }
         catch(...){hudEnabled=false;(void)pub.Release(oldSubmit,destroy);throw;}
         hudEnabled=false;
-        creature.Reset();pickups.Clear();
+        creatures.Reset();pickups.Clear();
         publishTarget(std::nullopt);
         refreshNativeHud();
         if(pub.Release(oldSubmit,destroy)!=0)throw std::runtime_error("Cave cleanup failed.");

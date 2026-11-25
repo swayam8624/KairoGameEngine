@@ -19,7 +19,7 @@
 #include "CraftSaveFile.hpp"
 #include "CraftAutosave.hpp"
 #include "CraftCheckpoint.hpp"
-#include "CraftCreature.hpp"
+#include "CraftCreatureGroup.hpp"
 #include "CraftCombatReward.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
@@ -208,7 +208,7 @@ int main(int argc,char** argv)
         CraftVitals vitals;
         CraftNutrition nutrition;
         CraftMining mining;
-        CraftCreature creature;
+        CraftCreatureGroup creatures;
         CraftPickups pickups;
         unsigned aimedHealth=0;
         std::optional<MeshHandle> creatureMesh;
@@ -249,7 +249,7 @@ int main(int argc,char** argv)
                 draw.CastShadows=false;
                 scene.Add(draw);
             }
-            if(creatureMesh&&creature.Body())
+            if(creatureMesh)for(const auto& creature:creatures.Members())if(creature.Body())
             {
                 const auto& feet=creature.Body()->Feet;
                 const std::array<double,3> anchor{feet[0]-base.X,feet[1]-base.Y,feet[2]-base.Z};
@@ -620,12 +620,12 @@ int main(int argc,char** argv)
                 std::cout<<"Native day/night lighting and unchanged mesh residency passed\n";
                 createCreature();
                 const auto survivor=spawn();
-                for(unsigned tick=0;tick<60;++tick)(void)creature.Advance(.05,survivor,query);
-                if(!creature.Body())throw std::runtime_error("Native creature spawn missing.");
-                const auto mob=creature.Body()->Feet;
+                for(unsigned tick=0;tick<60;++tick)(void)creatures.Advance(.05,survivor,query);
+                if(creatures.Count()!=1)throw std::runtime_error("Native staggered creature spawn missing.");
+                const auto mob=creatures.At(0).Body()->Feet;
                 committedSubmit(publication.Active());
                 const auto occupied=capture(mob[0],mob[2]);
-                creature.Reset();committedSubmit(publication.Active());
+                creatures.Reset();committedSubmit(publication.Active());
                 if(capture(mob[0],mob[2]).RGBA==occupied.RGBA)
                     throw std::runtime_error("Creature mesh was not visible.");
                 const auto emptyLoot=capture(mob[0],mob[2]);
@@ -746,8 +746,7 @@ int main(int argc,char** argv)
                     const double scale=12*dt/std::max(1.,std::hypot(f,r));
                     const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
                     const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
-                    const auto previousCreature=creature.Body();
-                    const auto previousVisual=creature.Visual();
+                    const auto previousCreatures=creatures.State();
                     const auto previousPickups=pickups.Revision();
                     if(survival)pickups.Advance(dt);
                     if(survival)
@@ -762,10 +761,10 @@ int main(int argc,char** argv)
                             [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
                         (void)vitals.Observe(player.Feet[1],player.Grounded,support);
                         if(focused)nutrition.Advance(dt,sprint,vitals);
-                        if(!vitals.Dead())vitals.Damage(creature.Advance(dt,player,query));
+                        if(!vitals.Dead())vitals.Damage(creatures.Advance(dt,player,query));
                         if(vitals.Dead())
                         {
-                            player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();nutrition.Reset();creature.Reset();
+                            player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();nutrition.Reset();creatures.Reset();
                         }
                         x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
                     }
@@ -807,7 +806,7 @@ int main(int argc,char** argv)
                         }
                         title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
                             " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
-                        if(creature.Body())title+=" | Sentinel HP "+std::to_string(creature.Health())+"/12";
+                        title+=" | Sentinels "+std::to_string(creatures.Count());
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool rawLeft=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
@@ -819,10 +818,10 @@ int main(int argc,char** argv)
                     const bool right=focused&&mouseCaptured&&mouseArmed&&rawRight;
                     if(survival)
                     {
-                        const bool combatAim=creature.Aimed({x,y,z},direction,query);
+                        const auto combatAim=creatures.Aim({x,y,z},direction,query);
                         if(left&&combatAim&&!leftHeld)
                         {
-                            const auto combat=CraftStrikeDrop(creature,inventory,pickups);
+                            const auto combat=CraftStrikeDrop(creatures.At(*combatAim),inventory,pickups);
                             if(combat.Defeated)
                                 std::cout<<"Stone sentinel defeated; loot dropped (overflow award "<<combat.StoneAwarded<<")\n";
                         }
@@ -839,7 +838,7 @@ int main(int argc,char** argv)
                         },target?equipment.Speed(target->Material):1.);
                         if(!left&&right&&!rightHeld&&hit&&hit->Placement)
                             (void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
-                                [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell)&&!creature.Occupies(cell);});
+                                [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell)&&!creatures.Occupies(cell);});
                     }
                     else if((left&&!leftHeld)||(right&&!rightHeld))
                     {
@@ -856,7 +855,7 @@ int main(int argc,char** argv)
                     // immediately. Placement is preflight feedback, not a
                     // promise that a subsequent native transaction will succeed.
                     std::optional<CraftTargetKey> aim;
-                    aimedHealth=survival&&mouseCaptured&&creature.Aimed({x,y,z},direction,query)?creature.Health():0;
+                    aimedHealth=survival&&mouseCaptured?creatures.AimedHealth({x,y,z},direction,query):0;
                     if(mouseCaptured&&!aimedHealth)
                         if(const auto pointed=TraceVoxels({x,y,z},direction,8,64,query))
                         {
@@ -869,13 +868,11 @@ int main(int argc,char** argv)
                                 const auto cell=*pointed->Placement;
                                 aim->Placement=targetCell(cell);
                                 aim->Placeable=InStreamCraftWorld(cell)&&query(cell)==VoxelAir&&(!survival||
-                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(player,bodyConfig,cell)&&!creature.Occupies(cell)));
+                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(player,bodyConfig,cell)&&!creatures.Occupies(cell)));
                             }
                         }
                     publishTarget(aim);
-                    const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
-                        (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
-                    const bool worldActorsChanged=creatureChanged||previousVisual!=creature.Visual()||previousPickups!=pickups.Revision();
+                    const bool worldActorsChanged=previousCreatures!=creatures.State()||previousPickups!=pickups.Revision();
                     if(worldActorsChanged)committedSubmit(publication.Active());
                     recordPlayer();autosave.Observe(saveStamp());
                     const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
@@ -892,7 +889,7 @@ int main(int argc,char** argv)
         }
         catch(...){hudEnabled=false;(void)publication.Release(committedSubmit,destroy);throw;}
         hudEnabled=false;
-        creature.Reset();pickups.Clear();
+        creatures.Reset();pickups.Clear();
         publishTarget(std::nullopt);
         refreshNativeHud();
         if(publication.Release(committedSubmit,destroy)!=0)throw std::runtime_error("Streamed Craft shutdown retained meshes.");
