@@ -190,6 +190,12 @@ if(BUILD_TESTING)
     set_property(TARGET KairoCraftTargetFeedbackTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
     add_test(NAME KairoCraftTargetFeedbackTests COMMAND KairoCraftTargetFeedbackTests)
     # Seeded weather and light modulation need no renderer to test.
+    # Rain geometry is sampled independently of native scene publication.
+    add_executable(KairoPlayerRainStreaksTests tests/RuntimeRainStreaksTests.cpp)
+    target_include_directories(KairoPlayerRainStreaksTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(KairoPlayerRainStreaksTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerRainStreaksTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerRainStreaksTests COMMAND KairoPlayerRainStreaksTests)
     add_executable(KairoPlayerWeatherTests tests/RuntimeWeatherTests.cpp)
     target_include_directories(KairoPlayerWeatherTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(KairoPlayerWeatherTests PRIVATE cxx_std_23)

@@ -409,3 +409,5 @@ Follow their matching tests from the integration inventory. These six paths have
 ## M50 weather
 
 Read [CraftDaylight](Runtime/KairoPlayer/CraftDaylight.hpp), [weather timeline](Runtime/KairoPlayer/RuntimeWeather.hpp), [weather tests](Runtime/KairoPlayer/tests/RuntimeWeatherTests.cpp), then the applyDaylight and active loop in [CraftStreamDemo](Runtime/KairoPlayer/CraftStreamDemo.cpp). Follow the quantized simulation key to RenderEnvironment and the scene submission.
+
+After the weather timeline, read [rain geometry sampling](Runtime/KairoPlayer/RuntimeRainStreaks.hpp), [rain tests](Runtime/KairoPlayer/tests/RuntimeRainStreaksTests.cpp), then the rain draw construction and native capture gate in [CraftStreamDemo](Runtime/KairoPlayer/CraftStreamDemo.cpp). Trace absolute positions into render-relative float transforms and shared GPU handle lifetime.

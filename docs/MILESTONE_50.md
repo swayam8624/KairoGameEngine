@@ -89,3 +89,5 @@ Client prediction and reconciliation now run in the real loopback sample and pas
 ## Candidate progress: weather
 
 Seeded weather timeline and renderer-neutral light modulation pass portable tests. The streamed Craft Player now opts into actual lighting changes with --weather. Native acceptance and visible rain remain open; no 50% promotion yet.
+
+Visible precipitation draw submission and a native capture/removal gate are now implemented on the candidate branch. Portable geometry tests pass; native smoke remains pending, so no accepted 50% promotion.

@@ -178,3 +178,7 @@ Nutrition drains one point per 30 seconds at rest, three times faster while spri
 Known gaps: expanded combat and NPC behavior, food varieties, item varieties, textured materials,
 full UI text and independent game distribution are still outstanding. Native
 interactive focus and mouse behavior require a real playtest.
+
+## Experimental weather (M50 candidate)
+
+Add `--weather` to the KairoCraftStream launch command. The seeded cycle progresses from clear to overcast and rain, then clears; the first rain begins around one active minute. Lighting and bounded camera-local rain geometry share the existing terrain submission. Weather time is session-local, and rain has no physics or accumulation. The smoke path now contains a rain visibility/removal gate; it must pass on a native host before acceptance.
