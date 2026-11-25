@@ -1,10 +1,12 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller]
+    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window]
   pull_request:
     paths:
       - 'workspace.lock'
+      - 'Runtime/KairoPlayer/CraftStreamingWindow.hpp'
+      - 'Runtime/KairoPlayer/tests/CraftStreamingWindowTests.cpp'
       - 'Runtime/KairoPlayer/VoxelPlayer.hpp'
       - 'Runtime/KairoPlayer/tests/VoxelPlayerTests.cpp'
       - 'Runtime/KairoPlayer/CraftSave.hpp'
@@ -90,6 +92,10 @@ jobs:
         run: |
           g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/VoxelPlayerTests.cpp -o /tmp/voxel-player-test
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/voxel-player-test
+      - name: Verify stable streamed voxel windows
+        run: |
+          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftStreamingWindowTests.cpp -o /tmp/craft-window-test
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-window-test
   native-vulkan:
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -118,12 +124,12 @@ jobs:
       - name: Compile procedural viewport against explicit LOD review candidate
         run: |
           cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DCMAKE_BUILD_TYPE=Release
-          cmake --build --preset game-player-clang --parallel 2 --target KairoCraft KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests KairoCraftWorldTests KairoVoxelChunkSurfaceTests KairoVoxelInteractionTests KairoTerrainDemo KairoTerrainExplorer KairoTerrainWalkerTests KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests KairoTerrainScreenErrorTests
+          cmake --build --preset game-player-clang --parallel 2 --target KairoCraft KairoCraftStreamingWindowTests KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests KairoCraftWorldTests KairoVoxelChunkSurfaceTests KairoVoxelInteractionTests KairoTerrainDemo KairoTerrainExplorer KairoTerrainWalkerTests KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests KairoTerrainScreenErrorTests
       - name: Run required native streamed-terrain capture
         run: |
           set -euo pipefail
           mkdir -p build/terrain-diagnostics
-          ctest --test-dir build/game-player-clang -R '^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer)Tests$' --output-on-failure
+          ctest --test-dir build/game-player-clang -R '^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow)Tests$' --output-on-failure
           export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --async 2>&1 | tee build/terrain-diagnostics/async-smoke.log
