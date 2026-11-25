@@ -370,3 +370,7 @@ All 26 sibling trees from the current workspace.lock have individual file checkl
 2. [IK regression](Runtime/KairoPlayer/tests/RuntimeTwoBoneIKTests.cpp): bone length and target invariants.
 3. [Interactive CPU lab](Samples/AnimationLab/TwoBoneIKDemo.cpp) and [instructions](Samples/AnimationLab/README.md).
 4. [Pinned animation runtime and skin palette](docs/study/KairoEngineCore.md): read AnimationRuntime.cppm and GltfSkinningRuntime.cppm before the future joint rotation adapter.
+
+## Quest persistence follow-up
+
+Read [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp) first (bounded I/O and publication), then [RuntimeQuestSave.hpp](Runtime/KairoPlayer/RuntimeQuestSave.hpp) (versioned format and two-object transaction), [save tests](Runtime/KairoPlayer/tests/RuntimeQuestSaveTests.cpp), and [the demo](Samples/QuestDialogue/QuestDialogueDemo.cpp).
