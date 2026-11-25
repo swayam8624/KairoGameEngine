@@ -83,3 +83,26 @@ produce temporary faces and set MissingNeighbors; unknown interior samples
 reject the build. A native adapter and transactional remesh/invalidation on
 block edits are required next. No persistent save format or rendered voxel
 game is claimed by these CPU helpers.
+
+## Kairo Craft: bounded creative prototype (review candidate)
+
+Build with the same opt-in procedural terrain preset, then build target
+`KairoCraft`. Run:
+
+```sh
+./build/game-player-clang/Runtime/KairoPlayer/KairoCraft --seed 42 --renderer auto --save craft.kworld
+````
+
+WASD moves in creative flight, arrows look, Space ascends, Left Ctrl descends,
+left mouse removes a block, right mouse places a colored block, F5 saves to
+the explicit path, and Escape exits. An existing save supplies the seed and
+edits on startup. No automatic writes; use F5. The finite 48 x 16 x 48 world
+uses nine 16-cubed chunks, grass/dirt/stone and placed-block materials. Edits
+rebuild only the owning chunk and affected face neighbors, and occupancy is
+committed only after the candidate render scene is successfully submitted.
+The save is versioned and checksummed, with bounded signed-coordinate edits.
+The file replacement assumes one writer and is not a power-loss durability
+guarantee. The demo currently uses creative flight, not voxel body physics;
+no infinite streaming, inventory, texture atlas or multiplayer yet.
+Native acceptance is pending. Do not treat the candidate dependency override
+as an accepted release lock.
