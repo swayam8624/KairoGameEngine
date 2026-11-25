@@ -129,3 +129,7 @@ Complete playable terminal route with movement, jump, hazard, respawn, collectib
 ## Candidate progress: strategy
 
 Playable select/move/gather/deposit loop reaches six-resource goal through a wall-and-gap map. Portable tests pass both compilers. Native rendering, editor-authored maps, general pathfinding integration and workspace CI remain open.
+
+## Candidate progress: native RPG, platformer and strategy host
+
+Common native 2D overlay host, controls and full objective smoke gates added. Pixel layout tested; native build/capture and full workspace acceptance still pending. No 50% promotion without that evidence.

@@ -478,3 +478,7 @@ After the network protocol and prediction lab, read [directory](scripts/kairo_ma
 ## M50 strategy
 
 Read [strategy kernel](Runtime/KairoPlayer/RuntimeStrategy.hpp), especially occupancy, BFS first-step propagation, deterministic unit scheduling and resource accounting. Follow [invariant tests](Runtime/KairoPlayer/tests/RuntimeStrategyTests.cpp), [terminal selection/order host](Samples/StrategyLab/StrategyDemo.cpp) and [instructions](Samples/StrategyLab/README.md). Compare the EngineCore and AI navigation contracts before integrating a general crowd system.
+
+## Native game lab
+
+After the platformer, strategy and quest kernels, read [grid canvas](Runtime/KairoPlayer/RuntimeGridCanvas.hpp) and [layout tests](Runtime/KairoPlayer/tests/RuntimeGridCanvasTests.cpp), then [GameLab](Runtime/KairoPlayer/GameLab.cpp): simulation state -> letterboxed pixel rectangles -> overlay -> native input and clock -> capture. [Run instructions](Samples/GameLab/README.md). Follow RuntimeMenuFocus for glyphs, RuntimeFrameClock for bounded active time and RuntimeQuestSave for persistence.
