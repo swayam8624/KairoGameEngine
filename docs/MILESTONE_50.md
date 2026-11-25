@@ -145,3 +145,7 @@ Actual Debian archive generation and relocated native ELF fixture execution pass
 ## Candidate progress: web deployment
 
 Actual freestanding C++ WASM build and 20,279 native/WASM state/map comparisons passed. Static responsive Canvas host and browser acceptance fixture added. Browser execution was blocked/timed out locally, and the native GPU renderer/general exporter/mobile-native deployment are outside this slice. No accepted 50% promotion pending browser and workspace evidence.
+
+## Post-merge integration status (2026-11-26)
+
+The previous implementation stack is merged into main. Follow-up fixes isolate modal gameplay input, use identical pixel hit/draw bounds, test native sample rectangle generation, repair rain mesh teardown, and reuse bounded dynamic mesh publication. [Expanded portable evidence](evidence/m50-portable-integration-2026-11-26.json) proves 28 execution gates per compiler at 58 exact source blobs. The [native acceptance runner](M50_NATIVE_ACCEPTANCE.md) requires six actual Vulkan/Metal sample gates and rejects skips; native CI execution is still pending. This is not a percentage promotion. Mobile native packaging, graphical editor authoring, native animation integration, real GPU capture and full release acceptance remain open.

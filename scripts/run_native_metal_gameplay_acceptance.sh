@@ -65,6 +65,7 @@ player="$build/Runtime/KairoPlayer"
 "$player/KairoTerrainExplorer" --renderer metal --seed 42 --smoke 2>&1 | tee "$logdir/explorer.log"
 "$player/KairoCraftStream" --renderer metal --seed 42 --survival --workers 4 --uploads 2 --smoke 2>&1 | tee "$logdir/craft.log"
 "$player/KairoCraftCaves" --renderer metal --seed 42 --smoke 2>&1 | tee "$logdir/caves.log"
+python3 scripts/run_m50_native_acceptance.py --build "$build" --evidence "$logdir/m50-native" --jobs "${KAIRO_BUILD_JOBS:-2}"
 # Stage the exact built games outside the source/build tree and run both
 # copied executables through relative launchers. Do not write user saves.
 bundleParent="$(mktemp -d)"

@@ -6,6 +6,11 @@ on:
     paths:
       - 'workspace.lock'
       - 'scripts/run_native_metal_gameplay_acceptance.sh'
+      - 'scripts/run_m50_native_acceptance.py'
+      - 'Runtime/KairoPlayer/GameLab.cpp'
+      - 'Runtime/KairoPlayer/SimulationLab.cpp'
+      - 'Runtime/KairoPlayer/RuntimeGameLabView.hpp'
+      - 'Runtime/KairoPlayer/RuntimeTetraSurface.hpp'
       - 'Runtime/KairoPlayer/CraftRecipesHud.hpp'
       - 'Runtime/KairoPlayer/CraftHudProjection.hpp'
       - 'Runtime/KairoPlayer/CraftHudPublication.hpp'
@@ -170,6 +175,12 @@ jobs:
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoCraftStream --renderer vulkan --seed 42 --survival --workers 4 --uploads 2 --smoke 2>&1 | tee build/terrain-diagnostics/craft-async-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoCraftCaves --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/craft-caves-smoke.log
           if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/*smoke.log; then exit 1; fi
+      - name: Require six exact-lock M50 native sample gates
+        run: |
+          set -euo pipefail
+          export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" python3 scripts/run_m50_native_acceptance.py --build build/game-player-clang --evidence build/terrain-diagnostics/m50-native
+          if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/m50-native/ctest/results.xml; then exit 1; fi
       - name: Require copied Craft binaries from a relocated development bundle
         run: |
           set -euo pipefail
