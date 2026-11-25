@@ -502,6 +502,15 @@ No tests are considered passed merely because a tree was combined.
 Native renderer review pin must be replaced with an approved merged
 revision before a final release lock is certified.
 
+Engine #77 responsive HUD also merged while this candidate was being
+created, at 50df678b179b56be7937c524195ca4ca06d14aa6. Three-way comparison against the historical #77 head
+ced02cb9fdc41f71331a212c1de34afcda5deee0 found no main-only source changes
+and only workflow branch-list, ledger and renderer lock conflicts.
+The combined candidate already retains the main workflow triggers and
+responsive HUD evidence; renderer review pin remains intentionally distinct.
+Merge current main into the integration branch without changing source
+blobs, apart from this ledger note.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
