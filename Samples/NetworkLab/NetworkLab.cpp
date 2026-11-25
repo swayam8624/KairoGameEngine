@@ -1,4 +1,5 @@
 #include "../../Runtime/KairoPlayer/RuntimeLoopbackTcp.hpp"
+#include "../../Runtime/KairoPlayer/RuntimeNetworkPrediction.hpp"
 #include <iostream>
 #include <string>
 using namespace kairo::player::detail;
@@ -20,10 +21,14 @@ int main(int argc,char** argv)
         {
             const auto port=std::stoul(argv[2]);if(!port||port>65535)throw std::invalid_argument("Invalid port.");
             auto peer=LoopbackTcp::Connect(static_cast<std::uint16_t>(port));
-            NetworkFrame snapshot{NetworkKind::Snapshot,0,0,0};
+            NetworkPrediction prediction;
+            NetworkFrame snapshot=prediction.Acknowledged();
             for(std::uint32_t tick=1;tick<=10;++tick)
             {
-                peer.Send({NetworkKind::Input,tick,1,tick%2?1:-1});snapshot=peer.Receive();
+                // Predict immediately, then reconcile against the server reply.
+                peer.Send(prediction.Predict(1,tick%2?1:-1));snapshot=peer.Receive();
+                if(!prediction.Reconcile(snapshot)||!prediction.Pending().empty()||prediction.Predicted()!=snapshot)
+                    throw std::runtime_error("Client reconciliation failed.");
                 if(snapshot!=NetworkFrame{NetworkKind::Snapshot,tick,static_cast<std::int32_t>(tick),tick%2?1:0})
                     throw std::runtime_error("Authoritative snapshot mismatch.");
             }

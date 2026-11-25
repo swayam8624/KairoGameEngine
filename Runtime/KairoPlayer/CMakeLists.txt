@@ -99,6 +99,11 @@ if(BUILD_TESTING)
     set_property(TARGET KairoPlayerAnimationRetargetTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
     add_test(NAME KairoPlayerAnimationRetargetTests COMMAND KairoPlayerAnimationRetargetTests)
     # Protocol unit tests never open a socket. The lab uses two processes.
+    # Prediction tests model delivery impairment independently of sockets.
+    add_executable(KairoPlayerNetworkPredictionTests tests/RuntimeNetworkPredictionTests.cpp)
+    target_compile_features(KairoPlayerNetworkPredictionTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerNetworkPredictionTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerNetworkPredictionTests COMMAND KairoPlayerNetworkPredictionTests)
     add_executable(KairoPlayerNetworkProtocolTests tests/RuntimeNetworkProtocolTests.cpp)
     target_compile_features(KairoPlayerNetworkProtocolTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerNetworkProtocolTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
