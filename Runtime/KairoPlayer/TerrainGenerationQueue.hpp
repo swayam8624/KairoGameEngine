@@ -74,7 +74,10 @@ namespace kairo::player::detail
         [[nodiscard]] std::optional<Completion> TryTake()
         {
             std::lock_guard lock(m_Mutex);
-            for(auto& slot:m_Slots)
+            for(std::size_t i=0;i<m_Slots.size();++i)
+            {
+                const auto index=(m_NextReady+i)%m_Slots.size();
+                auto& slot=m_Slots[index];
                 if(slot.Status==State::Ready)
                 {
                     std::optional<Completion> result(std::in_place,
@@ -84,8 +87,10 @@ namespace kairo::player::detail
                     slot.Failure=nullptr;
                     slot.Status=State::Free;
                     --m_Occupied;
+                    m_NextReady=(index+1u)%m_Slots.size();
                     return result;
                 }
+            }
             return std::nullopt;
         }
 
@@ -154,7 +159,7 @@ namespace kairo::player::detail
         std::vector<Slot> m_Slots;
         mutable std::mutex m_Mutex;
         std::condition_variable m_Wake;
-        std::size_t m_Occupied=0,m_NextWork=0;
+        std::size_t m_Occupied=0,m_NextWork=0,m_NextReady=0;
         bool m_Stop=false;
         std::thread m_Worker;
     };
