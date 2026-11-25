@@ -2,7 +2,7 @@ module;
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include "RuntimeMenuFocus.hpp"
+#include "RuntimeMenuPresentation.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -52,7 +52,9 @@ export namespace kairo::player
             if(m_Up.Press(key(GLFW_KEY_UP))){m_Focus.Move(true);m_Focus.CancelPointer();}
             if(m_Down.Press(key(GLFW_KEY_DOWN))){m_Focus.Move(false);m_Focus.CancelPointer();}
             if(m_Scale.Press(key(GLFW_KEY_F2)))m_LargeText=!m_LargeText;
-            const auto target=Hit(window,width,height);
+            // Build one set of physical boxes for both pointer and presentation.
+            const auto buttons=VisualButtons(width,height);
+            const auto target=Hit(window,width,height,buttons);
             const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
             if(m_Mouse.Press(down)){m_Focus.PointerDown(target);m_PointerHeld=true;}
             bool activate=m_Confirm.Press(key(GLFW_KEY_ENTER)||key(GLFW_KEY_SPACE));
@@ -67,7 +69,7 @@ export namespace kairo::player
                 if(action=="quit"){m_Renderer.NativeWindow().RequestClose();return true;}
                 if(action=="resume"){m_Active=false;Clear();return true;}
             }
-            Publish(width,height);
+            Publish(buttons);
             return true;
         }
     private:
@@ -83,57 +85,43 @@ export namespace kairo::player
             m_Tab.Reset();m_Up.Reset();m_Down.Reset();m_Confirm.Reset();m_Mouse.Reset();m_Scale.Reset();
             m_Focus.CancelPointer();m_PointerHeld=false;
         }
+        // Layout remains owned by the shipping model. Quantize at the renderer
+        // boundary once per frame, with the same boxes used for hit testing.
+        [[nodiscard]] std::vector<detail::MenuVisualButton> VisualButtons(std::uint32_t width,std::uint32_t height) const
+        {
+            std::vector<detail::MenuVisualButton> buttons;buttons.reserve(m_Order.size());
+            for(const auto& id:m_Order)
+            {
+                const auto r=m_UI.Layout(id,width,height);
+                buttons.push_back({detail::QuantizeMenuBox(r.X,r.Y,r.Width,r.Height,width,height),m_UI.Text(id,"en")});
+            }
+            return buttons;
+        }
         // GLFW pointer coordinates are logical window pixels; the renderer
         // layout is physical framebuffer pixels (e.g. Retina 2x).
-        [[nodiscard]] std::optional<std::size_t> Hit(GLFWwindow* window,std::uint32_t width,std::uint32_t height) const
+        [[nodiscard]] static std::optional<std::size_t> Hit(GLFWwindow* window,std::uint32_t width,std::uint32_t height,
+            std::span<const detail::MenuVisualButton> buttons)
         {
             int ww=0,wh=0;glfwGetWindowSize(window,&ww,&wh);
             if(ww<=0||wh<=0)return {};
             double x=0,y=0;glfwGetCursorPos(window,&x,&y);x*=double(width)/ww;y*=double(height)/wh;
-            for(std::size_t i=0;i<m_Order.size();++i)
-            {
-                const auto r=m_UI.Layout(m_Order[i],width,height);
-                if(x>=r.X&&x<r.X+r.Width&&y>=r.Y&&y<r.Y+r.Height)return i;
-            }
-            return {};
+            return detail::HitMenu(buttons,x,y);
         }
         void Clear()
         {
             m_Renderer.SetViewportOverlay({});
             glfwSetWindowTitle(m_Renderer.NativeWindow().NativeHandle(),m_Title.c_str());m_LastTitle.clear();
         }
-        // Rectangles are opaque and ordered. A contrasting yellow focus
-        // border is independent of the label color. Limit glyph instances
-        // to the renderer's 4096-rectangle budget, and fit to each button.
-        // Full focused label remains available in the native window title.
-        void Publish(std::uint32_t width,std::uint32_t height)
+        // Translate tested portable overlay values into renderer-owned
+        // rectangles; no additional geometry policy lives in this host.
+        void Publish(std::span<const detail::MenuVisualButton> buttons)
         {
-            using kairo::renderer::ViewportOverlayRect;
-            std::vector<ViewportOverlayRect> rects;
-            const auto add=[&](int x,int y,int w,int h,std::array<float,3> color)
+            const auto overlay=detail::BuildMenuOverlay(buttons,m_Focus.Index(),m_LargeText);
+            std::vector<kairo::renderer::ViewportOverlayRect> rects;rects.reserve(overlay.size());
+            for(const auto& rect:overlay)
             {
-                if(w>0&&h>0)rects.push_back({x,y,static_cast<std::uint32_t>(w),static_cast<std::uint32_t>(h),color});
-            };
-            const auto glyphBudget=(4096u-2u*m_Order.size())/(35u*m_Order.size());
-            for(std::size_t i=0;i<m_Order.size();++i)
-            {
-                const auto r=m_UI.Layout(m_Order[i],width,height);
-                const int x=static_cast<int>(r.X),y=static_cast<int>(r.Y),w=static_cast<int>(r.Width),h=static_cast<int>(r.Height);
-                const bool selected=i==m_Focus.Index();
-                add(x,y,w,h,selected?std::array<float,3>{1,.75f,.15f}:std::array<float,3>{.45f,.5f,.55f});
-                add(x+3,y+3,w-6,h-6,{.035f,.045f,.065f});
-                auto label=m_UI.Text(m_Order[i],"en");
-                label.resize(std::min(label.size(),glyphBudget));
-                if(label.empty()||w<=8||h<=8)continue;
-                const int scale=std::min({m_LargeText?6:3,(w-8)/static_cast<int>(label.size()*6),(h-8)/7});
-                if(scale<1)continue;
-                const int left=x+(w-static_cast<int>(label.size()*6)*scale)/2,top=y+(h-7*scale)/2;
-                for(std::size_t c=0;c<label.size();++c)
-                {
-                    const auto rows=detail::MenuGlyph(label[c]);
-                    for(unsigned row=0;row<7;++row)for(unsigned col=0;col<5;++col)
-                        if(rows[row]&(1u<<(4-col)))add(left+static_cast<int>(c*6+col)*scale,top+static_cast<int>(row)*scale,scale,scale,{1,1,1});
-                }
+                const auto& r=rect.Box;
+                rects.push_back({r.X,r.Y,static_cast<std::uint32_t>(r.W),static_cast<std::uint32_t>(r.H),rect.Color});
             }
             m_Renderer.SetViewportOverlay(rects);
             const auto title=m_Title+" | "+m_UI.AccessibleLabel(m_Order[m_Focus.Index()],"en")+" | Tab/Enter, F2 text size, F1 menu";

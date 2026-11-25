@@ -13,13 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PLAYER = ROOT / 'Runtime/KairoPlayer'
 TESTS = ('QuestDialogue', 'QuestSave', 'TwoBoneIK', 'AnimationRetarget',
          'NetworkProtocol', 'NetworkPrediction', 'Weather', 'RainStreaks',
-         'WaterGrid', 'SoftBody', 'BreakableCube', 'MenuDocument', 'MenuFocus',
+         'WaterGrid', 'SoftBody', 'BreakableCube', 'MenuDocument', 'MenuFocus', 'MenuPresentation',
          'Platformer', 'Strategy', 'GridCanvas')
 HEADERS = ('CraftSaveFile.hpp', 'RuntimeQuestDialogue.hpp', 'RuntimeQuestSave.hpp',
            'RuntimeTwoBoneIK.hpp', 'RuntimeAnimationRetarget.hpp', 'RuntimeNetworkProtocol.hpp',
            'RuntimeNetworkPrediction.hpp', 'RuntimeLoopbackTcp.hpp', 'RuntimeWeather.hpp',
            'RuntimeRainStreaks.hpp', 'RuntimeWaterGrid.hpp', 'RuntimeSoftBody.hpp',
-           'RuntimeBreakableCube.hpp', 'RuntimeMenuDocument.hpp', 'RuntimeMenuFocus.hpp',
+           'RuntimeBreakableCube.hpp', 'RuntimeMenuDocument.hpp', 'RuntimeMenuFocus.hpp', 'RuntimeMenuPresentation.hpp',
            'RuntimePlatformerCore.hpp', 'RuntimePlatformer.hpp', 'RuntimeStrategy.hpp', 'RuntimeGridCanvas.hpp',
            'RuntimePluginABI.h', 'RuntimePluginLoader.hpp')
 SAMPLES = ('Samples/NetworkLab/NetworkLab.cpp', 'Samples/NetworkLab/run_pair.py',

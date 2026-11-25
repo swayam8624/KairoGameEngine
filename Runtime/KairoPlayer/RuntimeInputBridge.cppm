@@ -32,7 +32,9 @@ export namespace kairo::player
         /// keyboard and mouse controls referenced by the map are queried;
         /// standardized gamepad slots are refreshed in full so disconnects
         /// cannot leave stale buttons or axes held.
-        void Poll(kairo::renderer::Window& window)
+        // Modal owners may suppress gameplay sampling; this uses the same
+        // release-to-arm reset as focus loss, including analog controls.
+        void Poll(kairo::renderer::Window& window,bool gameplayEnabled=true)
         {
             // Snapshot previous input values before polling current controls;
             // Evaluate uses the pair to derive press and release transitions.
@@ -41,7 +43,7 @@ export namespace kairo::player
             const auto [width,height]=window.FramebufferExtent();
             // Treat unfocused, iconified and zero-framebuffer windows as
             // inactive. Neutral state must not generate held controls on resume.
-            const bool active=glfwGetWindowAttrib(native,GLFW_FOCUSED)==GLFW_TRUE&&
+            const bool active=gameplayEnabled&&glfwGetWindowAttrib(native,GLFW_FOCUSED)==GLFW_TRUE&&
                 glfwGetWindowAttrib(native,GLFW_ICONIFIED)!=GLFW_TRUE&&width!=0&&height!=0;
             // Every physical gate is independent; release-to-arm prevents a
             // held key or axis from being reintroduced after focus loss.

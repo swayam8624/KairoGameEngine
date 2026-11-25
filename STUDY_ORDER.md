@@ -501,3 +501,7 @@ Read [RuntimePackaging.cppm](Runtime/KairoPlayer/RuntimePackaging.cppm) first: m
 ## WebAssembly platformer
 
 Read [shared freestanding game core](Runtime/KairoPlayer/RuntimePlatformerCore.hpp), [native wrapper](Runtime/KairoPlayer/RuntimePlatformer.hpp), [WASM C ABI](Samples/WebPlatformer/PlatformerWasm.cpp), [browser host](Samples/WebPlatformer/game.js), [HTML](Samples/WebPlatformer/index.html), [build tool](scripts/build_web_platformer.py), [native trace](Samples/WebPlatformer/PlatformerNativeTrace.cpp), [parity oracle](Samples/WebPlatformer/verify_wasm.mjs) and [browser gate](scripts/tests/test_web_platformer.py). Follow the 60 Hz transition across different memory ownership and presentation adapters. [Guide](docs/WEB_PLATFORMER.md).
+
+## Menu integration follow-up
+
+Read [RuntimeMenuPresentation](Runtime/KairoPlayer/RuntimeMenuPresentation.hpp) and [presentation tests](Runtime/KairoPlayer/tests/RuntimeMenuPresentationTests.cpp) before RuntimeMenuHost. Trace one set of integer physical boxes through hit testing and glyph runs, then follow modal input suppression through RuntimeInputBridge::Poll and main.cpp's player-controller clear and framebuffer resize. The renderer consumes the same overlay geometry; native acceptance is separate.
