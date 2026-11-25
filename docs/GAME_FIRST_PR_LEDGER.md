@@ -248,6 +248,10 @@ The malformed candidate workflow was reconstructed from #75 in 9ee2aca; GitHub a
 
 Separate feature branch on the combined candidate, preserving #76's acceptance head. Both Craft demos share camera-plane projection with uniform scaling, a centered crosshair and bottom-aligned hotbar. Interactive framebuffer changes explicitly resize the offscreen target, excluding zero-sized minimized windows; smoke defaults remain 960x540. Exact standalone header/test blobs f2a3a037d673ebcb3a89c03d36101b69a7deb702 and ee6259563e820e6c4fe5149ef9d2f112b451b700 passed 100,000 seeded randomized projections locally (Clang 17, Linux x86_64, ASan/UBSan). Native portrait 480x720 and wide 1280x480 smoke now checks actual capture dimensions, HUD-on/off difference, world restoration and original 960x540 restoration in both demos. Native resized rendering and module compilation remain unverified. This is still depth-tested scene geometry, not the final screen-space compositor.
 
+### Native Vulkan Craft overlay (2026-11-25)
+
+Renderer #39 introduces bounded opaque pixel rectangles after world draws in the Vulkan viewport color attachment, before capture; depth and picking attachment remain untouched. Engine candidate pins its exact review commit 0c0c85625637b365910113c7e444e0687bac03c2. Both Craft demos route Vulkan HUDs through the rectangle list, avoid HUD mesh allocation, paint backing before glyphs and share quantized pixel edges across sizes. Metal/OpenGL/D3D12 retain the earlier camera-aligned fallback. Added CPU shared-edge and bounds regressions, plus renderer-native clipping/order/picking/capture regression. Native and new CPU results pending. This is a review lock, not the accepted merged dependency snapshot. Alpha blending, text shaping and native backend parity remain open.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

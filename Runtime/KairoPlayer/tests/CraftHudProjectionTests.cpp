@@ -16,6 +16,11 @@ int main()
         const double fov=.2+(rng()%2500)/1000.,depth=.1+(rng()%1000)/1000.;
         const auto center=ProjectCraftHudRect(v,479,269,2,2,fov,depth,false);
         const auto hotbar=ProjectCraftHudRect(v,356,472,56,56,fov,depth,true);
+        const auto pixels=QuantizeCraftHudRect(v,356,472,56,56,true);
+        Check(pixels.X>=0&&pixels.Y>=0&&std::uint32_t(pixels.X)+pixels.Width<=v.Width&&
+            std::uint32_t(pixels.Y)+pixels.Height<=v.Height,"Pixel rect escaped viewport");
+        const auto adjacent=QuantizeCraftHudRect(v,412,472,4,56,true);
+        Check(std::uint32_t(pixels.X)+pixels.Width==std::uint32_t(adjacent.X),"Shared pixel edge differs");
         const double pixel=2*depth*std::tan(fov*.5)/v.Height;
         const double scale=std::min(v.Width/960.,v.Height/540.);
         Check(Near(center.X,0)&&Near(center.Y,0),"Crosshair moved off center");
@@ -28,6 +33,8 @@ int main()
     const double fov=1.,depth=.14,pixel=2*depth*std::tan(fov*.5)/540;
     const auto reference=ProjectCraftHudRect({},356,472,56,56,fov,depth,true);
     Check(Near(reference.X,(356+28-480)*pixel)&&Near(reference.Y,(270-472-28)*pixel),"Reference layout changed");
+    const auto exact=QuantizeCraftHudRect({},356,472,56,56,true);
+    Check(exact.X==356&&exact.Y==472&&exact.Width==56&&exact.Height==56,"Reference pixel bounds changed");
     bool rejected=false;
     try{(void)ProjectCraftHudRect({0,540},0,0,1,1,fov,depth,false);}catch(const std::invalid_argument&){rejected=true;}
     Check(rejected,"Zero viewport accepted");

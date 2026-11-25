@@ -67,6 +67,7 @@ int main(int argc,char** argv)
         }
         RendererRuntime renderer({"Kairo Craft Stream: WASD / arrows / Space / Ctrl / mouse / Esc",960u,540u,!smoke,backend});
         CraftHudViewport hudViewport;
+        const bool nativeHud=renderer.Backend()==GraphicsBackend::Vulkan;
         renderer.ResizeViewport(hudViewport.Width,hudViewport.Height);
         renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         using World=VoxelEdits<StreamingCraftBaseline>;
@@ -148,7 +149,25 @@ int main(int argc,char** argv)
                 draw.CastShadows=false;
                 scene.Add(draw);
             }
-            if(hudEnabled&&hudMesh&&hudPose)
+            if(nativeHud)
+            {
+                std::vector<ViewportOverlayRect> rects;
+                if(hudEnabled)
+                {
+                    const auto layout=BuildCraftHud(inventory);
+                    rects.reserve(layout.size());
+                    // Paint opaque backing first, then icons and numerals.
+                    // No camera, world origin or depth state is involved.
+                    for(bool backing:{true,false})for(const auto& rect:layout)
+                    {
+                        if(rect.Background!=backing)continue;
+                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=472);
+                        if(p.Width&&p.Height)rects.push_back({p.X,p.Y,p.Width,p.Height,rect.Color});
+                    }
+                }
+                renderer.SetVulkanViewportOverlay(rects);
+            }
+            else if(hudEnabled&&hudMesh&&hudPose)
             {
                 const auto& pose=*hudPose;
                 const ScreenVec eye{pose.Position.x,pose.Position.y,pose.Position.z};
@@ -300,7 +319,7 @@ int main(int argc,char** argv)
         };
         const auto createHud=[&]()
         {
-            if(hudMesh)return;
+            if(nativeHud||hudMesh)return;
             std::vector<MeshVertex> vertices{
                 {{-.5f,-.5f,0},{1,1,1},{0,0,1},{0,0}},
                 {{ .5f,-.5f,0},{1,1,1},{0,0,1},{1,0}},
