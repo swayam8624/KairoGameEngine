@@ -23,7 +23,7 @@ it directly under Lavapipe/Xvfb and fails on detected validation errors.
 The demo is an automatic camera circuit, not a controllable game or physics
 test. By default it generates meshes synchronously. Add `--async` for a bounded
 CPU worker (eight pending meshes, four completion slots consumed per update).
-Only the render thread uploads/destroys native meshes. Obsolete completions
+Use `--workers 4` to enable parallel generation; queued obsolete jobs can be cancelled while running jobs retain their slots. Only the render thread uploads/destroys native meshes. Obsolete completions
 outside the keep region are discarded and acknowledged. The async smoke waits
 for three settled regions before capturing, with a 60-second deadline.
 Both paths directly upload canonical artifacts,
@@ -32,8 +32,4 @@ scene. Individual failed retirements retain handles for retry. All requests
 are acknowledged, including failures. Shutdown is terminal and retryable;
 the planner's reservation snapshot is no longer an active runtime after shutdown.
 
-The bridge accepts a double-precision render origin for terrain placement;
-the caller must independently rebase authored objects and camera to that
-same origin. Full floating-origin orchestration, picking terrain, physics
-heightfield shapes, multiple worker scheduling and measured GPU memory budgets
-are not implemented. No hardware performance claims.
+The demo now chooses a cell-aligned double-precision render origin and rebases its camera and terrain together. `--far-origin` exercises a world centered near (+1e9,-1e9) meters; the smoke compares captures at two render origins for the same world location and requires unchanged residency. The caller must still independently rebase authored objects, general player state and physics. Full floating-origin orchestration, picking terrain, physics heightfield shapes, dynamic job reprioritization and measured GPU memory budgets are not implemented. No hardware performance claims.
