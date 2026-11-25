@@ -3,6 +3,8 @@
 #include "CraftStreamingWindow.hpp"
 #include "CraftStreamSave.hpp"
 #include "CraftInventory.hpp"
+#include "CraftRecipesHud.hpp"
+#include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
 #include <thread>
@@ -127,6 +129,9 @@ int main(int argc,char** argv)
         sun.Type=RenderLightType::Directional;
         sun.Direction={.6f,1.f,.4f};sun.Intensity=3.f;sun.CastShadows=false;
         authored.AddLight(sun);
+        std::optional<MeshHandle> hudMesh;
+        std::optional<CameraPose> hudPose;
+        bool hudEnabled=false;
         const auto submit=[&](const Publication::Slots& slots,const Plan::Slots& coords,VoxelCoordinate base)
         {
             auto scene=authored;
@@ -140,6 +145,36 @@ int main(int argc,char** argv)
                     TerrainRelativeFloat(cell.Y,base.Y),TerrainRelativeFloat(cell.Z,base.Z)});
                 draw.CastShadows=false;
                 scene.Add(draw);
+            }
+            if(hudEnabled&&hudMesh&&hudPose)
+            {
+                const auto& pose=*hudPose;
+                const ScreenVec eye{pose.Position.x,pose.Position.y,pose.Position.z};
+                const auto forward=ScreenUnit(ScreenVec{double(pose.Target.x)-eye[0],
+                    double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
+                const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
+                const auto up=ScreenUnit(ScreenCross(right,forward));
+                for(const auto& rect:BuildCraftHud(inventory))
+                {
+                    const double depth=rect.Background?.16:.14;
+                    const double half=depth*std::tan(pose.VerticalFovRadians*.5);
+                    const double pixel=2*half/540;
+                    const double dx=(rect.X+rect.W*.5-480)*pixel,dy=(270-rect.Y-rect.H*.5)*pixel;
+                    const double width=rect.W*pixel,height=rect.H*pixel;
+                    MeshDraw draw;
+                    draw.Mesh=*hudMesh;draw.Model=Mat4f::Identity();
+                    for(unsigned axis=0;axis<3;++axis)
+                    {
+                        draw.Model(axis,0)=static_cast<float>(right[axis]*width);
+                        draw.Model(axis,1)=static_cast<float>(up[axis]*height);
+                        draw.Model(axis,2)=static_cast<float>(-forward[axis]*std::max(width,height));
+                        draw.Model(axis,3)=static_cast<float>(eye[axis]+forward[axis]*depth+right[axis]*dx+up[axis]*dy);
+                    }
+                    draw.Material.BaseColor={0,0,0};
+                    draw.Material.Emissive={rect.Color[0],rect.Color[1],rect.Color[2]};
+                    draw.Material.DoubleSided=true;draw.CastShadows=false;draw.ReceiveShadows=false;
+                    scene.Add(draw);
+                }
             }
             renderer.SubmitRenderScene(scene);
         };
@@ -261,6 +296,16 @@ int main(int argc,char** argv)
 
             return true;
         };
+        const auto createHud=[&]()
+        {
+            if(hudMesh)return;
+            std::vector<MeshVertex> vertices{
+                {{-.5f,-.5f,0},{1,1,1},{0,0,1},{0,0}},
+                {{ .5f,-.5f,0},{1,1,1},{0,0,1},{1,0}},
+                {{ .5f, .5f,0},{1,1,1},{0,0,1},{1,1}},
+                {{-.5f, .5f,0},{1,1,1},{0,0,1},{0,1}}};
+            hudMesh=renderer.CreateMesh(Mesh(std::move(vertices),{0,1,2,0,2,3}));
+        };
         const auto camera=[&](double x,double y,double z,const std::array<double,3>& direction,bool overhead=false)
         {
             CameraPose view;
@@ -269,6 +314,8 @@ int main(int argc,char** argv)
                 TerrainRelativeFloat(y+direction[1],origin.Y),TerrainRelativeFloat(z+direction[2],origin.Z)};
             if(overhead)view.Up={0.f,0.f,-1.f};
             renderer.SetCameraPose(view);
+            hudPose=view;
+            if(hudEnabled)committedSubmit(publication.Active());
         };
         try
         {
@@ -345,6 +392,15 @@ int main(int argc,char** argv)
                     if(capture(.5,.5).RGBA!=baseline.RGBA)
                         throw std::runtime_error("Survival inventory edit did not restore image.");
                     std::cout<<"Survival mining, inventory save roundtrip and material-consuming placement passed\n";
+                    createHud();hudEnabled=true;
+                    const auto withHud=capture(.5,.5);
+                    if(withHud.RGBA==baseline.RGBA)throw std::runtime_error("HUD did not appear in native capture.");
+                    hudEnabled=false;committedSubmit(publication.Active());
+                    if(capture(.5,.5).RGBA!=baseline.RGBA)throw std::runtime_error("HUD removal changed world.");
+                    CraftInventory recipeFixture;recipeFixture.Counts={0,1,2,0};
+                    if(!CraftApplyRecipe(recipeFixture,CraftRecipes[0])||recipeFixture.Counts!=std::array<std::uint32_t,4>{0,0,0,2})
+                        throw std::runtime_error("Recipe transaction failed.");
+                    std::cout<<"Native camera-aligned HUD capture and recipe transaction passed\n";
                 }
                 if(batch&&(peakUploads==0||peakUploads>uploadBudget))throw std::runtime_error("Upload budget exceeded.");
                 if(batch)std::cout<<"Craft peak streaming upload calls per update "<<peakUploads<<"; budget "<<uploadBudget<<"\n";
@@ -355,6 +411,8 @@ int main(int argc,char** argv)
             {
                 double x=.5,y=12,z=.5,yaw=0,pitch=-.5;
                 auto player=spawn();
+                if(survival){createHud();hudEnabled=true;}
+                bool recipeOneHeld=false,recipeTwoHeld=false;
                 bool jumpHeld=false,saveHeld=false;
                 bool leftHeld=false,rightHeld=false;
                 std::string previousTitle;
@@ -405,6 +463,10 @@ int main(int argc,char** argv)
                     {
                         for(int slot=0;slot<4;++slot)
                             if(key(GLFW_KEY_1+slot))inventory.Selected=static_cast<VoxelMaterial>(slot+1);
+                        const bool one=key(GLFW_KEY_R)>0,two=key(GLFW_KEY_T)>0;
+                        if(one&&!recipeOneHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
+                        if(two&&!recipeTwoHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
+                        recipeOneHeld=one;recipeTwoHeld=two;
                         constexpr std::array<const char*,4> labels{"Grass","Dirt","Stone","Building"};
                         std::string title="Kairo Craft | Survival | ";
                         for(unsigned i=0;i<4;++i)
@@ -414,6 +476,7 @@ int main(int argc,char** argv)
                             if(i+1u==inventory.Selected)title+="]";
                             title+="  ";
                         }
+                        title+="| R: 1 dirt + 2 stone -> 2 building | T: 4 stone -> 3 building";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
@@ -440,12 +503,15 @@ int main(int argc,char** argv)
                     const bool saveDown=key(GLFW_KEY_F5)>0;
                     if(saveDown&&!saveHeld){try{save();}catch(const std::exception& ex){std::cerr<<"Save failed: "<<ex.what()<<'\n';}}
                     saveHeld=saveDown;
+                    if(hudEnabled)committedSubmit(publication.Active());
                     renderer.DrawFrame();
                 }
             }
         }
-        catch(...){(void)publication.Release(committedSubmit,destroy);throw;}
+        catch(...){hudEnabled=false;(void)publication.Release(committedSubmit,destroy);throw;}
+        hudEnabled=false;
         if(publication.Release(committedSubmit,destroy)!=0)throw std::runtime_error("Streamed Craft shutdown retained meshes.");
+        if(hudMesh)renderer.DestroyMesh(*hudMesh);
         return 0;
     }
     catch(const std::exception& e){std::cerr<<"Streamed Craft failed: "<<e.what()<<'\n';return 1;}
