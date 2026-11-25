@@ -1,6 +1,9 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include "CraftWorld.hpp"
+#include "CraftSave.hpp"
+#include <filesystem>
+#include <fstream>
 #include "VoxelMeshPublication.hpp"
 #include <array>
 #include <chrono>
@@ -24,11 +27,13 @@ int main(int argc,char** argv)
         using namespace kairo::player::detail;
         bool smoke=false;
         std::uint64_t seed=42;
+        std::optional<std::filesystem::path> savePath;
         GraphicsBackend backend=GraphicsBackend::Automatic;
         for(int i=1;i<argc;++i)
         {
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
+            else if(arg=="--save"&&i+1<argc)savePath=std::filesystem::path(argv[++i]);
             else if(arg=="--renderer"&&i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
             else if(arg=="--seed"&&i+1<argc)
             {
@@ -37,13 +42,53 @@ int main(int argc,char** argv)
                 if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size())
                     throw std::invalid_argument("Invalid world seed.");
             }
-            else throw std::invalid_argument("Usage: KairoCraft [--seed N] [--renderer backend] [--smoke]");
+            else throw std::invalid_argument("Usage: KairoCraft [--seed N] [--renderer backend] [--save path] [--smoke]");
         }
         RendererRuntime renderer({"Kairo Craft: WASD / arrows / Space / Ctrl / mouse buttons / Esc",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960,540);
         renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         using World=VoxelEdits<CraftBaseline>;
         auto world=std::make_unique<World>(CraftBaseline{seed});
+        if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not modify user save files.");
+        if(savePath&&std::filesystem::exists(*savePath))
+        {
+            const auto length=std::filesystem::file_size(*savePath);
+            if(length>CraftSaveMaximumBytes)throw std::length_error("Craft save exceeds size cap.");
+            std::vector<std::uint8_t> bytes(static_cast<std::size_t>(length));
+            std::ifstream file(*savePath,std::ios::binary);
+            if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
+                file.peek()!=std::char_traits<char>::eof())
+                throw std::runtime_error("Craft save read failed.");
+            auto loaded=DecodeCraftSave(bytes);
+            seed=loaded.Seed;
+            world=std::make_unique<World>(std::move(loaded.World));
+        }
+        const auto save=[&]()
+        {
+            if(!savePath)return;
+            const auto bytes=EncodeCraftSave(seed,*world);
+            auto temporary=*savePath;temporary+=".tmp";
+            if(std::filesystem::exists(temporary))
+                throw std::runtime_error("Craft temporary save already exists; inspect it before retrying.");
+            // Single-writer sample. Same-directory rename avoids deleting
+            // the previous save if writing the replacement fails.
+            try
+            {
+                std::ofstream file(temporary,std::ios::binary|std::ios::trunc);
+                if(!file||!file.write(reinterpret_cast<const char*>(bytes.data()),
+                    static_cast<std::streamsize>(bytes.size())))
+                    throw std::runtime_error("Craft temporary save write failed.");
+                file.close();
+                if(!file)throw std::runtime_error("Craft temporary save close failed.");
+                std::filesystem::rename(temporary,*savePath);
+            }
+            catch(...)
+            {
+                std::error_code ignored;std::filesystem::remove(temporary,ignored);
+                throw;
+            }
+            std::cout<<"Craft saved "<<world->Overrides().size()<<" edits\n";
+        };
         using Publication=VoxelMeshPublication<MeshHandle,CraftChunkCount>;
         Publication publication;
         RenderScene authored;
@@ -130,6 +175,9 @@ int main(int argc,char** argv)
                     throw std::runtime_error("Craft exposed placement failed.");
                 if(before.RGBA==removed.RGBA)throw std::runtime_error("Removal did not change native image.");
                 if(!edit(*hit->Placement,CraftPlaced))throw std::runtime_error("Craft placement failed.");
+                const auto saved=DecodeCraftSave(EncodeCraftSave(seed,*world));
+                if(saved.Seed!=seed||saved.World.Overrides()!=world->Overrides())
+                    throw std::runtime_error("Craft edited-world save roundtrip failed.");
                 const auto placed=capture();
                 if(placed.RGBA==removed.RGBA||placed.RGBA==before.RGBA)
                     throw std::runtime_error("Placement image did not change.");
@@ -145,7 +193,7 @@ int main(int argc,char** argv)
                 // Creative fly mode for the bounded sandbox. No claim of
                 // player-body collision, infinite streaming or persistence.
                 double x=8,y=12,z=12,yaw=0,pitch=-.5;
-                bool leftHeld=false,rightHeld=false;
+                bool leftHeld=false,rightHeld=false,saveHeld=false;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
                 const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
@@ -180,6 +228,12 @@ int main(int argc,char** argv)
                         }
                     }
                     leftHeld=left;rightHeld=right;
+                    const bool saveDown=key(GLFW_KEY_F5)>0;
+                    if(saveDown&&!saveHeld)
+                    {
+                        try{save();}catch(const std::exception& error){std::cerr<<"Save failed: "<<error.what()<<'\n';}
+                    }
+                    saveHeld=saveDown;
                     renderer.DrawFrame();
                 }
             }
