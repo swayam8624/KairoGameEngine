@@ -1,7 +1,7 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native, feat/craft-stream-survival-save, feat/craft-async-meshing, feat/craft-survival-inventory, feat/craft-upload-budget, feat/craft-vertical-caves, feat/craft-recipes-hud, feat/craft-cave-survival-session, integration/gameplay-native-candidate, feat/craft-responsive-hud, feat/craft-vulkan-overlay, feat/craft-native-hud-parity, feat/craft-hud-publication, feat/craft-survival-vitals, feat/craft-timed-mining, feat/craft-equipment, feat/craft-visible-game-candidate, feat/craft-fps-controls, feat/craft-nutrition, feat/craft-file-transactions]
+    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native, feat/craft-stream-survival-save, feat/craft-async-meshing, feat/craft-survival-inventory, feat/craft-upload-budget, feat/craft-vertical-caves, feat/craft-recipes-hud, feat/craft-cave-survival-session, integration/gameplay-native-candidate, feat/craft-responsive-hud, feat/craft-vulkan-overlay, feat/craft-native-hud-parity, feat/craft-hud-publication, feat/craft-survival-vitals, feat/craft-timed-mining, feat/craft-equipment, feat/craft-visible-game-candidate, feat/craft-fps-controls, feat/craft-nutrition, feat/craft-file-transactions, feat/craft-playtest-bundle]
   pull_request:
     paths:
       - 'workspace.lock'
@@ -75,6 +75,7 @@ on:
       - 'Runtime/KairoPlayer/tests/TerrainNativeStoreTests.cpp'
       - 'Runtime/KairoPlayer/CMakeLists.txt'
       - 'scripts/run_craft_cpu_contracts.sh'
+      - 'scripts/StageCraftPlaytest.cmake'
       - '.github/workflows/procedural-terrain-viewport.yml'
 permissions:
   contents: read
@@ -153,6 +154,20 @@ jobs:
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoCraftStream --renderer vulkan --seed 42 --survival --workers 4 --uploads 2 --smoke 2>&1 | tee build/terrain-diagnostics/craft-async-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoCraftCaves --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/craft-caves-smoke.log
           if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/*smoke.log; then exit 1; fi
+      - name: Require copied Craft binaries from a relocated development bundle
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/kairo-craft-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          player="$PWD/build/game-player-clang/Runtime/KairoPlayer"
+          diagnostics="$PWD/build/terrain-diagnostics"
+          cmake "-DSURFACE=$player/KairoCraftStream" "-DCAVES=$player/KairoCraftCaves" "-DOUTPUT=$bundle" "-DENGINE_REVISION=$(git rev-parse HEAD)" "-DRENDERER_REVISION=$(awk '$1=="KairoRenderer"{print $2}' workspace.lock)" -P scripts/StageCraftPlaytest.cmake
+          cp "$bundle/manifest.txt" "$diagnostics/craft-bundle-manifest.txt"
+          cd "$bundle"
+          tail -n2 manifest.txt | sha256sum -c -
+          export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" ./run-surface.sh --renderer vulkan --seed 42 --survival --smoke 2>&1 | tee "$diagnostics/relocated-surface.log"
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" ./run-caves.sh --renderer vulkan --seed 42 --smoke 2>&1 | tee "$diagnostics/relocated-caves.log"
+          if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' "$diagnostics"/relocated-*.log; then exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

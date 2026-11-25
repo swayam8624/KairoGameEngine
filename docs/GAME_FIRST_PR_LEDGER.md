@@ -322,6 +322,24 @@ competing writer refusal and failed rename cleanup. Registered as 24th CPU
 contract and native CTest gate. Native Windows/macOS filesystem behavior
 and demo integration pending. Added 256 actual encoded world-session disk roundtrips (128 seeds per world) on each compiler, verifying world edits, inventory, tool state and wrong-world rejection. Current tested exact blobs ebe97d3ab55c64ff9573208b18f79fa61fc4055c and ef82f481cd44df47de2ba6a88d3269e083f2f848. Prior #87 head unchanged.
 
+### Relocatable development bundle candidate
+
+Renderer #42 embeds all 12 SPIR-V blobs at build time, eliminating the
+absolute runtime build shader directory. Exact generator, manifest and word
+comparison test verified locally on synthetic binary fixtures: 63,426 words
+on Clang/GCC, invalid magic/size rejected and deterministic output. Native
+shader/module verification remains pending. This engine branch pins review
+head 6b70ed2ed15fbd2c57ae601609afd2978c62e240. Added development bundle staging
+with copied binaries, SHA-256 manifest, relative launchers, separate save paths
+and refusal to overwrite an existing output among cooperating writers.
+Local CMake 3.31 fixture test passed paths with spaces, copy hashes, default
+arguments, explicit argument forwarding and existing-output rejection.
+Exact staging script blob 8b2b38b74a56528dc5ca25f8a9594475ea2e2c43.
+The fixture executables are scripts, not actual Craft builds. Native Vulkan
+CI runs copied surface/cave executables outside the build tree.
+No claim of self-contained distribution, Windows launcher execution or
+native acceptance; earlier integration candidates unchanged.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

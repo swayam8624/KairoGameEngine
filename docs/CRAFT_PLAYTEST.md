@@ -56,6 +56,28 @@ build/game-player-clang/Runtime/KairoPlayer/KairoCraftCaves \
 Choose a backend explicitly for reproducible testing. The games use separate
 world generation formats; do not use the same save filename for both.
 
+## Relocated developer bundle
+
+After building, run:
+
+```bash
+cmake --build --preset game-player-clang --target KairoCraftPlaytestBundle
+```
+
+The default output is `build/game-player-clang/craft-playtest`. Configure
+`-DKAIRO_CRAFT_PLAYTEST_OUTPUT=/absolute/fresh/path` to choose another location.
+The target refuses an existing output; preserve any saves before removing
+or replacing a bundle. Both executables, separate save paths, launchers and
+SHA-256/revision manifest are staged. Run `run-surface.sh` or `run-caves.sh`
+(or corresponding Windows .cmd) without arguments for survival. Passing
+arguments forwards them unchanged, for example `--renderer metal --smoke`.
+
+The Vulkan renderer candidate embeds all twelve compiled shaders; no original
+build shader path is intended to be required. Native moved-directory and
+relocated executable tests remain pending. The bundle does not collect dynamic
+libraries, graphics drivers, code signatures or installer metadata, and must
+be tested on a host with the required runtime dependencies.
+
 ## Save-file replacement and recovery
 
 Both demos reserve a sibling directory named `<save>.write-lock` before

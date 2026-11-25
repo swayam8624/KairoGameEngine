@@ -43,6 +43,22 @@ if(KAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN)
     add_executable(KairoCraftCaves CraftCaveDemo.cpp)
     target_link_libraries(KairoCraftCaves PRIVATE KairoPlayerRuntime Threads::Threads)
     set_property(TARGET KairoCraftCaves PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    set(KAIRO_CRAFT_PLAYTEST_OUTPUT "${CMAKE_BINARY_DIR}/craft-playtest" CACHE PATH "Fresh output directory for Craft development bundle")
+    execute_process(COMMAND git rev-parse HEAD WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../.."
+        OUTPUT_VARIABLE _craft_engine_revision OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE _craft_git_status)
+    if(NOT _craft_git_status EQUAL 0)
+        set(_craft_engine_revision "unknown")
+    endif()
+    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../../workspace.lock" _craft_renderer_line REGEX "^KairoRenderer ")
+    string(REGEX REPLACE "^KairoRenderer " "" _craft_renderer_revision "${_craft_renderer_line}")
+    add_custom_target(KairoCraftPlaytestBundle
+        COMMAND "${CMAKE_COMMAND}"
+            "-DSURFACE=$<TARGET_FILE:KairoCraftStream>" "-DCAVES=$<TARGET_FILE:KairoCraftCaves>"
+            "-DOUTPUT=${KAIRO_CRAFT_PLAYTEST_OUTPUT}"
+            "-DENGINE_REVISION=${_craft_engine_revision}" "-DRENDERER_REVISION=${_craft_renderer_revision}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/StageCraftPlaytest.cmake"
+        DEPENDS KairoCraftStream KairoCraftCaves
+        VERBATIM)
 endif()
 
 add_executable(KairoPlayer main.cpp)
