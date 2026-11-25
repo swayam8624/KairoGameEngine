@@ -129,3 +129,29 @@ WASD/arrow/Space/Ctrl/mouse controls match creative mode. The streamed sample
 has one vertical band, no streamed-world disk persistence or survival body
 integration yet. Native acceptance is pending; do not infer frame latency or
 hardware performance from planned CI cases.
+
+## Streamed survival, background meshing, and inventory
+
+```sh
+./build/game-player-clang/Runtime/KairoPlayer/KairoCraftStream --seed 42 --renderer auto --survival --workers 4 --save craft-stream.kworld
+```
+
+WASD walks, arrows look, Space jumps, Shift sprints, mouse buttons mine/place,
+1–4 select grass/dirt/stone/building material, F5 saves and Esc exits. Counts
+are shown in the window title; mining credits the material only after a
+successful edit, and placing consumes it only after native publication.
+Creative mode remains unrestricted and is not an anti-cheat boundary.
+
+Workers produce dirty chunk meshes against an immutable occupancy snapshot.
+The render thread polls nonblocking and publishes the complete next window;
+obsolete queued jobs are cancelled, stale completions discarded. Existing
+meshes stay visible until the replacement window is ready. Native uploads
+and edit remeshes remain synchronous. Startup and regression settle with a
+bounded timeout. This is not a measured frame-time improvement.
+
+Streamed saves have distinct v2 world and v3 session formats. V3 includes
+inventory, selected material, and the v2 world payload. V2 loads with empty
+inventory; finite v1 is intentionally rejected. F5 writes through a temporary
+file and same-directory rename; no concurrent-writer or power-loss guarantee.
+No player pose persistence, recipes, multiple vertical chunk bands, textured
+HUD or multiplayer yet. Native validation of these latest modes is pending.
