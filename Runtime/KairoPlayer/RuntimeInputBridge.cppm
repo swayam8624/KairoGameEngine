@@ -2,7 +2,6 @@ module;
 
 #include <GLFW/glfw3.h>
 #include "RuntimeInputGate.hpp"
-#include <limits>
 
 #include <cstddef>
 #include <string_view>
@@ -35,8 +34,9 @@ export namespace kairo::player
         {
             m_State.BeginFrame();
             GLFWwindow* native = window.NativeHandle();
+            const auto [width,height]=window.FramebufferExtent();
             const bool active=glfwGetWindowAttrib(native,GLFW_FOCUSED)==GLFW_TRUE&&
-                glfwGetWindowAttrib(native,GLFW_ICONIFIED)!=GLFW_TRUE;
+                glfwGetWindowAttrib(native,GLFW_ICONIFIED)!=GLFW_TRUE&&width!=0&&height!=0;
             if(!active)
             {
                 m_Keys.Reset();m_MouseButtons.Reset();m_MouseBaseline=false;

@@ -13,7 +13,9 @@
 // capture and tests nonuniform pixels, not complete graphics correctness or
 // mathematical certification of physics.
 
+#include "RuntimeFrameClock.hpp"
 #include <exception>
+#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -198,11 +200,23 @@ int main(int argc, char** argv)
         renderer.SetCameraPose(activeCameraPose());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
         unsigned smokeFrames = 0u;
-        auto previousFrame = std::chrono::steady_clock::now();
+        const auto clockOrigin=std::chrono::steady_clock::now();
+        kairo::player::detail::RuntimeFrameClock frameClock;
         while (!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
+            if(renderer.NativeWindow().ShouldClose())break;
             input.Poll(renderer.NativeWindow());
+            const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
+            const bool drawable=frameWidth!=0&&frameHeight!=0;
+            const auto elapsed=std::chrono::duration<double>(std::chrono::steady_clock::now()-clockOrigin).count();
+            const float elapsedSeconds=static_cast<float>(frameClock.Sample(elapsed,drawable));
+            if(!drawable)
+            {
+                if(arguments.SmokeTest)throw std::runtime_error("Native smoke window has no drawable framebuffer.");
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
             if (input.HasAction("Quit") && input.Action("Quit").Pressed)
                 renderer.NativeWindow().RequestClose();
 
@@ -214,9 +228,6 @@ int main(int argc, char** argv)
             }
             for (const auto& action : project.InputMap().Actions())
                 logic.DispatchInput(action.Name, input.Action(action.Name));
-            const auto currentFrame = std::chrono::steady_clock::now();
-            const float elapsedSeconds = std::chrono::duration<float>(currentFrame - previousFrame).count();
-            previousFrame = currentFrame;
             (void)physics.Advance(elapsedSeconds, &fixedSteps);
             logic.DispatchContacts();
             nativeGameplay.Update(static_cast<double>(elapsedSeconds));
