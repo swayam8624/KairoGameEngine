@@ -103,3 +103,7 @@ XPBD tetrahedral edge/volume constraints and ground projection pass 24,000 seede
 ## Candidate progress: native water and soft body presentation
 
 A dedicated native renderer lab now submits water depth columns and a deformed tetrahedral surface, with numerical and image-change smoke gates. Native CI has not yet run; 50% acceptance remains pending. This is not an ocean shader or general soft-body authoring system.
+
+## Candidate progress: destruction
+
+Predetermined rigid cube fracture, bounded fragments and ground response passed 1,000 seeded fracture events plus 240,000 body steps per compiler. Native lab and smoke registered but not run; authored physics contact and arbitrary mesh support remain open.

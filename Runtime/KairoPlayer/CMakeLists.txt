@@ -203,6 +203,12 @@ if(BUILD_TESTING)
     add_test(NAME KairoPlayerRainStreaksTests COMMAND KairoPlayerRainStreaksTests)
     # Depth-only water conservation is tested without the GPU.
     # Deformable volume and contact regression is a pure CPU test.
+    # Fracture conservation and plane contact are portable CPU checks.
+    add_executable(KairoPlayerBreakableCubeTests tests/RuntimeBreakableCubeTests.cpp)
+    target_include_directories(KairoPlayerBreakableCubeTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(KairoPlayerBreakableCubeTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerBreakableCubeTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerBreakableCubeTests COMMAND KairoPlayerBreakableCubeTests)
     add_executable(KairoPlayerSoftBodyTests tests/RuntimeSoftBodyTests.cpp)
     target_include_directories(KairoPlayerSoftBodyTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(KairoPlayerSoftBodyTests PRIVATE cxx_std_23)
@@ -425,7 +431,8 @@ if(BUILD_TESTING)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         add_test(NAME KairoSimulationWaterOpenGLSmoke COMMAND KairoSimulationLab --renderer opengl --smoke)
         add_test(NAME KairoSimulationSoftOpenGLSmoke COMMAND KairoSimulationLab --renderer opengl --soft --smoke)
-        set_tests_properties(KairoSimulationWaterOpenGLSmoke KairoSimulationSoftOpenGLSmoke PROPERTIES TIMEOUT 30)
+        add_test(NAME KairoSimulationDestructionOpenGLSmoke COMMAND KairoSimulationLab --renderer opengl --destruction --smoke)
+        set_tests_properties(KairoSimulationWaterOpenGLSmoke KairoSimulationSoftOpenGLSmoke KairoSimulationDestructionOpenGLSmoke PROPERTIES TIMEOUT 30)
     endif()
 
     if(NOT WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject")

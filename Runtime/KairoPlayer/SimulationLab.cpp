@@ -1,6 +1,7 @@
 #include "CraftWorld.hpp"
 #include "RuntimeWaterGrid.hpp"
 #include "RuntimeSoftBody.hpp"
+#include "RuntimeBreakableCube.hpp"
 #include <chrono>
 #include <iostream>
 #include <string_view>
@@ -112,20 +113,22 @@ int main(int argc,char** argv)
 {
     try
     {
-        bool soft=false,smoke=false;
+        bool soft=false,smoke=false,destruction=false;
         GraphicsBackend backend=GraphicsBackend::Automatic;
         for(int i=1;i<argc;++i)
         {
             const std::string_view arg=argv[i];
             if(arg=="--soft")soft=true;
+            else if(arg=="--destruction")destruction=true;
             else if(arg=="--smoke")smoke=true;
             else if(arg=="--renderer"&&i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
-            else throw std::invalid_argument("Usage: KairoSimulationLab [--soft] [--renderer backend] [--smoke]");
+            else throw std::invalid_argument("Usage: KairoSimulationLab [--soft | --destruction] [--renderer backend] [--smoke]");
         }
+        if(soft&&destruction)throw std::invalid_argument("Select one simulation mode.");
         RendererRuntime renderer({"Kairo simulation lab",960u,540u,!smoke,backend});
         renderer.ResizeViewport(960,540);renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         CameraPose camera;
-        if(soft){camera.Position={4,4,7};camera.Target={0,1.8f,0};}
+        if(soft||destruction){camera.Position={5,5,9};camera.Target={0,1.8f,0};}
         else{camera.Position={12,18,20};camera.Target={8,0,4.5f};}
         renderer.SetCameraPose(camera);
 
@@ -139,11 +142,28 @@ int main(int argc,char** argv)
         for(unsigned a=0;a<4;++a)for(unsigned b=a+1;b<4;++b)body.AddEdge(a,b);
         body.AddTetra({0,1,2,3});
         const double volume=body.TetraVolume(0);
+        RuntimeBreakableCube breakable({0,2.5,0},.8,8,2);
+        unsigned destructionFrame=0;
 
         const auto cube=renderer.CreateMesh(UnitCube());
         MeshHandle tetra=InvalidMeshHandle;
         const auto publish=[&]()
         {
+            if(destruction)
+            {
+                RenderScene scene;Light(scene);
+                Box(scene,cube,{-4,-.2f,-4},{8,.2f,8},{.22f,.28f,.24f});
+                // One mesh handle is shared by the intact block and all eight
+                // fragments. Fracture changes instances, not mesh topology.
+                const auto draw=[&](FragmentPoint p,double half)
+                {
+                    const float h=static_cast<float>(half);
+                    Box(scene,cube,{float(p[0])-h,float(p[1])-h,float(p[2])-h},{2*h,2*h,2*h},{.85f,.38f,.08f});
+                };
+                if(!breakable.Fractured())draw(breakable.Center(),breakable.HalfExtent());
+                else for(const auto& fragment:breakable.Fragments())draw(fragment.Center,fragment.HalfExtent);
+                renderer.SubmitRenderScene(scene);return;
+            }
             if(!soft)
             {
                 auto scene=WaterScene(water,cube);Light(scene);renderer.SubmitRenderScene(scene);return;
@@ -167,7 +187,14 @@ int main(int argc,char** argv)
         const auto advance=[&]()
         {
             // Fixed simulation steps independent of presentation frequency.
-            if(soft)for(unsigned i=0;i<4;++i)body.Step();
+            if(destruction)
+            {
+                // Authored fixture impact after 15 presentation updates.
+                // It is not yet routed from a PhysicsEngine contact event.
+                if(++destructionFrame==15)(void)breakable.Strike({5,3,0});
+                for(unsigned i=0;i<4;++i)breakable.Step();
+            }
+            else if(soft)for(unsigned i=0;i<4;++i)body.Step();
             else water.Step(.2);
         };
         publish();
@@ -179,9 +206,15 @@ int main(int argc,char** argv)
             if(before.RGBA==after.RGBA)throw std::runtime_error("Simulation did not change native image.");
             if(soft&&std::abs(body.TetraVolume(0)-volume)>.05*std::abs(volume))
                 throw std::runtime_error("Soft body volume drift.");
-            if(!soft&&std::abs(water.TotalVolume()-8)>1e-8)
+            if(!soft&&!destruction&&std::abs(water.TotalVolume()-8)>1e-8)
                 throw std::runtime_error("Water volume drift.");
-            std::cout<<(soft?"Soft body":"Water")<<" native capture change and solver bounds passed\n";
+            if(destruction)
+            {
+                if(!breakable.Fractured())throw std::runtime_error("Fracture did not trigger.");
+                for(const auto& fragment:breakable.Fragments())if(fragment.Center[1]<fragment.HalfExtent)
+                    throw std::runtime_error("Fragment penetrated floor.");
+            }
+            std::cout<<(destruction?"Destruction":soft?"Soft body":"Water")<<" native capture change and solver bounds passed\n";
         }
         else
         {

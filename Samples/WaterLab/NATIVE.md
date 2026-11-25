@@ -12,3 +12,6 @@ transparent ocean shader. The soft-body view uploads a four-triangle surface
 with recomputed normals. It is a tiny native visualization, not a general
 deforming-mesh renderer. Linux OpenGL CTest gates are registered; no native
 execution has been observed at authoring time.
+
+
+Add --destruction for an intact cube that splits into eight subcubes after an authored impact. The fixture demonstrates one-shot fracture, impulse momentum and ground response; no arbitrary mesh cutting or fragment rotation/collision. Its Linux OpenGL smoke is registered but not yet executed.
