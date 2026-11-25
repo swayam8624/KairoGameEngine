@@ -144,6 +144,15 @@ namespace kairo::player::detail
         // The UI borrows the current node; null means conversation ended.
         [[nodiscard]] const RuntimeDialogueNode* Current() const
         {return m_Current?&m_Nodes.at(*m_Current):nullptr;}
+        // Save the current authored node ID, not a pointer or array index.
+        [[nodiscard]] std::optional<std::string> Position() const{return m_Current;}
+        // Check the node against the current graph before changing position.
+        // A missing optional denotes a finished conversation.
+        void RestorePosition(std::optional<std::string> id)
+        {
+            if(id&&!m_Nodes.contains(*id))throw std::invalid_argument("Unknown saved dialogue node.");
+            m_Current=std::move(id);
+        }
         // Choice indices stay stable even when a prerequisite locks an option.
         // A disabled choice may be displayed, but cannot change conversation.
         [[nodiscard]] bool Available(std::size_t index,const RuntimeQuestBook& quests) const

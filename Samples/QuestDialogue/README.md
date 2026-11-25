@@ -11,4 +11,6 @@ Build independently with a C++23 compiler from the engine root:
 
 Choose 1 to accept, 1 to retrieve the crystal, 2 to return.
 The runtime header documents all APIs. The tests exercise invalid restores
-and 500 seeded DAG chains; UI rendering and persistent disk saves are future gates.
+and 500 seeded DAG chains; UI rendering remains a future gate; disk saves are available.
+
+Use `s` to save and `l` to load; supply a save path as the first CLI argument. For example, accept the quest, save and quit, start the demo again, load, collect and return. Saves use bounded KQS1 records and the existing Craft file-publication helper. They require matching authored definitions and are not authenticated.

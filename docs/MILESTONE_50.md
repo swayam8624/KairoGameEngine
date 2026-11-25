@@ -69,3 +69,7 @@ The reusable rules engine, branching terminal example and regression fixtures ar
 ## Candidate progress: two-bone IK
 
 Analytic kernel, CLI pose lab and portable tests exist. 10,000 seeded cases passed under both GCC and Clang. Rendered pose integration remains open; no 50% promotion until the demonstration gate is met.
+
+## Candidate progress: quest persistence
+
+Disk save/load and cross-process terminal completion now pass locally under the documented narrow CPU scope. Native graphical authored sample and accepted workspace integration remain open.
