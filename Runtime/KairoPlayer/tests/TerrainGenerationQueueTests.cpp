@@ -22,7 +22,12 @@ int main()
     Queue queue(capacity,[&](int coordinate){
         Check(std::this_thread::get_id()!=mainThread,"Generator ran on consumer thread");
         ++started;
-        while(!release.load())std::this_thread::yield();
+        const auto limit=std::chrono::steady_clock::now()+5s;
+        while(!release.load())
+        {
+            if(std::chrono::steady_clock::now()>=limit)throw std::runtime_error("Test producer gate timed out");
+            std::this_thread::yield();
+        }
         if(coordinate%7==0)throw std::runtime_error("Injected generation failure");
         return std::vector<int>(64,coordinate);
     });
