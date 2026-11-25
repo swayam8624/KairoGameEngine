@@ -37,3 +37,23 @@ No C++ code changes in these eight files. Native tests not run for this
 documentation pass. The first-party inventory is a tracking boundary, not
 a claim that all files are annotated. Next: implement and test the first
 under-floor gameplay capability and continue annotation in dependency order.
+
+## 2026-11-25 — quest/dialogue foundation
+
+Added [RuntimeQuestDialogue.hpp](Runtime/KairoPlayer/RuntimeQuestDialogue.hpp), [CPU regression](Runtime/KairoPlayer/tests/RuntimeQuestDialogueTests.cpp), and [terminal RPG sample](Samples/QuestDialogue/QuestDialogueDemo.cpp). Prerequisites form an authored DAG; duplicate completions are idempotent, restore is transactional, and dialogue choices can gate or award objectives. Added CTest target and 500 seeded chain fixtures. Candidate implementation only until test execution is observed. Native Player integration, disk save envelope and visual authoring remain open.
+
+### Local verification of quest/dialogue
+
+Copied the three candidate source files into an isolated Linux test directory and verified their Git blob identities. Initial GCC -Werror compilation caught an ignored nodiscard return; fixed explicitly. Recompiled the corrected header with GCC and Clang (C++23, -Wall -Wextra -Werror): both passed the complete regression executable and 500 seeded chains. GCC-built terminal demo also rejected a locked choice and reached Quest complete with input 2,1,1,2. Corrected header blob: 04f77dc01c9d6837b9a6615f7392929dec11f312; test blob: e2685c3650608a02a44fa23d3369a826dc89d64a; demo blob: 0d9e78b1f3c69a67636427ce9d3e5e2560d2cee0. This is isolated CPU verification, not the full workspace build, native rendering, or disk persistence gate.
+
+## 2026-11-25 — foundation study catalogs
+
+Indexed 205 filtered paths across 8 exact pinned component trees: KairoMath, KairoGeometry, KairoSpatial, KairoPhysicsMath, KairoPhysicsEngine, KairoAssets, KairoECS, KairoReflection. Added component file checklists to STUDY_ORDER.md. The other sibling trees remain linked but not yet enumerated. These inventories do not certify per-function comment coverage.
+
+## 2026-11-25 — runtime, rendering and tooling study catalogs
+
+Indexed another 390 paths across 9 pinned trees: KairoAI, KairoEngineCore, KairoRenderer, KairoEditor, KairoRayTracer, KairoGPU, KairoSIMD, KairoScheduler, KairoHub. Cumulative sibling catalogs: 17/26 repositories and 595 paths. These are file checklists, not completed annotations.
+
+## 2026-11-25 — remaining research and DCC study catalogs
+
+Indexed another 105 paths across 9 pinned trees: KairoONNX, KairoTransformers, KairoMacPerception, KairoPipelineCore, KairoBlender, KairoProductionTools, KairoHoudini, KairoMaya, KairoNuke. All 26 sibling inventories now present, 700 matching paths. This completes baseline file navigation, not all-function annotation.

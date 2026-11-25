@@ -25,32 +25,32 @@ and implementation before its tests. Optional research/DCC components come
 after the game-facing stack. The ordering is pedagogical, not a claim that
 every pair of adjacent repositories has a direct dependency.
 
-1. [KairoMath](https://github.com/swayam8624/KairoMath/tree/f31f5a2feac8ebb958fef5bfc81a1fca50578e85) — [README](https://github.com/swayam8624/KairoMath/blob/f31f5a2feac8ebb958fef5bfc81a1fca50578e85/README.md)
-2. [KairoGeometry](https://github.com/swayam8624/KairoGeometry/tree/b5808b99faed80fe330f889e9374822deaf64dbd) — [README](https://github.com/swayam8624/KairoGeometry/blob/b5808b99faed80fe330f889e9374822deaf64dbd/README.md)
-3. [KairoSpatial](https://github.com/swayam8624/KairoSpatial/tree/366379c290c79e6fffc6f84e4f4bb6832f9f91b3) — [README](https://github.com/swayam8624/KairoSpatial/blob/366379c290c79e6fffc6f84e4f4bb6832f9f91b3/README.md)
-4. [KairoECS](https://github.com/swayam8624/KairoECS/tree/82d7a5e3c2e445d369e830508fa82e23aacca25a) — [README](https://github.com/swayam8624/KairoECS/blob/82d7a5e3c2e445d369e830508fa82e23aacca25a/README.md)
-5. [KairoReflection](https://github.com/swayam8624/KairoReflection/tree/b048dd7fc96f19c0a39fd2076625561e2dae6db5) — [README](https://github.com/swayam8624/KairoReflection/blob/b048dd7fc96f19c0a39fd2076625561e2dae6db5/README.md)
-6. [KairoPhysicsMath](https://github.com/swayam8624/KairoPhysicsMath/tree/a257c6d93296306e797d685028f0bf7866340465) — [README](https://github.com/swayam8624/KairoPhysicsMath/blob/a257c6d93296306e797d685028f0bf7866340465/README.md)
-7. [KairoPhysicsEngine](https://github.com/swayam8624/KairoPhysicsEngine/tree/b256df7327cfa0e4ae393e811cc3a661a17559e6) — [README](https://github.com/swayam8624/KairoPhysicsEngine/blob/b256df7327cfa0e4ae393e811cc3a661a17559e6/README.md)
-8. [KairoAssets](https://github.com/swayam8624/KairoAssets/tree/a0a6c81b2526bcb1531dfa4094ccfae4aa568f19) — [README](https://github.com/swayam8624/KairoAssets/blob/a0a6c81b2526bcb1531dfa4094ccfae4aa568f19/README.md)
-9. [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore/tree/523ed41da74ee117256281a3ebc45cde91368bc6) — [README](https://github.com/swayam8624/KairoEngineCore/blob/523ed41da74ee117256281a3ebc45cde91368bc6/README.md)
-10. [KairoAI](https://github.com/swayam8624/KairoAI/tree/5f09694af688a34be157fe3a00171fe7be8bcd00) — [README](https://github.com/swayam8624/KairoAI/blob/5f09694af688a34be157fe3a00171fe7be8bcd00/README.md)
-11. [KairoGPU](https://github.com/swayam8624/KairoGPU/tree/befe484db34dab841af2c4e54ce9f224ae8391dd) — [README](https://github.com/swayam8624/KairoGPU/blob/befe484db34dab841af2c4e54ce9f224ae8391dd/README.md)
-12. [KairoRenderer](https://github.com/swayam8624/KairoRenderer/tree/8bed00179bf6712a69efb6a102df7caa1ef81b45) — [README](https://github.com/swayam8624/KairoRenderer/blob/8bed00179bf6712a69efb6a102df7caa1ef81b45/README.md)
-13. [KairoEditor](https://github.com/swayam8624/KairoEditor/tree/da2369262e666b8769778ae35681f247573dbec0) — [README](https://github.com/swayam8624/KairoEditor/blob/da2369262e666b8769778ae35681f247573dbec0/README.md)
-14. [KairoHub](https://github.com/swayam8624/KairoHub/tree/48ed09b7f291d8d8cb9b51ad2e993bf4f16930c7) — [README](https://github.com/swayam8624/KairoHub/blob/48ed09b7f291d8d8cb9b51ad2e993bf4f16930c7/README.md)
-15. [KairoRayTracer](https://github.com/swayam8624/KairoRayTracer/tree/99c45dfdaa67c2dc9e2d9846fc1dc21a0ba5782e) — [README](https://github.com/swayam8624/KairoRayTracer/blob/99c45dfdaa67c2dc9e2d9846fc1dc21a0ba5782e/README.md)
-16. [KairoSIMD](https://github.com/swayam8624/KairoSIMD/tree/5d65e950ec64e5ae1021cc4b58d374e6a3b5cde6) — [README](https://github.com/swayam8624/KairoSIMD/blob/5d65e950ec64e5ae1021cc4b58d374e6a3b5cde6/README.md)
-17. [KairoScheduler](https://github.com/swayam8624/KairoScheduler/tree/e9304fcb4a47cb66a32a3426e83669c88468d9ef) — [README](https://github.com/swayam8624/KairoScheduler/blob/e9304fcb4a47cb66a32a3426e83669c88468d9ef/README.md)
-18. [KairoONNX](https://github.com/swayam8624/KairoONNX/tree/572a0b49177584b85d726fe4cfc72a861f6ddd1e) — [README](https://github.com/swayam8624/KairoONNX/blob/572a0b49177584b85d726fe4cfc72a861f6ddd1e/README.md)
-19. [KairoTransformers](https://github.com/swayam8624/KairoTransformers/tree/de2c6d1fcfda279e286f63dc49fba29cb27b5c99) — [README](https://github.com/swayam8624/KairoTransformers/blob/de2c6d1fcfda279e286f63dc49fba29cb27b5c99/README.md)
-20. [KairoMacPerception](https://github.com/swayam8624/KairoMacPerception/tree/b0545b494f753b30146880e1c2e906f2277594d9) — [README](https://github.com/swayam8624/KairoMacPerception/blob/b0545b494f753b30146880e1c2e906f2277594d9/README.md)
-21. [KairoPipelineCore](https://github.com/swayam8624/KairoPipelineCore/tree/ff0ecd431bbf6e826014ea2ccbc21055884b26f0) — [README](https://github.com/swayam8624/KairoPipelineCore/blob/ff0ecd431bbf6e826014ea2ccbc21055884b26f0/README.md)
-22. [KairoProductionTools](https://github.com/swayam8624/KairoProductionTools/tree/95708af537b312a9a5d56c45e46f419abe858378) — [README](https://github.com/swayam8624/KairoProductionTools/blob/95708af537b312a9a5d56c45e46f419abe858378/README.md)
-23. [KairoBlender](https://github.com/swayam8624/KairoBlender/tree/ba0ed9a731b45b91a0991161e4b6b333d828687b) — [README](https://github.com/swayam8624/KairoBlender/blob/ba0ed9a731b45b91a0991161e4b6b333d828687b/README.md)
-24. [KairoHoudini](https://github.com/swayam8624/KairoHoudini/tree/0ef547ba3a47911851a01b3cd8ddac062a80caf4) — [README](https://github.com/swayam8624/KairoHoudini/blob/0ef547ba3a47911851a01b3cd8ddac062a80caf4/README.md)
-25. [KairoMaya](https://github.com/swayam8624/KairoMaya/tree/2750133c3abf334789df7703ba2e8ba8a60fa6a7) — [README](https://github.com/swayam8624/KairoMaya/blob/2750133c3abf334789df7703ba2e8ba8a60fa6a7/README.md)
-26. [KairoNuke](https://github.com/swayam8624/KairoNuke/tree/d1f66798ec047a015a981d1429893d8b3af201a6) — [README](https://github.com/swayam8624/KairoNuke/blob/d1f66798ec047a015a981d1429893d8b3af201a6/README.md)
+1. [KairoMath](https://github.com/swayam8624/KairoMath/tree/f31f5a2feac8ebb958fef5bfc81a1fca50578e85) · [File checklist (34)](docs/study/KairoMath.md) — [README](https://github.com/swayam8624/KairoMath/blob/f31f5a2feac8ebb958fef5bfc81a1fca50578e85/README.md)
+2. [KairoGeometry](https://github.com/swayam8624/KairoGeometry/tree/b5808b99faed80fe330f889e9374822deaf64dbd) · [File checklist (22)](docs/study/KairoGeometry.md) — [README](https://github.com/swayam8624/KairoGeometry/blob/b5808b99faed80fe330f889e9374822deaf64dbd/README.md)
+3. [KairoSpatial](https://github.com/swayam8624/KairoSpatial/tree/366379c290c79e6fffc6f84e4f4bb6832f9f91b3) · [File checklist (27)](docs/study/KairoSpatial.md) — [README](https://github.com/swayam8624/KairoSpatial/blob/366379c290c79e6fffc6f84e4f4bb6832f9f91b3/README.md)
+4. [KairoECS](https://github.com/swayam8624/KairoECS/tree/82d7a5e3c2e445d369e830508fa82e23aacca25a) · [File checklist (11)](docs/study/KairoECS.md) — [README](https://github.com/swayam8624/KairoECS/blob/82d7a5e3c2e445d369e830508fa82e23aacca25a/README.md)
+5. [KairoReflection](https://github.com/swayam8624/KairoReflection/tree/b048dd7fc96f19c0a39fd2076625561e2dae6db5) · [File checklist (7)](docs/study/KairoReflection.md) — [README](https://github.com/swayam8624/KairoReflection/blob/b048dd7fc96f19c0a39fd2076625561e2dae6db5/README.md)
+6. [KairoPhysicsMath](https://github.com/swayam8624/KairoPhysicsMath/tree/a257c6d93296306e797d685028f0bf7866340465) · [File checklist (15)](docs/study/KairoPhysicsMath.md) — [README](https://github.com/swayam8624/KairoPhysicsMath/blob/a257c6d93296306e797d685028f0bf7866340465/README.md)
+7. [KairoPhysicsEngine](https://github.com/swayam8624/KairoPhysicsEngine/tree/b256df7327cfa0e4ae393e811cc3a661a17559e6) · [File checklist (35)](docs/study/KairoPhysicsEngine.md) — [README](https://github.com/swayam8624/KairoPhysicsEngine/blob/b256df7327cfa0e4ae393e811cc3a661a17559e6/README.md)
+8. [KairoAssets](https://github.com/swayam8624/KairoAssets/tree/a0a6c81b2526bcb1531dfa4094ccfae4aa568f19) · [File checklist (54)](docs/study/KairoAssets.md) — [README](https://github.com/swayam8624/KairoAssets/blob/a0a6c81b2526bcb1531dfa4094ccfae4aa568f19/README.md)
+9. [KairoEngineCore](https://github.com/swayam8624/KairoEngineCore/tree/523ed41da74ee117256281a3ebc45cde91368bc6) · [File checklist (97)](docs/study/KairoEngineCore.md) — [README](https://github.com/swayam8624/KairoEngineCore/blob/523ed41da74ee117256281a3ebc45cde91368bc6/README.md)
+10. [KairoAI](https://github.com/swayam8624/KairoAI/tree/5f09694af688a34be157fe3a00171fe7be8bcd00) · [File checklist (19)](docs/study/KairoAI.md) — [README](https://github.com/swayam8624/KairoAI/blob/5f09694af688a34be157fe3a00171fe7be8bcd00/README.md)
+11. [KairoGPU](https://github.com/swayam8624/KairoGPU/tree/befe484db34dab841af2c4e54ce9f224ae8391dd) · [File checklist (8)](docs/study/KairoGPU.md) — [README](https://github.com/swayam8624/KairoGPU/blob/befe484db34dab841af2c4e54ce9f224ae8391dd/README.md)
+12. [KairoRenderer](https://github.com/swayam8624/KairoRenderer/tree/8bed00179bf6712a69efb6a102df7caa1ef81b45) · [File checklist (109)](docs/study/KairoRenderer.md) — [README](https://github.com/swayam8624/KairoRenderer/blob/8bed00179bf6712a69efb6a102df7caa1ef81b45/README.md)
+13. [KairoEditor](https://github.com/swayam8624/KairoEditor/tree/da2369262e666b8769778ae35681f247573dbec0) · [File checklist (89)](docs/study/KairoEditor.md) — [README](https://github.com/swayam8624/KairoEditor/blob/da2369262e666b8769778ae35681f247573dbec0/README.md)
+14. [KairoHub](https://github.com/swayam8624/KairoHub/tree/48ed09b7f291d8d8cb9b51ad2e993bf4f16930c7) · [File checklist (17)](docs/study/KairoHub.md) — [README](https://github.com/swayam8624/KairoHub/blob/48ed09b7f291d8d8cb9b51ad2e993bf4f16930c7/README.md)
+15. [KairoRayTracer](https://github.com/swayam8624/KairoRayTracer/tree/99c45dfdaa67c2dc9e2d9846fc1dc21a0ba5782e) · [File checklist (36)](docs/study/KairoRayTracer.md) — [README](https://github.com/swayam8624/KairoRayTracer/blob/99c45dfdaa67c2dc9e2d9846fc1dc21a0ba5782e/README.md)
+16. [KairoSIMD](https://github.com/swayam8624/KairoSIMD/tree/5d65e950ec64e5ae1021cc4b58d374e6a3b5cde6) · [File checklist (8)](docs/study/KairoSIMD.md) — [README](https://github.com/swayam8624/KairoSIMD/blob/5d65e950ec64e5ae1021cc4b58d374e6a3b5cde6/README.md)
+17. [KairoScheduler](https://github.com/swayam8624/KairoScheduler/tree/e9304fcb4a47cb66a32a3426e83669c88468d9ef) · [File checklist (7)](docs/study/KairoScheduler.md) — [README](https://github.com/swayam8624/KairoScheduler/blob/e9304fcb4a47cb66a32a3426e83669c88468d9ef/README.md)
+18. [KairoONNX](https://github.com/swayam8624/KairoONNX/tree/572a0b49177584b85d726fe4cfc72a861f6ddd1e) · [File checklist (9)](docs/study/KairoONNX.md) — [README](https://github.com/swayam8624/KairoONNX/blob/572a0b49177584b85d726fe4cfc72a861f6ddd1e/README.md)
+19. [KairoTransformers](https://github.com/swayam8624/KairoTransformers/tree/de2c6d1fcfda279e286f63dc49fba29cb27b5c99) · [File checklist (12)](docs/study/KairoTransformers.md) — [README](https://github.com/swayam8624/KairoTransformers/blob/de2c6d1fcfda279e286f63dc49fba29cb27b5c99/README.md)
+20. [KairoMacPerception](https://github.com/swayam8624/KairoMacPerception/tree/b0545b494f753b30146880e1c2e906f2277594d9) · [File checklist (11)](docs/study/KairoMacPerception.md) — [README](https://github.com/swayam8624/KairoMacPerception/blob/b0545b494f753b30146880e1c2e906f2277594d9/README.md)
+21. [KairoPipelineCore](https://github.com/swayam8624/KairoPipelineCore/tree/ff0ecd431bbf6e826014ea2ccbc21055884b26f0) · [File checklist (18)](docs/study/KairoPipelineCore.md) — [README](https://github.com/swayam8624/KairoPipelineCore/blob/ff0ecd431bbf6e826014ea2ccbc21055884b26f0/README.md)
+22. [KairoProductionTools](https://github.com/swayam8624/KairoProductionTools/tree/95708af537b312a9a5d56c45e46f419abe858378) · [File checklist (5)](docs/study/KairoProductionTools.md) — [README](https://github.com/swayam8624/KairoProductionTools/blob/95708af537b312a9a5d56c45e46f419abe858378/README.md)
+23. [KairoBlender](https://github.com/swayam8624/KairoBlender/tree/ba0ed9a731b45b91a0991161e4b6b333d828687b) · [File checklist (15)](docs/study/KairoBlender.md) — [README](https://github.com/swayam8624/KairoBlender/blob/ba0ed9a731b45b91a0991161e4b6b333d828687b/README.md)
+24. [KairoHoudini](https://github.com/swayam8624/KairoHoudini/tree/0ef547ba3a47911851a01b3cd8ddac062a80caf4) · [File checklist (12)](docs/study/KairoHoudini.md) — [README](https://github.com/swayam8624/KairoHoudini/blob/0ef547ba3a47911851a01b3cd8ddac062a80caf4/README.md)
+25. [KairoMaya](https://github.com/swayam8624/KairoMaya/tree/2750133c3abf334789df7703ba2e8ba8a60fa6a7) · [File checklist (11)](docs/study/KairoMaya.md) — [README](https://github.com/swayam8624/KairoMaya/blob/2750133c3abf334789df7703ba2e8ba8a60fa6a7/README.md)
+26. [KairoNuke](https://github.com/swayam8624/KairoNuke/tree/d1f66798ec047a015a981d1429893d8b3af201a6) · [File checklist (12)](docs/study/KairoNuke.md) — [README](https://github.com/swayam8624/KairoNuke/blob/d1f66798ec047a015a981d1429893d8b3af201a6/README.md)
 
 ## Pass 3 — exhaustive integration source inventory
 
@@ -352,3 +352,14 @@ transitions, callers, downstream consumers, exceptions and the test oracle.
 Read the relevant tests immediately after each function or subsystem.
 Reimplement a small example without copying, then compare its behavior.
 A link in this inventory does not certify that every function is annotated.
+
+## New M50 gameplay reading path
+
+1. [Quest and dialogue runtime](Runtime/KairoPlayer/RuntimeQuestDialogue.hpp) — read objective invariants, completion, restore, then dialogue choice routing.
+2. [Regression tests](Runtime/KairoPlayer/tests/RuntimeQuestDialogueTests.cpp) — trace invalid restore and randomized prerequisites.
+3. [Terminal RPG sample](Samples/QuestDialogue/QuestDialogueDemo.cpp) — trace a player choice to a winning state.
+4. [Build and play instructions](Samples/QuestDialogue/README.md).
+
+## Inventory coverage at M50 baseline
+
+All 26 sibling trees from the current workspace.lock have individual file checklists: 700 filtered sibling paths, plus 254 baseline integration paths and the new quest/dialogue reading path. Generated artifacts, vendored trees, binaries and media are outside the first-party teaching inventory. Update checklists when the lock changes; file-level dependency traces and substantive comments still require review.

@@ -61,3 +61,7 @@ require the actual platform; an unsupported host is a blocker, not a pass.
 Every change updates the devlog and study order, with code comments and tests
 in the same PR. Update this queue with measured evidence, not optimistic
 percentages.
+
+## Candidate progress: quest/dialogue
+
+The reusable rules engine, branching terminal example and regression fixtures are present on the candidate branch. M50 remains open until runtime sample integration, disk persistence and relevant exact-head tests pass.
