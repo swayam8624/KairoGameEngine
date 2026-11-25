@@ -48,13 +48,13 @@ int main(int argc,char** argv)
             }
             else if(arg=="--screen-px" && i+1<argc)
             {
-                double parsed=0;
+                std::uint32_t parsed=0;
                 const std::string_view value=argv[++i];
                 const auto result=std::from_chars(value.data(),value.data()+value.size(),parsed);
                 if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size()||
-                    !std::isfinite(parsed)||parsed<=0)
+                    parsed==0)
                     throw std::invalid_argument("Invalid terrain pixel error budget.");
-                pixelBudget=parsed;lod=true;asynchronous=true;
+                pixelBudget=static_cast<double>(parsed);lod=true;asynchronous=true;
             }
             else if(arg=="--error-mm" && i+1<argc)
             {
