@@ -1,0 +1,30 @@
+name: M50 WebAssembly and browser acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure freestanding Wasm toolchain
+        run: |
+          command -v clang++
+          command -v wasm-ld
+          command -v node
+      - name: Native and WASM state parity
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_web_wasm.py
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run real browser smoke
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_web_platformer.py

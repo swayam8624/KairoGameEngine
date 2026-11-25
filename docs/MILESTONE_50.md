@@ -141,3 +141,7 @@ Separate Linux dual-compiler acceptance gate with exact source fingerprints, reg
 ## Candidate progress: Linux installer
 
 Actual Debian archive generation and relocated native ELF fixture execution pass. Wrapper accepts the existing Kairo release package format; full native player bundle on a clean Linux environment, dependencies and cross-platform distribution remain open. No accepted 50% promotion yet.
+
+## Candidate progress: web deployment
+
+Actual freestanding C++ WASM build and 20,279 native/WASM state/map comparisons passed. Static responsive Canvas host and browser acceptance fixture added. Browser execution was blocked/timed out locally, and the native GPU renderer/general exporter/mobile-native deployment are outside this slice. No accepted 50% promotion pending browser and workspace evidence.

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kairo Web Platformer</title>
+<style>
+body{background:#0d1726;color:#e6edf5;font:16px system-ui,sans-serif;margin:0 auto;max-width:880px;padding:20px}canvas{display:block;width:100%;height:auto;background:#0d1726;border:1px solid #52657b;image-rendering:pixelated;touch-action:none}button{padding:12px 20px;color:inherit;background:#23354c;border:1px solid #71859f;border-radius:6px;font:inherit;touch-action:none}button:focus-visible{outline:3px solid #ffc94a}.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}#status{min-height:24px}
+</style>
+</head>
+<body data-smoke="pending">
+<h1>Kairo Web Platformer</h1>
+<p>Collect both crystals, jump the hazard, and reach the exit. A/D or arrows, Space to jump.</p>
+<canvas id="game" width="768" height="288" aria-label="Platformer game board"></canvas>
+<p id="status" role="status" aria-live="polite">Loading C++ simulation…</p>
+<div class="controls"><button data-key="ArrowLeft" aria-label="Move left">Left</button><button data-key="ArrowRight" aria-label="Move right">Right</button><button data-key="Space">Jump</button><button id="reset">Reset</button></div>
+<script type="module" src="game.js"></script>
+</body>
+</html>
