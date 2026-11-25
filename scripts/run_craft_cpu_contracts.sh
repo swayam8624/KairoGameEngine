@@ -13,7 +13,7 @@ contracts=(
     CraftHudProjectionTests CraftHudPublicationTests CraftVitalsTests
     CraftMiningTests CraftEquipmentTests CraftEquipmentEnvelopeTests
     CraftMouseLookTests CraftNutritionTests CraftSurfaceSpawnTests
-    CraftActionLatchTests CraftSurvivalJourneyTests
+    CraftActionLatchTests CraftSurvivalJourneyTests CraftSaveFileTests
 )
 if (( $# )); then
     requested=("$@")

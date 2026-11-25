@@ -308,6 +308,20 @@ Exact existing inventory test 0a5027e2446c3e1dda0a9f8cf4b5dfd723791f8c; full wor
 
 Added scripts/run_craft_cpu_contracts.sh with 23 named C++23 contracts, strict warnings, ASan/UBSan, isolated temporary outputs and fail-closed missing/unknown-test checks. Replaces the 23 duplicated compile/run snippets in the ownership job with the same test inventory (compared programmatically). The script exact blob 989d81ebfd1d55bbdf2985381e458e1c276b8df4 passed bash syntax and selected 7/7 contracts on Clang 17 in the reconstructed source workspace. The full 23-test invocation requires the remaining repository files and is pending CI. Native tests unchanged.
 
+### Shared save-file transaction
+
+New shared bounded regular-file read and same-filesystem replacement writer,
+used by both demos. An atomic directory reservation prevents check-then-open
+races between cooperating writers; failure leaves the previous save intact
+and removes only this writer's staged file/reservation. A stale reservation
+fails closed. No fsync or adversarial filesystem guarantee. Exact header
+dfcdb23da3b637177a76fdcfa1941853f9f3cf77 and test
+1a0340020962a0dc0e678b32ed47087e0f9ce132 passed on Clang and GCC C++23,
+strict warnings, ASan/UBSan: 256 actual disk replacements each, size caps,
+competing writer refusal and failed rename cleanup. Registered as 24th CPU
+contract and native CTest gate. Native Windows/macOS filesystem behavior
+and demo integration pending. Prior #87 head unchanged.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

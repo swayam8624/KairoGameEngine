@@ -14,6 +14,7 @@
 #include "CraftMouseLook.hpp"
 #include "CraftActionLatch.hpp"
 #include "CraftEquipmentSave.hpp"
+#include "CraftSaveFile.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
@@ -88,13 +89,7 @@ int main(int argc,char** argv)
         if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
         if(savePath&&std::filesystem::exists(*savePath))
         {
-            const auto size=std::filesystem::file_size(*savePath);
-            if(size>CraftSessionMaximumBytes+CraftEquipmentOverhead)throw std::length_error("Stream save size cap.");
-            std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
-            std::ifstream file(*savePath,std::ios::binary);
-            if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
-                file.peek()!=std::char_traits<char>::eof())
-                throw std::runtime_error("Stream save read failed.");
+            const auto bytes=ReadCraftSaveFile(*savePath,CraftSessionMaximumBytes+CraftEquipmentOverhead);
             std::span<const std::uint8_t> payload=bytes;
             if(HasCraftEquipmentEnvelope(payload))
             {
@@ -119,21 +114,7 @@ int main(int argc,char** argv)
             if(!savePath)return;
             const auto payload=EncodeCraftSession(seed,*world,inventory);
             const auto bytes=EncodeCraftEquipmentEnvelope(payload,equipment,CraftSessionMaximumBytes);
-            auto temporary=*savePath;temporary+=".tmp";
-            if(std::filesystem::exists(temporary))throw std::runtime_error("Temporary save already exists.");
-            try
-            {
-                std::ofstream file(temporary,std::ios::binary|std::ios::trunc);
-                if(!file||!file.write(reinterpret_cast<const char*>(bytes.data()),static_cast<std::streamsize>(bytes.size())))
-                    throw std::runtime_error("Stream save write failed.");
-                file.close();
-                if(!file)throw std::runtime_error("Stream save close failed.");
-                std::filesystem::rename(temporary,*savePath);
-            }
-            catch(...)
-            {
-                std::error_code ignored;std::filesystem::remove(temporary,ignored);throw;
-            }
+            WriteCraftSaveFile(*savePath,bytes,CraftSessionMaximumBytes+CraftEquipmentOverhead);
             std::cout<<"Streamed Craft saved "<<world->Overrides().size()<<" edits\n";
         };
         Plan::Slots coordinates{};

@@ -7,7 +7,7 @@ these later changes still require exact-head acceptance.
 
 ## CPU acceptance without the graphics SDK
 
-Run the complete 23-contract C++23 suite on a source checkout:
+Run the complete 24-contract C++23 suite on a source checkout:
 
 ```bash
 CXX=clang++ bash scripts/run_craft_cpu_contracts.sh
@@ -55,6 +55,16 @@ build/game-player-clang/Runtime/KairoPlayer/KairoCraftCaves \
 
 Choose a backend explicitly for reproducible testing. The games use separate
 world generation formats; do not use the same save filename for both.
+
+## Save-file replacement and recovery
+
+Both demos reserve a sibling directory named `<save>.write-lock` before
+writing a temporary payload. A concurrent cooperating writer is refused.
+A closed payload is renamed into place without deleting the prior save first.
+If the program crashes, inspect and remove a stale reservation only after
+confirming no writer is active; it may contain an incomplete payload. Do not
+treat it as a valid save without codec validation. Replacement is not an
+fsync-based crash-durability guarantee.
 
 ## Controls and progression
 

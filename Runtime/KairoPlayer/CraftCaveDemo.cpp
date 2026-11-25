@@ -11,6 +11,7 @@
 #include "CraftMouseLook.hpp"
 #include "CraftActionLatch.hpp"
 #include "CraftEquipmentSave.hpp"
+#include "CraftSaveFile.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
 #include <fstream>
@@ -69,12 +70,7 @@ int main(int argc,char** argv)
         CraftEquipment equipment;
         if(savePath&&std::filesystem::exists(*savePath))
         {
-            const auto size=std::filesystem::file_size(*savePath);
-            if(size>CaveCraftMaximumBytes+CraftEquipmentOverhead)throw std::length_error("Cave save size cap.");
-            std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
-            std::ifstream file(*savePath,std::ios::binary);
-            if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
-                file.peek()!=std::char_traits<char>::eof())throw std::runtime_error("Cave save read failed.");
+            const auto bytes=ReadCraftSaveFile(*savePath,CaveCraftMaximumBytes+CraftEquipmentOverhead);
             std::span<const std::uint8_t> payload=bytes;
             if(HasCraftEquipmentEnvelope(payload))
             {
@@ -91,21 +87,7 @@ int main(int argc,char** argv)
             if(!savePath)return;
             const auto payload=EncodeCaveCraftSession(seed,*world,inventory);
             const auto bytes=EncodeCraftEquipmentEnvelope(payload,equipment,CaveCraftMaximumBytes);
-            auto temp=*savePath;temp+=".tmp";
-            if(std::filesystem::exists(temp))throw std::runtime_error("Temporary cave save already exists.");
-            try
-            {
-                std::ofstream file(temp,std::ios::binary|std::ios::trunc);
-                if(!file||!file.write(reinterpret_cast<const char*>(bytes.data()),static_cast<std::streamsize>(bytes.size())))
-                    throw std::runtime_error("Cave save write failed.");
-                file.close();
-                if(!file)throw std::runtime_error("Cave save close failed.");
-                std::filesystem::rename(temp,*savePath);
-            }
-            catch(...)
-            {
-                std::error_code ignored;std::filesystem::remove(temp,ignored);throw;
-            }
+            WriteCraftSaveFile(*savePath,bytes,CaveCraftMaximumBytes+CraftEquipmentOverhead);
         };
         CraftMeshBatch<1,P,CaveCraftBaseline,CaveChunk> workers(4);
         Pub pub;
