@@ -13,7 +13,11 @@
 // capture and tests nonuniform pixels, not complete graphics correctness or
 // mathematical certification of physics.
 
+#include "RuntimeFrameClock.hpp"
+#include "RuntimeNativeAudioOutput.hpp"
+#include <memory>
 #include <exception>
+#include <thread>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -129,6 +133,23 @@ int main(int argc, char** argv)
                   << "  startup scene: " << project.Descriptor().StartupScene.generic_string() << '\n';
         kairo::player::RuntimePhysicsBridge physics(project.Scene());
         kairo::player::RuntimeAudioBridge audio(project);
+        std::unique_ptr<kairo::player::detail::RuntimeNativeAudioOutput> audioOutput;
+        if(!arguments.SmokeTest&&audio.LoadedClipCount()!=0)
+        {
+            try
+            {
+                audioOutput=std::make_unique<kairo::player::detail::RuntimeNativeAudioOutput>(audio.OutputSampleRate());
+                if(!audioOutput->Enabled())
+                {
+                    std::cerr<<"Native audio output unavailable on this host; using headless mixer.\n";
+                    audioOutput.reset();
+                }
+            }
+            catch(const std::exception& error)
+            {
+                std::cerr<<"Native audio output unavailable: "<<error.what()<<"; using headless mixer.\n";
+            }
+        }
         kairo::player::RuntimeSceneAudioBridge sceneAudio(project.Scene(), audio);
         kairo::player::RuntimeInputBridge input(project.InputMap());
         kairo::player::RuntimeCharacterMotorBridge characterMotor(project.Scene(), physics);
@@ -198,11 +219,23 @@ int main(int argc, char** argv)
         renderer.SetCameraPose(activeCameraPose());
         if (arguments.SmokeTest) renderer.RequestViewportCapture();
         unsigned smokeFrames = 0u;
-        auto previousFrame = std::chrono::steady_clock::now();
+        const auto clockOrigin=std::chrono::steady_clock::now();
+        kairo::player::detail::RuntimeFrameClock frameClock;
         while (!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
+            if(renderer.NativeWindow().ShouldClose())break;
             input.Poll(renderer.NativeWindow());
+            const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
+            const bool drawable=frameWidth!=0&&frameHeight!=0;
+            const auto elapsed=std::chrono::duration<double>(std::chrono::steady_clock::now()-clockOrigin).count();
+            const float elapsedSeconds=static_cast<float>(frameClock.Sample(elapsed,drawable));
+            if(!drawable)
+            {
+                if(arguments.SmokeTest)throw std::runtime_error("Native smoke window has no drawable framebuffer.");
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
             if (input.HasAction("Quit") && input.Action("Quit").Pressed)
                 renderer.NativeWindow().RequestClose();
 
@@ -214,9 +247,6 @@ int main(int argc, char** argv)
             }
             for (const auto& action : project.InputMap().Actions())
                 logic.DispatchInput(action.Name, input.Action(action.Name));
-            const auto currentFrame = std::chrono::steady_clock::now();
-            const float elapsedSeconds = std::chrono::duration<float>(currentFrame - previousFrame).count();
-            previousFrame = currentFrame;
             (void)physics.Advance(elapsedSeconds, &fixedSteps);
             logic.DispatchContacts();
             nativeGameplay.Update(static_cast<double>(elapsedSeconds));
@@ -224,10 +254,18 @@ int main(int argc, char** argv)
             (void)shipping.Step(static_cast<double>(elapsedSeconds));
             bridge.StepAnimations(elapsedSeconds);
 
-            // This is currently the deterministic/headless output sink: it keeps
-            // authored voices, one-shots and spatial state advancing today while
-            // preserving the returned stereo PCM boundary for native device output.
-            (void)sceneAudio.Advance(static_cast<double>(elapsedSeconds));
+            // The game thread owns mixing and scene state. The native callback
+            // consumes only bounded stereo PCM; it never touches the scene.
+            const auto pcm=sceneAudio.Advance(static_cast<double>(elapsedSeconds));
+            if(audioOutput)
+            {
+                if(audioOutput->Failed())
+                {
+                    std::cerr<<"Native audio callback failed; continuing with headless mixer.\n";
+                    audioOutput.reset();
+                }
+                else (void)audioOutput->Push(pcm);
+            }
 
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.SetCameraPose(activeCameraPose());

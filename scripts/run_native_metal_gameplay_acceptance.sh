@@ -38,7 +38,7 @@ cmake --preset game-player-clang \
     -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF \
     -DCMAKE_BUILD_TYPE=Release 2>&1 | tee "$logdir/configure.log"
 targets=(
-    KairoCraftRecipesHudTests KairoCraftCaves KairoCraftCaveWorldTests
+    KairoCraftCheckpointTests KairoCraftCombatHudTests KairoCraftCombatRewardTests KairoCraftCreatureNavigationTests KairoCraftCreatureTests KairoCraftAutosaveTests KairoCraftTargetFeedbackTests KairoCraftDaylightTests KairoCraftSaveFileTests KairoCraftSurvivalJourneyTests KairoCraftActionLatchTests KairoCraftSurfaceSpawnTests KairoCraftNutritionTests KairoCraftMouseLookTests KairoCraftEquipmentEnvelopeTests KairoCraftEquipmentTests KairoCraftMiningTests KairoCraftVitalsTests KairoCraftHudPublicationTests KairoCraftHudProjectionTests KairoCraftRecipesHudTests KairoCraftCaves KairoCraftCaveWorldTests
     KairoCraftStream KairoCraftInventoryTests KairoCraftMeshBatchTests
     KairoCraftStreamSaveTests KairoCraft KairoCraftStreamingWindowTests
     KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests
@@ -51,7 +51,7 @@ targets=(
 )
 cmake --build --preset game-player-clang --parallel "${KAIRO_BUILD_JOBS:-2}" --target "${targets[@]}" 2>&1 | tee "$logdir/build.log"
 build=build/game-player-clang
-contracts='^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow|CraftStreamSave|CraftMeshBatch|CraftInventory|CraftCaveWorld|CraftRecipesHud)Tests$'
+contracts='^Kairo(Terrain(NativeStore|GenerationQueue|RenderOrigin|ErrorProfile|ScreenError|Walker)|VoxelInteraction|VoxelChunkSurface|CraftWorld|VoxelMeshPublication|CraftSave|VoxelPlayer|CraftStreamingWindow|CraftStreamSave|CraftMeshBatch|CraftInventory|CraftCaveWorld|CraftRecipesHud|CraftHudProjection|CraftHudPublication|CraftVitals|CraftMining|CraftEquipment|CraftEquipmentEnvelope|CraftMouseLook|CraftNutrition|CraftSurfaceSpawn|CraftActionLatch|CraftSurvivalJourney|CraftSaveFile|CraftDaylight|CraftTargetFeedback|CraftAutosave|CraftCreature|CraftCreatureNavigation|CraftCombatReward|CraftCombatHud|CraftCheckpoint)Tests$'
 ctest --test-dir "$build" -R "$contracts" --no-tests=error --output-on-failure 2>&1 | tee "$logdir/contracts.log"
 ctest --test-dir "$build" -R '^KairoRendererMetal(Skinning|Instancing)Smoke$' --no-tests=error --output-on-failure 2>&1 | tee "$logdir/renderer.log"
 # CTest's skip status is useful in broad CI, but not evidence of native
@@ -65,6 +65,22 @@ player="$build/Runtime/KairoPlayer"
 "$player/KairoTerrainExplorer" --renderer metal --seed 42 --smoke 2>&1 | tee "$logdir/explorer.log"
 "$player/KairoCraftStream" --renderer metal --seed 42 --survival --workers 4 --uploads 2 --smoke 2>&1 | tee "$logdir/craft.log"
 "$player/KairoCraftCaves" --renderer metal --seed 42 --smoke 2>&1 | tee "$logdir/caves.log"
+# Stage the exact built games outside the source/build tree and run both
+# copied executables through relative launchers. Do not write user saves.
+bundleParent="$(mktemp -d)"
+bundle="$bundleParent/playtest"
+trap 'rm -rf -- "$bundleParent"; echo "Metal acceptance evidence: $logdir"' EXIT
+cmake "-DSURFACE=$root/$player/KairoCraftStream" "-DCAVES=$root/$player/KairoCraftCaves" \
+    "-DOUTPUT=$bundle" "-DENGINE_REVISION=$(git rev-parse HEAD)" \
+    "-DRENDERER_REVISION=$(awk '$1=="KairoRenderer"{print $2}' workspace.lock)" \
+    -P scripts/StageCraftPlaytest.cmake 2>&1 | tee "$logdir/bundle.log"
+cp "$bundle/manifest.txt" "$logdir/craft-bundle-manifest.txt"
+(
+    cd "$bundle"
+    tail -n2 manifest.txt | shasum -a 256 -c -
+    ./run-surface.sh --renderer metal --seed 42 --survival --smoke
+    ./run-caves.sh --renderer metal --seed 42 --smoke
+) 2>&1 | tee "$logdir/relocated-games.log"
 # Verify that the exact dependency snapshot remained intact after the run.
 bash scripts/verify_workspace_lock.sh "${repos[@]}" 2>&1 | tee "$logdir/revisions-after.log"
 echo "PASS: exact dependency snapshot, macOS contracts, native renderer and gameplay captures." | tee "$logdir/RESULT.txt"

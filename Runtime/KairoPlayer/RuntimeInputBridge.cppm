@@ -1,6 +1,7 @@
 module;
 
 #include <GLFW/glfw3.h>
+#include "RuntimeInputGate.hpp"
 
 #include <cstddef>
 #include <string_view>
@@ -33,17 +34,39 @@ export namespace kairo::player
         {
             m_State.BeginFrame();
             GLFWwindow* native = window.NativeHandle();
+            const auto [width,height]=window.FramebufferExtent();
+            const bool active=glfwGetWindowAttrib(native,GLFW_FOCUSED)==GLFW_TRUE&&
+                glfwGetWindowAttrib(native,GLFW_ICONIFIED)!=GLFW_TRUE&&width!=0&&height!=0;
+            if(!active)
+            {
+                m_Keys.Reset();m_MouseButtons.Reset();m_MouseBaseline=false;
+                for(auto& pad:m_Pads)pad.Reset();
+            }
+            // Establish the cursor baseline before applying new held controls,
+            // so starting or resuming cannot manufacture a mouse movement.
+            if(active)
+            {
+                double x=0,y=0;
+                glfwGetCursorPos(native,&x,&y);
+                if(std::isfinite(x)&&std::isfinite(y)&&
+                    std::abs(x)<=1e9&&std::abs(y)<=1e9)
+                {
+                    m_State.SetMousePosition({static_cast<float>(x),static_cast<float>(y)});
+                    if(!m_MouseBaseline){m_State.CommitFrame();m_MouseBaseline=true;}
+                }
+                else m_MouseBaseline=false;
+            }
             for (const auto& binding : m_Map.Bindings())
             {
                 switch (binding.Device)
                 {
                     case kairo::engine::InputBindingDevice::Keyboard:
-                        m_State.SetKeyDown(binding.Code,
-                            glfwGetKey(native, binding.Code) == GLFW_PRESS);
+                        m_State.SetKeyDown(binding.Code,active&&m_Keys.Digital(static_cast<std::size_t>(binding.Code),
+                            glfwGetKey(native, binding.Code) == GLFW_PRESS));
                         break;
                     case kairo::engine::InputBindingDevice::MouseButton:
-                        m_State.SetMouseButtonDown(binding.Code,
-                            glfwGetMouseButton(native, binding.Code) == GLFW_PRESS);
+                        m_State.SetMouseButtonDown(binding.Code,active&&m_MouseButtons.Digital(static_cast<std::size_t>(binding.Code),
+                            glfwGetMouseButton(native, binding.Code) == GLFW_PRESS));
                         break;
                     case kairo::engine::InputBindingDevice::GamepadButton:
                     case kairo::engine::InputBindingDevice::GamepadAxis:
@@ -51,26 +74,23 @@ export namespace kairo::player
                 }
             }
 
-            double cursorX = 0.0;
-            double cursorY = 0.0;
-            glfwGetCursorPos(native, &cursorX, &cursorY);
-            m_State.SetMousePosition({ static_cast<float>(cursorX), static_cast<float>(cursorY) });
-
             for (std::size_t slot = 0; slot < kairo::engine::InputState::MaximumGamepads; ++slot)
             {
                 GLFWgamepadstate gamepad{};
                 const int joystick = GLFW_JOYSTICK_1 + static_cast<int>(slot);
-                if (glfwJoystickIsGamepad(joystick) != GLFW_TRUE ||
+                if (!active || glfwJoystickIsGamepad(joystick) != GLFW_TRUE ||
                     glfwGetGamepadState(joystick, &gamepad) != GLFW_TRUE)
                 {
+                    m_Pads[slot].Reset();
                     m_State.ClearGamepad(slot);
                     continue;
                 }
                 for (std::size_t button = 0; button <= GLFW_GAMEPAD_BUTTON_LAST; ++button)
                     m_State.SetGamepadButtonDown(slot, button,
-                        gamepad.buttons[button] == GLFW_PRESS);
+                        m_Pads[slot].Button(button,gamepad.buttons[button] == GLFW_PRESS));
                 for (std::size_t axis = 0; axis <= GLFW_GAMEPAD_AXIS_LAST; ++axis)
-                    m_State.SetGamepadAxis(slot, axis, gamepad.axes[axis]);
+                    m_State.SetGamepadAxis(slot,axis,m_Pads[slot].Axis(axis,gamepad.axes[axis],
+                        axis==GLFW_GAMEPAD_AXIS_LEFT_TRIGGER||axis==GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER));
             }
         }
 
@@ -90,5 +110,9 @@ export namespace kairo::player
     private:
         const kairo::engine::InputActionMap& m_Map;
         kairo::engine::InputState m_State;
+        detail::RuntimeControlGate<512> m_Keys;
+        detail::RuntimeControlGate<8> m_MouseButtons;
+        std::array<detail::RuntimeGamepadGate,kairo::engine::InputState::MaximumGamepads> m_Pads;
+        bool m_MouseBaseline=false;
     };
 }

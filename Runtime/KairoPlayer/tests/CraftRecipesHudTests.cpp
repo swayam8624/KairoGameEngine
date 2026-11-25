@@ -17,6 +17,34 @@ int main()
     bool rejected=false;
     try{(void)CraftApplyRecipe(inventory,{});}catch(const std::invalid_argument&){rejected=true;}
     Check(rejected,"Empty recipe accepted");
+    const auto empty=BuildCraftHud(inventory,0),half=BuildCraftHud(inventory,10),full=BuildCraftHud(inventory,20);
+    Check(half.size()==empty.size()+1&&full.size()==half.size(),"Health bar geometry count");
+    Check(empty.back().Background&&half.back().W==122.f&&full.back().W==244.f,"Health bar fill differs");
+    bool badHealth=false;
+    try{(void)BuildCraftHud(inventory,21);}catch(const std::invalid_argument&){badHealth=true;}
+    Check(badHealth,"Invalid health bar accepted");
+    const auto mining=BuildCraftHud(inventory,20,10);
+    Check(mining.size()==full.size()+2&&mining.back().W==48.f,"Mining progress geometry differs");
+    Check(mining[mining.size()-2].Background,"Mining bar backing missing");
+    bool badMining=false;
+    try{(void)BuildCraftHud(inventory,20,21);}catch(const std::invalid_argument&){badMining=true;}
+    Check(badMining,"Invalid mining progress accepted");
+    const auto tool=BuildCraftHud(inventory,20,0,32,true);
+    Check(tool.size()==full.size()+2&&tool.back().W==122.f&&tool[tool.size()-2].Background,"Tool durability HUD differs");
+    bool badTool=false;
+    try{(void)BuildCraftHud(inventory,20,0,0,true);}catch(const std::invalid_argument&){badTool=true;}
+    Check(badTool,"Broken tool HUD accepted");
+    const auto noFood=BuildCraftHud(inventory,20,0,0,false,0);
+    const auto halfFood=BuildCraftHud(inventory,20,0,0,false,10);
+    const auto fullFood=BuildCraftHud(inventory,20,0,0,false,20);
+    Check(noFood.size()==full.size()+1&&noFood.back().Background,"Empty food bar backing");
+    Check(halfFood.size()==noFood.size()+1&&fullFood.size()==halfFood.size()&&
+        halfFood.back().W==122.f&&fullFood.back().W==244.f,"Food HUD fill differs");
+    bool badFood=false;
+    try{(void)BuildCraftHud(inventory,20,0,0,false,21);}catch(const std::invalid_argument&){badFood=true;}
+    Check(badFood,"Invalid food HUD accepted");
+    const auto combat=BuildCraftHud(inventory,20,0,0,false,std::nullopt,6);
+    Check(combat.size()==full.size()+2&&combat[0].Color==std::array{1.f,.22f,.16f}&&combat[4].Background&&combat[5].W==48.f,"Combat HUD layout differs");
     std::mt19937 rng(456);
     std::size_t rects=0;
     for(unsigned i=0;i<10000;++i)

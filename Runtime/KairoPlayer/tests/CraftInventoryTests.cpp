@@ -1,4 +1,6 @@
 #include "../CraftInventory.hpp"
+#include "../CraftMining.hpp"
+#include "../CraftEquipmentSave.hpp"
 #include <iostream>
 namespace {
 using namespace kairo::player::detail;
@@ -28,6 +30,32 @@ int main()
     Check(decoded.Seed==seed&&decoded.Inventory.Count(material)==1&&decoded.Inventory.Selected==material&&
         decoded.World.Overrides()==world.Overrides(),"Inventory session roundtrip failed");
     Check(EncodeCraftSession(decoded.Seed,decoded.World,decoded.Inventory)==bytes,"Session encoding not canonical");
+    CraftEquipment pick{37,true};
+    const auto equipped=EncodeCraftEquipmentEnvelope(bytes,pick,CraftSessionMaximumBytes);
+    const auto wrapper=DecodeCraftEquipmentEnvelope(equipped,CraftSessionMaximumBytes);
+    const auto restored=DecodeCraftSession(wrapper.Payload);
+    Check(wrapper.Equipment.Durability==37&&wrapper.Equipment.Equipped&&restored.Inventory.Count(material)==1&&
+        restored.World.Overrides()==world.Overrides(),"Equipped surface session differs");
+    Check(EncodeCraftEquipmentEnvelope(wrapper.Payload,wrapper.Equipment,CraftSessionMaximumBytes)==equipped,
+        "Equipment envelope not canonical");
+    const auto rejectsEquipment=[](const std::vector<std::uint8_t>& data)
+    {
+        try{(void)DecodeCraftEquipmentEnvelope(data,CraftSessionMaximumBytes);return false;}
+        catch(const std::invalid_argument&){return true;}
+    };
+    for(std::size_t i=0;i<equipped.size();++i)
+    {
+        auto corrupt=equipped;corrupt[i]^=1;
+        Check(rejectsEquipment(corrupt),"Equipment corruption accepted");
+    }
+    auto malformed=equipped;malformed[16]=0;malformed[17]=0;malformed[18]=1;
+    malformed.resize(malformed.size()-8);CraftWrite(malformed,CraftSaveChecksum(malformed),8);
+    Check(rejectsEquipment(malformed),"Invalid equipped state accepted");
+    malformed=equipped;malformed.pop_back();Check(rejectsEquipment(malformed),"Truncated equipment accepted");
+    bool nested=false;
+    try{(void)EncodeCraftEquipmentEnvelope(equipped,pick,CraftSessionMaximumBytes);}
+    catch(const std::invalid_argument&){nested=true;}
+    Check(nested,"Nested equipment accepted");
     auto corrupted=bytes;corrupted[20]^=1;
     bool rejected=false;
     try{(void)DecodeCraftSession(corrupted);}catch(const std::invalid_argument&){rejected=true;}
@@ -45,7 +73,25 @@ int main()
         Check(PlaceCraftBlock(inventory,block,query,apply,allow),"Repeated placement failed");
         Check(inventory.Count(material)==0&&world.Overrides().empty(),"Block or item duplication");
     }
+    CraftMining mining;
+    const CraftMiningTarget target{{block.X,block.Y,block.Z},material};
+    const auto commit=[&](const CraftMiningTarget& completed)
+    {
+        Check(completed==target,"Mining changed target");
+        return MineCraftBlock(inventory,block,query,apply);
+    };
+    for(unsigned i=0;i<10000;++i)
+    {
+        bool finished=false;
+        for(unsigned step=0;step<30&&!finished;++step)finished=mining.Advance(true,target,.1,commit);
+        Check(finished&&world.Get(block)==VoxelAir&&inventory.Count(material)==1,"Timed mine did not commit exactly once");
+        Check(PlaceCraftBlock(inventory,block,query,apply,allow)&&world.Overrides().empty()&&
+            inventory.Count(material)==0,"Timed mining conservation failed");
+    }
     inventory.Counts[material-1]=CraftInventory::StackLimit;
+    for(unsigned step=0;step<30;++step)
+        Check(!mining.Advance(true,target,.1,commit),"Full stack accepted timed mine");
+    Check(world.Get(block)==material&&inventory.Count(material)==CraftInventory::StackLimit,"Timed mine changed full inventory");
     Check(!MineCraftBlock(inventory,block,query,apply)&&world.Get(block)==material,"Stack cap failed");
     const auto unknown=[](VoxelCoordinate)->std::optional<VoxelMaterial>{return {};};
     Check(!MineCraftBlock(inventory,air,unknown,apply),"Unknown cell mined");

@@ -4,6 +4,23 @@
 #include "CraftStreamSave.hpp"
 #include "CraftInventory.hpp"
 #include "CraftRecipesHud.hpp"
+#include "CraftHudProjection.hpp"
+#include "CraftHudPublication.hpp"
+#include "CraftVitals.hpp"
+#include "CraftNutrition.hpp"
+#include "CraftDaylight.hpp"
+#include "CraftSurfaceSpawn.hpp"
+#include "CraftMining.hpp"
+#include "CraftEquipment.hpp"
+#include "CraftMouseLook.hpp"
+#include "CraftActionLatch.hpp"
+#include "CraftTargetFeedback.hpp"
+#include "CraftEquipmentSave.hpp"
+#include "CraftSaveFile.hpp"
+#include "CraftAutosave.hpp"
+#include "CraftCheckpoint.hpp"
+#include "CraftCreature.hpp"
+#include "CraftCombatReward.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
@@ -65,60 +82,97 @@ int main(int argc,char** argv)
             else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--survival] [--workers N] [--uploads N] [--save path] [--smoke]");
         }
         RendererRuntime renderer({"Kairo Craft Stream: WASD / arrows / Space / Ctrl / mouse / Esc",960u,540u,!smoke,backend});
-        renderer.ResizeViewport(960,540);
+        CraftHudViewport hudViewport;
+        const bool nativeHud=renderer.SupportsViewportOverlay();
+        renderer.ResizeViewport(hudViewport.Width,hudViewport.Height);
         renderer.SetViewportShadingMode(ViewportShadingMode::Lit);
         using World=VoxelEdits<StreamingCraftBaseline>;
         using Plan=CraftWindowPlan<2>;
         using Publication=VoxelMeshPublication<MeshHandle,Plan::Capacity>;
         auto world=std::make_unique<World>(StreamingCraftBaseline{seed});
         CraftInventory inventory;
+        CraftEquipment equipment;
+        CraftAutosave autosave;
+        std::optional<CraftCheckpoint> playerCheckpoint;
+        std::uint64_t worldRevision=0;
+        bool finalSaveFailed=false;
         if(smoke&&savePath)throw std::invalid_argument("Smoke mode does not touch user saves.");
-        if(savePath&&std::filesystem::exists(*savePath))
+        const bool existingSave=savePath&&std::filesystem::exists(*savePath);
+        if(existingSave)
         {
-            const auto size=std::filesystem::file_size(*savePath);
-            if(size>CraftSessionMaximumBytes)throw std::length_error("Stream save size cap.");
-            std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
-            std::ifstream file(*savePath,std::ios::binary);
-            if(!file||!file.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(bytes.size()))||
-                file.peek()!=std::char_traits<char>::eof())
-                throw std::runtime_error("Stream save read failed.");
-            if(bytes.size()>=CraftSessionMagic.size()&&
-                std::equal(CraftSessionMagic.begin(),CraftSessionMagic.end(),bytes.begin()))
+            const auto bytes=ReadCraftSaveFile(*savePath,CraftSessionMaximumBytes+CraftEquipmentOverhead+CraftCheckpointOverhead);
+            std::span<const std::uint8_t> payload=bytes;
+            if(HasCraftCheckpoint(payload))
             {
-                auto decoded=DecodeCraftSession(bytes);
+                const auto decoded=DecodeCraftCheckpoint(payload,CraftSessionMaximumBytes+CraftEquipmentOverhead);
+                playerCheckpoint=decoded.State;payload=decoded.Payload;
+            }
+            if(HasCraftEquipmentEnvelope(payload))
+            {
+                const auto decoded=DecodeCraftEquipmentEnvelope(payload,CraftSessionMaximumBytes);
+                equipment=decoded.Equipment;payload=decoded.Payload;
+            }
+            if(payload.size()>=CraftSessionMagic.size()&&
+                std::equal(CraftSessionMagic.begin(),CraftSessionMagic.end(),payload.begin()))
+            {
+                auto decoded=DecodeCraftSession(payload);
                 seed=decoded.Seed;world=std::make_unique<World>(std::move(decoded.World));
                 inventory=decoded.Inventory;
             }
             else
             {
-                auto decoded=DecodeStreamCraftSave(bytes);
+                auto decoded=DecodeStreamCraftSave(payload);
                 seed=decoded.Seed;world=std::make_unique<World>(std::move(decoded.World));
             }
         }
         const auto save=[&]()
         {
             if(!savePath)return;
-            const auto bytes=EncodeCraftSession(seed,*world,inventory);
-            auto temporary=*savePath;temporary+=".tmp";
-            if(std::filesystem::exists(temporary))throw std::runtime_error("Temporary save already exists.");
-            try
-            {
-                std::ofstream file(temporary,std::ios::binary|std::ios::trunc);
-                if(!file||!file.write(reinterpret_cast<const char*>(bytes.data()),static_cast<std::streamsize>(bytes.size())))
-                    throw std::runtime_error("Stream save write failed.");
-                file.close();
-                if(!file)throw std::runtime_error("Stream save close failed.");
-                std::filesystem::rename(temporary,*savePath);
-            }
-            catch(...)
-            {
-                std::error_code ignored;std::filesystem::remove(temporary,ignored);throw;
-            }
+            const auto payload=EncodeCraftSession(seed,*world,inventory);
+            auto bytes=EncodeCraftEquipmentEnvelope(payload,equipment,CraftSessionMaximumBytes);
+            if(playerCheckpoint)bytes=EncodeCraftCheckpoint(bytes,*playerCheckpoint,CraftSessionMaximumBytes+CraftEquipmentOverhead);
+            WriteCraftSaveFile(*savePath,bytes,CraftSessionMaximumBytes+CraftEquipmentOverhead+CraftCheckpointOverhead);
             std::cout<<"Streamed Craft saved "<<world->Overrides().size()<<" edits\n";
+        };
+        const auto saveStamp=[&]()
+        {
+            return CraftSaveStamp{worldRevision,inventory.Counts,inventory.Selected,equipment.Durability,equipment.Equipped,playerCheckpoint};
+        };
+        autosave.Initialize(saveStamp(),existingSave||!savePath);
+        const auto checkpoint=[&]()
+        {
+            if(!savePath)return true;
+            try{save();autosave.Saved();return true;}
+            catch(const std::exception& ex)
+            {
+                autosave.Failed();std::cerr<<"Craft save failed: "<<ex.what()<<'\n';
+                return false;
+            }
         };
         Plan::Slots coordinates{};
         Publication publication;
         VoxelCoordinate origin{};
+        CraftTargetPublication targetPublication;
+        const auto targetCell=[](VoxelCoordinate c){return CraftTargetCell{c.X,c.Y,c.Z};};
+        const auto publishTarget=[&](std::optional<CraftTargetKey> key)
+        {
+            (void)targetPublication.Refresh(key,[&](const auto& selected)
+            {
+                DebugDrawList lines;
+                if(selected)
+                {
+                    const auto boxes=CraftBuildTargetBoxes(*selected);
+                    const auto add=[&](const CraftTargetBox& b)
+                    {
+                        lines.AddAABB({b.Min[0],b.Min[1],b.Min[2]},
+                            {b.Max[0],b.Max[1],b.Max[2]},{b.Color[0],b.Color[1],b.Color[2],1.f});
+                    };
+                    add(boxes.Target);
+                    if(boxes.Placement)add(*boxes.Placement);
+                }
+                renderer.SubmitDebugDraw(lines);
+            });
+        };
         std::optional<CraftColumn> center,pendingCenter;
         std::optional<Plan> pendingPlan;
         std::unique_ptr<CraftMeshBatch<2>> batch;
@@ -129,9 +183,57 @@ int main(int argc,char** argv)
         sun.Type=RenderLightType::Directional;
         sun.Direction={.6f,1.f,.4f};sun.Intensity=3.f;sun.CastShadows=false;
         authored.AddLight(sun);
+        // Time-of-day modifies only authored lighting; the current native
+        // mesh handles and chunk generation remain untouched.
+        const auto applyDaylight=[&](unsigned step)
+        {
+            const auto light=CraftDaylight::Sample(step);
+            RenderScene next;
+            auto directional=sun;
+            directional.Direction={light.SunDirection[0],light.SunDirection[1],light.SunDirection[2]};
+            directional.Color={light.SunColor[0],light.SunColor[1],light.SunColor[2]};
+            directional.Intensity=light.SunIntensity;
+            next.AddLight(directional);
+            RenderEnvironment environment;
+            environment.BackgroundColor={light.Sky[0],light.Sky[1],light.Sky[2]};
+            environment.AmbientColor={light.Ambient[0],light.Ambient[1],light.Ambient[2]};
+            environment.AmbientIntensity=light.AmbientIntensity;
+            next.SetEnvironment(environment);
+            authored=std::move(next);
+        };
         std::optional<MeshHandle> hudMesh;
         std::optional<CameraPose> hudPose;
         bool hudEnabled=false;
+        CraftHudPublication hudPublication;
+        CraftVitals vitals;
+        CraftNutrition nutrition;
+        CraftMining mining;
+        CraftCreature creature;
+        unsigned aimedHealth=0;
+        std::optional<MeshHandle> creatureMesh;
+        const auto refreshNativeHud=[&]()
+        {
+            if(!nativeHud)return;
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger(),aimedHealth};
+            (void)hudPublication.Refresh(key,[&]()
+            {
+                std::vector<ViewportOverlayRect> rects;
+                if(hudEnabled)
+                {
+                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger(),aimedHealth);
+                    rects.reserve(layout.size());
+                    // Paint opaque backing first, then icons and numerals.
+                    // No camera, world origin or depth state is involved.
+                    for(bool backing:{true,false})for(const auto& rect:layout)
+                    {
+                        if(rect.Background!=backing)continue;
+                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=410);
+                        if(p.Width&&p.Height)rects.push_back({p.X,p.Y,p.Width,p.Height,rect.Color});
+                    }
+                }
+                renderer.SetViewportOverlay(rects);
+            });
+        };
         const auto submit=[&](const Publication::Slots& slots,const Plan::Slots& coords,VoxelCoordinate base)
         {
             auto scene=authored;
@@ -146,7 +248,22 @@ int main(int argc,char** argv)
                 draw.CastShadows=false;
                 scene.Add(draw);
             }
-            if(hudEnabled&&hudMesh&&hudPose)
+            if(creatureMesh&&creature.Body())
+            {
+                const auto creatureConfig=CraftCreature::Config();
+                const auto minimum=PlayerMinimum(*creature.Body(),creatureConfig);
+                MeshDraw draw;draw.Mesh=*creatureMesh;draw.Model=Mat4f::Identity();
+                draw.Model(0,0)=static_cast<float>(2*creatureConfig.Radius);
+                draw.Model(1,1)=static_cast<float>(creatureConfig.Height);
+                draw.Model(2,2)=static_cast<float>(2*creatureConfig.Radius);
+                draw.Model(0,3)=TerrainRelativeFloat(minimum[0],base.X);
+                draw.Model(1,3)=TerrainRelativeFloat(minimum[1],base.Y);
+                draw.Model(2,3)=TerrainRelativeFloat(minimum[2],base.Z);
+                draw.Material.BaseColor={.95f,.18f,.12f};
+                draw.Material.Emissive={.12f,.02f,.01f};
+                draw.CastShadows=false;scene.Add(draw);
+            }
+            if(!nativeHud&&hudEnabled&&hudMesh&&hudPose)
             {
                 const auto& pose=*hudPose;
                 const ScreenVec eye{pose.Position.x,pose.Position.y,pose.Position.z};
@@ -154,13 +271,13 @@ int main(int argc,char** argv)
                     double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
                 const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
                 const auto up=ScreenUnit(ScreenCross(right,forward));
-                for(const auto& rect:BuildCraftHud(inventory))
+                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger(),aimedHealth))
                 {
                     const double depth=rect.Background?.16:.14;
-                    const double half=depth*std::tan(pose.VerticalFovRadians*.5);
-                    const double pixel=2*half/540;
-                    const double dx=(rect.X+rect.W*.5-480)*pixel,dy=(270-rect.Y-rect.H*.5)*pixel;
-                    const double width=rect.W*pixel,height=rect.H*pixel;
+                    const auto projected=ProjectCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,
+                        pose.VerticalFovRadians,depth,rect.Y>=410);
+                    const double dx=projected.X,dy=projected.Y;
+                    const double width=projected.Width,height=projected.Height;
                     MeshDraw draw;
                     draw.Mesh=*hudMesh;draw.Model=Mat4f::Identity();
                     for(unsigned axis=0;axis<3;++axis)
@@ -191,6 +308,15 @@ int main(int argc,char** argv)
                     {v.Normal[0],v.Normal[1],v.Normal[2]},
                     {v.UV[0],v.UV[1]}});
             return renderer.CreateMesh(Mesh(std::move(vertices),std::move(mesh.Indices)));
+        };
+        const auto createCreature=[&]()
+        {
+            if(creatureMesh)return;
+            auto cube=BuildCraftMesh(BuildVoxelChunkSurface({0,0,0},1,[](VoxelCoordinate cell){
+                return cell==VoxelCoordinate{}?CraftStone:VoxelAir;}));
+            for(auto& vertex:cube.Vertices)vertex.Color={1,1,1};
+            creatureMesh=uploadMesh(std::move(cube));
+            if(!creatureMesh)throw std::runtime_error("Creature mesh missing.");
         };
         const auto upload=[&](const World& source,CraftColumn cell)
         {
@@ -278,10 +404,13 @@ int main(int argc,char** argv)
         };
         const auto spawn=[&]()
         {
-            VoxelPlayer p{{.5,0,.5}};
-            for(int y=CraftExtent-1;y>=0;--y)
-                if(world->Get({0,y,0})!=VoxelAir){p.Feet[1]=y+1.;break;}
+            const auto candidate=FindCraftSurfaceSpawn(bodyConfig,CraftExtent,
+                [&](VoxelCoordinate c)->std::optional<VoxelMaterial>{return world->Get(c);});
+            if(!candidate)throw std::runtime_error("No supported clear surface spawn near origin.");
+            settleWindow(candidate->Feet[0],candidate->Feet[2]);
+            auto p=*candidate;
             AdvanceVoxelPlayer(p,bodyConfig,{},0,bodyQuery);
+            if(!p.Grounded)throw std::runtime_error("Surface spawn lost support after publication.");
             return p;
         };
         const auto edit=[&](VoxelCoordinate cell,VoxelMaterial material)
@@ -292,13 +421,13 @@ int main(int argc,char** argv)
             if(batch)cancelPending(); // abort unsubmitted uploads before editing the committed scene
             if(!publication.Apply(StreamingCraftDirty(coordinates,cell),
                 [&](std::size_t i){return upload(*next,*coordinates[i]);},committedSubmit,destroy))return false;
-            world.swap(next);++edits;
+            world.swap(next);++edits;++worldRevision;
 
             return true;
         };
         const auto createHud=[&]()
         {
-            if(hudMesh)return;
+            if(nativeHud||hudMesh)return;
             std::vector<MeshVertex> vertices{
                 {{-.5f,-.5f,0},{1,1,1},{0,0,1},{0,0}},
                 {{ .5f,-.5f,0},{1,1,1},{0,0,1},{1,0}},
@@ -315,7 +444,8 @@ int main(int argc,char** argv)
             if(overhead)view.Up={0.f,0.f,-1.f};
             renderer.SetCameraPose(view);
             hudPose=view;
-            if(hudEnabled)committedSubmit(publication.Active());
+            if(nativeHud)refreshNativeHud();
+            else if(hudEnabled)committedSubmit(publication.Active());
         };
         try
         {
@@ -376,17 +506,38 @@ int main(int argc,char** argv)
                     if(!p.Grounded||peak<1.2||peak>1.3)throw std::runtime_error("Streamed survival jump failed.");
                     std::cout<<"Streamed survival apex "<<peak<<" m; landing passed\n";
                     const auto selected=TraceVoxels({.5,12,.5},{0,-1,0},12,32,query);
-                    if(!selected||!MineCraftBlock(inventory,selected->Cell,query,edit)||
-                        inventory.Count(selected->Material)!=1)
-                        throw std::runtime_error("Survival mining did not credit inventory.");
+                    if(!selected)throw std::runtime_error("Missing survival mining target.");
+                    const auto cell=selected->Cell;
+                    const CraftMiningTarget target{{cell.X,cell.Y,cell.Z},selected->Material};
+                    inventory.Counts={0,2,3,0};
+                    if(!equipment.Craft(inventory.Counts))throw std::runtime_error("Native pick craft failed.");
+                    const auto speed=equipment.Speed(target.Material);
+                    const auto holds=static_cast<unsigned>(std::ceil(CraftMiningSeconds(target.Material)/speed/.1-1e-9));
+                    for(unsigned step=0;step<holds;++step)
+                    {
+                        const bool mined=mining.Advance(true,target,.1,[&](const auto& completed){
+                            if(completed!=target||!MineCraftBlock(inventory,cell,query,edit))return false;
+                            equipment.SuccessfulMine(completed.Material);
+                            return true;
+                        },speed);
+                        const bool last=step+1==holds;
+                        if(mined!=last||inventory.Count(target.Material)!=(last?1u:0u)||
+                            query(cell)!=(last?VoxelAir:target.Material))
+                            throw std::runtime_error("Native timed mining transaction differed.");
+                    }
                     inventory.Selected=selected->Material;
-                    const auto session=DecodeCraftSession(EncodeCraftSession(seed,*world,inventory));
+                    const auto inner=EncodeCraftSession(seed,*world,inventory);
+                    const auto envelope=EncodeCraftEquipmentEnvelope(inner,equipment,CraftSessionMaximumBytes);
+                    const auto equippedSave=DecodeCraftEquipmentEnvelope(envelope,CraftSessionMaximumBytes);
+                    const auto session=DecodeCraftSession(equippedSave.Payload);
+                    if(equippedSave.Equipment.Durability!=(speed>1?63u:64u)||!equippedSave.Equipment.Equipped)
+                        throw std::runtime_error("Native pick durability/save differed.");
                     if(session.Inventory.Count(inventory.Selected)!=1||
                         session.World.Overrides()!=world->Overrides())
                         throw std::runtime_error("Survival inventory persistence failed.");
-                    const auto target=TraceVoxels({.5,12,.5},{0,-1,0},12,32,query);
-                    if(!target||target->Placement!=selected->Cell||
-                        !PlaceCraftBlock(inventory,*target->Placement,query,edit,[](auto){return true;})||
+                    const auto placementHit=TraceVoxels({.5,12,.5},{0,-1,0},12,32,query);
+                    if(!placementHit||placementHit->Placement!=selected->Cell||
+                        !PlaceCraftBlock(inventory,*placementHit->Placement,query,edit,[](auto){return true;})||
                         inventory.Count(selected->Material)!=0||!world->Overrides().empty())
                         throw std::runtime_error("Survival placement did not consume inventory.");
                     if(capture(.5,.5).RGBA!=baseline.RGBA)
@@ -395,13 +546,72 @@ int main(int argc,char** argv)
                     createHud();hudEnabled=true;
                     const auto withHud=capture(.5,.5);
                     if(withHud.RGBA==baseline.RGBA)throw std::runtime_error("HUD did not appear in native capture.");
+                    aimedHealth=12;
+                    if(capture(.5,.5).RGBA==withHud.RGBA)
+                        throw std::runtime_error("Combat HUD capture unchanged.");
+                    aimedHealth=0;
+                    if(capture(.5,.5).RGBA!=withHud.RGBA)
+                        throw std::runtime_error("Combat HUD clear did not restore normal HUD.");
                     hudEnabled=false;committedSubmit(publication.Active());
                     if(capture(.5,.5).RGBA!=baseline.RGBA)throw std::runtime_error("HUD removal changed world.");
+                    // Exercise actual native target resize in both aspect directions,
+                    // independently of interactive window manager behavior.
+                    for(const CraftHudViewport extent: {CraftHudViewport{480,720},CraftHudViewport{1280,480}})
+                    {
+                        renderer.ResizeViewport(extent.Width,extent.Height);hudViewport=extent;
+                        const auto without=capture(.5,.5);
+                        if(without.Width!=extent.Width||without.Height!=extent.Height)
+                            throw std::runtime_error("HUD resize capture extent differs.");
+                        hudEnabled=true;
+                        const auto with=capture(.5,.5);
+                        if(with.Width!=extent.Width||with.Height!=extent.Height||with.RGBA==without.RGBA)
+                            throw std::runtime_error("HUD did not render after viewport resize.");
+                        hudEnabled=false;committedSubmit(publication.Active());
+                        if(capture(.5,.5).RGBA!=without.RGBA)
+                            throw std::runtime_error("Resized HUD removal changed world.");
+                    }
+                    renderer.ResizeViewport(960,540);hudViewport={};
+                    if(capture(.5,.5).RGBA!=baseline.RGBA)
+                        throw std::runtime_error("Restored viewport changed baseline.");
+                    std::cout<<"Native portrait and wide HUD resize captures passed\n";
                     CraftInventory recipeFixture;recipeFixture.Counts={0,1,2,0};
                     if(!CraftApplyRecipe(recipeFixture,CraftRecipes[0])||recipeFixture.Counts!=std::array<std::uint32_t,4>{0,0,0,2})
                         throw std::runtime_error("Recipe transaction failed.");
                     std::cout<<"Native camera-aligned HUD capture and recipe transaction passed\n";
                 }
+                // Independent capture tests the retained renderer debug list.
+                publishTarget(CraftTargetKey{targetCell(hit->Cell),targetCell(origin),true,false,std::nullopt});
+                if(capture(.5,.5).RGBA==baseline.RGBA)
+                    throw std::runtime_error("Target outline capture unchanged.");
+                publishTarget(std::nullopt);
+                if(capture(.5,.5).RGBA!=baseline.RGBA)
+                    throw std::runtime_error("Target outline removal changed baseline.");
+                std::cout<<"Native target outline and removal passed\n";
+                // Prove native day/night changes without any chunk loads
+                // or edits. Restore the exact prior authored scene.
+                const auto beforeLighting=authored;
+                const auto previousLoads=loads,previousEdits=edits;
+                applyDaylight(60);committedSubmit(publication.Active());
+                const auto day=capture(.5,.5);
+                applyDaylight(180);committedSubmit(publication.Active());
+                const auto night=capture(.5,.5);
+                if(day.RGBA==night.RGBA||loads!=previousLoads||edits!=previousEdits)
+                    throw std::runtime_error("Daylight capture or mesh residency differs.");
+                authored=beforeLighting;committedSubmit(publication.Active());
+                if(capture(.5,.5).RGBA!=baseline.RGBA)
+                    throw std::runtime_error("Restored daylight capture differs.");
+                std::cout<<"Native day/night lighting and unchanged mesh residency passed\n";
+                createCreature();
+                const auto survivor=spawn();
+                for(unsigned tick=0;tick<60;++tick)(void)creature.Advance(.05,survivor,query);
+                if(!creature.Body())throw std::runtime_error("Native creature spawn missing.");
+                const auto mob=creature.Body()->Feet;
+                committedSubmit(publication.Active());
+                const auto occupied=capture(mob[0],mob[2]);
+                creature.Reset();committedSubmit(publication.Active());
+                if(capture(mob[0],mob[2]).RGBA==occupied.RGBA)
+                    throw std::runtime_error("Creature mesh was not visible.");
+                std::cout<<"Native creature mesh visibility and removal passed\n";
                 if(batch&&(peakUploads==0||peakUploads>uploadBudget))throw std::runtime_error("Upload budget exceeded.");
                 if(batch)std::cout<<"Craft peak streaming upload calls per update "<<peakUploads<<"; budget "<<uploadBudget<<"\n";
                 if(batch)std::cout<<"Craft worker batch mode: "<<workers<<" workers, "<<batch->StaleCount()<<" discarded jobs\n";
@@ -410,34 +620,124 @@ int main(int argc,char** argv)
             else
             {
                 double x=.5,y=12,z=.5,yaw=0,pitch=-.5;
-                auto player=spawn();
-                if(survival){createHud();hudEnabled=true;}
-                bool recipeOneHeld=false,recipeTwoHeld=false;
-                bool jumpHeld=false,saveHeld=false;
+                VoxelPlayer player;
+                if(survival)
+                {
+                    std::optional<VoxelPlayer> restored;
+                    if(playerCheckpoint&&std::abs(playerCheckpoint->Feet[0])<999999950&&
+                        std::abs(playerCheckpoint->Feet[2])<999999950&&playerCheckpoint->Feet[1]>=1&&
+                        playerCheckpoint->Feet[1]<=CraftExtent)
+                    {
+                        restored=RestoreCraftCheckpoint(*playerCheckpoint,bodyConfig,
+                            [&](VoxelCoordinate c)->std::optional<VoxelMaterial>{return world->Get(c);});
+                        if(restored)
+                        {
+                            settleWindow(restored->Feet[0],restored->Feet[2]);
+                            if(VoxelPlayerBlocked(*restored,bodyConfig,bodyQuery))restored.reset();
+                        }
+                    }
+                    player=restored?*restored:spawn();
+                    vitals.Respawn(player.Feet[1]);
+                    if(playerCheckpoint)
+                    {
+                        vitals.Restore(playerCheckpoint->Health,player.Feet[1]);nutrition.Restore(playerCheckpoint->Hunger);
+                        yaw=playerCheckpoint->Yaw;pitch=playerCheckpoint->Pitch;
+                    }
+                    x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
+                    createHud();hudEnabled=true;createCreature();
+                }
+                CraftDaylight daylight(playerCheckpoint?playerCheckpoint->DayPhase:.25);
+                unsigned publishedDaylight=daylight.Step();
+                applyDaylight(publishedDaylight);committedSubmit(publication.Active());
+                const auto recordPlayer=[&](){if(survival)playerCheckpoint=CraftCheckpoint{player.Feet,yaw,pitch,daylight.Phase(),vitals.Health(),nutrition.Hunger()};};
+                recordPlayer();
+                CraftActionInputs actions;
                 bool leftHeld=false,rightHeld=false;
                 std::string previousTitle;
                 auto previous=std::chrono::steady_clock::now();
                 auto* window=renderer.NativeWindow().NativeHandle();
-                const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
+                CraftMouseLook mouseLook;
+                bool focused=glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE;
+                bool mouseCaptured=true,tabHeld=glfwGetKey(window,GLFW_KEY_TAB)==GLFW_PRESS,mouseArmed=false;
+                const auto captureMouse=[&]()
+                {
+                    if(glfwRawMouseMotionSupported())glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION,GLFW_FALSE);
+                    glfwSetInputMode(window,GLFW_CURSOR,mouseCaptured?GLFW_CURSOR_DISABLED:GLFW_CURSOR_NORMAL);
+                    if(mouseCaptured&&glfwRawMouseMotionSupported())
+                        glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION,GLFW_TRUE);
+                    mouseLook.Reset();mouseArmed=false;mining.Reset();
+                };
+                captureMouse();
+                const auto key=[&](int k){return focused&&glfwGetKey(window,k)==GLFW_PRESS?1.:0.;};
                 while(!renderer.NativeWindow().ShouldClose())
                 {
                     renderer.NativeWindow().PollEvents();
+                    if(renderer.NativeWindow().ShouldClose())break;
+                    const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
+                    const bool nowFocused=CraftFrameActive(
+                        glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE,
+                        glfwGetWindowAttrib(window,GLFW_ICONIFIED)==GLFW_TRUE,frameWidth,frameHeight);
+                    if(nowFocused!=focused)
+                    {
+                        focused=nowFocused;mouseLook.Reset();mouseArmed=false;mining.Reset();
+                        actions.Reset();leftHeld=false;rightHeld=false;
+                        tabHeld=glfwGetKey(window,GLFW_KEY_TAB)==GLFW_PRESS;
+                    }
+                    // No simulation or rendering while unfocused, iconified,
+                    // or without a drawable framebuffer. Keep polling close events.
+                    if(!focused)
+                    {
+                        previous=std::chrono::steady_clock::now();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                        continue;
+                    }
                     if(key(GLFW_KEY_ESCAPE))break;
+                    const bool tab=key(GLFW_KEY_TAB)>0;
+                    if(tab&&!tabHeld){mouseCaptured=!mouseCaptured;captureMouse();}
+                    tabHeld=tab;
+                    // Only active, nonzero extents reach the resize and draw path.
+                    if(frameWidth!=hudViewport.Width||frameHeight!=hudViewport.Height)
+                    {
+                        renderer.ResizeViewport(frameWidth,frameHeight);
+                        hudViewport={frameWidth,frameHeight};
+                    }
                     const auto now=std::chrono::steady_clock::now();
                     const double dt=std::min(.1,std::chrono::duration<double>(now-previous).count());
                     previous=now;
-                    yaw=std::remainder(yaw+(key(GLFW_KEY_RIGHT)-key(GLFW_KEY_LEFT))*1.8*dt,6.283185307179586);
-                    pitch=std::clamp(pitch+(key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN))*1.4*dt,-1.45,1.45);
+                    daylight.Advance(dt);
+                    if(daylight.Step()!=publishedDaylight)
+                    {
+                        applyDaylight(daylight.Step());
+                        committedSubmit(publication.Active());
+                        publishedDaylight=daylight.Step();
+                    }
+                    double cursorX=0,cursorY=0;
+                    glfwGetCursorPos(window,&cursorX,&cursorY);
+                    const auto look=mouseLook.Observe(focused&&mouseCaptured,cursorX,cursorY);
+                    ApplyCraftLook(yaw,pitch,look,key(GLFW_KEY_RIGHT)-key(GLFW_KEY_LEFT),
+                        key(GLFW_KEY_UP)-key(GLFW_KEY_DOWN),dt);
                     const double f=key(GLFW_KEY_W)-key(GLFW_KEY_S),r=key(GLFW_KEY_D)-key(GLFW_KEY_A);
                     const double scale=12*dt/std::max(1.,std::hypot(f,r));
-                    const bool jump=key(GLFW_KEY_SPACE)>0;
+                    const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
+                    const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
+                    const auto previousCreature=creature.Body();
                     if(survival)
                     {
                         const double norm=std::max(1.,std::hypot(f,r));
                         AdvanceVoxelPlayer(player,bodyConfig,
                             {(std::sin(yaw)*f+std::cos(yaw)*r)/norm,
                             (-std::cos(yaw)*f+std::sin(yaw)*r)/norm,
-                            jump&&!jumpHeld,key(GLFW_KEY_LEFT_SHIFT)>0},dt,bodyQuery);
+                            jump,sprint},dt,bodyQuery);
+                        auto probe=player;probe.Feet[1]-=.000001;
+                        const bool support=player.Grounded&&VoxelPlayerBlocked(probe,bodyConfig,
+                            [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
+                        (void)vitals.Observe(player.Feet[1],player.Grounded,support);
+                        if(focused)nutrition.Advance(dt,sprint,vitals);
+                        if(!vitals.Dead())vitals.Damage(creature.Advance(dt,player,query));
+                        if(vitals.Dead())
+                        {
+                            player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();nutrition.Reset();creature.Reset();
+                        }
                         x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
                     }
                     else
@@ -446,7 +746,6 @@ int main(int argc,char** argv)
                         z=std::clamp(z+(-std::cos(yaw)*f+std::sin(yaw)*r)*scale,-1e9,1e9);
                         y=std::clamp(y+(key(GLFW_KEY_SPACE)-key(GLFW_KEY_LEFT_CONTROL))*12*dt,1.,32.);
                     }
-                    jumpHeld=jump;
                     // A slow worker must not allow creative flight to
                     // outrun the currently published window. The central
                     // 3x3 region remains reachable while jobs run.
@@ -463,12 +762,13 @@ int main(int argc,char** argv)
                     {
                         for(int slot=0;slot<4;++slot)
                             if(key(GLFW_KEY_1+slot))inventory.Selected=static_cast<VoxelMaterial>(slot+1);
-                        const bool one=key(GLFW_KEY_R)>0,two=key(GLFW_KEY_T)>0;
-                        if(one&&!recipeOneHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
-                        if(two&&!recipeTwoHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
-                        recipeOneHeld=one;recipeTwoHeld=two;
+                        if(actions.RecipeOne.Press(key(GLFW_KEY_R)>0))(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
+                        if(actions.RecipeTwo.Press(key(GLFW_KEY_T)>0))(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
+                        if(actions.CraftTool.Press(key(GLFW_KEY_F)>0)&&equipment.Craft(inventory.Counts))mining.Reset();
+                        if(actions.ToggleTool.Press(key(GLFW_KEY_G)>0)&&equipment.Toggle())mining.Reset();
+                        if(actions.Eat.Press(key(GLFW_KEY_E)>0))(void)nutrition.Eat(inventory.Counts);
                         constexpr std::array<const char*,4> labels{"Grass","Dirt","Stone","Building"};
-                        std::string title="Kairo Craft | Survival | ";
+                        std::string title="Kairo Craft | HP "+std::to_string(vitals.Health())+"/20 | Food "+std::to_string(nutrition.Hunger())+"/20 | ";
                         for(unsigned i=0;i<4;++i)
                         {
                             if(i+1u==inventory.Selected)title+="[";
@@ -476,43 +776,98 @@ int main(int argc,char** argv)
                             if(i+1u==inventory.Selected)title+="]";
                             title+="  ";
                         }
-                        title+="| R: 1 dirt + 2 stone -> 2 building | T: 4 stone -> 3 building";
+                        title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
+                            " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
+                        if(creature.Body())title+=" | Sentinel HP "+std::to_string(creature.Health())+"/12";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
-                    const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
-                    const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
-                    if((left&&!leftHeld)||(right&&!rightHeld))
+                    const bool rawLeft=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+                    const bool rawRight=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
+                    // Do not turn a button held during focus/capture changes
+                    // into a new mining or placement action. Require release.
+                    if(focused&&mouseCaptured&&!rawLeft&&!rawRight)mouseArmed=true;
+                    const bool left=focused&&mouseCaptured&&mouseArmed&&rawLeft;
+                    const bool right=focused&&mouseCaptured&&mouseArmed&&rawRight;
+                    if(survival)
                     {
-                        const auto hit=TraceVoxels({x,y,z},direction,8,64,query);
-                        if(hit)
+                        const bool combatAim=creature.Aimed({x,y,z},direction,query);
+                        if(left&&combatAim&&!leftHeld)
                         {
-                            if(left&&!leftHeld)
-                            {
-                                if(survival)(void)MineCraftBlock(inventory,hit->Cell,query,edit);
-                                else (void)edit(hit->Cell,VoxelAir);
-                            }
-                            else if(hit->Placement)
-                            {
-                                if(survival)(void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
-                                    [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell);});
-                                else (void)edit(*hit->Placement,CraftPlaced);
-                            }
+                            const auto combat=CraftStrikeReward(creature,inventory.Counts);
+                            if(combat.Defeated)
+                                std::cout<<"Stone sentinel defeated; "<<combat.StoneAwarded<<" stone salvaged\n";
+                        }
+                        const auto hit=((left&&!combatAim)||(right&&!rightHeld))?TraceVoxels({x,y,z},direction,8,64,query):std::optional<VoxelHit>{};
+                        std::optional<CraftMiningTarget> target;
+                        if(hit&&hit->Material>=CraftGrass&&hit->Material<=CraftPlaced)
+                            target=CraftMiningTarget{{hit->Cell.X,hit->Cell.Y,hit->Cell.Z},hit->Material};
+                        (void)mining.Advance(left&&!combatAim,target,dt,[&](const CraftMiningTarget& completed)
+                        {
+                            const VoxelCoordinate cell{completed.Cell[0],completed.Cell[1],completed.Cell[2]};
+                            if(query(cell)!=completed.Material||!MineCraftBlock(inventory,cell,query,edit))return false;
+                            equipment.SuccessfulMine(completed.Material);
+                            return true;
+                        },target?equipment.Speed(target->Material):1.);
+                        if(!left&&right&&!rightHeld&&hit&&hit->Placement)
+                            (void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
+                                [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell)&&!creature.Occupies(cell);});
+                    }
+                    else if((left&&!leftHeld)||(right&&!rightHeld))
+                    {
+                        if(const auto hit=TraceVoxels({x,y,z},direction,8,64,query))
+                        {
+                            if(left&&!leftHeld)(void)edit(hit->Cell,VoxelAir);
+                            else if(hit->Placement)(void)edit(*hit->Placement,CraftPlaced);
                         }
                     }
                     leftHeld=left;rightHeld=right;
-                    const bool saveDown=key(GLFW_KEY_F5)>0;
-                    if(saveDown&&!saveHeld){try{save();}catch(const std::exception& ex){std::cerr<<"Save failed: "<<ex.what()<<'\n';}}
-                    saveHeld=saveDown;
-                    if(hudEnabled)committedSubmit(publication.Active());
+
+                    // Re-query after edits, so a removed target disappears
+                    // immediately. Placement is preflight feedback, not a
+                    // promise that a subsequent native transaction will succeed.
+                    std::optional<CraftTargetKey> aim;
+                    aimedHealth=survival&&mouseCaptured&&creature.Aimed({x,y,z},direction,query)?creature.Health():0;
+                    if(mouseCaptured&&!aimedHealth)
+                        if(const auto pointed=TraceVoxels({x,y,z},direction,8,64,query))
+                        {
+                            const bool mineable=InStreamCraftWorld(pointed->Cell)&&(!survival||
+                                (pointed->Material>=CraftGrass&&pointed->Material<=CraftPlaced&&
+                                 inventory.Count(pointed->Material)<CraftInventory::StackLimit));
+                            aim=CraftTargetKey{targetCell(pointed->Cell),targetCell(origin),mineable,false,std::nullopt};
+                            if(pointed->Placement)
+                            {
+                                const auto cell=*pointed->Placement;
+                                aim->Placement=targetCell(cell);
+                                aim->Placeable=InStreamCraftWorld(cell)&&query(cell)==VoxelAir&&(!survival||
+                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(player,bodyConfig,cell)&&!creature.Occupies(cell)));
+                            }
+                        }
+                    publishTarget(aim);
+                    const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
+                        (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
+                    if(creatureChanged)committedSubmit(publication.Active());
+                    recordPlayer();autosave.Observe(saveStamp());
+                    const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
+                    if(savePath&&(manualSave||autosave.Advance(dt)))(void)checkpoint();
+                    if(nativeHud)refreshNativeHud();
+                    else if(hudEnabled&&!creatureChanged)committedSubmit(publication.Active());
                     renderer.DrawFrame();
                 }
+                // Exit is a final checkpoint only for an explicitly supplied
+                // save path and changed state. Do not silently lose a failed save.
+                recordPlayer();autosave.Observe(saveStamp());
+                if(savePath&&autosave.Dirty())finalSaveFailed=!checkpoint();
             }
         }
         catch(...){hudEnabled=false;(void)publication.Release(committedSubmit,destroy);throw;}
         hudEnabled=false;
+        creature.Reset();
+        publishTarget(std::nullopt);
+        refreshNativeHud();
         if(publication.Release(committedSubmit,destroy)!=0)throw std::runtime_error("Streamed Craft shutdown retained meshes.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);
-        return 0;
+        if(creatureMesh)renderer.DestroyMesh(*creatureMesh);
+        return finalSaveFailed?1:0;
     }
     catch(const std::exception& e){std::cerr<<"Streamed Craft failed: "<<e.what()<<'\n';return 1;}
 }

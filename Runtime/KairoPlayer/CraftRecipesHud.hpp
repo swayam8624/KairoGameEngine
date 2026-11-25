@@ -1,5 +1,6 @@
 #pragma once
 #include "CraftInventory.hpp"
+#include "CraftCombatHud.hpp"
 
 namespace kairo::player::detail
 {
@@ -43,7 +44,8 @@ namespace kairo::player::detail
         std::array<float,3> Color;
         bool Background=false;
     };
-    inline std::vector<CraftHudRect> BuildCraftHud(const CraftInventory& inventory)
+    inline std::vector<CraftHudRect> BuildCraftHud(const CraftInventory& inventory,
+        std::optional<std::uint32_t> health=std::nullopt,unsigned miningProgress=0,unsigned toolDurability=0,bool toolEquipped=false,std::optional<std::uint32_t> hunger=std::nullopt,unsigned enemyHealth=0)
     {
         if(!inventory.Valid())throw std::invalid_argument("Invalid HUD inventory.");
         std::vector<CraftHudRect> rects;rects.reserve(128);
@@ -51,8 +53,14 @@ namespace kairo::player::detail
         {rects.push_back({x,y,w,h,color});};
         constexpr std::array<float,3> white{.9f,.9f,.9f},gray{.04f,.05f,.07f},selected{1.f,.72f,.22f};
         // Four nonoverlapping crosshair arms with an open center.
-        add(469,269,8,2,white);add(483,269,8,2,white);
-        add(479,259,2,8,white);add(479,273,2,8,white);
+        const auto combat=BuildCraftCombatHud(enemyHealth);
+        add(469,269,8,2,combat.Crosshair);add(483,269,8,2,combat.Crosshair);
+        add(479,259,2,8,combat.Crosshair);add(479,273,2,8,combat.Crosshair);
+        if(combat.FillWidth>0)
+        {
+            add(430,243,100,8,gray);rects.back().Background=true;
+            add(432,245,combat.FillWidth,4,combat.Crosshair);
+        }
         constexpr std::array<unsigned,10> masks{0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f};
         const auto digit=[&](unsigned number,float x,float y)
         {
@@ -80,6 +88,31 @@ namespace kairo::player::detail
             if(count>=10)digit((count/10)%10,x+38,y+35);
             digit(count%10,x+46,y+35);
             digit(i+1u,x+39,y+9);
+        }
+        if(health)
+        {
+            if(*health>20)throw std::invalid_argument("Invalid HUD health.");
+            add(356,455,248,10,gray);rects.back().Background=true;
+            if(*health)add(358,457,244.f*static_cast<float>(*health)/20.f,6,{.85f,.12f,.15f});
+        }
+        if(miningProgress>20)throw std::invalid_argument("Invalid HUD mining progress.");
+        if(miningProgress)
+        {
+            add(430,287,100,8,gray);rects.back().Background=true;
+            add(432,289,96.f*static_cast<float>(miningProgress)/20.f,4,{.95f,.75f,.2f});
+        }
+        if(toolDurability>64||(toolEquipped&&!toolDurability))throw std::invalid_argument("Invalid HUD tool.");
+        if(toolDurability)
+        {
+            add(356,438,248,10,gray);rects.back().Background=true;
+            add(358,440,244.f*static_cast<float>(toolDurability)/64.f,6,
+                toolEquipped?std::array<float,3>{.24f,.72f,.88f}:std::array<float,3>{.46f,.48f,.53f});
+        }
+        if(hunger)
+        {
+            if(*hunger>20)throw std::invalid_argument("Invalid HUD hunger.");
+            add(356,421,248,10,gray);rects.back().Background=true;
+            if(*hunger)add(358,423,244.f*static_cast<float>(*hunger)/20.f,6,{.85f,.57f,.18f});
         }
         return rects;
     }
