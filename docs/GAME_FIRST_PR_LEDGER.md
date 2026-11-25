@@ -397,6 +397,21 @@ cases, 430 checkpoints, and new missing-slot/retry cases. Exact blobs
 8f2e64dd782c628397a8dcaa0b6e7538306855d8 and
 aeb370149a368a6493aa974d45303c83ef7fd81b. Native demo integration pending.
 
+### First hostile creature and melee prototype
+
+Single bounded session-local enemy in both survival demos. Supported resident
+spawn, 20 Hz pursuit through actual VoxelPlayer collision, blocked/unknown
+cells occlude melee, two HP/second enemy damage, four HP per player hit with
+half-second cooldown, death/removal and 15-second respawn. Entity uses one
+retained indexed cuboid mesh; placement preflight/commit excludes its body.
+No combat tool wear, drops, pathfinding, animation or persistent entities.
+Local actual VoxelPlayer and VoxelInteraction hashes matched prior candidate;
+Clang 17/GCC 14.2 strict C++23 ASan/UBSan passed 1,000 signed fixtures and
+80,000 frame partition comparisons, wall and unknown occlusion, death and
+respawn. Exact header 6926432cac364147d49ee9605a8fc4d16c9271db and test
+28566081f6abc0d5f5ae0e0370fac97bc08c1792. Native surface mesh visibility
+and removal regression added; native integration pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

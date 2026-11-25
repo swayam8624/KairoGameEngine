@@ -18,6 +18,7 @@
 #include "CraftEquipmentSave.hpp"
 #include "CraftSaveFile.hpp"
 #include "CraftAutosave.hpp"
+#include "CraftCreature.hpp"
 #include "TerrainScreenError.hpp"
 #include <string>
 #include "CraftMeshBatch.hpp"
@@ -197,6 +198,8 @@ int main(int argc,char** argv)
         CraftVitals vitals;
         CraftNutrition nutrition;
         CraftMining mining;
+        CraftCreature creature;
+        std::optional<MeshHandle> creatureMesh;
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
@@ -233,6 +236,21 @@ int main(int argc,char** argv)
                     TerrainRelativeFloat(cell.Y,base.Y),TerrainRelativeFloat(cell.Z,base.Z)});
                 draw.CastShadows=false;
                 scene.Add(draw);
+            }
+            if(creatureMesh&&creature.Body())
+            {
+                const auto creatureConfig=CraftCreature::Config();
+                const auto minimum=PlayerMinimum(*creature.Body(),creatureConfig);
+                MeshDraw draw;draw.Mesh=*creatureMesh;draw.Model=Mat4f::Identity();
+                draw.Model(0,0)=static_cast<float>(2*creatureConfig.Radius);
+                draw.Model(1,1)=static_cast<float>(creatureConfig.Height);
+                draw.Model(2,2)=static_cast<float>(2*creatureConfig.Radius);
+                draw.Model(0,3)=TerrainRelativeFloat(minimum[0],base.X);
+                draw.Model(1,3)=TerrainRelativeFloat(minimum[1],base.Y);
+                draw.Model(2,3)=TerrainRelativeFloat(minimum[2],base.Z);
+                draw.Material.BaseColor={.95f,.18f,.12f};
+                draw.Material.Emissive={.12f,.02f,.01f};
+                draw.CastShadows=false;scene.Add(draw);
             }
             if(!nativeHud&&hudEnabled&&hudMesh&&hudPose)
             {
@@ -279,6 +297,15 @@ int main(int argc,char** argv)
                     {v.Normal[0],v.Normal[1],v.Normal[2]},
                     {v.UV[0],v.UV[1]}});
             return renderer.CreateMesh(Mesh(std::move(vertices),std::move(mesh.Indices)));
+        };
+        const auto createCreature=[&]()
+        {
+            if(creatureMesh)return;
+            auto cube=BuildCraftMesh(BuildVoxelChunkSurface({0,0,0},1,[](VoxelCoordinate cell){
+                return cell==VoxelCoordinate{}?CraftStone:VoxelAir;}));
+            for(auto& vertex:cube.Vertices)vertex.Color={1,1,1};
+            creatureMesh=uploadMesh(std::move(cube));
+            if(!creatureMesh)throw std::runtime_error("Creature mesh missing.");
         };
         const auto upload=[&](const World& source,CraftColumn cell)
         {
@@ -557,6 +584,17 @@ int main(int argc,char** argv)
                 if(capture(.5,.5).RGBA!=baseline.RGBA)
                     throw std::runtime_error("Restored daylight capture differs.");
                 std::cout<<"Native day/night lighting and unchanged mesh residency passed\n";
+                createCreature();
+                const auto survivor=spawn();
+                for(unsigned tick=0;tick<60;++tick)(void)creature.Advance(.05,survivor,query);
+                if(!creature.Body())throw std::runtime_error("Native creature spawn missing.");
+                const auto mob=creature.Body()->Feet;
+                committedSubmit(publication.Active());
+                const auto occupied=capture(mob[0],mob[2]);
+                creature.Reset();committedSubmit(publication.Active());
+                if(capture(mob[0],mob[2]).RGBA==occupied.RGBA)
+                    throw std::runtime_error("Creature mesh was not visible.");
+                std::cout<<"Native creature mesh visibility and removal passed\n";
                 if(batch&&(peakUploads==0||peakUploads>uploadBudget))throw std::runtime_error("Upload budget exceeded.");
                 if(batch)std::cout<<"Craft peak streaming upload calls per update "<<peakUploads<<"; budget "<<uploadBudget<<"\n";
                 if(batch)std::cout<<"Craft worker batch mode: "<<workers<<" workers, "<<batch->StaleCount()<<" discarded jobs\n";
@@ -570,7 +608,7 @@ int main(int argc,char** argv)
                 {
                     player=spawn();vitals.Respawn(player.Feet[1]);
                     x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
-                    createHud();hudEnabled=true;
+                    createHud();hudEnabled=true;createCreature();
                 }
                 CraftDaylight daylight;
                 unsigned publishedDaylight=daylight.Step();
@@ -643,6 +681,7 @@ int main(int argc,char** argv)
                     const double scale=12*dt/std::max(1.,std::hypot(f,r));
                     const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
                     const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
+                    const auto previousCreature=creature.Body();
                     if(survival)
                     {
                         const double norm=std::max(1.,std::hypot(f,r));
@@ -655,9 +694,10 @@ int main(int argc,char** argv)
                             [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
                         (void)vitals.Observe(player.Feet[1],player.Grounded,support);
                         if(focused)nutrition.Advance(dt,sprint,vitals);
+                        if(!vitals.Dead())vitals.Damage(creature.Advance(dt,player,query));
                         if(vitals.Dead())
                         {
-                            player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();nutrition.Reset();
+                            player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();nutrition.Reset();creature.Reset();
                         }
                         x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
                     }
@@ -699,6 +739,7 @@ int main(int argc,char** argv)
                         }
                         title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
                             " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
+                        if(creature.Body())title+=" | Creature HP "+std::to_string(creature.Health())+"/12";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool rawLeft=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
@@ -710,11 +751,13 @@ int main(int argc,char** argv)
                     const bool right=focused&&mouseCaptured&&mouseArmed&&rawRight;
                     if(survival)
                     {
-                        const auto hit=(left||(right&&!rightHeld))?TraceVoxels({x,y,z},direction,8,64,query):std::optional<VoxelHit>{};
+                        const bool combatAim=creature.Aimed({x,y,z},direction,query);
+                        if(left&&combatAim&&!leftHeld)(void)creature.Strike();
+                        const auto hit=((left&&!combatAim)||(right&&!rightHeld))?TraceVoxels({x,y,z},direction,8,64,query):std::optional<VoxelHit>{};
                         std::optional<CraftMiningTarget> target;
                         if(hit&&hit->Material>=CraftGrass&&hit->Material<=CraftPlaced)
                             target=CraftMiningTarget{{hit->Cell.X,hit->Cell.Y,hit->Cell.Z},hit->Material};
-                        (void)mining.Advance(left,target,dt,[&](const CraftMiningTarget& completed)
+                        (void)mining.Advance(left&&!combatAim,target,dt,[&](const CraftMiningTarget& completed)
                         {
                             const VoxelCoordinate cell{completed.Cell[0],completed.Cell[1],completed.Cell[2]};
                             if(query(cell)!=completed.Material||!MineCraftBlock(inventory,cell,query,edit))return false;
@@ -723,7 +766,7 @@ int main(int argc,char** argv)
                         },target?equipment.Speed(target->Material):1.);
                         if(!left&&right&&!rightHeld&&hit&&hit->Placement)
                             (void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
-                                [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell);});
+                                [&](auto cell){return !PlayerIntersectsBlock(player,bodyConfig,cell)&&!creature.Occupies(cell);});
                     }
                     else if((left&&!leftHeld)||(right&&!rightHeld))
                     {
@@ -739,7 +782,7 @@ int main(int argc,char** argv)
                     // immediately. Placement is preflight feedback, not a
                     // promise that a subsequent native transaction will succeed.
                     std::optional<CraftTargetKey> aim;
-                    if(mouseCaptured)
+                    if(mouseCaptured&&!(survival&&creature.Aimed({x,y,z},direction,query)))
                         if(const auto pointed=TraceVoxels({x,y,z},direction,8,64,query))
                         {
                             const bool mineable=InStreamCraftWorld(pointed->Cell)&&(!survival||
@@ -751,15 +794,18 @@ int main(int argc,char** argv)
                                 const auto cell=*pointed->Placement;
                                 aim->Placement=targetCell(cell);
                                 aim->Placeable=InStreamCraftWorld(cell)&&query(cell)==VoxelAir&&(!survival||
-                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(player,bodyConfig,cell)));
+                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(player,bodyConfig,cell)&&!creature.Occupies(cell)));
                             }
                         }
                     publishTarget(aim);
+                    const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
+                        (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
+                    if(creatureChanged)committedSubmit(publication.Active());
                     autosave.Observe(saveStamp());
                     const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
                     if(savePath&&(manualSave||autosave.Advance(dt)))(void)checkpoint();
                     if(nativeHud)refreshNativeHud();
-                    else if(hudEnabled)committedSubmit(publication.Active());
+                    else if(hudEnabled&&!creatureChanged)committedSubmit(publication.Active());
                     renderer.DrawFrame();
                 }
                 // Exit is a final checkpoint only for an explicitly supplied
@@ -770,10 +816,12 @@ int main(int argc,char** argv)
         }
         catch(...){hudEnabled=false;(void)publication.Release(committedSubmit,destroy);throw;}
         hudEnabled=false;
+        creature.Reset();
         publishTarget(std::nullopt);
         refreshNativeHud();
         if(publication.Release(committedSubmit,destroy)!=0)throw std::runtime_error("Streamed Craft shutdown retained meshes.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);
+        if(creatureMesh)renderer.DestroyMesh(*creatureMesh);
         return finalSaveFailed?1:0;
     }
     catch(const std::exception& e){std::cerr<<"Streamed Craft failed: "<<e.what()<<'\n';return 1;}

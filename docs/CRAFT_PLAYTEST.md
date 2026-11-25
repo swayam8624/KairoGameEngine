@@ -7,7 +7,7 @@ these later changes still require exact-head acceptance.
 
 ## CPU acceptance without the graphics SDK
 
-Run the complete 27-contract C++23 suite on a source checkout:
+Run the complete 28-contract C++23 suite on a source checkout:
 
 ```bash
 CXX=clang++ bash scripts/run_craft_cpu_contracts.sh
@@ -79,6 +79,18 @@ build shader path is intended to be required. Native moved-directory and
 relocated executable tests remain pending. The bundle does not collect dynamic
 libraries, graphics drivers, code signatures or installer metadata, and must
 be tested on a host with the required runtime dependencies.
+
+## Hostile creature prototype
+
+One session-local creature appears near the player in survival if a supported
+resident spawn exists. It approaches using the voxel collision solver and
+deals two health points at most once per second, with line-of-sight required.
+Aim at the creature and click left mouse to deal four points; three hits
+defeat it, with a half-second hit cooldown. It respawns after 15 active
+seconds. It has a simple red cuboid mesh; the title reports its health.
+Placement is blocked inside its body. Unknown cells occlude attacks.
+There is no loot, animation, persistent creature state, obstacle pathfinding,
+or player/creature rigid-body contact. Creative mode does not spawn enemies.
 
 ## Block selection feedback
 

@@ -14,6 +14,7 @@
 #include "CraftEquipmentSave.hpp"
 #include "CraftSaveFile.hpp"
 #include "CraftAutosave.hpp"
+#include "CraftCreature.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
 #include <fstream>
@@ -148,6 +149,8 @@ int main(int argc,char** argv)
         CraftVitals vitals;
         CraftNutrition nutrition;
         CraftMining mining;
+        CraftCreature creature;
+        std::optional<MeshHandle> creatureMesh;
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
@@ -180,6 +183,21 @@ int main(int argc,char** argv)
                 MeshDraw draw;draw.Mesh=*handles[i];
                 draw.Model=MakeTranslation(Vec3f{TerrainRelativeFloat(o.X,base.X),
                     TerrainRelativeFloat(o.Y,base.Y),TerrainRelativeFloat(o.Z,base.Z)});
+                draw.CastShadows=false;scene.Add(draw);
+            }
+            if(creatureMesh&&creature.Body())
+            {
+                const auto creatureConfig=CraftCreature::Config();
+                const auto minimum=PlayerMinimum(*creature.Body(),creatureConfig);
+                MeshDraw draw;draw.Mesh=*creatureMesh;draw.Model=Mat4f::Identity();
+                draw.Model(0,0)=static_cast<float>(2*creatureConfig.Radius);
+                draw.Model(1,1)=static_cast<float>(creatureConfig.Height);
+                draw.Model(2,2)=static_cast<float>(2*creatureConfig.Radius);
+                draw.Model(0,3)=TerrainRelativeFloat(minimum[0],base.X);
+                draw.Model(1,3)=TerrainRelativeFloat(minimum[1],base.Y);
+                draw.Model(2,3)=TerrainRelativeFloat(minimum[2],base.Z);
+                draw.Material.BaseColor={.95f,.18f,.12f};
+                draw.Material.Emissive={.12f,.02f,.01f};
                 draw.CastShadows=false;scene.Add(draw);
             }
             if(!nativeHud&&hudEnabled&&hudMesh&&hudPose)
@@ -223,6 +241,15 @@ int main(int argc,char** argv)
             for(const auto& v:data.Vertices)vertices.push_back({{v.Position[0],v.Position[1],v.Position[2]},
                 {v.Color[0],v.Color[1],v.Color[2]},{v.Normal[0],v.Normal[1],v.Normal[2]},{v.UV[0],v.UV[1]}});
             return renderer.CreateMesh(Mesh(std::move(vertices),std::move(data.Indices)));
+        };
+        const auto createCreature=[&]()
+        {
+            if(creatureMesh)return;
+            auto cube=BuildCraftMesh(BuildVoxelChunkSurface({0,0,0},1,[](VoxelCoordinate cell){
+                return cell==VoxelCoordinate{}?CraftStone:VoxelAir;}));
+            for(auto& vertex:cube.Vertices)vertex.Color={1,1,1};
+            creatureMesh=upload(std::move(cube));
+            if(!creatureMesh)throw std::runtime_error("Creature mesh missing.");
         };
         const auto cancel=[&](){pub.AbortStaging(destroy);workers.Cancel();pending.reset();plan.reset();};
         const auto update=[&](CaveChunk target)
@@ -398,13 +425,13 @@ int main(int argc,char** argv)
                     });
                     if(!spawn)throw std::runtime_error("No supported clear cave spawn near the origin.");
                     settle(CaveObserver(spawn->Feet[0],spawn->Feet[1],spawn->Feet[2]));
-                    body=*spawn;vitals.Respawn(body.Feet[1]);mining.Reset();nutrition.Reset();
+                    body=*spawn;vitals.Respawn(body.Feet[1]);mining.Reset();nutrition.Reset();creature.Reset();
                 };
                 if(survival)
                 {
                     respawn();
                     x=body.Feet[0];y=body.Feet[1]+config.EyeHeight;z=body.Feet[2];
-                    createHud();hudEnabled=true;
+                    createHud();hudEnabled=true;createCreature();
                 }
                 const auto bodyQuery=[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
                     if(c.Y<CaveBottom||c.Y>=CaveTop||std::abs(double(c.X))>=999999950||std::abs(double(c.Z))>=999999950)return CraftStone;
@@ -470,6 +497,7 @@ int main(int argc,char** argv)
                     const double dx=(std::sin(yaw)*f+std::cos(yaw)*r)/n,dz=(-std::cos(yaw)*f+std::sin(yaw)*r)/n;
                     const bool jump=actions.Jump.Press(key(GLFW_KEY_SPACE)>0);
                     const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
+                    const auto previousCreature=creature.Body();
                     if(survival)
                     {
                         AdvanceVoxelPlayer(body,config,{dx,dz,jump,sprint},dt,bodyQuery);
@@ -478,6 +506,7 @@ int main(int argc,char** argv)
                             [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
                         (void)vitals.Observe(body.Feet[1],body.Grounded,support);
                         if(focused)nutrition.Advance(dt,sprint,vitals);
+                        if(!vitals.Dead())vitals.Damage(creature.Advance(dt,body,query));
                         if(vitals.Dead())respawn();
                         x=body.Feet[0];y=body.Feet[1]+config.EyeHeight;z=body.Feet[2];
                     }
@@ -510,6 +539,7 @@ int main(int argc,char** argv)
                         }
                         title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
                             " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
+                        if(creature.Body())title+=" | Creature HP "+std::to_string(creature.Health())+"/12";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
 
@@ -522,11 +552,13 @@ int main(int argc,char** argv)
                     const bool right=focused&&mouseCaptured&&mouseArmed&&rawRight;
                     if(survival)
                     {
-                        const auto hit=(left||(right&&!rightHeld))?TraceVoxels({x,y,z},d,8,64,query):std::optional<VoxelHit>{};
+                        const bool combatAim=creature.Aimed({x,y,z},d,query);
+                        if(left&&combatAim&&!leftHeld)(void)creature.Strike();
+                        const auto hit=((left&&!combatAim)||(right&&!rightHeld))?TraceVoxels({x,y,z},d,8,64,query):std::optional<VoxelHit>{};
                         std::optional<CraftMiningTarget> target;
                         if(hit&&hit->Material>=CraftGrass&&hit->Material<=CraftPlaced&&hit->Cell.Y>CaveBottom)
                             target=CraftMiningTarget{{hit->Cell.X,hit->Cell.Y,hit->Cell.Z},hit->Material};
-                        (void)mining.Advance(left,target,dt,[&](const CraftMiningTarget& completed)
+                        (void)mining.Advance(left&&!combatAim,target,dt,[&](const CraftMiningTarget& completed)
                         {
                             const VoxelCoordinate cell{completed.Cell[0],completed.Cell[1],completed.Cell[2]};
                             if(query(cell)!=completed.Material||!MineCraftBlock(inventory,cell,query,edit))return false;
@@ -535,7 +567,7 @@ int main(int argc,char** argv)
                         },target?equipment.Speed(target->Material):1.);
                         if(!left&&right&&!rightHeld&&hit&&hit->Placement)
                             (void)PlaceCraftBlock(inventory,*hit->Placement,query,edit,
-                                [&](auto cell){return !PlayerIntersectsBlock(body,config,cell);});
+                                [&](auto cell){return !PlayerIntersectsBlock(body,config,cell)&&!creature.Occupies(cell);});
                     }
                     else if((left&&!leftHeld)||(right&&!rightHeld))
                     {
@@ -550,7 +582,7 @@ int main(int argc,char** argv)
                     // immediately. Placement is preflight feedback, not a
                     // promise that a subsequent native transaction will succeed.
                     std::optional<CraftTargetKey> aim;
-                    if(mouseCaptured)
+                    if(mouseCaptured&&!(survival&&creature.Aimed({x,y,z},d,query)))
                         if(const auto pointed=TraceVoxels({x,y,z},d,8,64,query))
                         {
                             const bool mineable=InCaveWorld(pointed->Cell)&&(!survival||
@@ -562,15 +594,18 @@ int main(int argc,char** argv)
                                 const auto cell=*pointed->Placement;
                                 aim->Placement=targetCell(cell);
                                 aim->Placeable=InCaveWorld(cell)&&query(cell)==VoxelAir&&(!survival||
-                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(body,config,cell)));
+                                    (inventory.Count(inventory.Selected)>0&&!PlayerIntersectsBlock(body,config,cell)&&!creature.Occupies(cell)));
                             }
                         }
                     publishTarget(aim);
+                    const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
+                        (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
+                    if(creatureChanged)oldSubmit(pub.Active());
                     autosave.Observe(saveStamp());
                     const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
                     if(savePath&&(manualSave||autosave.Advance(dt)))(void)checkpoint();
                     if(nativeHud)refreshNativeHud();
-                    else if(hudEnabled)oldSubmit(pub.Active());
+                    else if(hudEnabled&&!creatureChanged)oldSubmit(pub.Active());
                     renderer.DrawFrame();
                 }
                 // Exit is a final checkpoint only for an explicitly supplied
@@ -581,10 +616,12 @@ int main(int argc,char** argv)
         }
         catch(...){hudEnabled=false;(void)pub.Release(oldSubmit,destroy);throw;}
         hudEnabled=false;
+        creature.Reset();
         publishTarget(std::nullopt);
         refreshNativeHud();
         if(pub.Release(oldSubmit,destroy)!=0)throw std::runtime_error("Cave cleanup failed.");
         if(hudMesh)renderer.DestroyMesh(*hudMesh);
+        if(creatureMesh)renderer.DestroyMesh(*creatureMesh);
         return finalSaveFailed?1:0;
     }
     catch(const std::exception& e){std::cerr<<"Craft Caves failed: "<<e.what()<<'\n';return 1;}
