@@ -1,10 +1,11 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window]
+    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native]
   pull_request:
     paths:
       - 'workspace.lock'
+      - 'Runtime/KairoPlayer/CraftStreamDemo.cpp'
       - 'Runtime/KairoPlayer/CraftStreamingWindow.hpp'
       - 'Runtime/KairoPlayer/tests/CraftStreamingWindowTests.cpp'
       - 'Runtime/KairoPlayer/VoxelPlayer.hpp'
@@ -124,7 +125,7 @@ jobs:
       - name: Compile procedural viewport against explicit LOD review candidate
         run: |
           cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DCMAKE_BUILD_TYPE=Release
-          cmake --build --preset game-player-clang --parallel 2 --target KairoCraft KairoCraftStreamingWindowTests KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests KairoCraftWorldTests KairoVoxelChunkSurfaceTests KairoVoxelInteractionTests KairoTerrainDemo KairoTerrainExplorer KairoTerrainWalkerTests KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests KairoTerrainScreenErrorTests
+          cmake --build --preset game-player-clang --parallel 2 --target KairoCraftStream KairoCraft KairoCraftStreamingWindowTests KairoVoxelPlayerTests KairoCraftSaveTests KairoVoxelMeshPublicationTests KairoCraftWorldTests KairoVoxelChunkSurfaceTests KairoVoxelInteractionTests KairoTerrainDemo KairoTerrainExplorer KairoTerrainWalkerTests KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests KairoTerrainErrorProfileTests KairoTerrainScreenErrorTests
       - name: Run required native streamed-terrain capture
         run: |
           set -euo pipefail
@@ -141,6 +142,7 @@ jobs:
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainExplorer --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/explorer-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoCraft --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/craft-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoCraft --renderer vulkan --seed 42 --survival --smoke 2>&1 | tee build/terrain-diagnostics/craft-survival-smoke.log
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoCraftStream --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/craft-stream-smoke.log
           if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/*smoke.log; then exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()
