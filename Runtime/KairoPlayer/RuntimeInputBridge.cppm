@@ -23,6 +23,8 @@ export namespace kairo::player
     class RuntimeInputBridge final
     {
     public:
+        // Borrow the project's immutable action definitions for the lifetime
+        // of this adapter. InputState owns samples, never platform handles.
         explicit RuntimeInputBridge(const kairo::engine::InputActionMap& map) noexcept
             : m_Map(map) {}
 
@@ -32,11 +34,17 @@ export namespace kairo::player
         /// cannot leave stale buttons or axes held.
         void Poll(kairo::renderer::Window& window)
         {
+            // Snapshot previous input values before polling current controls;
+            // Evaluate uses the pair to derive press and release transitions.
             m_State.BeginFrame();
             GLFWwindow* native = window.NativeHandle();
             const auto [width,height]=window.FramebufferExtent();
+            // Treat unfocused, iconified and zero-framebuffer windows as
+            // inactive. Neutral state must not generate held controls on resume.
             const bool active=glfwGetWindowAttrib(native,GLFW_FOCUSED)==GLFW_TRUE&&
                 glfwGetWindowAttrib(native,GLFW_ICONIFIED)!=GLFW_TRUE&&width!=0&&height!=0;
+            // Every physical gate is independent; release-to-arm prevents a
+            // held key or axis from being reintroduced after focus loss.
             if(!active)
             {
                 m_Keys.Reset();m_MouseButtons.Reset();m_MouseBaseline=false;
@@ -47,6 +55,8 @@ export namespace kairo::player
             if(active)
             {
                 double x=0,y=0;
+                // GLFW reports logical window coordinates as doubles; InputState
+                // stores floats. Reject invalid/range-breaking samples first.
                 glfwGetCursorPos(native,&x,&y);
                 if(std::isfinite(x)&&std::isfinite(y)&&
                     std::abs(x)<=1e9&&std::abs(y)<=1e9)
@@ -56,6 +66,8 @@ export namespace kairo::player
                 }
                 else m_MouseBaseline=false;
             }
+            // Action bindings are authored, not hardcoded gameplay key names.
+            // Refresh the referenced keyboard/mouse codes; gamepads use slots.
             for (const auto& binding : m_Map.Bindings())
             {
                 switch (binding.Device)
@@ -74,6 +86,8 @@ export namespace kairo::player
                 }
             }
 
+            // The standardized GLFW mapping avoids vendor-specific button
+            // numbering. A disconnected slot must clear all previous samples.
             for (std::size_t slot = 0; slot < kairo::engine::InputState::MaximumGamepads; ++slot)
             {
                 GLFWgamepadstate gamepad{};
@@ -88,23 +102,31 @@ export namespace kairo::player
                 for (std::size_t button = 0; button <= GLFW_GAMEPAD_BUTTON_LAST; ++button)
                     m_State.SetGamepadButtonDown(slot, button,
                         m_Pads[slot].Button(button,gamepad.buttons[button] == GLFW_PRESS));
+                // RuntimeGamepadGate normalizes triggers from [-1,1] to [0,1]
+                // and requires a neutral sample before accepting held deflection.
                 for (std::size_t axis = 0; axis <= GLFW_GAMEPAD_AXIS_LAST; ++axis)
                     m_State.SetGamepadAxis(slot,axis,m_Pads[slot].Axis(axis,gamepad.axes[axis],
                         axis==GLFW_GAMEPAD_AXIS_LEFT_TRIGGER||axis==GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER));
             }
         }
 
+        // Optional features query whether the project defines a named action
+        // before evaluating it; absence is distinct from a zero current value.
         [[nodiscard]] bool HasAction(std::string_view name) const noexcept
         {
             return m_Map.FindAction(name) != nullptr;
         }
 
+        // Evaluate the immutable map against the latest frame snapshot; the
+        // selected gamepad slot disambiguates controller bindings.
         [[nodiscard]] kairo::engine::InputActionState Action(
             std::string_view name, std::size_t gamepad = 0u) const
         {
             return m_Map.Evaluate(name, m_State, gamepad);
         }
 
+        // Borrow current device-neutral state for diagnostic consumers only;
+        // valid until the next poll, no direct mutation through this reference.
         [[nodiscard]] const kairo::engine::InputState& RawState() const noexcept { return m_State; }
 
     private:

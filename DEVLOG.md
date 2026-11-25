@@ -181,3 +181,11 @@ Added [portable gate](scripts/run_m50_portable.py), [workflow](.github/workflows
 ### Consolidated local run — observed result
 
 Both exact-source runs passed: GCC 14.2.0 and Clang 17.0.0, 48/48 commands each, including 24 execution gates per compiler. The reconstructed local source subset matched all 49 Git blobs at `10373584015391a9b8d239edf6f3c40d5840c228`, including the runner. [Machine-readable local evidence summary](docs/evidence/m50-portable-2026-11-26.json) records source identities, full-report SHA256 digests and completed gates. This does not imply GitHub Actions or native integration acceptance.
+
+## 2026-11-26 — teaching pass: native input, player controller and locomotion animation
+
+Added 42 explanations across three existing modules, covering platform polling, frame transitions, focus gates, input ownership, fixed-step jump consumption, planar speed, clip lookup, animation phase and scene/renderer lifetime. All non-comment lines compared identical before commit. No module/native compilation claimed for this comment-only pass.
+
+- [RuntimeInputBridge.cppm](Runtime/KairoPlayer/RuntimeInputBridge.cppm): 11 new blocks.
+- [RuntimePlayerControllerBridge.cppm](Runtime/KairoPlayer/RuntimePlayerControllerBridge.cppm): 11 new blocks.
+- [RuntimeLocomotionAnimationBridge.cppm](Runtime/KairoPlayer/RuntimeLocomotionAnimationBridge.cppm): 20 new blocks.

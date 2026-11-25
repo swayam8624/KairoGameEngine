@@ -20,12 +20,15 @@ export namespace kairo::player
     inline constexpr std::string_view RuntimePlayerControllerTag =
         "kairo.player-controller";
 
+    // Authored controller settings in world units per second. Motor owns
+    // contact geometry and physical integration, not the action map.
     struct RuntimePlayerControllerSettings final
     {
         float MaximumSpeed = 5.5f;
         bool InvertMoveYForWorldZ = true;
         RuntimeCharacterMotorSettings Motor{};
 
+        // Reject invalid speed and delegate motor constraints to its own API.
         void Validate() const
         {
             if (!std::isfinite(MaximumSpeed) || MaximumSpeed <= 0.0f)
@@ -35,6 +38,8 @@ export namespace kairo::player
         }
     };
 
+    // Frame input survives until fixed physics consumes it. Movement is
+    // continuous state; JumpQueued is a one-shot pending event.
     struct RuntimePlayerControllerState final
     {
         kairo::engine::InputVector2 Move{};
@@ -53,6 +58,9 @@ export namespace kairo::player
     class RuntimePlayerControllerBridge final : public RuntimeFixedStepListener
     {
     public:
+        // Scene and motor are borrowed; tag discovery is a startup snapshot.
+        // Register only active opted-in entities. Later-created tagged entities
+        // need explicit lifecycle integration rather than implicit discovery.
         RuntimePlayerControllerBridge(kairo::engine::Scene& scene,
             RuntimeCharacterMotorBridge& motor,
             RuntimePlayerControllerSettings settings = {})
@@ -69,6 +77,7 @@ export namespace kairo::player
             }
         }
 
+        // Count startup registrations, not the current active hierarchy size.
         [[nodiscard]] std::size_t ControllerCount() const noexcept
         {
             return m_Controllers.size();
@@ -94,11 +103,14 @@ export namespace kairo::player
             return m_Scene.WorldTransform(*entity).Translation - spawnAnchor;
         }
 
+        // Membership test against the startup registration vector.
         [[nodiscard]] bool Controls(kairo::engine::Entity entity) const noexcept
         {
             return std::ranges::find(m_Controllers, entity) != m_Controllers.end();
         }
 
+        // Borrow current frame-latched state; invalidated semantically by capture
+        // or clear. This is input intent, not the actual motor result.
         [[nodiscard]] const RuntimePlayerControllerState& State() const noexcept
         {
             return m_State;
@@ -111,6 +123,8 @@ export namespace kairo::player
         /// assuming the collision solver must integrate to an exact final pose.
         [[nodiscard]] kairo::foundation::math::Vec3f DesiredPlanarVelocity() const noexcept
         {
+            // Action-map Y is mapped onto the horizontal world Z axis; the
+            // vertical component is zero because jumping belongs to the motor.
             const float worldZ = (m_Settings.InvertMoveYForWorldZ ? -1.0f : 1.0f) *
                 m_State.Move.Y * m_Settings.MaximumSpeed;
             return {
@@ -129,6 +143,8 @@ export namespace kairo::player
             m_State.Move = move.Value;
             const float lengthSquared = m_State.Move.X * m_State.Move.X +
                 m_State.Move.Y * m_State.Move.Y;
+            // Normalize only outside the unit disk, preserving analog magnitude
+            // for slow movement while limiting diagonal keyboard speed.
             if (lengthSquared > 1.0f)
             {
                 const float inverseLength = 1.0f / std::sqrt(lengthSquared);
@@ -138,11 +154,15 @@ export namespace kairo::player
             if (jump.Pressed) m_State.JumpQueued = true;
         }
 
+        // Explicit neutralization discards both held movement and queued jump.
         void ClearInput() noexcept
         {
             m_State = {};
         }
 
+        // Physics invokes this once per fixed step, before integration. One
+        // captured jump is delivered to the registered active motor set and
+        // consumed; render frames with no fixed step retain that event.
         void BeforePhysicsStep(float fixedDeltaSeconds) override
         {
             const auto desiredVelocity = DesiredPlanarVelocity();
