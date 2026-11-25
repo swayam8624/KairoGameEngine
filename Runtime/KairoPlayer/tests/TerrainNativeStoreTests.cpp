@@ -54,5 +54,35 @@ int main()
     failDetach=false;
     Check(store.Release(detach,destroy)==0&&live.empty(),"Retry leaked handles");
     Check(store.Release(detach,destroy)==0,"Repeated shutdown failed");
+    // A replacement must not invalidate the old submitted mesh before
+    // the new upload and submission succeed. Test a bounded journal.
+    TerrainNativeStore<int,unsigned> lod(2);
+    lod.Load(1,create);
+    const auto old=lod.Cells().at(1);
+    bool rejected=false;
+    try{(void)lod.Replace(1,[](int)->unsigned{throw std::runtime_error("LOD upload failed");});}
+    catch(const std::runtime_error&){rejected=true;}
+    Check(rejected&&lod.Cells().at(1)==old&&live.contains(old)&&lod.RetiredCount()==0,
+        "Failed LOD upload changed visible ownership");
+    Check(lod.Replace(1,create)&&lod.Replace(1,create),"Replacement failed");
+    Check(live.size()==3&&lod.RetiredCount()==2&&live.contains(old),"Old mesh retired prematurely");
+    const auto newest=lod.Cells().at(1);
+    Check(!lod.Replace(1,create)&&live.size()==3&&lod.Cells().at(1)==newest,
+        "Full journal allocated or replaced a mesh");
+    failDetach=true;
+    Check(lod.Release(detach,destroy)==3&&live.size()==3,"Failed detach lost retired ownership");
+    failDetach=false;
+    detach();
+    Check(lod.ReleaseRetired([](unsigned){throw std::runtime_error("Retirement failed");})==2,
+        "Failed retirement lost old handles");
+    Check(lod.ReleaseRetired(destroy)==0&&live.size()==1&&live.contains(newest),
+        "Retirement did not preserve replacement");
+    for(unsigned i=0;i<10000;++i)
+    {
+        Check(lod.Replace(1,create),"Replacement journal exhausted");
+        Check(lod.ReleaseRetired(destroy)==0&&live.size()==1,"Replacement leaked native handle");
+    }
+    Check(lod.Release(detach,destroy)==0&&live.empty(),"LOD shutdown leaked handles");
     std::cout<<"10000 uploads, detach rollback, 2857 failed retirements and retry passed\n";
+    std::cout<<"10000 LOD replacements, failed upload, full journal and retirement retry passed\n";
 }
