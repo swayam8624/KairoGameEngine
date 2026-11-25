@@ -53,6 +53,39 @@ int main()
         for(unsigned j:{0u,2u,5u,6u,7u,8u})
             Check(p.Active()[j]==original[j],"Unaffected chunk replaced");
     }
+    // Stage 3 dirty chunks over three updates, keeping the committed
+    // scene intact even after a partial staged upload.
+    auto old=p.Active();
+    Check(p.BeginStaging(dirty,submit,destroy),"Begin staging");
+    Check(!p.Stage(1,create)&&p.Active()==old&&visible==old&&live.size()==10,"First staged upload");
+    p.AbortStaging(destroy);
+    Check(!p.Staging()&&live.size()==9&&visible==old,"Stale staged upload leaked");
+    Check(p.BeginStaging(dirty,submit,destroy),"Restart staging");
+    Check(!p.Stage(1,create)&&!p.Stage(1,create)&&p.Stage(1,create),"Incremental budget");
+    Check(p.Active()==old&&visible==old&&live.size()==12,"Staging prematurely published");
+    failSubmit=true;threw=false;
+    try{p.CommitStaging(submit,destroy);}catch(const std::runtime_error&){threw=true;}
+    Check(threw&&p.NeedsRestore()&&p.Active()==old&&live.size()==12,"Partial staged submit lost ownership");
+    failSubmit=false;
+    Check(p.Recover(submit,destroy)&&visible==old&&live.size()==9,"Staged submit recovery");
+    for(unsigned i=0;i<10000;++i)
+    {
+        old=p.Active();
+        Check(p.BeginStaging(dirty,submit,destroy),"Repeated staged begin");
+        Check(!p.Stage(2,create)&&p.Active()==old&&visible==old,"Staging cap or visibility changed");
+        Check(p.Stage(2,create),"Staging did not finish");
+        p.CommitStaging(submit,destroy);
+        Check(p.Active()==visible&&live.size()==9,"Staging leaked resources");
+    }
+    Check(p.BeginStaging(dirty,submit,destroy),"Stage failure begin");
+    failCreate=3;threw=false;
+    try{(void)p.Stage(3,create);}catch(const std::runtime_error&){threw=true;}
+    Check(threw&&live.size()==10,"Failed staged upload lost partial ownership");
+    failCreate=-1;failDestroy=true;p.AbortStaging(destroy);
+    Check(p.RetiredCount()==1&&live.size()==10,"Abort failure lost staged ownership");
+    failDestroy=false;
+    Check(p.Recover(submit,destroy)&&live.size()==9,"Staged abort recovery");
+    std::cout<<"10000 incremental staging transactions, cancellation, upload cap and partial-submit recovery passed\n";
     Check(p.Apply(dirty,[](std::size_t)->std::optional<unsigned>{return {};},submit,destroy)&&live.size()==6,
         "Empty chunk publication failed");
     Check(p.Release(submit,destroy)==0&&live.empty(),"Cleanup leaked");
