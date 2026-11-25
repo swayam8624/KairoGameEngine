@@ -72,6 +72,7 @@ on:
       - 'Runtime/KairoPlayer/TerrainDemo.cpp'
       - 'Runtime/KairoPlayer/tests/TerrainNativeStoreTests.cpp'
       - 'Runtime/KairoPlayer/CMakeLists.txt'
+      - 'scripts/run_craft_cpu_contracts.sh'
       - '.github/workflows/procedural-terrain-viewport.yml'
 permissions:
   contents: read
@@ -104,98 +105,8 @@ jobs:
         run: |
           g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/TerrainWalkerTests.cpp -o /tmp/terrain-walker-test
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/terrain-walker-test
-      - name: Verify bounded voxel edits and ray traversal under sanitizers
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/VoxelInteractionTests.cpp -o /tmp/voxel-interaction-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/voxel-interaction-test
-      - name: Verify greedy voxel face coverage under sanitizers
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/VoxelChunkSurfaceTests.cpp -o /tmp/voxel-surface-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/voxel-surface-test
-      - name: Validate seeded Craft world and mesh conversion
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftWorldTests.cpp -o /tmp/craft-world-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-world-test
-      - name: Verify transactional multi-chunk publication
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/VoxelMeshPublicationTests.cpp -o /tmp/voxel-publication-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/voxel-publication-test
-      - name: Verify Craft world save codec
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftSaveTests.cpp -o /tmp/craft-save-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-save-test
-      - name: Verify voxel body collision under sanitizers
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/VoxelPlayerTests.cpp -o /tmp/voxel-player-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/voxel-player-test
-      - name: Verify stable streamed voxel windows
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftStreamingWindowTests.cpp -o /tmp/craft-window-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-window-test
-      - name: Verify streamed Craft save codec
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftStreamSaveTests.cpp -o /tmp/craft-stream-save-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-stream-save-test
-      - name: Verify immutable voxel worker batches
-        run: |
-          g++ -std=c++23 -pthread -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftMeshBatchTests.cpp -o /tmp/craft-batch-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-batch-test
-      - name: Verify survival inventory and session persistence
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftInventoryTests.cpp -o /tmp/craft-inventory-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-inventory-test
-      - name: Verify XYZ cave streaming and deterministic worker geometry
-        run: |
-          g++ -std=c++23 -pthread -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftCaveWorldTests.cpp -o /tmp/craft-cave-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-cave-test
-      - name: Verify recipe and hotbar layout transactions
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftRecipesHudTests.cpp -o /tmp/craft-recipes-hud-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-recipes-hud-test
-      - name: Verify aspect-safe HUD projection under sanitizers
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftHudProjectionTests.cpp -o /tmp/craft-hud-projection-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-hud-projection-test
-      - name: Verify native HUD publication cache under sanitizers
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftHudPublicationTests.cpp -o /tmp/craft-hud-publication-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-hud-publication-test
-      - name: Verify survival fall damage and respawn state
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftVitalsTests.cpp -o /tmp/craft-vitals-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-vitals-test
-      - name: Verify timed mining under sanitizers
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftMiningTests.cpp -o /tmp/craft-mining-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-mining-test
-      - name: Verify equipment conservation and durability
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftEquipmentTests.cpp -o /tmp/craft-equipment-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-equipment-test
-      - name: Verify equipment envelope under sanitizers
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftEquipmentEnvelopeTests.cpp -o /tmp/craft-equipment-envelope-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-equipment-envelope-test
-      - name: Verify mouse focus and camera bounds
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftMouseLookTests.cpp -o /tmp/craft-mouse-look-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-mouse-look-test
-      - name: Verify fixed-clock survival nutrition
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftNutritionTests.cpp -o /tmp/craft-nutrition-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-nutrition-test
-      - name: Verify surface spawn against edited voxel support
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftSurfaceSpawnTests.cpp -o /tmp/craft-surface-spawn-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-surface-spawn-test
-      - name: Verify focus-safe discrete keyboard actions
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftActionLatchTests.cpp -o /tmp/craft-action-latch-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-action-latch-test
-      - name: Verify complete CPU survival journeys with real world codecs
-        run: |
-          g++ -std=c++23 -Wall -Wextra -Wpedantic -Werror -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer Runtime/KairoPlayer/tests/CraftSurvivalJourneyTests.cpp -o /tmp/craft-journey-test
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/craft-journey-test
+      - name: Require all Craft CPU contracts under sanitizers
+        run: CXX=g++ bash scripts/run_craft_cpu_contracts.sh
   native-vulkan:
     runs-on: ubuntu-latest
     timeout-minutes: 35

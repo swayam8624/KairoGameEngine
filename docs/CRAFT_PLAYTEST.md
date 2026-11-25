@@ -5,6 +5,24 @@ timed mining, health, equipment and first-person controls. It is not a release
 claim. The combined earlier integration candidate passed native Vulkan and Metal;
 these later changes still require exact-head acceptance.
 
+## CPU acceptance without the graphics SDK
+
+Run the complete 23-contract C++23 suite on a source checkout:
+
+```bash
+CXX=clang++ bash scripts/run_craft_cpu_contracts.sh
+```
+
+The script uses strict warnings, ASan/UBSan and a temporary build directory.
+To run just the integrated world/inventory/equipment and survival journeys:
+
+```bash
+CXX=clang++ bash scripts/run_craft_cpu_contracts.sh CraftInventoryTests CraftSurvivalJourneyTests
+```
+
+The full suite is required by the CI ownership job. A selected subset is useful
+for iteration, but cannot substitute for native Vulkan/Metal acceptance.
+
 ## Build against the locked workspace
 
 Use a clean checkout of the candidate with its exact sibling revisions. Do not

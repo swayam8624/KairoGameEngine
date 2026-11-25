@@ -304,6 +304,10 @@ Reconstructed real source files from the exact candidate by GitHub blob hash, wi
 
 Exact existing inventory test 0a5027e2446c3e1dda0a9f8cf4b5dfd723791f8c; full world dependencies CraftSave ce516f0a634c96d9cba1f8101de77acc9ff82ae3, CraftStreamSave bc5e6adee11cf82693ecf22ef0fa9aeb0227c3c1, CraftInventory 7b250a8f8535cfa3527406e949a33733976c97ee, CraftStreamingWindow 7c4291cbf287da2228d4fa2439d32bfd1b62dc4d, CraftWorld 8c1c96186b2d67f003267d8bd64804f1c0c4cd6d, VoxelChunkSurface eb86aa49ec68f41f3e87071652e700d75a267bdf, VoxelInteraction 18557fc2d5ace936591dd5a6af2f21440ad3f500, CraftCaveSession 63f1dc5f500c87642ed5be23c90d5919ee5aae71, CraftCaveWorld 05ff96a0286f500fa5f254783e13ba71a29ffcfe, CraftCaveSpawn f7727fadb7ac9ea566b16309a13ef2794ed357fe, CraftRecipesHud f86253bf6f0da162e6601fdb5a422f56f578e742. New exact journey test bbbb933fc212d301565594da2c276b7fd0882828. Native acceptance and merged-lock baseline remain separate and pending.
 
+### Reusable SDK-free Craft CPU gate
+
+Added scripts/run_craft_cpu_contracts.sh with 23 named C++23 contracts, strict warnings, ASan/UBSan, isolated temporary outputs and fail-closed missing/unknown-test checks. Replaces the 23 duplicated compile/run snippets in the ownership job with the same test inventory (compared programmatically). The script exact blob 989d81ebfd1d55bbdf2985381e458e1c276b8df4 passed bash syntax and selected 7/7 contracts on Clang 17 in the reconstructed source workspace. The full 23-test invocation requires the remaining repository files and is pending CI. Native tests unchanged.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
