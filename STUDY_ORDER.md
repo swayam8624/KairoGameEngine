@@ -482,3 +482,14 @@ Read [strategy kernel](Runtime/KairoPlayer/RuntimeStrategy.hpp), especially occu
 ## Native game lab
 
 After the platformer, strategy and quest kernels, read [grid canvas](Runtime/KairoPlayer/RuntimeGridCanvas.hpp) and [layout tests](Runtime/KairoPlayer/tests/RuntimeGridCanvasTests.cpp), then [GameLab](Runtime/KairoPlayer/GameLab.cpp): simulation state -> letterboxed pixel rectangles -> overlay -> native input and clock -> capture. [Run instructions](Samples/GameLab/README.md). Follow RuntimeMenuFocus for glyphs, RuntimeFrameClock for bounded active time and RuntimeQuestSave for persistence.
+
+## M50 portable acceptance
+
+Read [run guide](docs/M50_PORTABLE_ACCEPTANCE.md), then [runner](scripts/run_m50_portable.py) and [CI workflow](.github/workflows/m50-portable.yml). Trace exact source fingerprints, compiler commands, temporary isolation, process outputs and failure propagation. Run both compilers before claiming a portable candidate passes; native acceptance is separate.
+
+## Teaching pass: input to character motion and animation
+
+1. [RuntimeInputGate](Runtime/KairoPlayer/RuntimeInputGate.hpp) and [RuntimeInputBridge](Runtime/KairoPlayer/RuntimeInputBridge.cppm): physical controls -> InputState -> named actions.
+2. [RuntimePlayerControllerBridge](Runtime/KairoPlayer/RuntimePlayerControllerBridge.cppm) and [RuntimeCharacterMotorBridge](Runtime/KairoPlayer/RuntimeCharacterMotorBridge.cppm): frame intent -> fixed-step motor -> measured displacement.
+3. [RuntimeCrowdNavigationBridge](Runtime/KairoPlayer/RuntimeCrowdNavigationBridge.cppm) and [RuntimeLocomotionAnimationBridge](Runtime/KairoPlayer/RuntimeLocomotionAnimationBridge.cppm): actual velocity -> semantic animation -> clip/rate -> visual facing.
+4. [RuntimeRenderBridge](Runtime/KairoPlayer/RuntimeRenderBridge.cppm): trace animation control into submitted skin matrices. Read matching tests after each bridge.

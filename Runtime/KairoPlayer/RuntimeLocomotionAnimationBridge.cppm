@@ -18,6 +18,7 @@ import Kairo.Player.RuntimeRenderBridge;
 
 export namespace kairo::player
 {
+    // Semantic locomotion states decouple gameplay from asset clip indices.
     enum class RuntimeLocomotionAnimationState : std::uint8_t
     {
         Idle,
@@ -26,6 +27,8 @@ export namespace kairo::player
         Airborne
     };
 
+    // Clip names are authored asset metadata. Speed thresholds and reference
+    // speeds use world units/second; playback multipliers are dimensionless.
     struct RuntimeLocomotionAnimationSettings final
     {
         std::string IdleClip = "Idle";
@@ -40,6 +43,8 @@ export namespace kairo::player
         float MaximumPlaybackRate = 1.75f;
         bool FaceMovementDirection = true;
 
+        // Check clip requirements, ordered thresholds/reference speeds and
+        // bounded playback multipliers before registering any asset binding.
         void Validate() const
         {
             if (IdleClip.empty() || WalkClip.empty() || RunClip.empty())
@@ -61,6 +66,7 @@ export namespace kairo::player
         }
     };
 
+    // Value-only result of animation policy, independent of entity/GPU handles.
     struct RuntimeLocomotionAnimationDecision final
     {
         RuntimeLocomotionAnimationState State = RuntimeLocomotionAnimationState::Idle;
@@ -68,6 +74,8 @@ export namespace kairo::player
         float PlaybackRate = 1.0f;
     };
 
+    // Pure classifier: airborne takes priority when configured, then idle,
+    // walk or run. Match animation cadence to measured speed/reference speed.
     [[nodiscard]] inline RuntimeLocomotionAnimationDecision
     SelectLocomotionAnimation(const RuntimeLocomotionAnimationSettings& settings,
         float planarSpeed, bool grounded)
@@ -82,6 +90,8 @@ export namespace kairo::player
         if (planarSpeed < settings.MovingSpeedThreshold)
             return { RuntimeLocomotionAnimationState::Idle, planarSpeed, 1.0f };
 
+        // At the run threshold select the faster clip. Clamp the multiplier
+        // rather than permitting pathological fast/slow playback.
         const bool running = planarSpeed >= settings.RunSpeedThreshold;
         const float reference = running
             ? settings.RunReferenceSpeed
@@ -96,6 +106,7 @@ export namespace kairo::player
         };
     }
 
+    // Last published decision tracks whether a clip transition needs a restart.
     struct RuntimeLocomotionAnimationStateData final
     {
         RuntimeLocomotionAnimationState State = RuntimeLocomotionAnimationState::Idle;
@@ -111,6 +122,8 @@ export namespace kairo::player
     /// through a wall visually nor rotates toward a motion it failed to achieve.
     class RuntimeLocomotionAnimationBridge final
     {
+        // Cache resolved clip indices per entity so per-frame Apply does not
+        // repeatedly search names. Airborne clip is deliberately optional.
         struct Agent final
         {
             RuntimeLocomotionAnimationSettings Settings;
@@ -122,10 +135,14 @@ export namespace kairo::player
         };
 
     public:
+        // Borrow scene transform authority and render animation control; both
+        // collaborators must outlive this bridge.
         RuntimeLocomotionAnimationBridge(kairo::engine::Scene& scene,
             RuntimeRenderBridge& render) noexcept
             : m_Scene(scene), m_Render(render) {}
 
+        // Resolve required asset clips into a local candidate before inserting.
+        // Unknown entities, missing required clips and duplicate registration fail.
         void Register(kairo::engine::Entity entity,
             RuntimeLocomotionAnimationSettings settings = {})
         {
@@ -146,6 +163,8 @@ export namespace kairo::player
                     "Runtime locomotion animation entity is already registered.");
         }
 
+        // Remove cached binding and relinquish animation control to the render
+        // bridge. Does not destroy scene entity or imported asset.
         bool Unregister(kairo::engine::Entity entity) noexcept
         {
             const bool removed = m_Agents.erase(entity.Value) != 0u;
@@ -153,17 +172,22 @@ export namespace kairo::player
             return removed;
         }
 
+        // Test stable entity identity, not mesh or clip ownership.
         [[nodiscard]] bool IsRegistered(kairo::engine::Entity entity) const noexcept
         {
             return m_Agents.contains(entity.Value);
         }
 
+        // Borrow the last applied policy result for this registered entity;
+        // missing registration is a configuration error.
         [[nodiscard]] const RuntimeLocomotionAnimationStateData& State(
             kairo::engine::Entity entity) const
         {
             return Require(entity).State;
         }
 
+        // Called with the resolved crowd/navigation step, after actual motor
+        // movement. X/Z magnitude excludes vertical jump/fall speed.
         void Apply(const RuntimeCrowdAgentStep& step)
         {
             auto& agent = Require(step.Entity);
@@ -185,6 +209,8 @@ export namespace kairo::player
                         : RuntimeLocomotionAnimationState::Walk;
 
             const std::uint32_t clip = ClipFor(agent, decision.State);
+            // Restart clip time only for the initial selection or a real state/
+            // clip transition. Changing speed alone retains animation phase.
             const bool changed = !agent.State.Initialized ||
                 agent.State.State != decision.State ||
                 agent.State.ClipIndex != clip;
@@ -192,6 +218,8 @@ export namespace kairo::player
                 kairo::engine::AnimationTimeMode::Loop,
                 decision.PlaybackRate, changed);
 
+            // Face realized motion only above the moving threshold; this avoids
+            // normalizing a zero vector and jittering idle orientation.
             if (agent.Settings.FaceMovementDirection &&
                 speed >= agent.Settings.MovingSpeedThreshold)
                 FaceResolvedMotion(step.Entity, { vx, 0.0f, vz });
@@ -232,6 +260,8 @@ export namespace kairo::player
             }
         }
 
+        // Resolve by imported clip name through RuntimeRenderBridge. A missing
+        // required clip fails registration; optional fall is handled separately.
         [[nodiscard]] std::uint32_t RequireClip(kairo::engine::Entity entity,
             const std::string& name) const
         {
@@ -242,6 +272,8 @@ export namespace kairo::player
             return *clip;
         }
 
+        // Convert semantic state to cached asset index. The idle fallback
+        // handles an unavailable airborne clip without inventing a new clip.
         [[nodiscard]] static std::uint32_t ClipFor(const Agent& agent,
             RuntimeLocomotionAnimationState state)
         {
@@ -257,6 +289,8 @@ export namespace kairo::player
             return agent.Idle;
         }
 
+        // Mutable lookup for Apply; fail rather than implicitly creating an
+        // agent with invalid default animation indices.
         [[nodiscard]] Agent& Require(kairo::engine::Entity entity)
         {
             const auto found = m_Agents.find(entity.Value);
@@ -266,6 +300,7 @@ export namespace kairo::player
             return found->second;
         }
 
+        // Const counterpart used by State; same identity and error contract.
         [[nodiscard]] const Agent& Require(kairo::engine::Entity entity) const
         {
             const auto found = m_Agents.find(entity.Value);

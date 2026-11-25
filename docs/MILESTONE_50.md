@@ -133,3 +133,7 @@ Playable select/move/gather/deposit loop reaches six-resource goal through a wal
 ## Candidate progress: native RPG, platformer and strategy host
 
 Common native 2D overlay host, controls and full objective smoke gates added. Pixel layout tested; native build/capture and full workspace acceptance still pending. No 50% promotion without that evidence.
+
+## Candidate progress: independent portable certification
+
+Separate Linux dual-compiler acceptance gate with exact source fingerprints, regression runs and retained evidence added. This narrows the feedback loop while full workspace CI is pending; it does not certify the renderer, Editor or deployment platforms.

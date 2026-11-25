@@ -1,0 +1,32 @@
+name: M50 portable acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable:
+    name: M50 portable (${{ matrix.compiler }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v4
+      # Ubuntu runner supplies GCC, Clang and Python; no sibling checkout,
+      # GPU, project asset download or third-party package install is needed.
+      - name: Compile and run exact-source portable gate
+        run: python3 scripts/run_m50_portable.py --compiler "${{ matrix.compiler }}" --report m50-report.json
+      - name: Preserve commands, hashes and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m50-portable-${{ strategy.job-index }}
+          path: m50-report.json
+          if-no-files-found: error

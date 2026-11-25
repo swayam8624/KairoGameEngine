@@ -173,3 +173,19 @@ Added [RuntimeStrategy.hpp](Runtime/KairoPlayer/RuntimeStrategy.hpp): bounded gr
 ## 2026-11-26 — shared native game lab candidate
 
 Added [RuntimeGridCanvas](Runtime/KairoPlayer/RuntimeGridCanvas.hpp) and [layout tests](Runtime/KairoPlayer/tests/RuntimeGridCanvasTests.cpp), 10,000 randomized pixel fit and inverse-picking cases passed under GCC and Clang C++23 warnings-as-errors; tested blobs 70bb888d774b8f51f82f376e4e912cb358591194 and d52a1f20b97154b6284d6d9098f2daa652e8dac3. Added [GameLab.cpp](Runtime/KairoPlayer/GameLab.cpp) with platformer, strategy and branching RPG modes, actual native viewport overlay and GLFW keyboard controls, fixed-step clock, quest disk save/load and before/after capture gates. The native source is reviewed against pinned API but has not been built or run in this environment. Manual smoke commands documented, no native acceptance claim.
+
+## 2026-11-26 — independent portable acceptance runner
+
+Added [portable gate](scripts/run_m50_portable.py), [workflow](.github/workflows/m50-portable.yml) and [run guide](docs/M50_PORTABLE_ACCEPTANCE.md). Consolidates 16 standalone C++23 regressions, real loopback and matchmaking connection, dynamic-library acceptance, platformer/strategy/RPG playthroughs and Python suites. Exact file fingerprints and command evidence are emitted for each compiler. Linux scope only; full workspace, renderer and platform acceptance remain separate. Local consolidated execution evidence recorded in a follow-up once complete.
+
+### Consolidated local run — observed result
+
+Both exact-source runs passed: GCC 14.2.0 and Clang 17.0.0, 48/48 commands each, including 24 execution gates per compiler. The reconstructed local source subset matched all 49 Git blobs at `10373584015391a9b8d239edf6f3c40d5840c228`, including the runner. [Machine-readable local evidence summary](docs/evidence/m50-portable-2026-11-26.json) records source identities, full-report SHA256 digests and completed gates. This does not imply GitHub Actions or native integration acceptance.
+
+## 2026-11-26 — teaching pass: native input, player controller and locomotion animation
+
+Added 42 explanations across three existing modules, covering platform polling, frame transitions, focus gates, input ownership, fixed-step jump consumption, planar speed, clip lookup, animation phase and scene/renderer lifetime. All non-comment lines compared identical before commit. No module/native compilation claimed for this comment-only pass.
+
+- [RuntimeInputBridge.cppm](Runtime/KairoPlayer/RuntimeInputBridge.cppm): 11 new blocks.
+- [RuntimePlayerControllerBridge.cppm](Runtime/KairoPlayer/RuntimePlayerControllerBridge.cppm): 11 new blocks.
+- [RuntimeLocomotionAnimationBridge.cppm](Runtime/KairoPlayer/RuntimeLocomotionAnimationBridge.cppm): 20 new blocks.
