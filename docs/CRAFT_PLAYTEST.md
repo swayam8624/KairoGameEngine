@@ -7,7 +7,7 @@ these later changes still require exact-head acceptance.
 
 ## CPU acceptance without the graphics SDK
 
-Run the complete 31-contract C++23 suite on a source checkout:
+Run the complete 32-contract C++23 suite on a source checkout:
 
 ```bash
 CXX=clang++ bash scripts/run_craft_cpu_contracts.sh
@@ -108,8 +108,7 @@ journal capacity; actual edits retain the existing transactional checks.
 Surface play starts at noon and cycles through dusk, night and dawn over ten
 minutes of focused simulation. Lighting updates at 240 quantized phases per
 cycle, without regenerating the resident terrain meshes. Night retains a dim
-ambient floor. The clock pauses when focus is lost and resets on restart; it
-does not yet persist or affect cave lighting, weather or mob spawning.
+ambient floor. The clock pauses when focus is lost and is restored from a survival checkpoint; it does not affect cave lighting, weather or mob spawning.
 
 ## Save-file replacement and recovery
 
@@ -118,8 +117,7 @@ world edits, inventory, selected slot and equipment after 30 seconds of
 focused simulation. Repeated edits do not postpone the checkpoint. Failure
 leaves state dirty and retries after five active seconds. F5 saves immediately;
 a normal exit attempts one last dirty checkpoint and returns a failure status
-if it cannot save. A new save slot is dirty initially, even before edits; its first checkpoint creates the file. Without a save path, no file is created. Clock, player pose,
-health and hunger remain session-local.
+if it cannot save. A new save slot is dirty initially, even before edits; its first checkpoint creates the file. Without a save path, no file is created. Survival checkpoints now also record grounded-restorable feet position, camera orientation, health, hunger and surface time of day. An unsupported or obstructed saved position uses the normal safe spawn, preserving the saved health and hunger. Creative saves retain any previously loaded survival checkpoint; older saves upgrade on survival play. Velocity, partial hunger/recovery timers and enemy state reset on load.
 
 Both demos reserve a sibling directory named `<save>.write-lock` before
 writing a temporary payload. A concurrent cooperating writer is refused.
@@ -153,9 +151,7 @@ fsync-based crash-durability guarantee.
 The pick doubles speed for stone/building blocks, consumes one use per successful
 eligible mine, and breaks after 64 uses. Hand mining stays available. Health
 starts at 20; falls over three world units cause damage. Death respawns the player
-and preserves inventory, world edits and equipment. Health and player pose are
-not saved; hunger is also session-local. Equipment is persisted in the v5 envelope. Older supported v2/v3 surface
-and v4 cave saves load with no equipment.
+and preserves inventory, world edits and equipment. Equipment is persisted in the v5 envelope; the v6 checkpoint wraps that envelope with player metadata. Older supported v2/v3 surface and v4 cave saves load with no equipment, while v5 loads with equipment and the normal starting player state.
 
 ## Acceptance checklist
 
@@ -179,6 +175,6 @@ and v4 cave saves load with no equipment.
 
 Nutrition drains one point per 30 seconds at rest, three times faster while sprinting. Sprint is unavailable at hunger four or below. High hunger supports healing; starvation damages health. The forage recipe is a prototype, not a full food system.
 
-Known gaps: combat, NPCs/entities, food varieties, item varieties, textured materials,
+Known gaps: expanded combat and NPC behavior, food varieties, item varieties, textured materials,
 full UI text and independent game distribution are still outstanding. Native
 interactive focus and mouse behavior require a real playtest.

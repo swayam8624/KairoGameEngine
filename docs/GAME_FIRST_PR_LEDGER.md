@@ -452,6 +452,26 @@ health states plus invalid-state and target-removal cases on both Clang and
 GCC with ASan/UBSan. Exact blobs 62093ecf32f7daa5fdc9e45fff21a0cbf89a8445
 and b80abb4d434e0b568e04b13ebe5c8db7ef67b0ce. The updated exact HUD cache header 2f99430a547ab644b20f1477d467cb8b8da43e9b and test 867249609379baa236f9f466b0740199bb02535d also passed Clang/GCC ASan/UBSan, 100,000 idle frames and 100,000 randomized transitions with 32,561 publications and combat-specific cache transitions. Both native smoke paths now require the combat HUD to change pixels and clear back to the exact normal HUD. These native tests and the full integrated HUD geometry test remain pending.
 
+### Player checkpoint v6
+
+Adds a bounded 74-byte outer checkpoint envelope around existing v5 equipment
+and v3/v4 world codecs. Stores feet, camera yaw/pitch, surface daylight phase,
+health and hunger, with explicit little-endian scalar words and checksum.
+Legacy readers are unchanged; new demos read older saves. Grounded, physically
+supported resume required, otherwise safe spawn retains saved health/hunger.
+Autosave dirty stamp covers checkpoint changes, including new legacy upgrades.
+Creative retains loaded checkpoint. Partial timers, velocity and enemies reset.
+Local Clang/GCC strict C++23 ASan/UBSan: 10,000 synthetic v5-tagged outer
+roundtrips and signed restores, 40,000 rejection cases, blocked/unknown/airborne
+fallback, vitals/nutrition restore and dirty stamp. Original autosave 200,000
+cases and 430 checkpoints also passed with changed header. Exact hashes:
+checkpoint 1567545d36ea154157b56741f7a093be7f20a6e5, test
+13e653c02bd2fa7798c3ed953d984f3eedfe972a, vitals
+3a7dcf3ea0e2b648e826281ef2970da938e6baa8, nutrition
+4426c7a21d63bdac5381e26f6c6b59afeff676f9, autosave
+6c42b3ed7f1974873ed173f0fd286372b41d1f63. Full nested real codec and native
+demo execution still need acceptance. No release or fsync durability claim.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
