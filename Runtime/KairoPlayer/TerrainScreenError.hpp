@@ -68,8 +68,12 @@ namespace kairo::player::detail
         {
             ScreenVec p{};
             for(unsigned j=0;j<3;++j)p[j]=((i&(1u<<j))?maximum[j]:minimum[j])-view.Position[j];
-            depth=std::min(depth,ScreenDot(p,view.Forward));
-            radial=std::max(radial,std::hypot(ScreenDot(p,view.Right),ScreenDot(p,view.Up)));
+            const double projectedDepth=ScreenDot(p,view.Forward);
+            const double projectedRadial=std::hypot(ScreenDot(p,view.Right),ScreenDot(p,view.Up));
+            if(!std::isfinite(projectedDepth)||!std::isfinite(projectedRadial))
+                return std::numeric_limits<double>::infinity();
+            depth=std::min(depth,projectedDepth);
+            radial=std::max(radial,projectedRadial);
         }
         if(!std::isfinite(depth)||!std::isfinite(radial)||depth<=view.NearPlane)
             return std::numeric_limits<double>::infinity();
