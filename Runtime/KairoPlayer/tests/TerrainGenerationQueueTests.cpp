@@ -30,7 +30,7 @@ int main()
         }
         if(coordinate%7==0)throw std::runtime_error("Injected generation failure");
         return std::vector<int>(64,coordinate);
-    });
+    },4);
     for(int i=1;i<=static_cast<int>(capacity);++i)
         Check(queue.TrySubmit(i),"Initial slots rejected");
     Check(!queue.TrySubmit(99999)&&queue.Occupied()==capacity,"Queue exceeded capacity");
@@ -129,6 +129,6 @@ int main()
     try{Queue invalid(2,[](int c){return std::vector<int>{c};},3);}
     catch(const std::invalid_argument&){rejected=true;}
     Check(rejected,"Worker count exceeded capacity");
-    std::cout<<"10000 background jobs, 1428 failures, capacity 8 and worker join passed\n"
+    std::cout<<"10000 four-worker background jobs, 1428 failures, capacity 8 and worker join passed\n"
         <<"4 simultaneous workers, 4 queued cancellations, 8 parallel completions passed\n";
 }
