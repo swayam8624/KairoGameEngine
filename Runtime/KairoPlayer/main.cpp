@@ -294,11 +294,11 @@ int main(int argc, char** argv)
                 {
                     const auto width=std::min(300u,frameWidth/2u);
                     std::vector<kairo::renderer::ViewportOverlayRect> rects;
-                    if(width&&frameHeight>36u)
+                    if(frameWidth>=24u&&width&&frameHeight>36u)
                     {
-                        rects.push_back({12u,12u,width,16u,{.08f,.12f,.18f,1.f}});
+                        rects.push_back({12u,12u,width,16u,{.08f,.12f,.18f}});
                         const auto progress=static_cast<unsigned>(width*collectibleRun.Score()/collectibleRun.Total());
-                        if(progress)rects.push_back({12u,12u,progress,16u,{.18f,.85f,.45f,1.f}});
+                        if(progress)rects.push_back({12u,12u,progress,16u,{.18f,.85f,.45f}});
                     }
                     renderer.SetViewportOverlay(rects);
                     publishedScore=collectibleRun.Score();overlayWidth=frameWidth;overlayHeight=frameHeight;
