@@ -13,6 +13,7 @@ namespace kairo::player::detail
         std::array<std::uint32_t,4> Counts{};
         std::uint32_t Selected=0,Width=0,Height=0,Health=20,MiningProgress=0,ToolDurability=0;
         bool ToolEquipped=false;
+        std::uint32_t Hunger=20;
         bool operator==(const CraftHudKey&) const=default;
     };
     class CraftHudPublication

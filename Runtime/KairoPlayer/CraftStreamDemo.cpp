@@ -7,6 +7,7 @@
 #include "CraftHudProjection.hpp"
 #include "CraftHudPublication.hpp"
 #include "CraftVitals.hpp"
+#include "CraftNutrition.hpp"
 #include "CraftMining.hpp"
 #include "CraftEquipment.hpp"
 #include "CraftMouseLook.hpp"
@@ -151,24 +152,25 @@ int main(int argc,char** argv)
         bool hudEnabled=false;
         CraftHudPublication hudPublication;
         CraftVitals vitals;
+        CraftNutrition nutrition;
         CraftMining mining;
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
-            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped};
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger()};
             (void)hudPublication.Refresh(key,[&]()
             {
                 std::vector<ViewportOverlayRect> rects;
                 if(hudEnabled)
                 {
-                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped);
+                    const auto layout=BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger());
                     rects.reserve(layout.size());
                     // Paint opaque backing first, then icons and numerals.
                     // No camera, world origin or depth state is involved.
                     for(bool backing:{true,false})for(const auto& rect:layout)
                     {
                         if(rect.Background!=backing)continue;
-                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=430);
+                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=410);
                         if(p.Width&&p.Height)rects.push_back({p.X,p.Y,p.Width,p.Height,rect.Color});
                     }
                 }
@@ -197,11 +199,11 @@ int main(int argc,char** argv)
                     double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
                 const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
                 const auto up=ScreenUnit(ScreenCross(right,forward));
-                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped))
+                for(const auto& rect:BuildCraftHud(inventory,vitals.Health(),mining.Progress(),equipment.Durability,equipment.Equipped,nutrition.Hunger()))
                 {
                     const double depth=rect.Background?.16:.14;
                     const auto projected=ProjectCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,
-                        pose.VerticalFovRadians,depth,rect.Y>=430);
+                        pose.VerticalFovRadians,depth,rect.Y>=410);
                     const double dx=projected.X,dy=projected.Y;
                     const double width=projected.Width,height=projected.Height;
                     MeshDraw draw;
@@ -499,7 +501,7 @@ int main(int argc,char** argv)
                 vitals.Respawn(player.Feet[1]);
                 if(survival){createHud();hudEnabled=true;}
                 bool recipeOneHeld=false,recipeTwoHeld=false;
-                bool toolCraftHeld=false,toolToggleHeld=false;
+                bool toolCraftHeld=false,toolToggleHeld=false,eatHeld=false;
                 bool jumpHeld=false,saveHeld=false;
                 bool leftHeld=false,rightHeld=false;
                 std::string previousTitle;
@@ -550,21 +552,23 @@ int main(int argc,char** argv)
                     const double f=key(GLFW_KEY_W)-key(GLFW_KEY_S),r=key(GLFW_KEY_D)-key(GLFW_KEY_A);
                     const double scale=12*dt/std::max(1.,std::hypot(f,r));
                     const bool jump=key(GLFW_KEY_SPACE)>0;
+                    const bool sprint=nutrition.CanSprint()&&key(GLFW_KEY_LEFT_SHIFT)>0&&(f!=0||r!=0);
                     if(survival)
                     {
                         const double norm=std::max(1.,std::hypot(f,r));
                         AdvanceVoxelPlayer(player,bodyConfig,
                             {(std::sin(yaw)*f+std::cos(yaw)*r)/norm,
                             (-std::cos(yaw)*f+std::sin(yaw)*r)/norm,
-                            jump&&!jumpHeld,key(GLFW_KEY_LEFT_SHIFT)>0},dt,bodyQuery);
+                            jump&&!jumpHeld,sprint},dt,bodyQuery);
                         auto probe=player;probe.Feet[1]-=.000001;
                         const bool support=player.Grounded&&VoxelPlayerBlocked(probe,bodyConfig,
                             [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
                         (void)vitals.Observe(player.Feet[1],player.Grounded,support);
+                        if(focused)nutrition.Advance(dt,sprint,vitals);
                         if(vitals.Dead())
                         {
                             settleWindow(.5,.5);
-                            player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();
+                            player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();nutrition.Reset();
                         }
                         x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
                     }
@@ -599,8 +603,11 @@ int main(int argc,char** argv)
                         if(craftTool&&!toolCraftHeld&&equipment.Craft(inventory.Counts))mining.Reset();
                         if(toggleTool&&!toolToggleHeld&&equipment.Toggle())mining.Reset();
                         toolCraftHeld=craftTool;toolToggleHeld=toggleTool;
+                        const bool eat=key(GLFW_KEY_E)>0;
+                        if(eat&&!eatHeld)(void)nutrition.Eat(inventory.Counts);
+                        eatHeld=eat;
                         constexpr std::array<const char*,4> labels{"Grass","Dirt","Stone","Building"};
-                        std::string title="Kairo Craft | HP "+std::to_string(vitals.Health())+"/20 | ";
+                        std::string title="Kairo Craft | HP "+std::to_string(vitals.Health())+"/20 | Food "+std::to_string(nutrition.Hunger())+"/20 | ";
                         for(unsigned i=0;i<4;++i)
                         {
                             if(i+1u==inventory.Selected)title+="[";
@@ -609,7 +616,7 @@ int main(int argc,char** argv)
                             title+="  ";
                         }
                         title+="| Pick "+std::to_string(equipment.Durability)+"/64"+(equipment.Equipped?" active":" stowed")+
-                            " | F craft pick, G equip | R/T craft | F5 save | Tab mouse";
+                            " | F craft pick, G equip | E forage (2 grass) | R/T craft | F5 save | Tab mouse";
                         if(title!=previousTitle){glfwSetWindowTitle(window,title.c_str());previousTitle=std::move(title);}
                     }
                     const bool rawLeft=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;

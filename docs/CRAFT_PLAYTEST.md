@@ -55,6 +55,7 @@ world generation formats; do not use the same save filename for both.
 | T | 4 stone → 3 building blocks |
 | F | Craft stone pick (2 dirt + 3 stone) |
 | G | Equip/stow existing pick |
+| E | Forage: spend 2 grass blocks to restore 6 hunger |
 | F5 | Save if a path was supplied |
 | Esc | Exit |
 
@@ -62,7 +63,7 @@ The pick doubles speed for stone/building blocks, consumes one use per successfu
 eligible mine, and breaks after 64 uses. Hand mining stays available. Health
 starts at 20; falls over three world units cause damage. Death respawns the player
 and preserves inventory, world edits and equipment. Health and player pose are
-not saved; equipment is persisted in the v5 envelope. Older supported v2/v3 surface
+not saved; hunger is also session-local. Equipment is persisted in the v5 envelope. Older supported v2/v3 surface
 and v4 cave saves load with no equipment.
 
 ## Acceptance checklist
@@ -85,6 +86,8 @@ and v4 cave saves load with no equipment.
    and logs. Native renderer offscreen capture is distinct from actual visible
    window presentation.
 
-Known gaps: combat, NPCs/entities, hunger, item varieties, textured materials,
+Nutrition drains one point per 30 seconds at rest, three times faster while sprinting. Sprint is unavailable at hunger four or below. High hunger supports healing; starvation damages health. The forage recipe is a prototype, not a full food system.
+
+Known gaps: combat, NPCs/entities, food varieties, item varieties, textured materials,
 full UI text and independent game distribution are still outstanding. Native
 interactive focus and mouse behavior require a real playtest.

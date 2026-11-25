@@ -44,7 +44,7 @@ namespace kairo::player::detail
         bool Background=false;
     };
     inline std::vector<CraftHudRect> BuildCraftHud(const CraftInventory& inventory,
-        std::optional<std::uint32_t> health=std::nullopt,unsigned miningProgress=0,unsigned toolDurability=0,bool toolEquipped=false)
+        std::optional<std::uint32_t> health=std::nullopt,unsigned miningProgress=0,unsigned toolDurability=0,bool toolEquipped=false,std::optional<std::uint32_t> hunger=std::nullopt)
     {
         if(!inventory.Valid())throw std::invalid_argument("Invalid HUD inventory.");
         std::vector<CraftHudRect> rects;rects.reserve(128);
@@ -100,6 +100,12 @@ namespace kairo::player::detail
             add(356,438,248,10,gray);rects.back().Background=true;
             add(358,440,244.f*static_cast<float>(toolDurability)/64.f,6,
                 toolEquipped?std::array<float,3>{.24f,.72f,.88f}:std::array<float,3>{.46f,.48f,.53f});
+        }
+        if(hunger)
+        {
+            if(*hunger>20)throw std::invalid_argument("Invalid HUD hunger.");
+            add(356,421,248,10,gray);rects.back().Background=true;
+            if(*hunger)add(358,423,244.f*static_cast<float>(*hunger)/20.f,6,{.85f,.57f,.18f});
         }
         return rects;
     }

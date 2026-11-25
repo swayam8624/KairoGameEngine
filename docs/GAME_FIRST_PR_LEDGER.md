@@ -284,6 +284,10 @@ Equipment v5 outer codec exact blob 5ac607962efd8bc5f779d9d5c1217ea50484daca pas
 
 Surface and cave demos capture mouse by default, use raw motion when supported, Tab toggles capture and arrow keys remain fallback. Mouse samples use per-pixel deltas (not scaled again by dt), focus/capture changes reset baseline and mining progress, button actions require release after recapture. Cursor warp cap and pitch/yaw constraints preserve camera basis. Standalone Clang 17 C++23 ASan/UBSan passed 100,000 randomized mouse/focus transitions, exact header/test blobs a7f8a8ec158079897145ac4a7ef964d45f79d93f and fdec532be1e45de6f64575907d2129fe55f23d06. Actual GLFW focus, raw input and interactive behavior need native verification. No claim of completed game.
 
+### Fixed-clock survival nutrition
+
+20 Hz survival clock with idle drain every 30 seconds, 3x drain while moving and sprinting, sprint disabled at hunger <=4, starvation damage and food-funded regeneration every four seconds under respective conditions. E consumes two harvested grass blocks for six hunger (prototype forage abstraction). Full hunger or insufficient inputs do not spend materials. Nutrition paused when unfocused, reset on death/load; health and hunger remain session-local. HUD/cache includes hunger. Local Clang C++23 ASan/UBSan passed 100,000 randomized frame partition comparisons, 100,000 forage transactions, explicit sprint, starvation, regeneration, respawn and stall guards. Exact tested blobs b631d874687630b56e3b1a1b0f0b930023279338, 5a76b2c335c50f3f23f9e5e3319419d58fb4726b, 3f74af0fafdf1a32015b64d97e8b4b64f837e467. Native integrated results pending. Time partition equivalence applies to constant activity within each interval, not arbitrary input changes.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

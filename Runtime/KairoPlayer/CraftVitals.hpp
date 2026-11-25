@@ -18,6 +18,8 @@ namespace kairo::player::detail
         static constexpr std::uint32_t MaximumHealth=20;
         [[nodiscard]] std::uint32_t Health() const noexcept{return m_Health;}
         [[nodiscard]] bool Dead() const noexcept{return m_Health==0;}
+        void Damage(std::uint32_t points) noexcept{m_Health-=std::min(points,m_Health);}
+        void Heal(std::uint32_t points) noexcept{if(!Dead())m_Health+=std::min(points,MaximumHealth-m_Health);}
         void Respawn(double feetY)
         {
             if(!std::isfinite(feetY))throw std::invalid_argument("Invalid respawn height.");
