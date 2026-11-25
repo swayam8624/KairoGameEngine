@@ -4,6 +4,8 @@
 #include <map>
 #include <stdexcept>
 #include <utility>
+#include <type_traits>
+#include <vector>
 
 namespace kairo::player::detail
 {
@@ -21,6 +23,43 @@ namespace kairo::player::detail
     class TerrainNativeStore final
     {
     public:
+        static_assert(std::is_nothrow_copy_constructible_v<Handle>);
+        static_assert(std::is_nothrow_copy_assignable_v<Handle>);
+        explicit TerrainNativeStore(std::size_t retirementCapacity=32)
+            : m_RetirementCapacity(retirementCapacity)
+        {m_Retired.reserve(retirementCapacity);}
+
+        // Upload first, publish the replacement only on success. The old
+        // handle stays owned until a successful submission no longer uses it.
+        // No allocation after Create returns a native resource.
+        template<class Create>
+        bool Replace(Coordinate coordinate,Create&& create)
+        {
+            const auto it=m_Cells.find(coordinate);
+            if(it==m_Cells.end())throw std::logic_error("Terrain cell has no mesh to replace.");
+            if(m_Retired.size()==m_RetirementCapacity)return false;
+            const Handle replacement=create(coordinate);
+            m_Retired.push_back(it->second);
+            it->second=replacement;
+            return true;
+        }
+
+        // Only call after a scene submission that excludes ALL retired
+        // handles. A failing destroy leaves its handle in the journal.
+        template<class Destroy>
+        std::size_t ReleaseRetired(Destroy&& destroy) noexcept
+        {
+            std::size_t retained=0;
+            for(const auto& handle:m_Retired)
+            {
+                try{destroy(handle);}
+                catch(...){m_Retired[retained++]=handle;}
+            }
+            m_Retired.resize(retained);
+            return retained;
+        }
+        [[nodiscard]] std::size_t RetiredCount() const noexcept {return m_Retired.size();}
+
         template<class Create>
         void Load(Coordinate coordinate,Create&& create)
         {
@@ -45,18 +84,21 @@ namespace kairo::player::detail
         template<class Detach,class Destroy>
         std::size_t Release(Detach&& detach,Destroy&& destroy) noexcept
         {
-            if(m_Cells.empty())return 0;
-            try{detach();}catch(...){return m_Cells.size();}
+            if(m_Cells.empty()&&m_Retired.empty())return 0;
+            try{detach();}catch(...){return m_Cells.size()+m_Retired.size();}
+            ReleaseRetired(destroy);
             for(auto it=m_Cells.begin();it!=m_Cells.end();)
             {
                 try{destroy(it->second);it=m_Cells.erase(it);}
                 catch(...){++it;}
             }
-            return m_Cells.size();
+            return m_Cells.size()+m_Retired.size();
         }
 
     private:
         std::map<Coordinate,Handle> m_Cells;
+        std::vector<Handle> m_Retired;
+        std::size_t m_RetirementCapacity;
     };
 
     // The backend may reject deleting a mesh referenced by its most recent
