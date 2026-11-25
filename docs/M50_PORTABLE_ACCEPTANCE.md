@@ -17,3 +17,6 @@ The separate GitHub workflow runs this without the 26 sibling repositories.
 It is an additional acceptance tier, not a replacement for workspace CMake,
 native GPU, Editor, physics, packaging, mobile or web platform tests.
 Linux only: other operating systems require separate build verification.
+
+
+[First verified local run summary](evidence/m50-portable-2026-11-26.json): 49 exact source blobs; 48/48 commands and 24/24 execution gates per compiler, GCC 14.2 and Clang 17.0. Full report generation is reproducible via the commands above.

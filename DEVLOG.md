@@ -177,3 +177,7 @@ Added [RuntimeGridCanvas](Runtime/KairoPlayer/RuntimeGridCanvas.hpp) and [layout
 ## 2026-11-26 — independent portable acceptance runner
 
 Added [portable gate](scripts/run_m50_portable.py), [workflow](.github/workflows/m50-portable.yml) and [run guide](docs/M50_PORTABLE_ACCEPTANCE.md). Consolidates 16 standalone C++23 regressions, real loopback and matchmaking connection, dynamic-library acceptance, platformer/strategy/RPG playthroughs and Python suites. Exact file fingerprints and command evidence are emitted for each compiler. Linux scope only; full workspace, renderer and platform acceptance remain separate. Local consolidated execution evidence recorded in a follow-up once complete.
+
+### Consolidated local run — observed result
+
+Both exact-source runs passed: GCC 14.2.0 and Clang 17.0.0, 48/48 commands each, including 24 execution gates per compiler. The reconstructed local source subset matched all 49 Git blobs at `10373584015391a9b8d239edf6f3c40d5840c228`, including the runner. [Machine-readable local evidence summary](docs/evidence/m50-portable-2026-11-26.json) records source identities, full-report SHA256 digests and completed gates. This does not imply GitHub Actions or native integration acceptance.
