@@ -90,6 +90,14 @@ New independent Metal stack: [Renderer #31](https://github.com/swayam8624/KairoR
 
 #31 and #32 remain open. On #32 Ubuntu Clang and Windows MSVC passed (jobs 138787522652 and 138787523066), but macOS LLVM was cancelled (138787523096); strict Vulkan workflow 45490586110 passed. These results are not Metal native acceptance. Review #31 -> #32 -> #33 -> #34, then refresh renderer pin after the accepted revision is known. Engine #49 remains separate and pins the already-merged Vulkan revision only.
 
+### Metal visibility and procedural world follow-ups (2026-11-25)
+
+[Renderer #35](https://github.com/swayam8624/KairoRenderer/pull/35), feat/metal-camera-visibility, head 9188b697f47e452bc08a264e9090200c71b50729, stacked on #34. Mesh metadata includes local bounds; prepared zero-to-one clip-space frustum uses the actual Metal Y-flipped projection. Visible draw list is compacted, while skin and uncertain geometry fail open and shadow casters are not camera-filtered. Native camera move/image/picking smoke added; Apple execution pending.
+
+[Renderer #36](https://github.com/swayam8624/KairoRenderer/pull/36), feat/metal-shadow-instancing, head a6b66559a6cac91bf3750eea31d597b4123c7e40, stacked on #35. Separate caster index stream and model-only 64-byte GPU instance stream, ordinary masked/skinned fallback retained. Exact-head Metal instance contract 45552413301 passed 100,000 instances and 33,334 independent shadow casters. Skin upload contract 45552413180 passed. Native Apple shadow comparison adapted from the passing Vulkan fixture remains unexecuted. Strict Vulkan and full renderer CI still running at observation. Earlier #34 strict Vulkan 45552041013 passed; its macOS job cancelled. Review #31 -> #32 -> #33 -> #34 -> #35 -> #36. Native Mac gate remains required.
+
+Independent [EngineCore #26](https://github.com/swayam8624/KairoEngineCore/pull/26), feat/deterministic-world-heightcells, head f1824737fdb1a8a011c0decc510911e2090a7230. Adds version-1 integer-only coordinate seed and heightfield cell API to the existing WorldStreaming module; shared borders, negative coordinate handling, golden hashes, bounds/overflow tests and public module test. Not yet connected to cell loading, mesh creation, colliders, persistence or voxel generation. CI pending at creation. Review independently; no EngineCore or Metal pin advancement in Engine #49.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
