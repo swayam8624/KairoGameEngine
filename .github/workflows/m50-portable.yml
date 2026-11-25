@@ -23,6 +23,11 @@ jobs:
       # GPU, project asset download or third-party package install is needed.
       - name: Compile and run exact-source portable gate
         run: python3 scripts/run_m50_portable.py --compiler "${{ matrix.compiler }}" --report m50-report.json
+      - name: Debian archive and relocated launch fixture
+        run: |
+          command -v dpkg-deb
+          command -v cc
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_package_kairo_deb.py
       - name: Preserve commands, hashes and test evidence
         if: always()
         uses: actions/upload-artifact@v4

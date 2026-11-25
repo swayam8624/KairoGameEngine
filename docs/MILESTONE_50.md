@@ -137,3 +137,7 @@ Common native 2D overlay host, controls and full objective smoke gates added. Pi
 ## Candidate progress: independent portable certification
 
 Separate Linux dual-compiler acceptance gate with exact source fingerprints, regression runs and retained evidence added. This narrows the feedback loop while full workspace CI is pending; it does not certify the renderer, Editor or deployment platforms.
+
+## Candidate progress: Linux installer
+
+Actual Debian archive generation and relocated native ELF fixture execution pass. Wrapper accepts the existing Kairo release package format; full native player bundle on a clean Linux environment, dependencies and cross-platform distribution remain open. No accepted 50% promotion yet.

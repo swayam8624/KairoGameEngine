@@ -493,3 +493,7 @@ Read [run guide](docs/M50_PORTABLE_ACCEPTANCE.md), then [runner](scripts/run_m50
 2. [RuntimePlayerControllerBridge](Runtime/KairoPlayer/RuntimePlayerControllerBridge.cppm) and [RuntimeCharacterMotorBridge](Runtime/KairoPlayer/RuntimeCharacterMotorBridge.cppm): frame intent -> fixed-step motor -> measured displacement.
 3. [RuntimeCrowdNavigationBridge](Runtime/KairoPlayer/RuntimeCrowdNavigationBridge.cppm) and [RuntimeLocomotionAnimationBridge](Runtime/KairoPlayer/RuntimeLocomotionAnimationBridge.cppm): actual velocity -> semantic animation -> clip/rate -> visual facing.
 4. [RuntimeRenderBridge](Runtime/KairoPlayer/RuntimeRenderBridge.cppm): trace animation control into submitted skin matrices. Read matching tests after each bridge.
+
+## Linux installer
+
+Read [RuntimePackaging.cppm](Runtime/KairoPlayer/RuntimePackaging.cppm) first: manifest, payload, staging and publication. Then [Debian wrapper](scripts/package_kairo_deb.py), [archive relocation tests](scripts/tests/test_package_kairo_deb.py) and [guide](docs/LINUX_DEBIAN_INSTALLER.md). Trace installed immutable seed, relative launch path, writable user project, ELF architecture and exclusive output publication.

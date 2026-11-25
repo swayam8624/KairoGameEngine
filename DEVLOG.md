@@ -189,3 +189,7 @@ Added 42 explanations across three existing modules, covering platform polling, 
 - [RuntimeInputBridge.cppm](Runtime/KairoPlayer/RuntimeInputBridge.cppm): 11 new blocks.
 - [RuntimePlayerControllerBridge.cppm](Runtime/KairoPlayer/RuntimePlayerControllerBridge.cppm): 11 new blocks.
 - [RuntimeLocomotionAnimationBridge.cppm](Runtime/KairoPlayer/RuntimeLocomotionAnimationBridge.cppm): 20 new blocks.
+
+## 2026-11-26 — Debian installer wrapper
+
+Added [package_kairo_deb.py](scripts/package_kairo_deb.py) wrapping the existing RuntimePackaging release manifest, validating bounded file counts/bytes, ELF architecture and path boundaries, and publishing an exclusive actual .deb. Installs immutable seed assets with a version-specific writable user project on first launch; no privileged maintainer script. Two Python tests passed locally with real dpkg-deb and compiled ELF fixture: archive creation/extraction, launch twice after original deletion, persisted save in relocated user data, immutable seed, no overwrite, tampered count, symlink and traversal rejection. Tested blobs d6a39a3866d9b78e4a1be26b507548745ef0ac0f and 4e6dac148cc59f307468b308372c6a990d8db71d. Added CI step and [run guide](docs/LINUX_DEBIAN_INSTALLER.md). Not a full KairoPlayer clean-OS install; explicit dependencies, signing, upgrades and other platforms remain open.
