@@ -61,6 +61,11 @@ if(KAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN)
         VERBATIM)
 endif()
 
+# Native simulation lab shares the actual renderer/runtime, not a mock.
+add_executable(KairoSimulationLab SimulationLab.cpp)
+target_link_libraries(KairoSimulationLab PRIVATE KairoPlayerRuntime)
+set_property(TARGET KairoSimulationLab PROPERTY COMPILE_WARNING_AS_ERROR ON)
+
 add_executable(KairoPlayer main.cpp)
 target_link_libraries(KairoPlayer PRIVATE KairoPlayerRuntime)
 if(APPLE)
@@ -414,6 +419,13 @@ if(BUILD_TESTING)
         add_test(NAME KairoPlayerPlayableVerticalSliceValidate COMMAND KairoPlayer
             ${CMAKE_SOURCE_DIR}/Samples/PlayableVerticalSlice/Project.kproject --validate)
         set_tests_properties(KairoPlayerPlayableVerticalSliceValidate PROPERTIES TIMEOUT 20)
+    endif()
+
+    # Linux CI provides Xvfb; macOS and Windows are explicit manual lab gates.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        add_test(NAME KairoSimulationWaterOpenGLSmoke COMMAND KairoSimulationLab --renderer opengl --smoke)
+        add_test(NAME KairoSimulationSoftOpenGLSmoke COMMAND KairoSimulationLab --renderer opengl --soft --smoke)
+        set_tests_properties(KairoSimulationWaterOpenGLSmoke KairoSimulationSoftOpenGLSmoke PROPERTIES TIMEOUT 30)
     endif()
 
     if(NOT WIN32 AND EXISTS "${CMAKE_SOURCE_DIR}/Samples/SharedContentShowcase/Project.kproject")

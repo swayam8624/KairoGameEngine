@@ -424,3 +424,7 @@ After the weather timeline, read [rain geometry sampling](Runtime/KairoPlayer/Ru
 1. [Soft body solver](Runtime/KairoPlayer/RuntimeSoftBody.hpp): position/velocity state, signed tetra volume, inverse mass, compliance, gradient projection and fixed-step reconstruction.
 2. [Constraint and ground tests](Runtime/KairoPlayer/tests/RuntimeSoftBodyTests.cpp): compare a rest pose, pinned node, seeded drops and replay.
 3. Compare the existing cloth solver and PhysicsEngine contact contracts through [EngineCore](docs/study/KairoEngineCore.md) and [PhysicsEngine](docs/study/KairoPhysicsEngine.md). Follow the future mesh presentation adapter only after understanding signed volume derivatives.
+
+## Native simulation lab presentation
+
+After the water and soft-body kernels, read [SimulationLab.cpp](Runtime/KairoPlayer/SimulationLab.cpp): UnitCube -> Box/WaterScene -> TetraMesh -> publish -> fixed-step advance -> Capture -> resource teardown. Compare the pinned Renderer Mesh, RenderScene and RendererRuntime contracts in [KairoRenderer inventory](docs/study/KairoRenderer.md). [Native run instructions](Samples/WaterLab/NATIVE.md).
