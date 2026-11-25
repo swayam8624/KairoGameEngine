@@ -37,5 +37,14 @@ int main()
         if(dirty){expected=normalized;++changes;}
     }
     Check(submitted==changes+2,"Unexpected publication count");
+    CraftHudPublication healthCache;
+    auto healthKey=CraftHudKey{true,{1,2,3,4},1,960,540};
+    unsigned healthUpdates=0;
+    const auto healthSubmit=[&](){++healthUpdates;};
+    Check(healthCache.Refresh(healthKey,healthSubmit),"Missing initial health");
+    healthKey.Health=19;
+    Check(healthCache.Refresh(healthKey,healthSubmit)&&!healthCache.Refresh(healthKey,healthSubmit),
+        "Health-only change did not publish exactly once");
+    Check(healthUpdates==2,"Health publication count");
     std::cout<<"100000 idle frames, 100000 state transitions and failure retry passed; "<<changes<<" state publications\n";
 }

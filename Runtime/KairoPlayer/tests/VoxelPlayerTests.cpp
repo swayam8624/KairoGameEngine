@@ -1,4 +1,5 @@
 #include "../VoxelPlayer.hpp"
+#include "../CraftVitals.hpp"
 #include <iostream>
 namespace {
 using namespace kairo::player::detail;
@@ -40,6 +41,20 @@ int main()
     p=VoxelPlayer{{.5,20,.5},-100};
     for(unsigned i=0;i<10;++i)AdvanceVoxelPlayer(p,c,{},.1,floor);
     Check(p.Grounded&&p.Feet[1]<1e-6&&!VoxelPlayerBlocked(p,c,floor),"Fast fall tunneled");
+    // Exercise the actual collision integrator, not only sampled heights.
+    CraftVitals vitals;
+    for(double height:{5.25,30.})
+    {
+        p=VoxelPlayer{{.5,height,.5}};
+        vitals.Respawn(height);
+        for(unsigned i=0;i<600&&!p.Grounded;++i)
+        {
+            AdvanceVoxelPlayer(p,c,{},1./120,floor);
+            (void)vitals.Observe(p.Feet[1],p.Grounded,p.Grounded);
+        }
+        Check(p.Grounded&&!VoxelPlayerBlocked(p,c,floor),"Survival landing failed");
+        Check(vitals.Health()==(height<10?17u:0u),"Integrated fall damage mismatch");
+    }
     p=VoxelPlayer{{-100000000.5,0,-100000000.5}};
     for(unsigned i=0;i<10000;++i)AdvanceVoxelPlayer(p,c,{1,0,false,false},.01,floor);
     Check(std::abs(p.Feet[0]-(-100000000.5+450))<.01&&p.Grounded,"Large coordinates");

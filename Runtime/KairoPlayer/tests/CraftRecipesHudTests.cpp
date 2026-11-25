@@ -17,6 +17,12 @@ int main()
     bool rejected=false;
     try{(void)CraftApplyRecipe(inventory,{});}catch(const std::invalid_argument&){rejected=true;}
     Check(rejected,"Empty recipe accepted");
+    const auto empty=BuildCraftHud(inventory,0),half=BuildCraftHud(inventory,10),full=BuildCraftHud(inventory,20);
+    Check(half.size()==empty.size()+1&&full.size()==half.size(),"Health bar geometry count");
+    Check(empty.back().Background&&half.back().W==122.f&&full.back().W==244.f,"Health bar fill differs");
+    bool badHealth=false;
+    try{(void)BuildCraftHud(inventory,21);}catch(const std::invalid_argument&){badHealth=true;}
+    Check(badHealth,"Invalid health bar accepted");
     std::mt19937 rng(456);
     std::size_t rects=0;
     for(unsigned i=0;i<10000;++i)
