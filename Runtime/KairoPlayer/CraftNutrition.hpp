@@ -18,6 +18,11 @@ namespace kairo::player::detail
         [[nodiscard]] std::uint32_t Hunger() const noexcept{return m_Hunger;}
         [[nodiscard]] bool CanSprint() const noexcept{return m_Hunger>4;}
         void Reset() noexcept{*this=CraftNutrition{};}
+        void Restore(std::uint32_t hunger)
+        {
+            if(hunger>MaximumHunger)throw std::invalid_argument("Invalid restored hunger.");
+            Reset();m_Hunger=hunger;
+        }
         // Prototype forage: two harvested grass blocks yield one meal.
         // Full hunger and insufficient inputs are no-op transactions.
         bool Eat(std::array<std::uint32_t,4>& counts)
