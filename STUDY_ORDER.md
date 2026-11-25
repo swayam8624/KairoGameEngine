@@ -428,3 +428,7 @@ After the weather timeline, read [rain geometry sampling](Runtime/KairoPlayer/Ru
 ## Native simulation lab presentation
 
 After the water and soft-body kernels, read [SimulationLab.cpp](Runtime/KairoPlayer/SimulationLab.cpp): UnitCube -> Box/WaterScene -> TetraMesh -> publish -> fixed-step advance -> Capture -> resource teardown. Compare the pinned Renderer Mesh, RenderScene and RendererRuntime contracts in [KairoRenderer inventory](docs/study/KairoRenderer.md). [Native run instructions](Samples/WaterLab/NATIVE.md).
+
+## M50 destruction
+
+Read [RuntimeBreakableCube.hpp](Runtime/KairoPlayer/RuntimeBreakableCube.hpp), then [conservation/ground tests](Runtime/KairoPlayer/tests/RuntimeBreakableCubeTests.cpp), then the destruction branch of [SimulationLab.cpp](Runtime/KairoPlayer/SimulationLab.cpp). Trace impact impulse, mass-weighted velocities, fixed-step motion, ground response and mesh instance ownership. Compare PhysicsEngine's actual rigid contact contracts before integrating arbitrary collision-driven fracture.
