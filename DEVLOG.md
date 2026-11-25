@@ -45,3 +45,7 @@ Added [RuntimeQuestDialogue.hpp](Runtime/KairoPlayer/RuntimeQuestDialogue.hpp), 
 ### Local verification of quest/dialogue
 
 Copied the three candidate source files into an isolated Linux test directory and verified their Git blob identities. Initial GCC -Werror compilation caught an ignored nodiscard return; fixed explicitly. Recompiled the corrected header with GCC and Clang (C++23, -Wall -Wextra -Werror): both passed the complete regression executable and 500 seeded chains. GCC-built terminal demo also rejected a locked choice and reached Quest complete with input 2,1,1,2. Corrected header blob: 04f77dc01c9d6837b9a6615f7392929dec11f312; test blob: e2685c3650608a02a44fa23d3369a826dc89d64a; demo blob: 0d9e78b1f3c69a67636427ce9d3e5e2560d2cee0. This is isolated CPU verification, not the full workspace build, native rendering, or disk persistence gate.
+
+## 2026-11-25 — foundation study catalogs
+
+Indexed 205 filtered paths across 8 exact pinned component trees: KairoMath, KairoGeometry, KairoSpatial, KairoPhysicsMath, KairoPhysicsEngine, KairoAssets, KairoECS, KairoReflection. Added component file checklists to STUDY_ORDER.md. The other sibling trees remain linked but not yet enumerated. These inventories do not certify per-function comment coverage.
