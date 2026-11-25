@@ -73,3 +73,7 @@ Analytic kernel, CLI pose lab and portable tests exist. 10,000 seeded cases pass
 ## Candidate progress: quest persistence
 
 Disk save/load and cross-process terminal completion now pass locally under the documented narrow CPU scope. Native graphical authored sample and accepted workspace integration remain open.
+
+## Candidate progress: animation retargeting
+
+Compatible named skeleton CPU mapping and sampled synthetic clip demo exist; 5,000 seeded poses pass per compiler. Imported source/target fixture and graphical Player integration remain open. No claim of arbitrary humanoid compatibility.
