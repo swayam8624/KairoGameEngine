@@ -9,6 +9,7 @@
 #include "CraftMeshBatch.hpp"
 #include "VoxelMeshPublication.hpp"
 #include "VoxelPlayer.hpp"
+#include "CraftCaveSpawn.hpp"
 #include "TerrainRenderOrigin.hpp"
 #include <chrono>
 #include <iostream>
@@ -275,8 +276,19 @@ int main(int argc,char** argv)
             {
                 double x=8.5,y=12,z=8.5,yaw=0,pitch=-.5;
                 VoxelPlayer body{{8.5,12,8.5}};
-                if(survival){createHud();hudEnabled=true;}
                 VoxelPlayerConfig config;
+                if(survival)
+                {
+                    const auto spawn=FindCaveSpawn(config,[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
+                        if(!InCaveWorld(c))return {};
+                        return world->Get(c);
+                    });
+                    if(!spawn)throw std::runtime_error("No supported clear cave spawn near the origin.");
+                    body=*spawn;
+                    settle(CaveObserver(body.Feet[0],body.Feet[1],body.Feet[2]));
+                    x=body.Feet[0];y=body.Feet[1]+config.EyeHeight;z=body.Feet[2];
+                    createHud();hudEnabled=true;
+                }
                 const auto bodyQuery=[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
                     if(c.Y<CaveBottom||c.Y>=CaveTop||std::abs(double(c.X))>=999999950||std::abs(double(c.Z))>=999999950)return CraftStone;
                     return query(c);

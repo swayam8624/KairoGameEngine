@@ -1,4 +1,5 @@
 #include "../CraftCaveSession.hpp"
+#include "../CraftCaveSpawn.hpp"
 #include "../CraftRecipesHud.hpp"
 #include "../CraftMeshBatch.hpp"
 #include <iostream>
@@ -24,6 +25,31 @@ int main()
     Check(down.Loaded==9&&down.Evicted==9&&down.Retained==18,"Vertical overlap");
     auto dirty=CaveDirty(down.Next,{0,-16,0});
     Check(std::count(dirty.begin(),dirty.end(),true)==4,"XYZ corner face invalidation");
+    // Spawn must remain valid after arbitrary saved edits and seed changes.
+    const VoxelPlayerConfig config;
+    const auto checkSpawn=[&](auto&& read)
+    {
+        const auto spawn=FindCaveSpawn(config,read);
+        Check(spawn.has_value(),"No cave spawn");
+        Check(!VoxelPlayerBlocked(*spawn,config,read)&&spawn->Grounded,"Blocked cave spawn");
+        auto below=*spawn;below.Feet[1]-=.000001;
+        Check(VoxelPlayerBlocked(below,config,read),"Unsupported cave spawn");
+        return *spawn;
+    };
+    for(std::uint64_t seed=0;seed<1024;++seed)
+    {
+        const auto read=[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{return CaveCraftBaseline{seed}(c);};
+        const auto first=checkSpawn(read),second=checkSpawn(read);
+        Check(first.Feet==second.Feet,"Nondeterministic spawn");
+    }
+    const auto shaft=[](VoxelCoordinate c)->std::optional<VoxelMaterial>{
+        return (c.X==8&&c.Z==8)||c.Y>=4?VoxelAir:CraftStone;
+    };
+    const auto safe=checkSpawn(shaft);
+    Check(safe.Feet[0]!=8.5||safe.Feet[2]!=8.5,"Spawn selected unsupported shaft");
+    Check(!FindCaveSpawn(config,[](VoxelCoordinate)->std::optional<VoxelMaterial>{return VoxelAir;}),"Empty world spawn");
+    Check(!FindCaveSpawn(config,[](VoxelCoordinate)->std::optional<VoxelMaterial>{return CraftStone;}),"Solid world spawn");
+    Check(!FindCaveSpawn(config,[](VoxelCoordinate)->std::optional<VoxelMaterial>{return {};}),"Unavailable world spawn");
     std::mt19937 rng(411);
     std::uint64_t retained=0,loaded=0;
     for(unsigned i=0;i<10000;++i)
@@ -115,6 +141,6 @@ int main()
     malformed.resize(malformed.size()-8);
     CraftWrite(malformed,CraftSaveChecksum(malformed),8);
     Check(rejects(malformed),"Malformed inventory accepted");
-    std::cout<<"10000 cave inventory cycles, 10000 far edits and 100 corrupt saves passed\\n";
+    std::cout<<"10000 cave inventory cycles, 10000 far edits and 100 corrupt saves passed\n";
     std::cout<<"10000 XYZ transitions, "<<retained<<" retained, "<<loaded<<" loaded; connected galleries, vertical invalidation and "<<triangles<<" worker triangles passed\n";
 }
