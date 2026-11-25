@@ -1,12 +1,13 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native, feat/craft-stream-survival-save, feat/craft-async-meshing, feat/craft-survival-inventory, feat/craft-upload-budget, feat/craft-vertical-caves, feat/craft-recipes-hud]
+    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod, feat/terrain-error-aware-lod, feat/terrain-screen-error, feat/terrain-explorer, feat/terrain-explorer-jump, feat/voxel-world-interaction, feat/voxel-chunk-meshing, feat/voxel-native-mesh, feat/craft-interactive-native, feat/craft-world-saves, feat/craft-survival-controller, feat/craft-streaming-window, feat/craft-streamed-native, feat/craft-stream-survival-save, feat/craft-async-meshing, feat/craft-survival-inventory, feat/craft-upload-budget, feat/craft-vertical-caves, feat/craft-recipes-hud, feat/craft-cave-survival-session]
   pull_request:
     paths:
       - 'workspace.lock'
       - 'Runtime/KairoPlayer/CraftRecipesHud.hpp'
       - 'Runtime/KairoPlayer/tests/CraftRecipesHudTests.cpp'
+      - 'Runtime/KairoPlayer/CraftCaveSession.hpp'
       - 'Runtime/KairoPlayer/CraftCaveWorld.hpp'
       - 'Runtime/KairoPlayer/CraftCaveDemo.cpp'
       - 'Runtime/KairoPlayer/tests/CraftCaveWorldTests.cpp'
