@@ -21,7 +21,12 @@ resident/committed counts and successful shutdown. The candidate CI executes
 it directly under Lavapipe/Xvfb and fails on detected validation errors.
 
 The demo is an automatic camera circuit, not a controllable game or physics
-test. It generates meshes synchronously, directly uploads canonical artifacts,
+test. By default it generates meshes synchronously. Add `--async` for a bounded
+CPU worker (eight pending meshes, four completion slots consumed per update).
+Only the render thread uploads/destroys native meshes. Obsolete completions
+outside the keep region are discarded and acknowledged. The async smoke waits
+for three settled regions before capturing, with a 60-second deadline.
+Both paths directly upload canonical artifacts,
 and releases native handles only after removing terrain draws from the submitted
 scene. Individual failed retirements retain handles for retry. All requests
 are acknowledged, including failures. Shutdown is terminal and retryable;
@@ -30,5 +35,5 @@ the planner's reservation snapshot is no longer an active runtime after shutdown
 The bridge accepts a double-precision render origin for terrain placement;
 the caller must independently rebase authored objects and camera to that
 same origin. Full floating-origin orchestration, picking terrain, physics
-heightfield shapes, asynchronous generation and measured GPU memory budgets
+heightfield shapes, multiple worker scheduling and measured GPU memory budgets
 are not implemented. No hardware performance claims.
