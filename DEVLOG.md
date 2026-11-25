@@ -53,3 +53,7 @@ Indexed 205 filtered paths across 8 exact pinned component trees: KairoMath, Kai
 ## 2026-11-25 — runtime, rendering and tooling study catalogs
 
 Indexed another 390 paths across 9 pinned trees: KairoAI, KairoEngineCore, KairoRenderer, KairoEditor, KairoRayTracer, KairoGPU, KairoSIMD, KairoScheduler, KairoHub. Cumulative sibling catalogs: 17/26 repositories and 595 paths. These are file checklists, not completed annotations.
+
+## 2026-11-25 — remaining research and DCC study catalogs
+
+Indexed another 105 paths across 9 pinned trees: KairoONNX, KairoTransformers, KairoMacPerception, KairoPipelineCore, KairoBlender, KairoProductionTools, KairoHoudini, KairoMaya, KairoNuke. All 26 sibling inventories now present, 700 matching paths. This completes baseline file navigation, not all-function annotation.

@@ -42,15 +42,15 @@ every pair of adjacent repositories has a direct dependency.
 15. [KairoRayTracer](https://github.com/swayam8624/KairoRayTracer/tree/99c45dfdaa67c2dc9e2d9846fc1dc21a0ba5782e) · [File checklist (36)](docs/study/KairoRayTracer.md) — [README](https://github.com/swayam8624/KairoRayTracer/blob/99c45dfdaa67c2dc9e2d9846fc1dc21a0ba5782e/README.md)
 16. [KairoSIMD](https://github.com/swayam8624/KairoSIMD/tree/5d65e950ec64e5ae1021cc4b58d374e6a3b5cde6) · [File checklist (8)](docs/study/KairoSIMD.md) — [README](https://github.com/swayam8624/KairoSIMD/blob/5d65e950ec64e5ae1021cc4b58d374e6a3b5cde6/README.md)
 17. [KairoScheduler](https://github.com/swayam8624/KairoScheduler/tree/e9304fcb4a47cb66a32a3426e83669c88468d9ef) · [File checklist (7)](docs/study/KairoScheduler.md) — [README](https://github.com/swayam8624/KairoScheduler/blob/e9304fcb4a47cb66a32a3426e83669c88468d9ef/README.md)
-18. [KairoONNX](https://github.com/swayam8624/KairoONNX/tree/572a0b49177584b85d726fe4cfc72a861f6ddd1e) — [README](https://github.com/swayam8624/KairoONNX/blob/572a0b49177584b85d726fe4cfc72a861f6ddd1e/README.md)
-19. [KairoTransformers](https://github.com/swayam8624/KairoTransformers/tree/de2c6d1fcfda279e286f63dc49fba29cb27b5c99) — [README](https://github.com/swayam8624/KairoTransformers/blob/de2c6d1fcfda279e286f63dc49fba29cb27b5c99/README.md)
-20. [KairoMacPerception](https://github.com/swayam8624/KairoMacPerception/tree/b0545b494f753b30146880e1c2e906f2277594d9) — [README](https://github.com/swayam8624/KairoMacPerception/blob/b0545b494f753b30146880e1c2e906f2277594d9/README.md)
-21. [KairoPipelineCore](https://github.com/swayam8624/KairoPipelineCore/tree/ff0ecd431bbf6e826014ea2ccbc21055884b26f0) — [README](https://github.com/swayam8624/KairoPipelineCore/blob/ff0ecd431bbf6e826014ea2ccbc21055884b26f0/README.md)
-22. [KairoProductionTools](https://github.com/swayam8624/KairoProductionTools/tree/95708af537b312a9a5d56c45e46f419abe858378) — [README](https://github.com/swayam8624/KairoProductionTools/blob/95708af537b312a9a5d56c45e46f419abe858378/README.md)
-23. [KairoBlender](https://github.com/swayam8624/KairoBlender/tree/ba0ed9a731b45b91a0991161e4b6b333d828687b) — [README](https://github.com/swayam8624/KairoBlender/blob/ba0ed9a731b45b91a0991161e4b6b333d828687b/README.md)
-24. [KairoHoudini](https://github.com/swayam8624/KairoHoudini/tree/0ef547ba3a47911851a01b3cd8ddac062a80caf4) — [README](https://github.com/swayam8624/KairoHoudini/blob/0ef547ba3a47911851a01b3cd8ddac062a80caf4/README.md)
-25. [KairoMaya](https://github.com/swayam8624/KairoMaya/tree/2750133c3abf334789df7703ba2e8ba8a60fa6a7) — [README](https://github.com/swayam8624/KairoMaya/blob/2750133c3abf334789df7703ba2e8ba8a60fa6a7/README.md)
-26. [KairoNuke](https://github.com/swayam8624/KairoNuke/tree/d1f66798ec047a015a981d1429893d8b3af201a6) — [README](https://github.com/swayam8624/KairoNuke/blob/d1f66798ec047a015a981d1429893d8b3af201a6/README.md)
+18. [KairoONNX](https://github.com/swayam8624/KairoONNX/tree/572a0b49177584b85d726fe4cfc72a861f6ddd1e) · [File checklist (9)](docs/study/KairoONNX.md) — [README](https://github.com/swayam8624/KairoONNX/blob/572a0b49177584b85d726fe4cfc72a861f6ddd1e/README.md)
+19. [KairoTransformers](https://github.com/swayam8624/KairoTransformers/tree/de2c6d1fcfda279e286f63dc49fba29cb27b5c99) · [File checklist (12)](docs/study/KairoTransformers.md) — [README](https://github.com/swayam8624/KairoTransformers/blob/de2c6d1fcfda279e286f63dc49fba29cb27b5c99/README.md)
+20. [KairoMacPerception](https://github.com/swayam8624/KairoMacPerception/tree/b0545b494f753b30146880e1c2e906f2277594d9) · [File checklist (11)](docs/study/KairoMacPerception.md) — [README](https://github.com/swayam8624/KairoMacPerception/blob/b0545b494f753b30146880e1c2e906f2277594d9/README.md)
+21. [KairoPipelineCore](https://github.com/swayam8624/KairoPipelineCore/tree/ff0ecd431bbf6e826014ea2ccbc21055884b26f0) · [File checklist (18)](docs/study/KairoPipelineCore.md) — [README](https://github.com/swayam8624/KairoPipelineCore/blob/ff0ecd431bbf6e826014ea2ccbc21055884b26f0/README.md)
+22. [KairoProductionTools](https://github.com/swayam8624/KairoProductionTools/tree/95708af537b312a9a5d56c45e46f419abe858378) · [File checklist (5)](docs/study/KairoProductionTools.md) — [README](https://github.com/swayam8624/KairoProductionTools/blob/95708af537b312a9a5d56c45e46f419abe858378/README.md)
+23. [KairoBlender](https://github.com/swayam8624/KairoBlender/tree/ba0ed9a731b45b91a0991161e4b6b333d828687b) · [File checklist (15)](docs/study/KairoBlender.md) — [README](https://github.com/swayam8624/KairoBlender/blob/ba0ed9a731b45b91a0991161e4b6b333d828687b/README.md)
+24. [KairoHoudini](https://github.com/swayam8624/KairoHoudini/tree/0ef547ba3a47911851a01b3cd8ddac062a80caf4) · [File checklist (12)](docs/study/KairoHoudini.md) — [README](https://github.com/swayam8624/KairoHoudini/blob/0ef547ba3a47911851a01b3cd8ddac062a80caf4/README.md)
+25. [KairoMaya](https://github.com/swayam8624/KairoMaya/tree/2750133c3abf334789df7703ba2e8ba8a60fa6a7) · [File checklist (11)](docs/study/KairoMaya.md) — [README](https://github.com/swayam8624/KairoMaya/blob/2750133c3abf334789df7703ba2e8ba8a60fa6a7/README.md)
+26. [KairoNuke](https://github.com/swayam8624/KairoNuke/tree/d1f66798ec047a015a981d1429893d8b3af201a6) · [File checklist (12)](docs/study/KairoNuke.md) — [README](https://github.com/swayam8624/KairoNuke/blob/d1f66798ec047a015a981d1429893d8b3af201a6/README.md)
 
 ## Pass 3 — exhaustive integration source inventory
 
@@ -359,3 +359,7 @@ A link in this inventory does not certify that every function is annotated.
 2. [Regression tests](Runtime/KairoPlayer/tests/RuntimeQuestDialogueTests.cpp) — trace invalid restore and randomized prerequisites.
 3. [Terminal RPG sample](Samples/QuestDialogue/QuestDialogueDemo.cpp) — trace a player choice to a winning state.
 4. [Build and play instructions](Samples/QuestDialogue/README.md).
+
+## Inventory coverage at M50 baseline
+
+All 26 sibling trees from the current workspace.lock have individual file checklists: 700 filtered sibling paths, plus 254 baseline integration paths and the new quest/dialogue reading path. Generated artifacts, vendored trees, binaries and media are outside the first-party teaching inventory. Update checklists when the lock changes; file-level dependency traces and substantive comments still require review.
