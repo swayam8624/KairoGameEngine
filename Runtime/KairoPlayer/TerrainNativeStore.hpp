@@ -11,6 +11,7 @@ namespace kairo::player::detail
     {
         std::size_t Loaded=0,Unloaded=0,FailedLoads=0,FailedUnloads=0;
         std::exception_ptr FirstFailure;
+        bool DetachFailed=false;
     };
 
     // A mesh handle belongs to exactly one cell. Allocate the journal node
@@ -73,6 +74,7 @@ namespace kairo::player::detail
             catch(...)
             {
                 failure();
+                stats.DetachFailed=true;
                 for(const auto& request:plan.Unloads)
                     runtime.CompleteUnload(request.Coordinate,false);
                 for(const auto& request:plan.Loads)
