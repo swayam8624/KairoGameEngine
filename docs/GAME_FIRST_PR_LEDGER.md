@@ -150,6 +150,12 @@ All 39 previous campaign PRs have been verified merged, including Renderer #31â€
 
 Earlier billion-meter native terrain run 45571755452 completed successfully, including rebased image comparison. Total campaign 43 PRs, 39 verified merged, four pending review. #55 independent; #31 -> #32; #56 after both stacks, with final accepted lock gate.
 
+### Exact nominal LOD error measurement (2026-11-25)
+
+EngineCore #31 exact-head LOD contract 45574355773 passed: 259,200 triangle checks and 57,600 invariant perimeter edges; stride/vertices/triangles = 1/1089/2048, 2/413/696, 4/205/280, 8/149/168, 16/133/136, 32/129/128. EngineCore #32 exact-head LOD selection contract 45574610031 passed (20,000 threshold oscillations, 10,000 multi-observer comparisons); earlier standalone procedural contracts also passed. Full module CI is still queued. Engine #55 native combined lock CI 45574669707 running, ownership passed; #56 native CI 45576499233 queued.
+
+[EngineCore #33](https://github.com/swayam8624/KairoEngineCore/pull/33), feat/terrain-lod-error, head fee0bfa6b74d6847826e678333c1a941a004c989, stacked on #32. Exact nominal vertical error (rounded up to integer mm) from all vertices of the piecewise-affine triangle overlay, including fractional edge crossings. Integer grid coordinates, signed int32 height samples, int64 rational arithmetic; scanline raster bounds avoid empty triangle bounding boxes. ChooseSeededTerrainLodUnderError checks candidate strides from coarsest to finest without assuming monotonic error. Tests include synthetic 100/3 mm crossing (ceil 34), dense independently evaluated triangle samples, signed extreme heights, flat cell and 1024-interval grid. Error contract CI 45580228833 queued; implementation not yet accepted. This is a nominal vertical surface bound only, not screen-space error, float quantization, shading error or physical collision. Not wired into live renderer; expensive measurement should run in background or preprocessing with caching. Review #31 -> #32 -> #33; #56 depends on #31â€“32 and #55, not #33. Total 44 campaign PRs, 39 verified merged, five pending. No default branch modifications.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
