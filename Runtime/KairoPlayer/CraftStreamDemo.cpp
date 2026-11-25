@@ -9,6 +9,8 @@
 #include "CraftVitals.hpp"
 #include "CraftNutrition.hpp"
 #include "CraftDaylight.hpp"
+#include "RuntimeWeather.hpp"
+#include "RuntimeRainStreaks.hpp"
 #include "CraftSurfaceSpawn.hpp"
 #include "CraftMining.hpp"
 #include "CraftEquipment.hpp"
@@ -46,7 +48,7 @@ int main(int argc,char** argv)
         using namespace kairo::renderer;
         using namespace kairo::foundation::math;
         using namespace kairo::player::detail;
-        bool smoke=false,survival=false;
+        bool smoke=false,survival=false,weatherEnabled=false;
         unsigned workers=0,uploadBudget=4;
         std::optional<std::filesystem::path> savePath;
         std::uint64_t seed=42;
@@ -56,6 +58,7 @@ int main(int argc,char** argv)
             const std::string_view arg=argv[i];
             if(arg=="--smoke")smoke=true;
             else if(arg=="--survival")survival=true;
+            else if(arg=="--weather")weatherEnabled=true;
             else if(arg=="--uploads"&&i+1<argc)
             {
                 const std::string_view value=argv[++i];
@@ -79,7 +82,7 @@ int main(int argc,char** argv)
                 if(result.ec!=std::errc{}||result.ptr!=value.data()+value.size())
                     throw std::invalid_argument("Invalid seed.");
             }
-            else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--survival] [--workers N] [--uploads N] [--save path] [--smoke]");
+            else throw std::invalid_argument("Usage: KairoCraftStream [--seed N] [--renderer backend] [--survival] [--weather] [--workers N] [--uploads N] [--save path] [--smoke]");
         }
         RendererRuntime renderer({"Kairo Craft Stream: WASD / arrows / Space / Ctrl / mouse / Esc",960u,540u,!smoke,backend});
         CraftHudViewport hudViewport;
@@ -185,9 +188,10 @@ int main(int argc,char** argv)
         authored.AddLight(sun);
         // Time-of-day modifies only authored lighting; the current native
         // mesh handles and chunk generation remain untouched.
-        const auto applyDaylight=[&](unsigned step)
+        const auto applyDaylight=[&](unsigned step,RuntimeWeatherSample weather={})
         {
-            const auto light=CraftDaylight::Sample(step);
+            // Compose weather with the existing daylight policy; no new native meshes.
+            const auto light=RuntimeWeather::Apply(CraftDaylight::Sample(step),weather);
             RenderScene next;
             auto directional=sun;
             directional.Direction={light.SunDirection[0],light.SunDirection[1],light.SunDirection[2]};
@@ -212,6 +216,8 @@ int main(int argc,char** argv)
         CraftPickups pickups;
         unsigned aimedHealth=0;
         std::optional<MeshHandle> creatureMesh;
+        // Weather presentation borrows the same unit cube as creatures/pickups.
+        std::vector<RainPoint> rainStreaks;
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
@@ -266,6 +272,19 @@ int main(int argc,char** argv)
                     draw.Material.Emissive={.06f,.02f,.01f};
                     draw.CastShadows=false;scene.Add(draw);
                 }
+            }
+            // Rain is a bounded camera-local visual, converted from absolute
+            // doubles only at the same render-origin boundary as pickups.
+            if(creatureMesh)for(const auto& pos:rainStreaks)
+            {
+                if(std::abs(pos[0]-base.X)>128||std::abs(pos[1]-base.Y)>128||std::abs(pos[2]-base.Z)>128)continue;
+                MeshDraw draw;draw.Mesh=*creatureMesh;draw.Model=Mat4f::Identity();
+                draw.Model(0,0)=.08f;draw.Model(1,1)=.55f;draw.Model(2,2)=.08f;
+                draw.Model(0,3)=TerrainRelativeFloat(pos[0]-.04,base.X);
+                draw.Model(1,3)=TerrainRelativeFloat(pos[1],base.Y);
+                draw.Model(2,3)=TerrainRelativeFloat(pos[2]-.04,base.Z);
+                draw.Material.BaseColor={.35f,.55f,.8f};draw.Material.Emissive={.1f,.2f,.35f};
+                draw.CastShadows=false;draw.ReceiveShadows=false;scene.Add(draw);
             }
             // Pickups reuse the unit creature cube; no mesh upload per item.
             if(creatureMesh)for(const auto& slot:pickups.Items())if(slot)
@@ -619,6 +638,21 @@ int main(int argc,char** argv)
                     throw std::runtime_error("Restored daylight capture differs.");
                 std::cout<<"Native day/night lighting and unchanged mesh residency passed\n";
                 createCreature();
+                // Native acceptance candidate: same camera, mesh residency and
+                // weather lighting, with and without precipitation geometry.
+                applyDaylight(60,{16,16});committedSubmit(publication.Active());
+                const auto wetSky=capture(.5,.5);
+                rainStreaks=RuntimeRainStreaks(seed,16,0,{.5,8,.5});
+                committedSubmit(publication.Active());
+                if(capture(.5,.5).RGBA==wetSky.RGBA)
+                    throw std::runtime_error("Native rain geometry was not visible.");
+                rainStreaks.clear();committedSubmit(publication.Active());
+                if(capture(.5,.5).RGBA!=wetSky.RGBA||loads!=previousLoads||edits!=previousEdits)
+                    throw std::runtime_error("Rain removal or mesh residency differs.");
+                authored=beforeLighting;committedSubmit(publication.Active());
+                if(capture(.5,.5).RGBA!=baseline.RGBA)
+                    throw std::runtime_error("Weather restore changed baseline.");
+                std::cout<<"Native weather/rain and unchanged terrain residency passed\n";
                 const auto survivor=spawn();
                 for(unsigned tick=0;tick<60;++tick)(void)creature.Advance(.05,survivor,query);
                 if(!creature.Body())throw std::runtime_error("Native creature spawn missing.");
@@ -674,6 +708,10 @@ int main(int argc,char** argv)
                 }
                 CraftDaylight daylight(playerCheckpoint?playerCheckpoint->DayPhase:.25);
                 unsigned publishedDaylight=daylight.Step();
+                double weatherSeconds=0.;
+                RuntimeWeatherSample publishedWeather{};
+                std::uint64_t publishedRainTick=0;
+                if(weatherEnabled)createCreature();
                 applyDaylight(publishedDaylight);committedSubmit(publication.Active());
                 const auto recordPlayer=[&](){if(survival)playerCheckpoint=CraftCheckpoint{player.Feet,yaw,pitch,daylight.Phase(),vitals.Health(),nutrition.Hunger()};};
                 recordPlayer();
@@ -731,11 +769,17 @@ int main(int argc,char** argv)
                     const double dt=std::min(.1,std::chrono::duration<double>(now-previous).count());
                     previous=now;
                     daylight.Advance(dt);
-                    if(daylight.Step()!=publishedDaylight)
+                    // The weather clock advances only during active play. Publish
+                    // quantized changes through the same scene/mesh transaction.
+                    // Wrap the clock at a generous finite horizon to avoid a
+                    // floating-point-to-integer conversion outside its range.
+                    if(weatherEnabled)weatherSeconds=std::fmod(weatherSeconds+dt,31536000.);
+                    const auto weather=weatherEnabled?RuntimeWeather::At(seed,static_cast<std::uint64_t>(weatherSeconds)):RuntimeWeatherSample{};
+                    if(daylight.Step()!=publishedDaylight||weather!=publishedWeather)
                     {
-                        applyDaylight(daylight.Step());
+                        applyDaylight(daylight.Step(),weather);
                         committedSubmit(publication.Active());
-                        publishedDaylight=daylight.Step();
+                        publishedDaylight=daylight.Step();publishedWeather=weather;
                     }
                     double cursorX=0,cursorY=0;
                     glfwGetCursorPos(window,&cursorX,&cursorY);
@@ -876,12 +920,22 @@ int main(int argc,char** argv)
                     const bool creatureChanged=bool(previousCreature)!=bool(creature.Body())||
                         (previousCreature&&creature.Body()&&previousCreature->Feet!=creature.Body()->Feet);
                     const bool worldActorsChanged=creatureChanged||previousVisual!=creature.Visual()||previousPickups!=pickups.Revision();
-                    if(worldActorsChanged)committedSubmit(publication.Active());
+                    // Update streak positions at 10 Hz, not at render frequency.
+                    // Changes are coalesced with the ordinary world scene submit.
+                    const auto rainTick=static_cast<std::uint64_t>(weatherSeconds*10.);
+                    const bool rainChanged=(weather.Rain||!rainStreaks.empty())&&
+                        (rainTick!=publishedRainTick||rainStreaks.size()!=weather.Rain*4);
+                    if(rainChanged)
+                    {
+                        rainStreaks=RuntimeRainStreaks(seed,weather.Rain,rainTick,{x,y,z});
+                        publishedRainTick=rainTick;
+                    }
+                    if(worldActorsChanged||rainChanged)committedSubmit(publication.Active());
                     recordPlayer();autosave.Observe(saveStamp());
                     const bool manualSave=actions.Save.Press(key(GLFW_KEY_F5)>0);
                     if(savePath&&(manualSave||autosave.Advance(dt)))(void)checkpoint();
                     if(nativeHud)refreshNativeHud();
-                    else if(hudEnabled&&!worldActorsChanged)committedSubmit(publication.Active());
+                    else if(hudEnabled&&!worldActorsChanged&&!rainChanged)committedSubmit(publication.Active());
                     renderer.DrawFrame();
                 }
                 // Exit is a final checkpoint only for an explicitly supplied
