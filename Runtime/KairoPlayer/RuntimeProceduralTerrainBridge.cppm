@@ -3,6 +3,8 @@ module;
 #include "TerrainNativeStore.hpp"
 #include "TerrainGenerationQueue.hpp"
 #include "TerrainRenderOrigin.hpp"
+#include "TerrainErrorProfile.hpp"
+#include <optional>
 #include <algorithm>
 #include <memory>
 #include <cmath>
@@ -42,6 +44,7 @@ export namespace kairo::player
         std::size_t MaximumUploadsPerUpdate=4;
         std::size_t WorkerCount=1;
         kairo::engine::TerrainLodPolicy Lod;
+        std::optional<std::uint64_t> MaximumLodErrorMillimeters;
     };
 
     // Owns GPU mesh handles, not a duplicate resident CPU terrain store.
@@ -58,16 +61,33 @@ export namespace kairo::player
             if(!m_Background.Lod.SwitchDistances.empty() && m_Background.MaximumPendingMeshes==0)
                 throw std::invalid_argument("Terrain LOD requires background generation.");
             (void)ChooseStride({}, {}, 0);
+            if(m_Background.MaximumLodErrorMillimeters && m_Background.MaximumPendingMeshes==0)
+                throw std::invalid_argument("Terrain error profiles require background generation.");
             if(m_Background.MaximumPendingMeshes!=0)
             {
                 if(m_Background.MaximumUploadsPerUpdate==0)
                     throw std::invalid_argument("Background terrain upload budget must be positive.");
                 const auto validated=m_Streaming.Config();
+                const auto budget=m_Background.MaximumLodErrorMillimeters;
+                const auto maximumStride=std::uint32_t{1}<<m_Background.Lod.SwitchDistances.size();
                 m_Queue=std::make_unique<Queue>(m_Background.MaximumPendingMeshes,
-                    [validated](Job job)
+                    [validated,budget,maximumStride](Job job)
                     {
-                        return kairo::engine::BuildSeededTerrainLodMeshCell(validated.Seed,job.Cell,
-                            validated.Terrain,validated.SampleSpacingMillimeters,job.Stride);
+                        GeneratedMesh result;
+                        result.Stride=job.Stride;
+                        if(budget && !job.Replacement)
+                        {
+                            result.Profile=detail::BuildTerrainErrorProfile(maximumStride,
+                                [&](std::uint32_t stride)
+                                {
+                                    return kairo::engine::MeasureSeededTerrainLodErrorMillimeters(
+                                        validated.Seed,job.Cell,validated.Terrain,stride);
+                                });
+                            result.Stride=result.Profile->Choose(job.Stride,*budget);
+                        }
+                        result.Cell=kairo::engine::BuildSeededTerrainLodMeshCell(validated.Seed,job.Cell,
+                            validated.Terrain,validated.SampleSpacingMillimeters,result.Stride);
+                        return result;
                     },m_Background.WorkerCount);
             }
         }
@@ -91,6 +111,24 @@ export namespace kairo::player
             { (void)coordinate; if(mesh.Stride==stride)++count; }
             return count;
         }
+        [[nodiscard]] std::size_t ResidentErrorProfileCount() const noexcept
+        {
+            std::size_t count=0;
+            for(const auto& [coordinate,mesh]:m_Store.Cells())
+            { (void)coordinate; if(mesh.Profile)++count; }
+            return count;
+        }
+
+        [[nodiscard]] std::uint64_t MaximumResidentLodErrorMillimeters() const
+        {
+            std::uint64_t maximum=0;
+            for(const auto& [coordinate,mesh]:m_Store.Cells())
+            {
+                (void)coordinate;
+                if(mesh.Profile)maximum=std::max(maximum,mesh.Profile->Error(mesh.Stride));
+            }
+            return maximum;
+        }
         [[nodiscard]] const kairo::engine::ProceduralWorldStreamingRuntime& Streaming() const noexcept
         {return m_Streaming;}
 
@@ -113,7 +151,7 @@ export namespace kairo::player
                 {
                     const auto cell=m_Streaming.BuildMesh(coordinate);
                     return NativeMesh{m_Renderer.CreateMesh(kairo::renderer::Mesh::FromArtifact(
-                        cell.Mesh,{0.32f,0.63f,0.22f})),1u};
+                        cell.Mesh,{0.32f,0.63f,0.22f})),1u,{}};
                 },
                 [&](NativeMesh mesh){m_Renderer.DestroyMesh(mesh.Handle);});
             // If detachment or final submission fails, all reservations
@@ -139,9 +177,12 @@ export namespace kairo::player
         }
 
     private:
-        struct NativeMesh {kairo::renderer::MeshHandle Handle{};std::uint32_t Stride=1u;};
+        struct NativeMesh {kairo::renderer::MeshHandle Handle{};std::uint32_t Stride=1u;
+            std::optional<detail::TerrainErrorProfile> Profile;};
         struct Job {kairo::engine::WorldCellCoordinate Cell;std::uint32_t Stride=1u;bool Replacement=false;};
-        using Queue=detail::TerrainGenerationQueue<Job,kairo::engine::SeededTerrainMeshCell>;
+        struct GeneratedMesh {kairo::engine::SeededTerrainMeshCell Cell;std::uint32_t Stride=1u;
+            std::optional<detail::TerrainErrorProfile> Profile;};
+        using Queue=detail::TerrainGenerationQueue<Job,GeneratedMesh>;
 
         [[nodiscard]] std::uint32_t ChooseStride(kairo::engine::WorldCellCoordinate cell,
             std::span<const kairo::engine::WorldStreamingObserver> observers,std::uint32_t current) const
@@ -149,6 +190,15 @@ export namespace kairo::player
             const auto& cfg=m_Streaming.Config();
             return kairo::engine::SelectSeededTerrainLodStride(cell,cfg.Streaming.CellSize,
                 cfg.Terrain.Intervals,observers,m_Background.Lod,current);
+        }
+
+        [[nodiscard]] std::uint32_t DesiredResidentStride(kairo::engine::WorldCellCoordinate cell,
+            std::span<const kairo::engine::WorldStreamingObserver> observers,const NativeMesh& mesh) const
+        {
+            const auto requested=ChooseStride(cell,observers,mesh.Stride);
+            if(mesh.Profile && m_Background.MaximumLodErrorMillimeters)
+                return mesh.Profile->Choose(requested,*m_Background.MaximumLodErrorMillimeters);
+            return requested;
         }
 
         [[nodiscard]] bool WantsKeep(kairo::engine::WorldCellCoordinate coordinate,
@@ -230,7 +280,7 @@ export namespace kairo::player
                     m_PendingReplacements.erase(job.Cell);
                     const auto found=m_Store.Cells().find(job.Cell);
                     if(found==m_Store.Cells().end()||!WantsKeep(job.Cell,observers)||
-                        ChooseStride(job.Cell,observers,found->second.Stride)!=job.Stride||
+                        DesiredResidentStride(job.Cell,observers,found->second)!=job.Stride||
                         found->second.Stride==job.Stride)
                     {++result.StaleReplacements;continue;}
                     if(ready->Failure)
@@ -244,7 +294,7 @@ export namespace kairo::player
                         if(!ready->Value)throw std::logic_error("Terrain worker returned no LOD mesh.");
                         if(m_Store.Replace(job.Cell,[&](auto){
                             return NativeMesh{m_Renderer.CreateMesh(kairo::renderer::Mesh::FromArtifact(
-                                ready->Value->Mesh,{0.32f,0.63f,0.22f})),job.Stride};
+                                ready->Value->Cell.Mesh,{0.32f,0.63f,0.22f})),job.Stride,found->second.Profile};
                         }))++result.Replaced;
                     }
                     catch(...){failure();++result.FailedReplacements;}
@@ -266,7 +316,7 @@ export namespace kairo::player
                         m_Store.Load(job.Cell,[&](auto)
                         {
                             return NativeMesh{m_Renderer.CreateMesh(kairo::renderer::Mesh::FromArtifact(
-                                ready->Value->Mesh,{0.32f,0.63f,0.22f})),job.Stride};
+                                ready->Value->Cell.Mesh,{0.32f,0.63f,0.22f})),ready->Value->Stride,ready->Value->Profile};
                         });
                         ok=true;++result.Loaded;
                     }
@@ -292,7 +342,7 @@ export namespace kairo::player
                 {
                     if(PendingCount()>=m_Background.MaximumPendingMeshes)break;
                     if(m_PendingReplacements.contains(coordinate)||!WantsKeep(coordinate,observers))continue;
-                    const auto stride=ChooseStride(coordinate,observers,mesh.Stride);
+                    const auto stride=DesiredResidentStride(coordinate,observers,mesh);
                     if(stride==mesh.Stride)continue;
                     try
                     {
