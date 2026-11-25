@@ -43,7 +43,8 @@ namespace kairo::player::detail
         std::array<float,3> Color;
         bool Background=false;
     };
-    inline std::vector<CraftHudRect> BuildCraftHud(const CraftInventory& inventory)
+    inline std::vector<CraftHudRect> BuildCraftHud(const CraftInventory& inventory,
+        std::optional<std::uint32_t> health=std::nullopt)
     {
         if(!inventory.Valid())throw std::invalid_argument("Invalid HUD inventory.");
         std::vector<CraftHudRect> rects;rects.reserve(128);
@@ -80,6 +81,12 @@ namespace kairo::player::detail
             if(count>=10)digit((count/10)%10,x+38,y+35);
             digit(count%10,x+46,y+35);
             digit(i+1u,x+39,y+9);
+        }
+        if(health)
+        {
+            if(*health>20)throw std::invalid_argument("Invalid HUD health.");
+            add(356,455,248,10,gray);rects.back().Background=true;
+            if(*health)add(358,457,244.f*static_cast<float>(*health)/20.f,6,{.85f,.12f,.15f});
         }
         return rects;
     }

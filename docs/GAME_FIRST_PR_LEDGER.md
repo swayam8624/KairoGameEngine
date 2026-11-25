@@ -260,6 +260,10 @@ Renderer #40 adds Metal's scissored fullscreen triangle overlay, color-only atta
 
 Separates native HUD publication from world mesh submission and camera movement. A key containing enable state, inventory, selected slot and physical viewport extent suppresses unchanged updates; disabled keys collapse to one state. Failed renderer submission leaves the previous key retryable. Existing fallback geometry behavior unchanged. Standalone Clang 17 C++23 ASan/UBSan passed 100,000 idle frames, 100,000 seeded state transitions (32,561 state publications) and injected failure retry. Exact local source hashes 30f7490ecc963a1f57d2376d6ceeee4e9aea1421 and e82dad8ce9f62747319942f06a0f21a9963fc808; native integration remains pending. No measured GPU speedup claimed.
 
+### Survival vitals and fall damage (2026-11-25)
+
+Both Craft survival demos track 20 hit points and sampled peak-to-landing fall distance, with three world units safe. Physical support must be present in committed voxel queries, so artificial streaming barriers do not cause fall damage. Lethal damage returns to the existing spawn routine and resets health, retaining inventory/world edits. Adds responsive health bar and title display; native HUD key includes health. Health is session-local and resets on load; save formats unchanged. No combat, hunger or item loss yet. Standalone exact Clang 17 ASan/UBSan tests passed 100,000 randomized falls plus jump, virtual boundary, lethal saturation and respawn. Native player integration still pending; fall height uses frame samples rather than substep apex.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

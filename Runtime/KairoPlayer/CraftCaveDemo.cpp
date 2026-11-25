@@ -4,6 +4,7 @@
 #include "CraftRecipesHud.hpp"
 #include "CraftHudProjection.hpp"
 #include "CraftHudPublication.hpp"
+#include "CraftVitals.hpp"
 #include "TerrainScreenError.hpp"
 #include <filesystem>
 #include <fstream>
@@ -107,23 +108,24 @@ int main(int argc,char** argv)
         std::optional<CameraPose> hudPose;
         bool hudEnabled=false;
         CraftHudPublication hudPublication;
+        CraftVitals vitals;
         const auto refreshNativeHud=[&]()
         {
             if(!nativeHud)return;
-            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height};
+            const CraftHudKey key{hudEnabled,inventory.Counts,inventory.Selected,hudViewport.Width,hudViewport.Height,vitals.Health()};
             (void)hudPublication.Refresh(key,[&]()
             {
                 std::vector<ViewportOverlayRect> rects;
                 if(hudEnabled)
                 {
-                    const auto layout=BuildCraftHud(inventory);
+                    const auto layout=BuildCraftHud(inventory,vitals.Health());
                     rects.reserve(layout.size());
                     // Paint opaque backing first, then icons and numerals.
                     // No camera, world origin or depth state is involved.
                     for(bool backing:{true,false})for(const auto& rect:layout)
                     {
                         if(rect.Background!=backing)continue;
-                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=472);
+                        const auto p=QuantizeCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,rect.Y>=450);
                         if(p.Width&&p.Height)rects.push_back({p.X,p.Y,p.Width,p.Height,rect.Color});
                     }
                 }
@@ -149,11 +151,11 @@ int main(int argc,char** argv)
                     double(pose.Target.y)-eye[1],double(pose.Target.z)-eye[2]});
                 const auto right=ScreenUnit(ScreenCross(forward,{pose.Up.x,pose.Up.y,pose.Up.z}));
                 const auto up=ScreenUnit(ScreenCross(right,forward));
-                for(const auto& rect:BuildCraftHud(inventory))
+                for(const auto& rect:BuildCraftHud(inventory,vitals.Health()))
                 {
                     const double depth=rect.Background?.16:.14;
                     const auto projected=ProjectCraftHudRect(hudViewport,rect.X,rect.Y,rect.W,rect.H,
-                        pose.VerticalFovRadians,depth,rect.Y>=472);
+                        pose.VerticalFovRadians,depth,rect.Y>=450);
                     const double dx=projected.X,dy=projected.Y;
                     const double width=projected.Width,height=projected.Height;
                     MeshDraw draw;
@@ -326,15 +328,19 @@ int main(int argc,char** argv)
                 double x=8.5,y=12,z=8.5,yaw=0,pitch=-.5;
                 VoxelPlayer body{{8.5,12,8.5}};
                 VoxelPlayerConfig config;
-                if(survival)
+                const auto respawn=[&]()
                 {
                     const auto spawn=FindCaveSpawn(config,[&](VoxelCoordinate c)->std::optional<VoxelMaterial>{
                         if(!InCaveWorld(c))return {};
                         return world->Get(c);
                     });
                     if(!spawn)throw std::runtime_error("No supported clear cave spawn near the origin.");
-                    body=*spawn;
-                    settle(CaveObserver(body.Feet[0],body.Feet[1],body.Feet[2]));
+                    settle(CaveObserver(spawn->Feet[0],spawn->Feet[1],spawn->Feet[2]));
+                    body=*spawn;vitals.Respawn(body.Feet[1]);
+                };
+                if(survival)
+                {
+                    respawn();
                     x=body.Feet[0];y=body.Feet[1]+config.EyeHeight;z=body.Feet[2];
                     createHud();hudEnabled=true;
                 }
@@ -369,6 +375,11 @@ int main(int argc,char** argv)
                     if(survival)
                     {
                         AdvanceVoxelPlayer(body,config,{dx,dz,jump&&!jumpHeld,key(GLFW_KEY_LEFT_SHIFT)>0},dt,bodyQuery);
+                        auto probe=body;probe.Feet[1]-=.000001;
+                        const bool support=body.Grounded&&VoxelPlayerBlocked(probe,config,
+                            [&](VoxelCoordinate c){return query(c).value_or(VoxelAir);});
+                        (void)vitals.Observe(body.Feet[1],body.Grounded,support);
+                        if(vitals.Dead())respawn();
                         x=body.Feet[0];y=body.Feet[1]+config.EyeHeight;z=body.Feet[2];
                     }
                     else
@@ -390,7 +401,7 @@ int main(int argc,char** argv)
                         if(one&&!recipeOneHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[0]);
                         if(two&&!recipeTwoHeld)(void)CraftApplyRecipe(inventory,CraftRecipes[1]);
                         recipeOneHeld=one;recipeTwoHeld=two;
-                        std::string title="Kairo Caves | Survival | ";
+                        std::string title="Kairo Caves | HP "+std::to_string(vitals.Health())+"/20 | ";
                         for(unsigned i=0;i<4;++i)
                         {
                             if(inventory.Selected==i+1u)title+="[";
