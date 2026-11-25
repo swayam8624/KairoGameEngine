@@ -1,4 +1,4 @@
-#include "../CraftCreature.hpp"
+#include "../CraftCreatureGroup.hpp"
 #include <iostream>
 #include <random>
 namespace {
@@ -83,5 +83,41 @@ int main()
             if(a.Body())Check(a.Body()->Feet==b.Body()->Feet&&!VoxelPlayerBlocked(*a.Body(),CraftCreature::Config(),flat),"Partition movement mismatch");
         }
     }
+    CraftCreatureGroup group,partitioned;
+    const VoxelPlayer groupPlayer{{.5,0,.5}};
+    std::mt19937 groupRng(717);
+    for(unsigned tick=0;tick<400;++tick)
+    {
+        const auto damage=group.Advance(.1,groupPlayer,flat);
+        const auto split=double(groupRng()%101)/1000.;
+        const auto first=partitioned.Advance(split,groupPlayer,flat);
+        const auto second=partitioned.Advance(.1-split,groupPlayer,flat);
+        Check(damage==first+second&&group.State()==partitioned.State(),"Group tick partition differs");
+        if(tick>=59)Check(group.Count()==4,"Staggered group failed to populate");
+        const auto& members=group.Members();
+        for(std::size_t i=0;i<members.size();++i)if(members[i].Body())
+            for(std::size_t j=i+1;j<members.size();++j)if(members[j].Body())
+                Check(!CraftCreatureOverlap(*members[i].Body(),*members[j].Body()),"Peer collision overlapped");
+    }
+    const std::array<double,3> groupEye{.5,.8,.5};
+    std::size_t targets=0;
+    for(unsigned angleIndex=0;angleIndex<360;++angleIndex)
+    {
+        const double angle=double(angleIndex)*std::numbers::pi/180.;
+        const std::array dir{std::cos(angle),0.,std::sin(angle)};
+        std::optional<std::size_t> expected;double nearest=4.;
+        for(std::size_t i=0;i<group.Capacity;++i)
+            if(const auto distance=group.At(i).AimDistance(groupEye,dir,flat);distance&&*distance<nearest)
+            {nearest=*distance;expected=i;}
+        const auto selected=group.Aim(groupEye,dir,flat);
+        Check(selected==expected,"Group selected wrong ray target");
+        if(selected)++targets;
+    }
+    Check(targets>0,"No reachable group targets");
+    const auto beforeGroup=group.State();
+    Check(group.At(0).Strike()&&group.At(0).Health()==8,"Group member strike failed");
+    for(std::size_t i=1;i<group.Capacity;++i)Check(group.State()[i]==beforeGroup[i],"Strike modified unrelated actor");
+    group.Reset();Check(group.Count()==0,"Group reset retained actors");
+    std::cout<<"400 group frame partitions, peer separation and 360 nearest-target rays passed\n";
     std::cout<<"1000 signed spawn/pursuit fixtures, 80000 frame partitions, melee cooldown, occlusion, death and respawn passed\n";
 }

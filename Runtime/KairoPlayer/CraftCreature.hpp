@@ -10,6 +10,7 @@ namespace kairo::player::detail
     {
         std::optional<VoxelPlayer> m_Body;
         unsigned m_Health=0,m_Respawn=60,m_Attack=0,m_Hit=0;
+        unsigned m_Sector=0,m_InitialDelay=60;
         double m_Remainder=0;
         CraftCreatureVisual m_Visual;
         std::vector<std::array<double,2>> m_Path;
@@ -27,8 +28,8 @@ namespace kairo::player::detail
             return !TraceVoxels(from,direction,length,64,[&](VoxelCoordinate c){
                 return query(c).value_or(VoxelMaterial{65535});});
         }
-        template<class Query>
-        void Spawn(const VoxelPlayer& player,Query&& query)
+        template<class Query,class PeerBlocked>
+        void Spawn(const VoxelPlayer& player,Query&& query,PeerBlocked&& peerBlocked)
         {
             const int x=static_cast<int>(std::floor(player.Feet[0])),y=static_cast<int>(std::floor(player.Feet[1])),z=static_cast<int>(std::floor(player.Feet[2]));
             const auto config=Config();
@@ -38,10 +39,15 @@ namespace kairo::player::detail
                     if(std::max(std::abs(dx),std::abs(dz))!=radius)continue;
                     for(int dy=2;dy>=-2;--dy)
                     {
-                        VoxelPlayer candidate{{x+dx+.5,double(y+dy),z+dz+.5}};
+                        // Rotate the same deterministic search order to
+                        // distribute independent actors across spawn sectors.
+                        int ox=dx,oz=dz;
+                        for(unsigned turn=0;turn<m_Sector;++turn)
+                        {const int old=ox;ox=-oz;oz=old;}
+                        VoxelPlayer candidate{{x+ox+.5,double(y+dy),z+oz+.5}};
                         if(std::abs(candidate.Feet[0])>1e9||std::abs(candidate.Feet[2])>1e9||std::abs(candidate.Feet[1])>1e9)continue;
-                        const auto support=query(VoxelCoordinate{x+dx,y+dy-1,z+dz});
-                        if(!support||*support==VoxelAir||VoxelPlayerBlocked(candidate,config,query))continue;
+                        const auto support=query(VoxelCoordinate{x+ox,y+dy-1,z+oz});
+                        if(!support||*support==VoxelAir||VoxelPlayerBlocked(candidate,config,query)||peerBlocked(candidate))continue;
                         candidate.Grounded=true;m_Body=candidate;m_Health=MaxHealth;m_Attack=0;m_Hit=0;return;
                     }
                 }
@@ -49,6 +55,8 @@ namespace kairo::player::detail
         }
         void Remove() noexcept{m_Body.reset();m_Health=0;m_Respawn=300;m_Attack=0;m_Hit=0;m_Path.clear();m_Next=0;m_Replan=0;m_Visual={};}
     public:
+        explicit CraftCreature(unsigned sector=0,unsigned initialDelay=60) noexcept
+            :m_Respawn(initialDelay),m_Sector(sector%4),m_InitialDelay(initialDelay){}
         static VoxelPlayerConfig Config() noexcept
         {VoxelPlayerConfig c;c.Radius=.36;c.Height=1.20;c.EyeHeight=.9;c.Speed=2.0;return c;}
         [[nodiscard]] const std::optional<VoxelPlayer>& Body() const noexcept{return m_Body;}
@@ -60,12 +68,17 @@ namespace kairo::player::detail
             pose.Hit=m_Hit>6;
             return pose;
         }
-        void Reset() noexcept{*this=CraftCreature{};}
+        void Reset() noexcept{*this=CraftCreature{m_Sector,m_InitialDelay};}
         [[nodiscard]] bool Occupies(VoxelCoordinate cell) const noexcept
         {return m_Body&&PlayerIntersectsBlock(*m_Body,Config(),cell);}
         // At most two simulation ticks per frame. One attack per second.
         template<class Query>
         unsigned Advance(double dt,const VoxelPlayer& player,Query&& query)
+        {
+            return Advance(dt,player,query,[](const VoxelPlayer&){return false;});
+        }
+        template<class Query,class PeerBlocked>
+        unsigned Advance(double dt,const VoxelPlayer& player,Query&& query,PeerBlocked&& peerBlocked)
         {
             if(!std::isfinite(dt)||dt<0)throw std::invalid_argument("Invalid creature elapsed time.");
             ValidateVoxelPlayer(player,VoxelPlayerConfig{});
@@ -77,7 +90,7 @@ namespace kairo::player::detail
                 if(m_Attack)--m_Attack;
                 if(m_Hit)--m_Hit;
                 if(m_Replan)--m_Replan;
-                if(!m_Body){if(m_Respawn)--m_Respawn;if(!m_Respawn)Spawn(player,query);continue;}
+                if(!m_Body){if(m_Respawn)--m_Respawn;if(!m_Respawn)Spawn(player,query,peerBlocked);continue;}
                 if(Distance(m_Body->Feet,player.Feet)>24||VoxelPlayerBlocked(*m_Body,config,query))
                 {Remove();continue;}
                 double dx=player.Feet[0]-m_Body->Feet[0],dz=player.Feet[2]-m_Body->Feet[2];
@@ -99,9 +112,30 @@ namespace kairo::player::detail
                     const double scale=std::max(.1,std::hypot(dx,dz));input.X=dx/scale;input.Z=dz/scale;
                 }
                 else if(horizontal>1.05){input.X=dx/horizontal;input.Z=dz/horizontal;}
-                const auto oldFeet=m_Body->Feet;
+                const auto before=*m_Body;
                 AdvanceVoxelPlayer(*m_Body,config,input,.05,query);
-                m_Visual.Observe(m_Body->Feet[0]-oldFeet[0],m_Body->Feet[2]-oldFeet[2]);
+                if(peerBlocked(*m_Body))
+                {
+                    // Voxel collision remains authoritative. Resolve a peer
+                    // conflict by testing axis-only alternatives, then stop.
+                    // The old body was nonoverlapping at this tick's start.
+                    auto alternative=before;
+                    AdvanceVoxelPlayer(alternative,config,{input.X,0,false,false},.05,query);
+                    if(!peerBlocked(alternative))*m_Body=alternative;
+                    else
+                    {
+                        alternative=before;
+                        AdvanceVoxelPlayer(alternative,config,{0,input.Z,false,false},.05,query);
+                        if(!peerBlocked(alternative))*m_Body=alternative;
+                        else
+                        {
+                            alternative=before;
+                            AdvanceVoxelPlayer(alternative,config,{},.05,query);
+                            *m_Body=peerBlocked(alternative)?before:alternative;
+                        }
+                    }
+                }
+                m_Visual.Observe(m_Body->Feet[0]-before.Feet[0],m_Body->Feet[2]-before.Feet[2]);
                 const std::array from{m_Body->Feet[0],m_Body->Feet[1]+.8,m_Body->Feet[2]};
                 const std::array to{player.Feet[0],player.Feet[1]+.8,player.Feet[2]};
                 if(!m_Attack&&Distance(from,to)<=1.4&&Clear(from,to,query))
@@ -112,26 +146,29 @@ namespace kairo::player::detail
         // Ray-box intersection in absolute double coordinates. Test the
         // world segment before accepting a hit, including unknown cells.
         template<class Query>
-        [[nodiscard]] bool Aimed(std::array<double,3> eye,std::array<double,3> direction,Query&& query) const
+        [[nodiscard]] std::optional<double> AimDistance(std::array<double,3> eye,std::array<double,3> direction,Query&& query) const
         {
-            if(!m_Body)return false;
+            if(!m_Body)return {};
             const double norm=std::hypot(direction[0],direction[1],direction[2]);
-            if(!std::isfinite(norm)||norm<=1e-12)return false;
+            if(!std::isfinite(norm)||norm<=1e-12)return {};
             const auto lo=PlayerMinimum(*m_Body,Config()),hi=PlayerMaximum(*m_Body,Config());
             double enter=0,exit=3;
             for(unsigned i=0;i<3;++i)
             {
-                if(!std::isfinite(eye[i]))return false;
+                if(!std::isfinite(eye[i]))return {};
                 direction[i]/=norm;
-                if(std::abs(direction[i])<1e-12){if(eye[i]<lo[i]||eye[i]>hi[i])return false;continue;}
+                if(std::abs(direction[i])<1e-12){if(eye[i]<lo[i]||eye[i]>hi[i])return {};continue;}
                 double a=(lo[i]-eye[i])/direction[i],b=(hi[i]-eye[i])/direction[i];
                 if(a>b)std::swap(a,b);
                 enter=std::max(enter,a);exit=std::min(exit,b);
-                if(enter>exit)return false;
+                if(enter>exit)return {};
             }
             const std::array point{eye[0]+direction[0]*enter,eye[1]+direction[1]*enter,eye[2]+direction[2]*enter};
-            return Clear(eye,point,query);
+            return Clear(eye,point,query)?std::optional<double>{enter}:std::nullopt;
         }
+        template<class Query>
+        [[nodiscard]] bool Aimed(std::array<double,3> eye,std::array<double,3> direction,Query&& query) const
+        {return AimDistance(eye,direction,query).has_value();}
         // The caller has just tested aim; one hit per half-second, three
         // unarmed hits to defeat. The combat reward layer owns loot.
         bool Strike() noexcept
