@@ -288,6 +288,10 @@ Surface and cave demos capture mouse by default, use raw motion when supported, 
 
 20 Hz survival clock with idle drain every 30 seconds, 3x drain while moving and sprinting, sprint disabled at hunger <=4, starvation damage and food-funded regeneration every four seconds under respective conditions. E consumes two harvested grass blocks for six hunger (prototype forage abstraction). Full hunger or insufficient inputs do not spend materials. Nutrition paused when unfocused, reset on death/load; health and hunger remain session-local. HUD/cache includes hunger. Local Clang C++23 ASan/UBSan passed 100,000 randomized frame partition comparisons, 100,000 forage transactions, explicit sprint, starvation, regeneration, respawn and stall guards. Exact tested blobs b631d874687630b56e3b1a1b0f0b930023279338, 5a76b2c335c50f3f23f9e5e3319419d58fb4726b, 3f74af0fafdf1a32015b64d97e8b4b64f837e467. Native integrated results pending. Time partition equivalence applies to constant activity within each interval, not arbitrary input changes.
 
+### Edited surface spawn safety
+
+Surface survival startup and respawn now search the authoritative edited world for physical support and collision-free headroom, within 16 cells of origin. The chosen window is settled before the physics solver validates it. Creative startup does not need a survival spawn. Local exact-source Clang C++23 ASan/UBSan passed 10,000 signed randomized support fixtures and explicit edited shaft, top-layer, unknown/empty/solid worlds and actual voxel movement. Header/test blobs 1b17ddf8d87781be4e1d6ab85a7b9dcda299dde6 and cd770b18fe150cad12bb371360c91edc6eb117c6; existing VoxelPlayer and VoxelInteraction blobs also matched. Native startup integration awaits CI. Exhausting the finite search produces an explicit error rather than silently spawning on the artificial floor.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

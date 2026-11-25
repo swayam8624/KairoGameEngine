@@ -8,6 +8,7 @@
 #include "CraftHudPublication.hpp"
 #include "CraftVitals.hpp"
 #include "CraftNutrition.hpp"
+#include "CraftSurfaceSpawn.hpp"
 #include "CraftMining.hpp"
 #include "CraftEquipment.hpp"
 #include "CraftMouseLook.hpp"
@@ -323,10 +324,13 @@ int main(int argc,char** argv)
         };
         const auto spawn=[&]()
         {
-            VoxelPlayer p{{.5,0,.5}};
-            for(int y=CraftExtent-1;y>=0;--y)
-                if(world->Get({0,y,0})!=VoxelAir){p.Feet[1]=y+1.;break;}
+            const auto candidate=FindCraftSurfaceSpawn(bodyConfig,CraftExtent,
+                [&](VoxelCoordinate c)->std::optional<VoxelMaterial>{return world->Get(c);});
+            if(!candidate)throw std::runtime_error("No supported clear surface spawn near origin.");
+            settleWindow(candidate->Feet[0],candidate->Feet[2]);
+            auto p=*candidate;
             AdvanceVoxelPlayer(p,bodyConfig,{},0,bodyQuery);
+            if(!p.Grounded)throw std::runtime_error("Surface spawn lost support after publication.");
             return p;
         };
         const auto edit=[&](VoxelCoordinate cell,VoxelMaterial material)
@@ -497,9 +501,13 @@ int main(int argc,char** argv)
             else
             {
                 double x=.5,y=12,z=.5,yaw=0,pitch=-.5;
-                auto player=spawn();
-                vitals.Respawn(player.Feet[1]);
-                if(survival){createHud();hudEnabled=true;}
+                VoxelPlayer player;
+                if(survival)
+                {
+                    player=spawn();vitals.Respawn(player.Feet[1]);
+                    x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
+                    createHud();hudEnabled=true;
+                }
                 bool recipeOneHeld=false,recipeTwoHeld=false;
                 bool toolCraftHeld=false,toolToggleHeld=false,eatHeld=false;
                 bool jumpHeld=false,saveHeld=false;
@@ -567,7 +575,6 @@ int main(int argc,char** argv)
                         if(focused)nutrition.Advance(dt,sprint,vitals);
                         if(vitals.Dead())
                         {
-                            settleWindow(.5,.5);
                             player=spawn();vitals.Respawn(player.Feet[1]);mining.Reset();nutrition.Reset();
                         }
                         x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
