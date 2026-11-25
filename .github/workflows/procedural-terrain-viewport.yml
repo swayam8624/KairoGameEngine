@@ -60,21 +60,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/terrain-diagnostics
-          ctest --test-dir build/game-player-clang -R '^KairoTerrain(NativeStore|GenerationQueue)Tests --output-on-failure
+          ctest --test-dir build/game-player-clang -R '^KairoTerrain(NativeStore|GenerationQueue)Tests$' --output-on-failure
           export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --async 2>&1 | tee build/terrain-diagnostics/async-smoke.log
           if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/*smoke.log; then exit 1; fi
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: streamed-terrain-diagnostics
-          path: build/terrain-diagnostics/
-          if-no-files-found: warn
- --output-on-failure
-          export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
-          xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke 2>&1 | tee build/terrain-diagnostics/smoke.log
-          if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/smoke.log; then exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
