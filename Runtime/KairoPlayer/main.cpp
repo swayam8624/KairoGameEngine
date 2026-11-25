@@ -14,6 +14,8 @@
 // mathematical certification of physics.
 
 #include "RuntimeFrameClock.hpp"
+#include "RuntimeNativeAudioOutput.hpp"
+#include <memory>
 #include <exception>
 #include <thread>
 #include <chrono>
@@ -131,6 +133,23 @@ int main(int argc, char** argv)
                   << "  startup scene: " << project.Descriptor().StartupScene.generic_string() << '\n';
         kairo::player::RuntimePhysicsBridge physics(project.Scene());
         kairo::player::RuntimeAudioBridge audio(project);
+        std::unique_ptr<kairo::player::detail::RuntimeNativeAudioOutput> audioOutput;
+        if(!arguments.SmokeTest&&audio.LoadedClipCount()!=0)
+        {
+            try
+            {
+                audioOutput=std::make_unique<kairo::player::detail::RuntimeNativeAudioOutput>(audio.OutputSampleRate());
+                if(!audioOutput->Enabled())
+                {
+                    std::cerr<<"Native audio output unavailable on this host; using headless mixer.\n";
+                    audioOutput.reset();
+                }
+            }
+            catch(const std::exception& error)
+            {
+                std::cerr<<"Native audio output unavailable: "<<error.what()<<"; using headless mixer.\n";
+            }
+        }
         kairo::player::RuntimeSceneAudioBridge sceneAudio(project.Scene(), audio);
         kairo::player::RuntimeInputBridge input(project.InputMap());
         kairo::player::RuntimeCharacterMotorBridge characterMotor(project.Scene(), physics);
@@ -235,10 +254,18 @@ int main(int argc, char** argv)
             (void)shipping.Step(static_cast<double>(elapsedSeconds));
             bridge.StepAnimations(elapsedSeconds);
 
-            // This is currently the deterministic/headless output sink: it keeps
-            // authored voices, one-shots and spatial state advancing today while
-            // preserving the returned stereo PCM boundary for native device output.
-            (void)sceneAudio.Advance(static_cast<double>(elapsedSeconds));
+            // The game thread owns mixing and scene state. The native callback
+            // consumes only bounded stereo PCM; it never touches the scene.
+            const auto pcm=sceneAudio.Advance(static_cast<double>(elapsedSeconds));
+            if(audioOutput)
+            {
+                if(audioOutput->Failed())
+                {
+                    std::cerr<<"Native audio callback failed; continuing with headless mixer.\n";
+                    audioOutput.reset();
+                }
+                else (void)audioOutput->Push(pcm);
+            }
 
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.SetCameraPose(activeCameraPose());
