@@ -658,7 +658,7 @@ int main(int argc,char** argv)
                 auto* window=renderer.NativeWindow().NativeHandle();
                 CraftMouseLook mouseLook;
                 bool focused=glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE;
-                bool mouseCaptured=true,tabHeld=false,mouseArmed=false;
+                bool mouseCaptured=true,tabHeld=glfwGetKey(window,GLFW_KEY_TAB)==GLFW_PRESS,mouseArmed=false;
                 const auto captureMouse=[&]()
                 {
                     if(glfwRawMouseMotionSupported())glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION,GLFW_FALSE);
@@ -672,15 +672,19 @@ int main(int argc,char** argv)
                 while(!renderer.NativeWindow().ShouldClose())
                 {
                     renderer.NativeWindow().PollEvents();
-                    const bool nowFocused=glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE;
+                    if(renderer.NativeWindow().ShouldClose())break;
+                    const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
+                    const bool nowFocused=CraftFrameActive(
+                        glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE,
+                        glfwGetWindowAttrib(window,GLFW_ICONIFIED)==GLFW_TRUE,frameWidth,frameHeight);
                     if(nowFocused!=focused)
                     {
                         focused=nowFocused;mouseLook.Reset();mouseArmed=false;mining.Reset();
                         actions.Reset();leftHeld=false;rightHeld=false;
                         tabHeld=glfwGetKey(window,GLFW_KEY_TAB)==GLFW_PRESS;
                     }
-                    // Do not advance physics, hunger, mining or other gameplay
-                    // while the game has no input focus. Keep polling close events.
+                    // No simulation or rendering while unfocused, iconified,
+                    // or without a drawable framebuffer. Keep polling close events.
                     if(!focused)
                     {
                         previous=std::chrono::steady_clock::now();
@@ -691,10 +695,8 @@ int main(int argc,char** argv)
                     const bool tab=key(GLFW_KEY_TAB)>0;
                     if(tab&&!tabHeld){mouseCaptured=!mouseCaptured;captureMouse();}
                     tabHeld=tab;
-                    const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
-                    // Minimized windows do not provide a drawable extent. Preserve
-                    // the previous target and avoid a zero-sized GPU allocation.
-                    if(frameWidth&&frameHeight&&(frameWidth!=hudViewport.Width||frameHeight!=hudViewport.Height))
+                    // Only active, nonzero extents reach the resize and draw path.
+                    if(frameWidth!=hudViewport.Width||frameHeight!=hudViewport.Height)
                     {
                         renderer.ResizeViewport(frameWidth,frameHeight);
                         hudViewport={frameWidth,frameHeight};

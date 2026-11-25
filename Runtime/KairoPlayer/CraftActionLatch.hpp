@@ -1,7 +1,14 @@
 #pragma once
+#include <cstdint>
 
 namespace kairo::player::detail
 {
+    // A game frame requires focus and a drawable framebuffer. Inactive
+    // frames still poll events, but never simulate or submit native work.
+    [[nodiscard]] inline constexpr bool CraftFrameActive(bool focused,bool minimized,
+        std::uint32_t width,std::uint32_t height) noexcept
+    {return focused&&!minimized&&width!=0&&height!=0;}
+
     // A discrete action is permitted once per press, after an observed
     // release in the active session. Reset on focus transitions so held
     // keys cannot synthesize a fresh craft, eat, save or jump action.

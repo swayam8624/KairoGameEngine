@@ -471,6 +471,20 @@ checkpoint 1567545d36ea154157b56741f7a093be7f20a6e5, test
 4426c7a21d63bdac5381e26f6c6b59afeff676f9, autosave
 6c42b3ed7f1974873ed173f0fd286372b41d1f63. The existing real disk regression now includes 256 v6 nested v5/v3/v4 checkpoint roundtrips (128 per world), actual safe spawn validation and wrong-world rejection. This expanded test and native demo execution still need acceptance. No release or fsync durability claim.
 
+### Interactive drawable and focus gate
+
+Both demos now skip simulation, input processing, resize and draw when
+unfocused, iconified or without a nonzero framebuffer. Poll close events
+and recheck immediately, reset input/mouse/mining on active state changes,
+reset elapsed time during pause and baseline Tab on startup. Clang 17 and
+GCC 14.2 strict C++23 ASan/UBSan passed the actual latch header/test (exact
+blobs 94facf4d6e22bb03e28fa8f5937dc92ff3e6d4e3 and
+81d3ac109463277eee4c770ddc08138a0aeb26b6): all 16 state combinations,
+100,000 randomized frame transitions (93,646 inactive, 5,934 resumes,
+109 valid actions) and the original 700,000 samples (161,096 actions)
+per compiler. No native window event validation claim. Canonical checkpoint
+stack #96–97 retained; redundant #98 closed with its commits preserved.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

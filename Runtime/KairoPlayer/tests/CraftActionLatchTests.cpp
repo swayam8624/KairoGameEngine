@@ -32,5 +32,26 @@ int main()
             if(pressed){lastPress[k]=frame;++accepted;}
         }
     }
+    for(unsigned mask=0;mask<16;++mask)
+    {
+        const bool focus=(mask&1)!=0,minimized=(mask&2)!=0;
+        const auto width=(mask&4)?960u:0u,height=(mask&8)?540u:0u;
+        Check(CraftFrameActive(focus,minimized,width,height)==(mask==13),"Frame gate truth table differs");
+    }
+    CraftActionLatch action;bool active=false,armed=false;
+    unsigned inactiveFrames=0,resumeFrames=0,frameActions=0;
+    for(unsigned frame=0;frame<100000;++frame)
+    {
+        const unsigned mask=rng()%16;
+        const bool now=CraftFrameActive(mask&1,mask&2,(mask&4)?960u:0u,(mask&8)?540u:0u);
+        if(now!=active){action.Reset();armed=false;if(now)++resumeFrames;active=now;}
+        const bool down=rng()%2;
+        if(!active){++inactiveFrames;continue;}
+        const bool expected=armed&&down;
+        Check(action.Press(down)==expected,"Frame transition synthesized or lost input");
+        armed=!down;if(expected)++frameActions;
+    }
+    Check(inactiveFrames>0&&resumeFrames>0&&frameActions>0,"Frame gate regression lacks coverage");
     std::cout<<"700000 randomized key samples and focus resets passed; "<<accepted<<" actions accepted\n";
+    std::cout<<"100000 frame transitions; "<<inactiveFrames<<" inactive frames, "<<resumeFrames<<" resumes and "<<frameActions<<" valid actions\n";
 }

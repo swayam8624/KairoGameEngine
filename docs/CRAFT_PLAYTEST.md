@@ -158,7 +158,7 @@ and preserves inventory, world edits and equipment. Equipment is persisted in th
 1. Start a visible game window, verify the scene and HUD appear, move the mouse
    and test keyboard fallback.
 2. Tab away from capture; hold a mouse button while recapturing. Verify no
-   placement or mining until release, and no camera jump. Hold E/F/R/F5 while switching focus; no new discrete action may fire until release. The simulation pauses while unfocused.
+   placement or mining until release, and no camera jump. Hold E/F/R/F5 while switching focus; no new discrete action may fire until release. The simulation and drawing pause while unfocused, minimized or without a drawable framebuffer. Hold a discrete action or Tab while minimizing and restoring; verify no new action or cursor toggle until release.
 3. Mine grass, dirt and stone; interrupt a hold by looking away. Verify progress
    resets and inventory changes only once a block is actually removed.
 4. Craft a pick, mine stone, stow/equip it, verify durability and speed. Refill
