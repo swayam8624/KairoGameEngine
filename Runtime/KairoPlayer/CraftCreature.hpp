@@ -1,5 +1,6 @@
 #pragma once
 #include "CraftCreatureNavigation.hpp"
+#include "CraftCreatureVisual.hpp"
 
 namespace kairo::player::detail
 {
@@ -10,6 +11,7 @@ namespace kairo::player::detail
         std::optional<VoxelPlayer> m_Body;
         unsigned m_Health=0,m_Respawn=60,m_Attack=0,m_Hit=0;
         double m_Remainder=0;
+        CraftCreatureVisual m_Visual;
         std::vector<std::array<double,2>> m_Path;
         std::size_t m_Next=0;
         unsigned m_Replan=0;
@@ -45,12 +47,19 @@ namespace kairo::player::detail
                 }
             m_Respawn=20; // No valid resident spawn: try again after one second.
         }
-        void Remove() noexcept{m_Body.reset();m_Health=0;m_Respawn=300;m_Attack=0;m_Hit=0;m_Path.clear();m_Next=0;m_Replan=0;}
+        void Remove() noexcept{m_Body.reset();m_Health=0;m_Respawn=300;m_Attack=0;m_Hit=0;m_Path.clear();m_Next=0;m_Replan=0;m_Visual={};}
     public:
         static VoxelPlayerConfig Config() noexcept
         {VoxelPlayerConfig c;c.Radius=.36;c.Height=1.20;c.EyeHeight=.9;c.Speed=2.0;return c;}
         [[nodiscard]] const std::optional<VoxelPlayer>& Body() const noexcept{return m_Body;}
         [[nodiscard]] unsigned Health() const noexcept{return m_Health;}
+        [[nodiscard]] CraftCreatureVisual Visual() const noexcept
+        {
+            auto pose=m_Visual;
+            pose.Attack=m_Attack>14?double(m_Attack-14)/6.:0.;
+            pose.Hit=m_Hit>6;
+            return pose;
+        }
         void Reset() noexcept{*this=CraftCreature{};}
         [[nodiscard]] bool Occupies(VoxelCoordinate cell) const noexcept
         {return m_Body&&PlayerIntersectsBlock(*m_Body,Config(),cell);}
@@ -90,7 +99,9 @@ namespace kairo::player::detail
                     const double scale=std::max(.1,std::hypot(dx,dz));input.X=dx/scale;input.Z=dz/scale;
                 }
                 else if(horizontal>1.05){input.X=dx/horizontal;input.Z=dz/horizontal;}
+                const auto oldFeet=m_Body->Feet;
                 AdvanceVoxelPlayer(*m_Body,config,input,.05,query);
+                m_Visual.Observe(m_Body->Feet[0]-oldFeet[0],m_Body->Feet[2]-oldFeet[2]);
                 const std::array from{m_Body->Feet[0],m_Body->Feet[1]+.8,m_Body->Feet[2]};
                 const std::array to{player.Feet[0],player.Feet[1]+.8,player.Feet[2]};
                 if(!m_Attack&&Distance(from,to)<=1.4&&Clear(from,to,query))
@@ -122,7 +133,7 @@ namespace kairo::player::detail
             return Clear(eye,point,query);
         }
         // The caller has just tested aim; one hit per half-second, three
-        // unarmed hits to defeat. No loot or tool wear in this prototype.
+        // unarmed hits to defeat. The combat reward layer owns loot.
         bool Strike() noexcept
         {
             if(!m_Body||m_Hit)return false;

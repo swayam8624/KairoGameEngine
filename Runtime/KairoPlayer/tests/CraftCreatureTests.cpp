@@ -8,6 +8,43 @@ const auto flat=[](VoxelCoordinate c)->std::optional<VoxelMaterial>{return c.Y<0
 }
 int main()
 {
+    CraftCreatureVisual pose;
+    const auto idle=BuildCraftCreatureRig(pose);
+    pose.Observe(.1,0.);
+    Check(pose.Stride>.99&&std::abs(pose.Yaw-std::numbers::pi/2)<1e-10,"Gait facing differs");
+    const auto walking=BuildCraftCreatureRig(pose);
+    Check(idle[3].Origin!=walking[3].Origin,"Walking did not articulate legs");
+    const auto phase=pose.Phase;pose.Observe(0,0);
+    Check(pose.Stride==0&&pose.Phase==phase,"Idle accumulated gait");
+    for(unsigned i=0;i<360;++i)
+    {
+        pose.Yaw=double(i)*std::numbers::pi/180.;pose.Phase=pose.Yaw;pose.Stride=1;pose.Attack=1;
+        for(const auto& box:BuildCraftCreatureRig(pose))for(unsigned corner=0;corner<8;++corner)
+        {
+            auto v=box.Origin;
+            for(unsigned axis=0;axis<3;++axis)if(corner&(1u<<axis))
+                for(unsigned component=0;component<3;++component)v[component]+=box.Axes[axis][component];
+            Check(std::abs(v[0])<=.36&&std::abs(v[2])<=.36&&v[1]>=0&&v[1]<=1.20,"Visual rig escaped collision envelope");
+        }
+    }
+    // Independent yaw, gait, stride and attack values cover combinations
+    // beyond the correlated sweep above. Check all transformed cube corners.
+    std::mt19937_64 visualRng(421);
+    std::uniform_real_distribution<double> angle(-std::numbers::pi,std::numbers::pi),unit(0,1);
+    for(unsigned i=0;i<100000;++i)
+    {
+        const CraftCreatureVisual sample{angle(visualRng),angle(visualRng),unit(visualRng),unit(visualRng),false};
+        for(const auto& part:BuildCraftCreatureRig(sample))for(unsigned corner=0;corner<8;++corner)
+        {
+            auto v=part.Origin;
+            for(unsigned axis=0;axis<3;++axis)if(corner&(1u<<axis))
+                for(unsigned component=0;component<3;++component)v[component]+=part.Axes[axis][component];
+            Check(std::abs(v[0])<=.36&&std::abs(v[2])<=.36&&v[1]>=0&&v[1]<=1.2,"Random rig escaped collision envelope");
+        }
+    }
+    std::cout<<"100000 randomized poses and 5600000 transformed corners passed\n";
+    pose.Hit=true;
+    Check(BuildCraftCreatureRig(pose)[0].Color==std::array<float,3>{1.f,.42f,.22f},"Hit flash missing");
     CraftCreature creature;VoxelPlayer player{{.5,0,.5}};
     for(unsigned i=0;i<59;++i)Check(creature.Advance(.05,player,flat)==0&&!creature.Body(),"Early spawn");
     Check(creature.Advance(.05,player,flat)==0&&creature.Body()&&creature.Health()==12,"Spawn missing");
@@ -42,7 +79,7 @@ int main()
         {
             const auto d=a.Advance(.1,player,flat);const double part=double(rng()%101)/1000.;
             const auto first=b.Advance(part,player,flat),second=b.Advance(.1-part,player,flat);
-            Check(d==first+second&&a.Health()==b.Health()&&bool(a.Body())==bool(b.Body()),"Partition state mismatch");
+            Check(d==first+second&&a.Health()==b.Health()&&bool(a.Body())==bool(b.Body())&&a.Visual()==b.Visual(),"Partition state or animation mismatch");
             if(a.Body())Check(a.Body()->Feet==b.Body()->Feet&&!VoxelPlayerBlocked(*a.Body(),CraftCreature::Config(),flat),"Partition movement mismatch");
         }
     }
