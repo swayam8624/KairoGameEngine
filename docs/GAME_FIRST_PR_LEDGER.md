@@ -208,6 +208,18 @@ Total campaign 54 PRs, 39 previously verified merged, 15 pending at observation.
 
 Total campaign 57 PRs, 39 previously verified merged, 18 pending review. Engine #55 through #68 in stack order; Core #31–33 and independent Renderer #38 dependencies; final merged-lock and Metal acceptance required. No default branch mutations.
 
+### Streamed survival, asynchronous generation and inventory (2026-11-25)
+
+Executed previous evidence: Engine #62 exact-head run 45591323290 passed CPU/native, 184,619 exposed unit faces expanded and compared, 165,274 greedy quads; solid 16^3 chunk reduced 1536 faces to six quads. #63 run 45591844695 passed, 9 seeded chunks, 510 quads, 1020 triangles. #65 implementation run 45592289632 passed native remove/place/restore with exact baseline image and clean shutdown, plus 10,000 three-chunk publication transactions, 36,864 restored voxels, 100 corruptions and 7,129 overrides serialized to 99,838 bytes. Explorer native jump peak 1.27375 m passed. #67 ownership job 139135431374 passed AABB collision (apex 1.2742 m, wall/ceiling/unknown/high-speed fall and 10,000 large-coordinate steps) and 10,000 window transitions, 176,898 retained slots, 73,102 loads. #67 native in progress; #68 native queued.
+
+[Engine #69](https://github.com/swayam8624/KairoGameEngine/pull/69), feat/craft-stream-survival-save, implementation head da1dbbdcab601d4b837bdff0137b709a9e7996c6, stacked on #68. Streamed survival controller, safe placement, signed-coordinate v2 persistence, F5/startup save, v1/v2 separation. Tests include 10,000 edits, billion-meter coordinates, 100 corruptions, halo-domain rejection; native survival jump and save roundtrip. CI 45598961770 queued.
+
+[Engine #70](https://github.com/swayam8624/KairoGameEngine/pull/70), feat/craft-async-meshing, implementation head e6a32eaf7ce11a931e4580f8eaf89056ad913aa0, stacked on #69. Optional 1–8 workers, fixed eight queue slots, immutable snapshot per window, generation identifiers, cancelled queued jobs and discarded stale results. Nonblocking interactive polling; complete candidate window uploaded/published on render thread; old scene remains until ready. Edits invalidate pending snapshots. CPU synchronous-oracle test across 40 transitions and stale generation; native four-worker smoke. CI 45599192333 queued. Upload/edit remesh remain synchronous; no measured latency.
+
+[Engine #71](https://github.com/swayam8624/KairoGameEngine/pull/71), feat/craft-survival-inventory, implementation head 8b9338bc56f6b1e1dbcb51bb61b2892f4a41c8e9, stacked on #70. Four material stacks (999 each), selected material, mining credit and placement debit only on successful native edit, body/occupancy guards. V3 session envelope wraps v2 world plus inventory; v2 upgrades empty, v1 rejected. CPU 10,000 mine/place conservation cycles, failed edit and corruption tests; native inventory edit/restore smoke. CI 45599450571 queued. Creative can alter same world; not anti-cheat. No recipes/HUD/player pose yet.
+
+Total campaign 60 PRs, 39 previously verified merged, 21 pending at observation. Engine #55 through #71 in stack order, required Core #31–33 and independent Renderer #38. Final actual merged pins and Metal acceptance still required. Next: multiple vertical voxel chunks, cave generation, granular upload budgets, recipes and proper HUD. No default branch modifications.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
