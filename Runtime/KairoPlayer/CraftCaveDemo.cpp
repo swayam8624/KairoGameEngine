@@ -386,8 +386,15 @@ int main(int argc,char** argv)
                     throw std::runtime_error("Cave revisit failed.");
                 const auto baseline=capture(8.5,-7.5,8.5,{0,0,-1});
                 createHud();hudEnabled=true;
-                if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA==baseline.RGBA)
+                const auto normalHud=capture(8.5,-7.5,8.5,{0,0,-1});
+                if(normalHud.RGBA==baseline.RGBA)
                     throw std::runtime_error("Cave HUD did not appear.");
+                aimedHealth=12;
+                if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA==normalHud.RGBA)
+                    throw std::runtime_error("Cave combat HUD capture unchanged.");
+                aimedHealth=0;
+                if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=normalHud.RGBA)
+                    throw std::runtime_error("Cave combat HUD clear did not restore normal HUD.");
                 hudEnabled=false;oldSubmit(pub.Active());
                 if(capture(8.5,-7.5,8.5,{0,0,-1}).RGBA!=baseline.RGBA)
                     throw std::runtime_error("Removing cave HUD changed world.");

@@ -450,8 +450,7 @@ of the native HUD cache key; ordinary block targeting keeps the original
 white crosshair. Exact standalone HUD policy passed 100,000 randomized
 health states plus invalid-state and target-removal cases on both Clang and
 GCC with ASan/UBSan. Exact blobs 62093ecf32f7daa5fdc9e45fff21a0cbf89a8445
-and b80abb4d434e0b568e04b13ebe5c8db7ef67b0ce. Full integrated geometry
-and publication tests added but not yet locally executed; native CI pending.
+and b80abb4d434e0b568e04b13ebe5c8db7ef67b0ce. The updated exact HUD cache header 2f99430a547ab644b20f1477d467cb8b8da43e9b and test 867249609379baa236f9f466b0740199bb02535d also passed Clang/GCC ASan/UBSan, 100,000 idle frames and 100,000 randomized transitions with 32,561 publications and combat-specific cache transitions. Both native smoke paths now require the combat HUD to change pixels and clear back to the exact normal HUD. These native tests and the full integrated HUD geometry test remain pending.
 
 ## Final integration gate
 

@@ -537,6 +537,12 @@ int main(int argc,char** argv)
                     createHud();hudEnabled=true;
                     const auto withHud=capture(.5,.5);
                     if(withHud.RGBA==baseline.RGBA)throw std::runtime_error("HUD did not appear in native capture.");
+                    aimedHealth=12;
+                    if(capture(.5,.5).RGBA==withHud.RGBA)
+                        throw std::runtime_error("Combat HUD capture unchanged.");
+                    aimedHealth=0;
+                    if(capture(.5,.5).RGBA!=withHud.RGBA)
+                        throw std::runtime_error("Combat HUD clear did not restore normal HUD.");
                     hudEnabled=false;committedSubmit(publication.Active());
                     if(capture(.5,.5).RGBA!=baseline.RGBA)throw std::runtime_error("HUD removal changed world.");
                     // Exercise actual native target resize in both aspect directions,
