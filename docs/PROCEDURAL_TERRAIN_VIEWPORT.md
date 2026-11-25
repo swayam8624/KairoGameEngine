@@ -32,3 +32,15 @@ are acknowledged, including failures. Shutdown is terminal and retryable;
 the planner's reservation snapshot is no longer an active runtime after shutdown.
 
 The demo now chooses a cell-aligned double-precision render origin and rebases its camera and terrain together. `--far-origin` exercises a world centered near (+1e9,-1e9) meters; the smoke compares captures at two render origins for the same world location and requires unchanged residency. The caller must still independently rebase authored objects, general player state and physics. Full floating-origin orchestration, picking terrain, physics heightfield shapes, dynamic job reprioritization and measured GPU memory budgets are not implemented. No hardware performance claims.
+
+## Error-controlled terrain LOD (review candidate)
+
+`--workers 4 --lod` enables distance/hysteresis-based mixed detail and
+resident replacements. `--workers 4 --error-mm 1000` additionally caps the
+maximum nominal vertical deviation from the full-resolution heightfield at
+1000 mm. An initial worker measures all supported levels once per load;
+resident meshes retain their small fixed-size error profile and replacements
+reuse it. Unloading a cell discards its profile. The bound does not cover
+GPU float rounding, shading or projected screen-space error. The LOD stack
+requires the merged EngineCore #31–33 revisions to be pinned before acceptance;
+the temporary native CI candidate override is only for review.
