@@ -174,6 +174,18 @@ Engine #57 native terrain run 45585486775 passed: error ceiling 1000 mm, maximum
 
 Total campaign 48 PRs, 39 previously verified merged, nine pending at observation. Review Renderer #38 independently; Core #31 -> #32 -> #33; Engine #55 -> #56 -> #57 -> #58 -> #59. Final acceptance requires actual merged dependency pins and removing the temporary EngineCore candidate override; rerun native Metal and cross-platform tests. No direct default-branch mutations.
 
+### Explorer jump and Craft foundations (2026-11-25)
+
+Engine #58 native Vulkan run 45587962382 passed: 20 px projected error target, maximum settled estimate 13.6299 px, 20 resident replacements. Engine #59 CPU walking contract passed (job 139115744847); native explorer runs 45588373182 and 45588550016 still in progress at observation.
+
+[Engine #60](https://github.com/swayam8624/KairoGameEngine/pull/60), feat/terrain-explorer-jump, implementation head a933ddbd47b158e217e35066996ff3b6592c6f61, stacked on #59. Adds Space edge-triggered ballistic point jumping, gravity in spatial/temporal substeps, sampled canonical terrain landing, no double jump, missing cells and tall step barriers. CPU ASan/UBSan job 139123842345 passed, apex 1.2742 m, 10,000 grounded large-world steps and landing/barrier tests. Native jump then travel smoke queued in run 45590694819. Not capsule collision or exact swept collision.
+
+[Engine #61](https://github.com/swayam8624/KairoGameEngine/pull/61), feat/voxel-world-interaction, implementation head fbad4d34c6d3b4b916f2ceb5b11c710a02c3470d, stacked on #60. Bounded baseline-relative voxel edit map (air ID 0), reversion reclaims space; signed-grid DDA returns first solid and unique face-adjacent air placement. Unknown cell stops traversal. Exact computed ties advance all axes; no arbitrary-precision tie guarantee. 20,000 randomized ray-box oracle comparisons and explicit corner, negative boundary, unknown and budget cases. CI 45590992468 queued. No player-facing edits or persistence yet.
+
+[Engine #62](https://github.com/swayam8624/KairoGameEngine/pull/62), feat/voxel-chunk-meshing, implementation head 0db87541ee728084bfbfb906361d235ba71e0bbd, stacked on #61. Material-preserving greedy opaque rectangular quads, signed absolute chunk origin, chunk-local integer corners, one-cell halo, no internal solid-solid faces across chunk boundaries; missing exterior flagged for remesh, missing interior rejected. CPU tests cover 40 randomized 16^3 chunks against expanded unit-face oracle, materials, winding, known/unknown halo, solid 16^3 cube expected 1536 exposed unit faces -> 6 quads. CI 45591202132 queued. No native rendering, transparent materials, T-junction stitching or live remesh yet. Next: native mesh adapter, deterministic voxel baseline, transactional edit-triggered remeshing, playable place/remove controls and persistence.
+
+Total campaign 51 PRs, 39 previously verified merged, 12 pending at observation. Engine #55 -> #56 -> #57 -> #58 -> #59 -> #60 -> #61 -> #62; Core #31 -> #32 -> #33, Renderer #38 independent. Final accepted dependency pins and Metal gate still required. No direct default-branch modifications.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
