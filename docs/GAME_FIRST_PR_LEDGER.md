@@ -244,6 +244,12 @@ Confirmed earlier: #55, #56 and racing integration failed MetalBackend.mm warnin
 
 The malformed candidate workflow was reconstructed from #75 in 9ee2aca; GitHub accepted all three jobs (ownership, native-vulkan, native-metal) in run 45602979574. Subsequent candidate work replaces hardcoded survival spawn with deterministic bounded search of the edited authoritative world before selecting resident chunks. The CPU regression covers 1,024 seeds, determinism, unsupported shafts, unavailable/empty/solid worlds and an actual serialized edited spawn column. Search covers 17x17 horizontal cells and supported surface positions only; if no admissible position exists, startup fails explicitly rather than spawning inside geometry. Creative camera startup and session format are unchanged. Native acceptance and the new CPU regressions remain pending.
 
+### Accepted combined review candidate and merged dependency lock (2026-11-25)
+
+Engine #76 exact head 1321d5351b813bfbac53d892c0dc6d92044124ea passed all six PR workflows: procedural terrain 45603914470, racing macOS 45603914513, Wave C/E 45603914479, racing compile 45603914828, full Build/Test/Package 45603914792 and scope 45603915061. Procedural Vulkan job 139169678209: 18/18 contracts, native Craft and cave captures; Metal job 139169678712: 18/18 contracts, 2/2 Metal skin/instance smokes, actual gameplay captures, clean exact lock before/after. Cave 90 loads, 63 evictions, peak four uploads.
+
+Merged Core #31 4a36ac2362ed7cb0743cff87890d9cae1dafb3b1, #32 d06860cf7cebe0269c3c7039dcbc7ab22bf33458, #33 523ed41da74ee117256281a3ebc45cde91368bc6; Renderer #38 f46e1bbacb6235d9714896e281beb695b5dbc52d. Core merged/review tree SHA identical (32dc2194f2ff0612e0637f8cf710aad4e263a580), Renderer merged/review tree SHA identical (82bda21678dd44f635e904da661323dfec86e967). Standalone Linux/Windows passed; standalone macOS jobs cancelled, combined exact review lock native macOS acceptance passed. This branch aggregates #55–76 against main, replaces ONLY those two dependency SHA values and reruns all acceptance against the actual merged lock. Earlier individual engine branches still contain historical pins; do not merge them independently with stale dependencies. Later UI/survival feature branches remain outside this integration candidate. New exact-lock runs pending.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
