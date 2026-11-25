@@ -340,6 +340,24 @@ and Metal CI run copied surface/cave executables outside the build tree.
 No claim of self-contained distribution, Windows launcher execution or
 native acceptance; earlier integration candidates unchanged.
 
+### Surface day/night lighting and MSVC repair
+
+Renderer #39–42 repaired C4457 (viewport overlay extent shadowed swapchain
+extent in VulkanTriangle::Record). Latest exact renderer pin
+617f3eceb26b56932f91788f0d6629edd2f13cf4. Fresh Windows/native validation
+pending. Earlier queued review heads remain unchanged.
+
+Surface daylight uses a ten-minute simulation cycle, 240 quantized samples,
+bounded frame contribution, continuous sky/ambient/sun colors and normalized
+sun direction. Updates authored light/environment without regenerating
+terrain meshes. Local Clang and GCC C++23 ASan/UBSan passed all 240 phase
+samples and 100,000 randomized frame partition comparisons per compiler.
+Exact header d0ae9a75574b2c612e13d42e3a1d992980c5d0d0 and test
+597c62379e14da8198e108a5b7adc699c0922a28. Native smoke checks noon/night
+capture difference, unchanged residency/edit counts and exact restored
+baseline. Full native acceptance remains pending. No persistent world clock,
+dynamic shadows, weather, mobs or underground lighting change in this pass.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.

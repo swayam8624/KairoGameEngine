@@ -8,6 +8,7 @@
 #include "CraftHudPublication.hpp"
 #include "CraftVitals.hpp"
 #include "CraftNutrition.hpp"
+#include "CraftDaylight.hpp"
 #include "CraftSurfaceSpawn.hpp"
 #include "CraftMining.hpp"
 #include "CraftEquipment.hpp"
@@ -130,6 +131,24 @@ int main(int argc,char** argv)
         sun.Type=RenderLightType::Directional;
         sun.Direction={.6f,1.f,.4f};sun.Intensity=3.f;sun.CastShadows=false;
         authored.AddLight(sun);
+        // Time-of-day modifies only authored lighting; the current native
+        // mesh handles and chunk generation remain untouched.
+        const auto applyDaylight=[&](unsigned step)
+        {
+            const auto light=CraftDaylight::Sample(step);
+            RenderScene next;
+            auto directional=sun;
+            directional.Direction={light.SunDirection[0],light.SunDirection[1],light.SunDirection[2]};
+            directional.Color={light.SunColor[0],light.SunColor[1],light.SunColor[2]};
+            directional.Intensity=light.SunIntensity;
+            next.AddLight(directional);
+            RenderEnvironment environment;
+            environment.BackgroundColor={light.Sky[0],light.Sky[1],light.Sky[2]};
+            environment.AmbientColor={light.Ambient[0],light.Ambient[1],light.Ambient[2]};
+            environment.AmbientIntensity=light.AmbientIntensity;
+            next.SetEnvironment(environment);
+            authored=std::move(next);
+        };
         std::optional<MeshHandle> hudMesh;
         std::optional<CameraPose> hudPose;
         bool hudEnabled=false;
@@ -475,6 +494,20 @@ int main(int argc,char** argv)
                         throw std::runtime_error("Recipe transaction failed.");
                     std::cout<<"Native camera-aligned HUD capture and recipe transaction passed\n";
                 }
+                // Prove native day/night changes without any chunk loads
+                // or edits. Restore the exact prior authored scene.
+                const auto beforeLighting=authored;
+                const auto previousLoads=loads,previousEdits=edits;
+                applyDaylight(60);committedSubmit(publication.Active());
+                const auto day=capture(.5,.5);
+                applyDaylight(180);committedSubmit(publication.Active());
+                const auto night=capture(.5,.5);
+                if(day.RGBA==night.RGBA||loads!=previousLoads||edits!=previousEdits)
+                    throw std::runtime_error("Daylight capture or mesh residency differs.");
+                authored=beforeLighting;committedSubmit(publication.Active());
+                if(capture(.5,.5).RGBA!=baseline.RGBA)
+                    throw std::runtime_error("Restored daylight capture differs.");
+                std::cout<<"Native day/night lighting and unchanged mesh residency passed\n";
                 if(batch&&(peakUploads==0||peakUploads>uploadBudget))throw std::runtime_error("Upload budget exceeded.");
                 if(batch)std::cout<<"Craft peak streaming upload calls per update "<<peakUploads<<"; budget "<<uploadBudget<<"\n";
                 if(batch)std::cout<<"Craft worker batch mode: "<<workers<<" workers, "<<batch->StaleCount()<<" discarded jobs\n";
@@ -490,6 +523,9 @@ int main(int argc,char** argv)
                     x=player.Feet[0];y=player.Feet[1]+bodyConfig.EyeHeight;z=player.Feet[2];
                     createHud();hudEnabled=true;
                 }
+                CraftDaylight daylight;
+                unsigned publishedDaylight=daylight.Step();
+                applyDaylight(publishedDaylight);committedSubmit(publication.Active());
                 CraftActionInputs actions;
                 bool leftHeld=false,rightHeld=false;
                 std::string previousTitle;
@@ -541,6 +577,13 @@ int main(int argc,char** argv)
                     const auto now=std::chrono::steady_clock::now();
                     const double dt=std::min(.1,std::chrono::duration<double>(now-previous).count());
                     previous=now;
+                    daylight.Advance(dt);
+                    if(daylight.Step()!=publishedDaylight)
+                    {
+                        applyDaylight(daylight.Step());
+                        committedSubmit(publication.Active());
+                        publishedDaylight=daylight.Step();
+                    }
                     double cursorX=0,cursorY=0;
                     glfwGetCursorPos(window,&cursorX,&cursorY);
                     const auto look=mouseLook.Observe(focused&&mouseCaptured,cursorX,cursorY);

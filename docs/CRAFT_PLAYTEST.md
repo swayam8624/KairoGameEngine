@@ -7,7 +7,7 @@ these later changes still require exact-head acceptance.
 
 ## CPU acceptance without the graphics SDK
 
-Run the complete 24-contract C++23 suite on a source checkout:
+Run the complete 25-contract C++23 suite on a source checkout:
 
 ```bash
 CXX=clang++ bash scripts/run_craft_cpu_contracts.sh
@@ -79,6 +79,14 @@ build shader path is intended to be required. Native moved-directory and
 relocated executable tests remain pending. The bundle does not collect dynamic
 libraries, graphics drivers, code signatures or installer metadata, and must
 be tested on a host with the required runtime dependencies.
+
+## Surface lighting cycle
+
+Surface play starts at noon and cycles through dusk, night and dawn over ten
+minutes of focused simulation. Lighting updates at 240 quantized phases per
+cycle, without regenerating the resident terrain meshes. Night retains a dim
+ambient floor. The clock pauses when focus is lost and resets on restart; it
+does not yet persist or affect cave lighting, weather or mob spawning.
 
 ## Save-file replacement and recovery
 
