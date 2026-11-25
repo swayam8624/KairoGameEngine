@@ -66,6 +66,11 @@ add_executable(KairoSimulationLab SimulationLab.cpp)
 target_link_libraries(KairoSimulationLab PRIVATE KairoPlayerRuntime)
 set_property(TARGET KairoSimulationLab PROPERTY COMPILE_WARNING_AS_ERROR ON)
 
+# Shared native 2D game presentation, using the existing renderer overlay.
+add_executable(KairoGameLab GameLab.cpp)
+target_link_libraries(KairoGameLab PRIVATE KairoPlayerRuntime)
+set_property(TARGET KairoGameLab PROPERTY COMPILE_WARNING_AS_ERROR ON)
+
 add_executable(KairoPlayer main.cpp)
 target_link_libraries(KairoPlayer PRIVATE KairoPlayerRuntime)
 if(APPLE)
@@ -166,6 +171,11 @@ if(BUILD_TESTING)
     endif()
     # Platformer simulation and playable text demo share the same fixed tick kernel.
     # Strategy rules and sample share the same deterministic map simulation.
+    add_executable(KairoPlayerGridCanvasTests tests/RuntimeGridCanvasTests.cpp)
+    target_include_directories(KairoPlayerGridCanvasTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(KairoPlayerGridCanvasTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerGridCanvasTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerGridCanvasTests COMMAND KairoPlayerGridCanvasTests)
     add_executable(KairoPlayerStrategyTests tests/RuntimeStrategyTests.cpp)
     add_executable(KairoStrategyDemo ../../Samples/StrategyLab/StrategyDemo.cpp)
     foreach(target KairoPlayerStrategyTests KairoStrategyDemo)
