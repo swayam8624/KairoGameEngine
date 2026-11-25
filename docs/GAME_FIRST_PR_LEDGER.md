@@ -274,6 +274,12 @@ Craft a stone pick (F: 2 dirt + 3 stone), toggle equipped/stowed (G), 2x mining 
 
 Renderer #40 Linux and required Vulkan build failed due duplicate local variable in VulkanInstancingSmoke; both #39/#40 fixed, this candidate pins corrected #40 head 8d002fa441ed6748470c4e38373776e9d35f5d44 and already-merged Core #33 tree 523ed41da74ee117256281a3ebc45cde91368bc6. Baseline merged-lock acceptance is separate Engine #83. No claim that the overlay repair passes native tests yet.
 
+### Actual standalone Vulkan presentation candidate (2026-11-25)
+
+Renderer #39 repaired exact head 8cc5f13d5b616d43da371c707190d4c3e48faa2b passed required software Vulkan smoke 45624713524, including native depth-independent viewport UI, clipping, painter order, picking and untouched image pixels. Renderer #40 repaired head 8d002fa441ed6748470c4e38373776e9d35f5d44 still awaits native Metal. Renderer #41 implements missing default standalone swapchain draw: sample HDR viewport with fullscreen triangle, preserve editor callback, rebind descriptor by viewport generation after fence, global image dependencies, correct orientation and UNORM/SRGB handling. New required Xvfb test samples the actual visible window after viewport resize, not the renderer's capture. This candidate pins #41 exact review head 1312532edf3d19123ffba66172df74e6a51cc01a; native presentation not yet validated.
+
+Equipment v5 outer codec exact blob 5ac607962efd8bc5f779d9d5c1217ea50484daca passed a local isolated Clang C++23 ASan/UBSan harness: 10,000 synthetic v3/v4-tagged envelope roundtrips and 40,000 corruption/truncation/invalid-state/size-limit rejections, using identical CraftSave checksum and byte helper implementations extracted from existing source. This verifies outer envelope only; the checked-in regression compiles against full real headers and the integrated surface/cave codec tests separately exercise genuine world data. New merged-lock baseline Engine #83 remains queued; do not conflate with this later candidate.
+
 ## Final integration gate
 
 1. Preserve the local working tree and inspect pending diffs and the merged revision history.
