@@ -464,3 +464,7 @@ Read [demo GLB generator](Samples/AssetCatalog/create_demo_catalog.py) for binar
 ## Teaching pass: shipping and production adapters
 
 Read [RuntimeShippingBridge](Runtime/KairoPlayer/RuntimeShippingBridge.cppm) after ShippingRuntime.cppm in the EngineCore inventory; trace UI lifetime, state snapshots, replay and audio levels. Read [RuntimeProductionSystemsBridge](Runtime/KairoPlayer/RuntimeProductionSystemsBridge.cppm) after ProductionSystemsManifest.cppm and ProductionRuntime.cppm; follow camera position, optional manifest, budget and profile. Then revisit main.cpp to see the actual frame composition.
+
+## M50 local matchmaking
+
+After the network protocol and prediction lab, read [directory](scripts/kairo_matchmaking.py), [race and lifecycle tests](scripts/tests/test_kairo_matchmaking.py), and [native discovery harness](Samples/NetworkLab/run_matchmaking.py). Trace SQLite transaction isolation, seat counts, ownership, expiration and process cleanup to the existing native client/server connection.
