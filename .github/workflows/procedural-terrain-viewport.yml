@@ -1,7 +1,7 @@
 name: Procedural terrain viewport
 on:
   push:
-    branches: [main, integration/merged-terrain-renderer]
+    branches: [main, integration/merged-terrain-renderer, feat/terrain-live-lod]
   pull_request:
     paths:
       - 'workspace.lock'
@@ -45,6 +45,11 @@ jobs:
           repos=(KairoMath KairoGeometry KairoSpatial KairoPhysicsMath KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection KairoEngineCore KairoRenderer KairoEditor)
           bash scripts/materialize_workspace_lock.sh "${repos[@]}"
           bash scripts/verify_workspace_lock.sh "${repos[@]}"
+          # Temporary review-only override; release lock remains the merged revision.
+          candidate=9f067b204bf42010412f7f9318cd26985ee7618b
+          git -C ../KairoEngineCore fetch --no-tags origin "$candidate"
+          git -C ../KairoEngineCore checkout --detach "$candidate"
+          test "$(git -C ../KairoEngineCore rev-parse HEAD)" = "$candidate"
       - name: Install native software Vulkan and build tools
         run: |
           sudo apt-get update
@@ -54,7 +59,7 @@ jobs:
           test -n "$icd"
           echo "VK_DRIVER_FILES=$icd" >> "$GITHUB_ENV"
           echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
-      - name: Compile procedural viewport against merged dependency lock
+      - name: Compile procedural viewport against explicit LOD review candidate
         run: |
           cmake --preset game-player-clang -DKAIRO_PLAYER_BUILD_PROCEDURAL_TERRAIN=ON -DKAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE=OFF -DCMAKE_BUILD_TYPE=Release
           cmake --build --preset game-player-clang --parallel 2 --target KairoTerrainDemo KairoTerrainNativeStoreTests KairoTerrainGenerationQueueTests KairoTerrainRenderOriginTests
@@ -68,6 +73,7 @@ jobs:
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --async 2>&1 | tee build/terrain-diagnostics/async-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --workers 4 2>&1 | tee build/terrain-diagnostics/pool-smoke.log
           xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --workers 4 --far-origin 2>&1 | tee build/terrain-diagnostics/far-smoke.log
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" build/game-player-clang/Runtime/KairoPlayer/KairoTerrainDemo --renderer vulkan --seed 42 --smoke --workers 4 --lod 2>&1 | tee build/terrain-diagnostics/lod-smoke.log
           if grep -E 'Validation Error|VUID-.*ERROR|UNASSIGNED-.*ERROR' build/terrain-diagnostics/*smoke.log; then exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()
