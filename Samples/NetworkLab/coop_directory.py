@@ -44,10 +44,8 @@ def host(directory,binary,name):
 def join(directory,binary,session,player,graphical=False,backend='auto',smoke=False):
     """Reserve once, pass only this seat credential, then clean membership."""
     executable=str(binary.resolve(strict=True))
-    member=directory.join(session,player)
+    member=directory.join(session,player,require_protected=True)
     try:
-        if 'seat' not in member:
-            raise ValueError('Select a protected co-op session')
         args=[executable,str(member['port'])] if graphical else [executable,'client',str(member['port'])]
         if graphical:
             if backend!='auto':
