@@ -329,3 +329,8 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 
 - Added deterministic portable health policy, validated hazard/checkpoint zones, cooldown and fall death. Bound it to the generic Player fixed-step controller and existing motor teleport; combined health and collectible overlay ownership.
 - Added Health Arena authored project, actual physics/motor integration CTest and Vulkan smoke gate. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized core samples; GitHub blobs match the locally tested source. Native execution remains pending.
+
+## M50 — raycast combat and destructible targets (2026-11-26)
+
+- Added authored combat configuration, discrete fixed-tick attack presses, bounded damage and cooldown state. Runtime adapter uses the locked PhysicsWorld RaycastAll query, ignores the player's collider and stops at the nearest solid hit. Destroyed static target roots are deactivated through the existing physics topology adapter before hiding their mesh.
+- Added Combat Arena and actual module integration CTest for occlusion and destruction. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized portable state samples. Exact Git blobs verified. Native execution pending.
