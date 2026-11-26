@@ -359,3 +359,8 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 
 - Added typed door-open, door-lock and door-auto actions and optional initial door mode. Generic Player validates registered door targets and routes commands through the fixed-step door adapter; old automatic door and visual event records remain supported.
 - Added Key Gate Arena and native collider/command plus collectible-dispatch acceptance gates. All nine actual local strict GCC, Clang and Clang ASan/UBSan runs passed (50,000 original event, 50,000 automatic door, and 50,000 new gate control samples per environment). Exact updated and new test blobs verified. Native tests remain unexecuted locally.
+
+## M50 — combat presentation and attack animation selection (2026-11-26)
+
+- Added accepted launch serial and read-only flight positions; dedicated authored visual-only mesh markers reuse slots without creating per-shot resources. Optional imported player visual selects Idle/Attack through existing render animation clock. Fixed presentation window; no crossfade.
+- Added Visible Projectile Arena, full-workspace marker lifecycle CTest and portable presentation regression. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized presentation samples. Exact source hashes verified. Native scene adapter, renderer and imported attack clip verification remain pending.

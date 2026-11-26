@@ -44,6 +44,7 @@ import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeDoorBridge;
 import Kairo.Player.RuntimeHealthBridge;
 import Kairo.Player.RuntimeCombatBridge;
+import Kairo.Player.RuntimeCombatPresentationBridge;
 import Kairo.Player.RuntimeEnemyBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
 import Kairo.Player.RuntimePlayerControllerBridge;
@@ -191,6 +192,8 @@ int main(int argc, char** argv)
                 "A kairo.player-controller entity requires a project input action named 'Move'.");
         kairo::player::RuntimeCombatBridge combat(project,physics,playerController.PrimaryController());
         if(combat.Enabled())std::cout<<"  combat: enabled\n";
+        kairo::player::RuntimeCombatPresentationBridge combatPresentation(project,combat,playerController.PrimaryController());
+        if(combatPresentation.MarkerCount())std::cout<<"  projectile markers: "<<combatPresentation.MarkerCount()<<'\n';
         kairo::player::RuntimeHealthBridge health(project,physics,characterMotor,playerController.PrimaryController());
         if(health.Enabled())std::cout<<"  health: "<<health.Health()<<'/'<<health.Maximum()<<'\n';
         kairo::player::RuntimeEnemyBridge enemies(project,physics,characterMotor,playerController.PrimaryController(),health.Enabled());
@@ -376,6 +379,7 @@ int main(int argc, char** argv)
             project.Descriptor().Name + " - KairoPlayer", 1280u, 720u, true,
             backend });
         kairo::player::RuntimeRenderBridge bridge(renderer, project);
+        combatPresentation.BindAnimation(bridge);
         // An authored menu is optional. The same shipping scene is used by
         // the native host for layout, labels and command activation.
         std::unique_ptr<kairo::player::RuntimeMenuHost> menu;
@@ -475,6 +479,7 @@ int main(int argc, char** argv)
             production.Step(static_cast<double>(elapsedSeconds));
             (void)shipping.Step(static_cast<double>(elapsedSeconds));
             bridge.StepAnimations(elapsedSeconds);
+            combatPresentation.Step(elapsedSeconds,&bridge);
             // Menu frames never advance proximity state. Apply explicit
             // show/hide events in ascending rule order before scene extraction.
             if(triggers&&controlledEntity&&project.Scene().Contains(*controlledEntity))
