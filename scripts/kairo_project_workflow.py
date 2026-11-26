@@ -40,7 +40,10 @@ class ProjectTools:
             raise ValueError('Unknown action or renderer')
         p = str(self.project)
         if action == 'editor':
-            return [[self.binary('KairoEditorApp','components/KairoEditor','KairoEditor'), '--project', p]]
+            command = [self.binary('KairoEditorApp','components/KairoEditor','KairoEditor'), '--project', p]
+            if renderer != 'auto':
+                command += ['--renderer',renderer]
+            return [command]
         if action == 'gameplay':
             if self.project.name != 'Project.kproject':
                 raise ValueError('Gameplay editor requires canonical Project.kproject')
