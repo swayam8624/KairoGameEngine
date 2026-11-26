@@ -83,6 +83,15 @@ class WorkflowTests(unittest.TestCase):
         with patch.object(tk.Tk,'mainloop',exercise):
             self.assertEqual(gui(self.project,self.build,'auto'),0)
 
+    def test_gameplay_authoring_command(self):
+        root=self.root/'engine';(root/'scripts').mkdir(parents=True)
+        script=root/'scripts/kairo_gameplay_editor.py';script.touch()
+        tools=ProjectTools(self.project,self.build,root)
+        command=tools.commands('gameplay')[0]
+        self.assertEqual(command[1:],[str(script),str(self.project)])
+        script.unlink()
+        with self.assertRaises(ValueError): tools.commands('gameplay')
+
     def test_missing_and_menu_contract(self):
         (self.build/'Runtime/KairoPlayer/KairoPlayer').unlink()
         with self.assertRaises(ValueError): self.tools.commands('play')
