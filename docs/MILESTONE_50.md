@@ -181,3 +181,7 @@ Two-client asynchronous worker, keyboard/overlay host and independent native thr
 ## Candidate progress: graphical licensed catalog
 
 A standalone Tk catalog browser now reuses the canonical local manifest, search, checksum, license evidence and recipe staging code. It displays reviewed metadata, filters selectable assets, and stages asynchronously into a new directory; metadata changes between review and staging reject. Actual Tk/Xvfb tests are registered for search, selection, provenance, overwrite refusal and stale metadata. Main-editor import, actual native model preview, and CI execution remain open.
+
+## Candidate progress: catalog-to-Editor project creation
+
+The graphical catalog and CLI now share a direct new-project operation using isolated verified staging and the canonical recipe compiler. The browser can open the generated Project.kproject in an explicitly configured KairoEditorApp. Tk tests cover project output, exact model/license evidence, destination refusal and the editor argument boundary; native release CI uses the same creation operation. Actual native Editor execution and in-project asset import remain open.
