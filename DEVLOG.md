@@ -354,3 +354,8 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 
 - Added bounded typed event dispatch with exact source bindings, occurrence thresholds, one-shot/repeat policies and stable ascending rule order. Generic Player publishes start, actual combat defeat, proximity rule, collection and completion events. Effects are limited to separate opted-in visual roots; reject incompatible checkpoint usage.
 - Added Event Arena and actual native four-rule chain/rejection gate. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 seeded event dispatches and malformed document tests. Exact Git blobs verified; native build/run pending.
+
+## M50 — event-controlled physical gates (2026-11-26)
+
+- Added typed door-open, door-lock and door-auto actions and optional initial door mode. Generic Player validates registered door targets and routes commands through the fixed-step door adapter; old automatic door and visual event records remain supported.
+- Added Key Gate Arena and native collider/command plus collectible-dispatch acceptance gates. All nine actual local strict GCC, Clang and Clang ASan/UBSan runs passed (50,000 original event, 50,000 automatic door, and 50,000 new gate control samples per environment). Exact updated and new test blobs verified. Native tests remain unexecuted locally.
