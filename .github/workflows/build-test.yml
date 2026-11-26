@@ -183,9 +183,8 @@ jobs:
           scratch="$(mktemp -d)"
           trap 'rm -rf "$scratch"' EXIT
           python3 Samples/AssetCatalog/create_demo_catalog.py "$scratch/catalog"
-          python3 scripts/kairo_asset_catalog.py "$scratch/catalog/catalog.json" stage "$scratch/staging" triangle
-          python3 scripts/create_kairo_project.py "$scratch/staging/recipe.json" "$scratch/project"
-          rm -rf "$scratch/catalog" "$scratch/staging"
+          python3 scripts/kairo_asset_catalog.py "$scratch/catalog/catalog.json" project "$scratch/project" triangle
+          rm -rf "$scratch/catalog"
           player=build/ci-clang/Runtime/KairoPlayer/KairoPlayer
           "$player" "$scratch/project/Project.kproject" --validate
           xvfb-run -a "$player" "$scratch/project/Project.kproject" --renderer vulkan --smoke

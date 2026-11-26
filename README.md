@@ -487,3 +487,7 @@ The [Teaching source map](docs/SOURCE_READING_ORDER.md) gives a linked reading s
 ### Graphical local asset catalog (candidate companion)
 
 Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json` with Python Tk installed. Search and inspect local GLB assets, select up to 128 records, and stage a new recipe folder with verified model bytes and retained license evidence. The browser uses the same canonical catalog validation as the CLI. It does not download assets, certify licenses, or import directly into the native Editor. GUI acceptance is tracked separately.
+
+### Create and open a game from the catalog
+
+Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json --editor /absolute/path/to/KairoEditorApp`. Select models, choose **Create editable project**, select a new destination, then choose **Open in Editor**. The same creation operation is available without Tk: `python3 scripts/kairo_asset_catalog.py /path/to/catalog.json project /path/to/new-game triangle`. This creates an ordinary project rather than modifying an existing game; temporary staging is discarded while model and license provenance remain in the project. The explicit editor executable is required for the launch button. Native acceptance remains separate.

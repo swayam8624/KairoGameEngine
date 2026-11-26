@@ -294,3 +294,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Connected directory-issued one-time seats to protected server admission, with legacy open-session compatibility and permanent claimed-seat accounting.
 - Added host/list/join CLI companion with token-free command arguments, bounded lobby discovery and cleanup.
 - Registered concurrent directory and actual native process launcher tests in portable exact-source acceptance. CI pending; no hosted-service claim.
+
+## M50 — catalog-to-Editor authoring (2026-11-26)
+
+- Added direct editable project creation from reviewed catalog records through the canonical recipe compiler, with automatic temporary staging cleanup.
+- Added graphical create/open workflow and explicit native Editor process handoff without shell expansion.
+- Registered graphical project/provenance tests and switched native Vulkan release acceptance to the shared catalog project operation. CI pending; no native Editor launch evidence claimed.

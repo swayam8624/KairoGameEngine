@@ -197,3 +197,7 @@ A standalone Tk catalog browser now reuses the canonical local manifest, search,
 ## Candidate progress: protected directory-to-game workflow
 
 The SQLite directory now issues the actual protected server tickets atomically, never recycles a claimed seat within a match, and exposes a host/list/join launcher for terminal or graphical clients. The server allows a bounded interactive lobby window. Portable tests exercise 24-process contention, expiry, direct directory-to-native connection, and the actual launcher command flow. CI and native graphical execution are pending; no external matchmaking or percentage promotion.
+
+## Candidate progress: catalog-to-Editor project creation
+
+The graphical catalog and CLI now share a direct new-project operation using isolated verified staging and the canonical recipe compiler. The browser can open the generated Project.kproject in an explicitly configured KairoEditorApp. Tk tests cover project output, exact model/license evidence, destination refusal and the editor argument boundary; native release CI uses the same creation operation. Actual native Editor execution and in-project asset import remain open.
