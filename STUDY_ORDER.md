@@ -591,3 +591,7 @@ Follow [catalog project creation](scripts/kairo_asset_catalog.py) into [the reci
 ### Generic collectible gameplay
 
 Read [RuntimeCollectibleRun.hpp](Runtime/KairoPlayer/RuntimeCollectibleRun.hpp) for the renderer-independent score, stable IDs and two-phase batch publication. Then follow its integration in [main.cpp](Runtime/KairoPlayer/main.cpp), including headless validation and menu/HUD ownership. [Beacon Run](Samples/BeaconRun/README.md) is an ordinary authored project, and [native acceptance](Samples/BeaconRun/run_native_acceptance.py) tests the real Player boundary. The [portable tests](Runtime/KairoPlayer/tests/RuntimeCollectibleRunTests.cpp) cover seeded runs and maximum-size collection batches.
+
+### Authored proximity triggers
+
+Start with [Trigger Arena](Samples/TriggerArena/README.md) and its [rules](Samples/TriggerArena/Config/Triggers.ktrigger). Read [RuntimeProximityTriggers.hpp](Runtime/KairoPlayer/RuntimeProximityTriggers.hpp) for parser validation, deterministic ID ordering and edge sampling; follow into [main.cpp](Runtime/KairoPlayer/main.cpp) for target validation and event application. The [portable tests](Runtime/KairoPlayer/tests/RuntimeProximityTriggersTests.cpp) check edge parity and rejection; [native acceptance](Samples/TriggerArena/run_native_acceptance.py) exercises the actual Player.

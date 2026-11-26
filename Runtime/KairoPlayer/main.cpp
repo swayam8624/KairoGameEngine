@@ -15,6 +15,8 @@
 
 #include "RuntimeFrameClock.hpp"
 #include "RuntimeCollectibleRun.hpp"
+#include "RuntimeProximityTriggers.hpp"
+#include "CraftSaveFile.hpp"
 #include <algorithm>
 #include <vector>
 #include "RuntimeNativeAudioOutput.hpp"
@@ -189,6 +191,34 @@ int main(int argc, char** argv)
             throw std::invalid_argument("Collectible objective requires a player controller.");
         if(collectibleRun.Total())
             std::cout<<"  collectible goals: "<<collectibleRun.Total()<<'\n';
+        // An optional data-only trigger document binds to explicitly opted-in
+        // static visual root leaves. No physics bodies or gameplay owners are
+        // silently enabled/disabled by the visual trigger adapter.
+        std::optional<kairo::player::detail::RuntimeProximityTriggers> triggers;
+        if(std::filesystem::exists(project.Root()/"Config/Triggers.ktrigger"))
+        {
+            const auto path=project.RequireProjectFile("Config/Triggers.ktrigger","trigger document");
+            const auto bytes=kairo::player::detail::ReadCraftSaveFile(path,kairo::player::detail::MaximumTriggerBytes);
+            const std::string document(bytes.begin(),bytes.end());
+            const auto rules=kairo::player::detail::ParseTriggerRules(document);
+            for(const auto& rule:rules)
+            {
+                const kairo::engine::Entity entity{rule.Target};
+                const auto& scene=project.Scene();
+                if(!scene.Contains(entity)||!scene.HasTag(entity,"kairo.trigger-visual")||
+                    scene.HasTag(entity,"kairo.collectible")||scene.HasTag(entity,"kairo.player-controller")||
+                    scene.Parent(entity)||!scene.Children(entity).empty()||
+                    scene.HasRigidBody(entity)||scene.HasCollider(entity)||scene.HasLogic(entity)||
+                    scene.HasCamera(entity)||scene.HasLight(entity)||scene.HasEnvironment(entity)||
+                    scene.HasAudioEmitter(entity)||scene.HasAudioListener(entity)||
+                    (!scene.HasMeshRenderer(entity)&&!scene.HasSceneInstance(entity)))
+                    throw std::invalid_argument("Trigger target must be an opted-in visual-only root leaf.");
+            }
+            triggers.emplace(document);
+            if(triggers->Size()&&!playerController.PrimaryController())
+                throw std::invalid_argument("Proximity triggers require a player controller.");
+            std::cout<<"  proximity triggers: "<<triggers->Size()<<'\n';
+        }
         // Headless validation stops before graphics initialization.
         if (arguments.ValidateOnly) return 0;
         if (arguments.PackageProfile.has_value())
@@ -302,6 +332,19 @@ int main(int argc, char** argv)
             production.Step(static_cast<double>(elapsedSeconds));
             (void)shipping.Step(static_cast<double>(elapsedSeconds));
             bridge.StepAnimations(elapsedSeconds);
+            // Menu frames never advance proximity state. Apply explicit
+            // show/hide events in ascending rule order before scene extraction.
+            if(triggers&&controlledEntity&&project.Scene().Contains(*controlledEntity))
+            {
+                const auto p=project.Scene().WorldTransform(*controlledEntity).Translation;
+                for(const auto& event:triggers->Step({p.x,p.y,p.z}))
+                {
+                    const kairo::engine::Entity target{event.Target};
+                    if(!project.Scene().Contains(target))continue;
+                    project.Scene().SetEnabled(target,event.Enable);
+                    std::cout<<"Trigger "<<event.ID<<": "<<(event.Enable?"show ":"hide ")<<event.Target<<'\n';
+                }
+            }
             if(collectibleRun.Total()&&controlledEntity&&project.Scene().Contains(*controlledEntity))
             {
                 const auto p=project.Scene().WorldTransform(*controlledEntity).Translation;

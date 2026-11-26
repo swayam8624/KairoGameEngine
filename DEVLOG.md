@@ -306,3 +306,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Restacked the core and six-beacon sample from older PR #108 onto the current integrated engine, without transplanting the old Player wholesale.
 - Integrated proximity collection, score, elapsed time, completion and visual disabling into the generic Player. Modal menus own the overlay; the gameplay HUD is republished only after resume. Linear batch publication replaces the old per-goal result lookup.
 - Exact-source GCC, Clang, and Clang ASan/UBSan runs each passed 1,000 seeded journeys plus a 4,096-goal batch. Native integration and actual capture gate are registered but not yet executed.
+
+## M50 — authored proximity triggers (2026-11-26)
+
+- Added versioned bounded declarative sphere rules, stable event ordering and enter/exit/once semantics. Explicit show/hide actions apply only to opted-in visual root leaves.
+- Added generic Player integration and ordinary Trigger Arena sample, with modal-menu pause semantics and rejection of incompatible targets.
+- Exact core and test blobs passed 50,000 randomized samples each under GCC, Clang and Clang ASan/UBSan. Native entry-effect and frame-capture integration tests registered; full workspace execution pending.
