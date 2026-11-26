@@ -201,3 +201,7 @@ The SQLite directory now issues the actual protected server tickets atomically, 
 ## Candidate progress: catalog-to-Editor project creation
 
 The graphical catalog and CLI now share a direct new-project operation using isolated verified staging and the canonical recipe compiler. The browser can open the generated Project.kproject in an explicitly configured KairoEditorApp. Tk tests cover project output, exact model/license evidence, destination refusal and the editor argument boundary; native release CI uses the same creation operation. Actual native Editor execution and in-project asset import remain open.
+
+## Candidate progress: project workbench
+
+Shared desktop and CLI workflow resolves the built editor, menu validator, compiler and player, executes compilation and validation before play/smoke/package, refuses implicit release replacement and prevents overlapping GUI actions. Five local tests passed with real subprocess fixtures and Tk/Xvfb, including failure propagation and spaces in project paths. Exact tested Git blobs: workflow `36277c8dd223fb7d8355a291cdb5918d9e2055b8`, tests `eb68b071e8b74fcbb8efcbcfbadbff38a3684151`. The native CI catalog project smoke gate now calls the same workflow. This is a companion launcher, not a new native Editor dock or accepted GPU result.
