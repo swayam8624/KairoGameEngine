@@ -505,3 +505,7 @@ Read [shared freestanding game core](Runtime/KairoPlayer/RuntimePlatformerCore.h
 ## Menu integration follow-up
 
 Read [RuntimeMenuPresentation](Runtime/KairoPlayer/RuntimeMenuPresentation.hpp) and [presentation tests](Runtime/KairoPlayer/tests/RuntimeMenuPresentationTests.cpp) before RuntimeMenuHost. Trace one set of integer physical boxes through hit testing and glyph runs, then follow modal input suppression through RuntimeInputBridge::Poll and main.cpp's player-controller clear and framebuffer resize. The renderer consumes the same overlay geometry; native acceptance is separate.
+
+## Game lab integration follow-up
+
+Read [RuntimeGameLabView](Runtime/KairoPlayer/RuntimeGameLabView.hpp) and [CPU painter test](Runtime/KairoPlayer/tests/RuntimeGameLabViewTests.cpp) after game rules and RuntimeGridCanvas. Follow the tested painter-order rectangles into GameLab's native overlay translation and then the pinned VulkanTriangle::Record / MetalBackend scene encoding. Capture reads the same viewport after overlay; CPU reference and native GPU acceptance are distinct.
