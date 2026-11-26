@@ -241,3 +241,10 @@ Added [native parser tool](Samples/AuthoredMenu/MenuDocumentTool.cpp) and [Tk de
 ### Menu designer portability follow-up
 
 Replace unsigned stream coordinate extraction with full-token from_chars bounded to 1000: reject negative modulo-wrap, explicit signs, suffixes and overflow. Set native validator stdin/stdout to binary mode on Windows so the graphical client's canonical LF protocol is preserved. GCC and Clang each passed 1,000 document roundtrips and six new invalid numeric fixtures plus both actual Tk interaction tests after the change. Tested blobs parser 7354c2cde90ad4f70ea8c4bb1e7a41b006568bc5, tests 82cb3c327bfc3a856d3b2e31fd74bb9209e62c1c, tool 3c0d9d2d09f9fa9782356e6a3361e1f2e0785dd5. Windows binary-mode branch reviewed but not executed locally.
+
+## 2026-11-26 — teaching pass: character motor and scene audio
+
+Added 43 explanations across two existing runtime modules, covering physical units, capsule scaling, collider identity, ground/jump integration, resolved displacement, scene/physics lifetime, emitter active intervals, voice restart policy, sample-frame remainder and mixer ownership. All non-comment lines compared identical before commit. No native module compilation claimed for the comment-only pass.
+
+- [RuntimeCharacterMotorBridge.cppm](Runtime/KairoPlayer/RuntimeCharacterMotorBridge.cppm): 23 new blocks.
+- [RuntimeSceneAudioBridge.cppm](Runtime/KairoPlayer/RuntimeSceneAudioBridge.cppm): 20 new blocks.
