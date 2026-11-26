@@ -43,6 +43,7 @@ import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeDoorBridge;
 import Kairo.Player.RuntimeHealthBridge;
 import Kairo.Player.RuntimeCombatBridge;
+import Kairo.Player.RuntimeEnemyBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
 import Kairo.Player.RuntimePlayerControllerBridge;
 import Kairo.Player.RuntimeInputBridge;
@@ -75,14 +76,15 @@ namespace
         RuntimeFixedStepFanout(kairo::player::RuntimePlayerControllerBridge& playerController,
             kairo::player::RuntimeLogicBridge& logic,
             kairo::player::RuntimeNativeGameplayBridge& native, kairo::player::RuntimeDoorBridge& doors,
-            kairo::player::RuntimeHealthBridge& health, kairo::player::RuntimeCombatBridge& combat)
-            : m_PlayerController(playerController), m_Logic(logic), m_Native(native), m_Doors(doors), m_Health(health), m_Combat(combat) {}
+            kairo::player::RuntimeHealthBridge& health, kairo::player::RuntimeCombatBridge& combat,
+            kairo::player::RuntimeEnemyBridge& enemies)
+            : m_PlayerController(playerController), m_Logic(logic), m_Native(native), m_Doors(doors), m_Health(health), m_Combat(combat), m_Enemies(enemies) {}
 
         void BeforePhysicsStep(float fixedDeltaSeconds) override
         {
             m_Doors.BeforePhysicsStep(fixedDeltaSeconds);
             m_PlayerController.BeforePhysicsStep(fixedDeltaSeconds);
-            if(m_Health.AfterCharacterStep()){m_PlayerController.ClearInput();m_Combat.ClearInput();m_Combat.CancelFlights();}
+            if(m_Health.AfterCharacterStep(m_Enemies.Step(fixedDeltaSeconds))){m_PlayerController.ClearInput();m_Combat.ClearInput();m_Combat.CancelFlights();}
             m_Combat.Step(fixedDeltaSeconds);
             m_Logic.BeforePhysicsStep(fixedDeltaSeconds);
             m_Native.BeforePhysicsStep(fixedDeltaSeconds);
@@ -95,6 +97,7 @@ namespace
         kairo::player::RuntimeDoorBridge& m_Doors;
         kairo::player::RuntimeHealthBridge& m_Health;
         kairo::player::RuntimeCombatBridge& m_Combat;
+        kairo::player::RuntimeEnemyBridge& m_Enemies;
     };
 
     [[nodiscard]] Arguments ParseArguments(int count, char** values)
@@ -189,6 +192,8 @@ int main(int argc, char** argv)
         if(combat.Enabled())std::cout<<"  combat: enabled\n";
         kairo::player::RuntimeHealthBridge health(project,physics,characterMotor,playerController.PrimaryController());
         if(health.Enabled())std::cout<<"  health: "<<health.Health()<<'/'<<health.Maximum()<<'\n';
+        kairo::player::RuntimeEnemyBridge enemies(project,physics,characterMotor,playerController.PrimaryController(),health.Enabled());
+        if(enemies.Size())std::cout<<"  enemies: "<<enemies.Size()<<'\n';
         kairo::player::RuntimeDoorBridge doors(project,physics,playerController.PrimaryController());
         if(doors.Size())std::cout<<"  sliding doors: "<<doors.Size()<<'\n';
         kairo::player::RuntimeLogicBridge logic(project, physics);
@@ -333,7 +338,7 @@ int main(int argc, char** argv)
             return pose;
         };
 
-        RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay, doors, health, combat);
+        RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay, doors, health, combat, enemies);
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
         sceneAudio.BeginPlay();
