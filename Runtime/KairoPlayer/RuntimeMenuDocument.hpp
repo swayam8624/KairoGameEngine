@@ -34,6 +34,15 @@ namespace kairo::player::detail
             (b.Action!="resume"&&b.Action!="quit")||!b.W||!b.H||b.X>1000||b.Y>1000||b.W>1000-b.X||b.H>1000-b.Y)
             throw std::invalid_argument("Invalid authored menu button.");
     }
+    // Binary reads preserve CRLF on Windows. Normalize only the line-ending
+    // CR, never a CR inside a quoted label or token. Output remains LF-only.
+    inline bool ReadMenuLine(std::istream& input,std::string& line)
+    {
+        if(!std::getline(input,line))return false;
+        if(!line.empty()&&line.back()=='\r')line.pop_back();
+        if(line.find('\r')!=std::string::npos)throw std::invalid_argument("Unexpected carriage return in menu statement.");
+        return true;
+    }
     // Parse into a local candidate. Reject overlap, duplicate identity, empty
     // menus and unknown commands. A failed parse cannot change a live menu.
     [[nodiscard]] inline RuntimeMenuDocument ParseRuntimeMenu(std::string_view source)
@@ -41,9 +50,9 @@ namespace kairo::player::detail
         if(source.size()>MaximumMenuBytes)throw std::length_error("Menu document exceeds byte budget.");
         std::istringstream input{std::string(source)};input.imbue(std::locale::classic());
         std::string line;
-        if(!std::getline(input,line)||line!="kairo-menu 1")throw std::invalid_argument("Invalid menu header.");
+        if(!ReadMenuLine(input,line)||line!="kairo-menu 1")throw std::invalid_argument("Invalid menu header.");
         RuntimeMenuDocument result;
-        while(std::getline(input,line))
+        while(ReadMenuLine(input,line))
         {
             if(line.empty())continue;
             std::istringstream row(line);row.imbue(std::locale::classic());
