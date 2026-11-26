@@ -595,3 +595,7 @@ Read [RuntimeCollectibleRun.hpp](Runtime/KairoPlayer/RuntimeCollectibleRun.hpp) 
 ### Authored proximity triggers
 
 Start with [Trigger Arena](Samples/TriggerArena/README.md) and its [rules](Samples/TriggerArena/Config/Triggers.ktrigger). Read [RuntimeProximityTriggers.hpp](Runtime/KairoPlayer/RuntimeProximityTriggers.hpp) for parser validation, deterministic ID ordering and edge sampling; follow into [main.cpp](Runtime/KairoPlayer/main.cpp) for target validation and event application. The [portable tests](Runtime/KairoPlayer/tests/RuntimeProximityTriggersTests.cpp) check edge parity and rejection; [native acceptance](Samples/TriggerArena/run_native_acceptance.py) exercises the actual Player.
+
+### Persistent objective and trigger state
+
+Read [RuntimeProgressCheckpoint.hpp](Runtime/KairoPlayer/RuntimeProgressCheckpoint.hpp) for source binding, versioned encoding and transactional restore. Follow restore methods in [RuntimeCollectibleRun.hpp](Runtime/KairoPlayer/RuntimeCollectibleRun.hpp) and [RuntimeProximityTriggers.hpp](Runtime/KairoPlayer/RuntimeProximityTriggers.hpp), then the atomic local file publication in [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp). [Cold-process tests](Runtime/KairoPlayer/tests/RuntimeProgressCheckpointTests.cpp) and [native acceptance](Samples/BeaconRun/run_native_progress.py) distinguish portable state verification from actual Player execution.
