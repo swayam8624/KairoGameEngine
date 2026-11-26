@@ -27,3 +27,6 @@ jobs:
 
       - name: Run Studio hub acceptance
         run: PYTHONPATH=scripts xvfb-run -a /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_hub.py
+
+      - name: Run graphical 2D tile authoring acceptance
+        run: PYTHONPATH=scripts xvfb-run -a /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_platformer_editor.py
