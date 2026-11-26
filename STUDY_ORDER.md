@@ -567,3 +567,7 @@ Read [CoopWorker](Runtime/KairoPlayer/RuntimeCoopWorker.hpp), [CoopView](Runtime
 ### Graphical licensed catalog
 
 Read [kairo_asset_catalog.py](scripts/kairo_asset_catalog.py) first: manifest validation, search, checksum, provenance and recipe output. Then read [kairo_asset_catalog_browser.py](scripts/kairo_asset_catalog_browser.py) to follow Tk selection and worker isolation; [the GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) verify real staged files and reject stale metadata. This is a standalone companion, not yet an Editor dock.
+
+### Catalog to editable game
+
+Follow [catalog project creation](scripts/kairo_asset_catalog.py) into [the recipe compiler](scripts/create_kairo_project.py), then return to [the catalog browser](scripts/kairo_asset_catalog_browser.py) for the explicit Editor launch. [GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) check retained files and the subprocess argument contract; native packaging is a separate gate.
