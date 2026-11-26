@@ -40,6 +40,12 @@ class ProjectTools:
             raise ValueError('Unknown action or renderer')
         p = str(self.project)
         if action == 'editor':
+            tile = self.project.parent / 'Config/Platformer.k2d'
+            if tile.exists() or tile.is_symlink():
+                script = self.root / 'scripts/kairo_platformer_editor.py'
+                if not script.is_file():
+                    raise ValueError('2D editor script missing')
+                return [[sys.executable, str(script), p, '--build', str(self.build), '--renderer', renderer]]
             command = [self.binary('KairoEditorApp','components/KairoEditor','KairoEditor'), '--project', p]
             if renderer != 'auto':
                 command += ['--renderer',renderer]
