@@ -517,3 +517,7 @@ After RuntimeSoftBody, read [tetra surface](Runtime/KairoPlayer/RuntimeTetraSurf
 ## Native acceptance and release evidence
 
 Read [M50 native guide](docs/M50_NATIVE_ACCEPTANCE.md), [runner](scripts/run_m50_native_acceptance.py), [CTest fixture tests](scripts/tests/test_m50_native_acceptance.py) and the existing lock verifier. Follow configured CMake roots -> lock verification -> actual target build -> exact labeled tests -> JUnit evidence -> binary hashes. A CPU fixture validates the checker, not native graphics. Compare the portable [integration evidence](docs/evidence/m50-portable-integration-2026-11-26.json) with the actual native CI artifacts when available.
+
+## Cross-platform text and browser CI follow-up
+
+Revisit RuntimeMenuDocument::ReadMenuLine and its regression tests to distinguish binary reads from text-mode newline conversion. Compare the explicit WASM toolchain installation in .github/workflows/m50-web.yml with scripts/build_web_platformer.py; then read browser process error propagation in scripts/tests/test_web_platformer.py.

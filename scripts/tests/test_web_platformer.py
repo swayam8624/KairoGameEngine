@@ -13,7 +13,12 @@ from build_web_platformer import build
 
 class WebTests(unittest.TestCase):
     def test_browser(self):
-        browser = shutil.which('chromium') or shutil.which('chromium-browser') or shutil.which('google-chrome')
+        # Prefer the hosted Chrome binary over distro-specific Chromium wrappers.
+        # A caller may select an exact executable; do not silently fall back.
+        selected = os.environ.get('KAIRO_BROWSER')
+        browser = shutil.which(selected) if selected else (
+            shutil.which('google-chrome') or shutil.which('google-chrome-stable') or
+            shutil.which('chromium') or shutil.which('chromium-browser'))
         self.assertIsNotNone(browser, 'Chromium is required for this gate')
         with tempfile.TemporaryDirectory(prefix='kairo-web-') as tmp:
             root = Path(tmp)
@@ -31,7 +36,12 @@ class WebTests(unittest.TestCase):
                     # sandbox. Only our generated local page is opened here.
                     if os.geteuid()==0: args.append('--no-sandbox')
                     args.append(f'http://127.0.0.1:{server.server_port}/?selftest=1')
-                    result = subprocess.run(args, capture_output=True, text=True, timeout=30, check=True)
+                    try:
+                        result = subprocess.run(args, capture_output=True, text=True, timeout=45)
+                    except subprocess.TimeoutExpired as error:
+                        self.fail(f'Browser timed out: {error.stdout!r}\n{error.stderr!r}')
+                    self.assertEqual(result.returncode, 0,
+                                     f'Browser exited {result.returncode}:\n{result.stdout}\n{result.stderr}')
                     self.assertIn('data-smoke="passed"', result.stdout, result.stdout+result.stderr)
                     self.assertIn('Level complete!', result.stdout)
                 finally:

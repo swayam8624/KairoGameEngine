@@ -14,11 +14,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Ensure freestanding Wasm toolchain
+      - name: Install freestanding Wasm toolchain
         run: |
-          command -v clang++
-          command -v wasm-ld
-          command -v node
+          sudo apt-get update
+          sudo apt-get install -y clang lld
+          clang++ --version
+          wasm-ld --version
+          node --version
       - name: Native and WASM state parity
         run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_web_wasm.py
   browser:
@@ -26,5 +28,15 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Install freestanding Wasm toolchain and select hosted Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld
+          clang++ --version
+          wasm-ld --version
+          browser="$(command -v google-chrome || command -v google-chrome-stable)"
+          test -x "$browser"
+          "$browser" --version
+          echo "KAIRO_BROWSER=$browser" >> "$GITHUB_ENV"
       - name: Build and run real browser smoke
         run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_web_platformer.py
