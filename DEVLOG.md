@@ -300,3 +300,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Added direct editable project creation from reviewed catalog records through the canonical recipe compiler, with automatic temporary staging cleanup.
 - Added graphical create/open workflow and explicit native Editor process handoff without shell expansion.
 - Registered graphical project/provenance tests and switched native Vulkan release acceptance to the shared catalog project operation. CI pending; no native Editor launch evidence claimed.
+
+## M50 — reusable gameplay authoring (2026-11-26)
+
+- Extended ordinary project recipes with optional player spawn, camera-relative relocation, validated keyboard remapping and native-parser-validated menu authoring.
+- Added a custom controls arena recipe and regression cases for invalid controls, duplicate bindings, invalid spawn, overlapping menus and no partial destination creation.
+- Registered both portable compilers and actual Player smoke CI. No native execution or percentage promotion claimed.
