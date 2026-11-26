@@ -110,16 +110,17 @@ export namespace kairo::runtime::renderbridge
         return bytes;
     }
 
-    inline void ApplyAuthoredClip(const std::filesystem::path& root,
+    [[nodiscard]] inline std::optional<std::string> ApplyAuthoredClip(const std::filesystem::path& root,
         kairo::assets::AssetID asset,const kairo::assets::DerivedDataKey& key,
         kairo::assets::GltfSceneArtifactData& source)
     {
         const auto revision=ReadAuthoredClip(root,asset);
-        if(!revision)return;
+        if(!revision)return std::nullopt;
         auto clip=clip_detail::Decode<kairo::assets::GltfAnimationClipData>(key.ToString(),*revision);
         source.Animations.push_back(std::move(clip));
         try {kairo::assets::ValidateGltfSceneArtifactData(source);}
         catch(...) {source.Animations.pop_back();throw;}
+        return revision;
     }
 
     // The loaded source already contains the previous authored clip, if any.
@@ -156,6 +157,7 @@ export namespace kairo::runtime::renderbridge
         kairo::renderer::GltfRenderAsset RenderAsset;
         kairo::assets::DerivedDataKey CacheKey;
         bool CacheHit = false;
+        std::optional<std::string> AuthoredRevision{};
     };
 
     // The ImportSourceAsset output is a typed CPU derived artifact. Retain
@@ -181,10 +183,10 @@ export namespace kairo::runtime::renderbridge
         auto outcome = kairo::assets::ImportSourceAsset(projectRoot, std::move(record),
             importer, registry, imports, cache);
         auto source = kairo::assets::ParseGltfSceneDerivedArtifact(outcome.Artifact);
-        ApplyAuthoredClip(projectRoot,metadata.ID,outcome.Key,source);
+        auto authoredRevision=ApplyAuthoredClip(projectRoot,metadata.ID,outcome.Key,source);
         auto renderAsset = kairo::renderer::MakeGltfRenderAsset(source, resolveTexture);
         return { std::move(source), std::move(renderAsset), outcome.Key,
-            outcome.CacheHit };
+            outcome.CacheHit,std::move(authoredRevision) };
     }
 
     /// Compatibility projection for callers that only need static render data.
