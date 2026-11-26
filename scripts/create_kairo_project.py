@@ -234,7 +234,7 @@ def author_gameplay(gameplay, scene, input_text, menu_validator):
 def compile_recipe(recipe_path, template=TEMPLATE, *, menu_validator=None):
     recipe_path = recipe_path.resolve(strict=True)
     recipe = parse_json(read_bounded(recipe_path, MAX_RECIPE))
-    fields(recipe, ("name", "layout", "assets", "prefabs", "instances"), ("name", "prefabs", "instances"))
+    fields(recipe, ("name", "layout", "assets", "prefabs", "instances", "gameplay"), ("name", "prefabs", "instances"))
     project_name = name(recipe["name"])
     layout = recipe.get("layout", "arena")
     require(layout in ("arena", "empty"), "Layout must be arena or empty")
@@ -260,6 +260,12 @@ def compile_recipe(recipe_path, template=TEMPLATE, *, menu_validator=None):
             if int(re.match(r"entity (\d+) ", block).group(1)) not in omit)
     files = {"Project.kproject": descriptor.encode(), "Config/Input.kinput":
              (template / "Config/Input.kinput").read_bytes()}
+    if "gameplay" in recipe:
+        scene, input_text, menu = author_gameplay(recipe["gameplay"], scene,
+            files["Config/Input.kinput"].decode("utf-8"), menu_validator)
+        files["Config/Input.kinput"] = input_text.encode("utf-8")
+        if menu is not None:
+            files["Config/Menu.kmenu"] = menu
     imports = {}
     provenance = []
     total = 0
@@ -350,8 +356,8 @@ def compile_recipe(recipe_path, template=TEMPLATE, *, menu_validator=None):
     return files
 
 
-def create_project(recipe, output, template=TEMPLATE):
-    files = compile_recipe(recipe, template)
+def create_project(recipe, output, template=TEMPLATE, *, menu_validator=None):
+    files = compile_recipe(recipe, template, menu_validator=menu_validator)
     # All recipe validation precedes destination creation. mkdir exclusively
     # reserves a fresh directory; an existing project is never overwritten.
     output = output.absolute()
@@ -372,10 +378,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("recipe", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--menu-validator", type=Path)
     args = parser.parse_args()
     try:
-        print(create_project(args.recipe, args.output))
-    except (ValueError, OSError, RecursionError) as error:
+        print(create_project(args.recipe, args.output, menu_validator=args.menu_validator))
+    except (ValueError, OSError, RecursionError, subprocess.SubprocessError) as error:
         print(f"Kairo project creation failed: {error}", file=sys.stderr)
         return 1
     return 0
