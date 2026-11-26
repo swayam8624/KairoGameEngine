@@ -173,7 +173,10 @@ int main(int argc, char** argv)
         // A canonical opt-in file selects the bounded 2D runtime. The regular
         // project descriptor, containment rules and package pipeline remain shared.
         const auto tileFile=project.Root()/"Config/Platformer.k2d";
-        if(std::filesystem::exists(tileFile)||std::filesystem::is_symlink(tileFile))
+        const bool platformerProject=project.Descriptor().StartupScene.generic_string()=="Scenes/Platformer.kscene";
+        if(!platformerProject&&(std::filesystem::exists(tileFile)||std::filesystem::is_symlink(tileFile)))
+            throw std::invalid_argument("Platformer tile file requires the reserved 2D startup scene.");
+        if(platformerProject)
         {
             if(project.Scene().Size()!=0||project.Assets().Size()!=0||arguments.ProgressFile)
                 throw std::invalid_argument("2D platformer projects require an empty 3D scene/asset registry and no 3D progress file.");
