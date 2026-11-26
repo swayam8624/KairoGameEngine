@@ -56,7 +56,7 @@ class MatchmakingTests(unittest.TestCase):
     def test_protected_lifecycle(self):
         d = self.directory
         tickets = ('1'*64, '2'*64)
-        for bad in (('1'*64,'1'*64'), ('bad','2'*64'), ('1'*64,), 'x'*64):
+        for bad in (('1'*64,'1'*64), ('bad','2'*64), ('1'*64,), 'x'*64):
             with self.assertRaises(ValueError):
                 d.create('protected',12345,tickets=bad)
         with self.assertRaises(ValueError):
