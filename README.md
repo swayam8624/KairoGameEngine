@@ -491,3 +491,7 @@ Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json` with 
 ### Create and open a game from the catalog
 
 Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json --editor /absolute/path/to/KairoEditorApp`. Select models, choose **Create editable project**, select a new destination, then choose **Open in Editor**. The same creation operation is available without Tk: `python3 scripts/kairo_asset_catalog.py /path/to/catalog.json project /path/to/new-game triangle`. This creates an ordinary project rather than modifying an existing game; temporary staging is discarded while model and license provenance remain in the project. The explicit editor executable is required for the launch button. Native acceptance remains separate.
+
+### Project workbench
+
+Run `python3 scripts/kairo_project_workflow.py /path/to/Project.kproject --build build/game-clang` to open the desktop workbench (Python Tk required). Choose Open Editor, Design Menu, Validate, Native Smoke, Play, or Package Release. The same operations are available headlessly with `--action editor|menu|validate|smoke|play|package`. The workbench uses built tools, does not build or replace a release automatically, and stops the sequence on compiler or validation failure. For interactive actions, close the native child before starting another operation. Output is shown after each command exits. Actual native acceptance is separate.
