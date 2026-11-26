@@ -14,7 +14,7 @@ namespace kairo::player::detail
 {
     inline constexpr std::size_t MaximumCombatBytes=65536;
     struct CombatTarget{std::uint32_t ID;unsigned Health;};
-    struct CombatRules{unsigned Damage=0,Cooldown=0;double Range=0;std::vector<CombatTarget> Targets;};
+    struct CombatRules{unsigned Damage=0,Cooldown=0;double Range=0,ProjectileSpeed=0;std::vector<CombatTarget> Targets;};
     inline unsigned CombatInteger(std::istream& row,unsigned max)
     {
         std::string token;row>>token;unsigned value=0;
@@ -43,6 +43,14 @@ namespace kairo::player::detail
         {
             if(line.empty())continue;
             std::istringstream row(line);row.imbue(std::locale::classic());std::string command;row>>command;
+            if(command=="projectile")
+            {
+                if(rules.ProjectileSpeed||!(row>>rules.ProjectileSpeed)||!std::isfinite(rules.ProjectileSpeed)||
+                    rules.ProjectileSpeed<1||rules.ProjectileSpeed>500)
+                    throw std::invalid_argument("Invalid or duplicate projectile speed.");
+                row>>std::ws;if(!row.eof())throw std::invalid_argument("Trailing projectile fields.");
+                continue;
+            }
             if(command!="target")throw std::invalid_argument("Unknown combat record.");
             const CombatTarget target{CombatInteger(row,UINT32_MAX),CombatInteger(row,10000)};
             row>>std::ws;if(!row.eof()||rules.Targets.size()>=512)throw std::invalid_argument("Invalid combat target.");
@@ -64,23 +72,32 @@ namespace kairo::player::detail
     public:
         explicit RuntimeCombat(std::string_view document):m_Rules(ParseCombatRules(document)){}
         [[nodiscard]] double Range() const noexcept{return m_Rules.Range;}
+        [[nodiscard]] double ProjectileSpeed() const noexcept{return m_Rules.ProjectileSpeed;}
         [[nodiscard]] const std::vector<CombatTarget>& Targets() const noexcept{return m_Rules.Targets;}
         void CapturePress(bool pressed) noexcept{m_Pending=m_Pending||pressed;}
         void ClearInput() noexcept{m_Pending=false;}
-        // Called once per fixed tick. Query only on a permitted attack.
-        template<class Query> AttackResult Step(Query&& hit)
+        // Flight launch and impact are separate events; only launch uses cooldown.
+        bool BeginAttack() noexcept
         {
             if(m_Cooldown)--m_Cooldown;
             const bool fire=m_Pending&&!m_Cooldown;m_Pending=false;
-            if(!fire)return {};
-            m_Cooldown=m_Rules.Cooldown;
-            const std::uint32_t id=hit(m_Rules.Range);
+            if(fire)m_Cooldown=m_Rules.Cooldown;
+            return fire;
+        }
+        AttackResult ApplyHit(std::uint32_t id)
+        {
             auto target=std::lower_bound(m_Rules.Targets.begin(),m_Rules.Targets.end(),id,
                 [](const auto& t,auto key){return t.ID<key;});
             if(target==m_Rules.Targets.end()||target->ID!=id||!target->Health)return {true,0,0,false};
             const unsigned damage=std::min(m_Rules.Damage,target->Health);
             target->Health-=damage;
             return {true,id,damage,!target->Health};
+        }
+        // Existing immediate raycast API retains its original semantics.
+        template<class Query> AttackResult Step(Query&& hit)
+        {
+            if(!BeginAttack())return {};
+            return ApplyHit(hit(m_Rules.Range));
         }
     };
 }
