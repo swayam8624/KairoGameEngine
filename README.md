@@ -483,3 +483,7 @@ The [Teaching source map](docs/SOURCE_READING_ORDER.md) gives a linked reading s
 **Current scope and limitations.** The 95% figure in planning documents is an unverified target. The exact-head sibling-workspace acceptance runner, not a periodic non-strict CI audit, determines integrated verification.
 
 **Learning and reuse.** Project-authored code is intended for study, modification and further development under the repository's applicable license. See [LICENSE](LICENSE) where present. Third-party libraries, borrowed source, assets, test data, models and media remain under their own terms; do not treat a top-level license as permission to redistribute restricted content.
+
+### Graphical local asset catalog (candidate companion)
+
+Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json` with Python Tk installed. Search and inspect local GLB assets, select up to 128 records, and stage a new recipe folder with verified model bytes and retained license evidence. The browser uses the same canonical catalog validation as the CLI. It does not download assets, certify licenses, or import directly into the native Editor. GUI acceptance is tracked separately.

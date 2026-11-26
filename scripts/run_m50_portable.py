@@ -11,12 +11,12 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAYER = ROOT / 'Runtime/KairoPlayer'
-TESTS = ('QuestDialogue', 'QuestSave', 'ItemInventory', 'RpgSession', 'TwoBoneIK', 'AnimationRetarget', 'SkeletonPose', 'PoseLab',
+TESTS = ('QuestDialogue', 'QuestSave', 'ItemInventory', 'RpgSession', 'TwoBoneIK', 'AnimationRetarget', 'SkeletonPose', 'PoseLab', 'ImportedTwoBone',
          'NetworkProtocol', 'NetworkPrediction', 'LoopbackTcp', 'CoopArena', 'CoopWorker', 'Weather', 'RainStreaks',
          'WaterGrid', 'SoftBody', 'TetraSurface', 'TetraPublication', 'BreakableCube', 'MenuDocument', 'MenuFocus', 'MenuPresentation',
          'Platformer', 'Strategy', 'GridCanvas', 'GameLabView')
 HEADERS = ('CraftSaveFile.hpp', 'RuntimeQuestDialogue.hpp', 'RuntimeQuestSave.hpp', 'RuntimeItemInventory.hpp', 'RuntimeRpgSession.hpp',
-           'RuntimeTwoBoneIK.hpp', 'RuntimeAnimationRetarget.hpp', 'RuntimeSkeletonPose.hpp', 'RuntimePoseLab.hpp', 'RuntimeNetworkProtocol.hpp',
+           'RuntimeTwoBoneIK.hpp', 'RuntimeAnimationRetarget.hpp', 'RuntimeSkeletonPose.hpp', 'RuntimePoseLab.hpp', 'RuntimeImportedTwoBone.hpp', 'RuntimeNetworkProtocol.hpp',
            'RuntimeNetworkPrediction.hpp', 'RuntimeLoopbackTcp.hpp', 'RuntimeCoopArena.hpp', 'RuntimeCoopSession.hpp', 'RuntimeCoopWorker.hpp', 'RuntimeCoopView.hpp', 'RuntimeWeather.hpp',
            'RuntimeRainStreaks.hpp', 'RuntimeWaterGrid.hpp', 'RuntimeSoftBody.hpp', 'RuntimeTetraSurface.hpp', 'VoxelMeshPublication.hpp',
            'RuntimeBreakableCube.hpp', 'RuntimeMenuDocument.hpp', 'RuntimeMenuFocus.hpp', 'RuntimeMenuPresentation.hpp',
@@ -27,7 +27,9 @@ SAMPLES = ('Samples/NetworkLab/NetworkLab.cpp', 'Samples/NetworkLab/run_pair.py'
            'Samples/PlatformerLab/PlatformerDemo.cpp', 'Samples/StrategyLab/StrategyDemo.cpp',
            'Samples/QuestDialogue/QuestDialogueDemo.cpp', 'scripts/kairo_asset_catalog.py',
            'scripts/kairo_matchmaking.py', 'scripts/tests/test_kairo_asset_catalog.py',
-           'scripts/tests/test_kairo_matchmaking.py', 'Samples/NetworkLab/CoopLab.cpp', 'Samples/NetworkLab/run_coop.py', 'Samples/NetworkLab/coop_directory.py')
+           'scripts/tests/test_kairo_matchmaking.py', 'Samples/NetworkLab/CoopLab.cpp', 'Samples/NetworkLab/run_coop.py',
+           'Samples/NetworkLab/coop_directory.py',
+           'Samples/AnimationLab/run_imported_ik_native.py', 'Samples/AnimationLab/test_imported_ik_fixture.py')
 
 
 def fingerprint(path):
@@ -97,6 +99,7 @@ def run_suite(compiler, report):
             binary = work / name
             build(name + ' demo', ROOT / source, binary)
             step(name + ' playthrough', [binary], inputs, expected)
+        step('imported IK GLB byte fixture', [sys.executable, ROOT / 'Samples/AnimationLab/test_imported_ik_fixture.py'])
         for name in ('test_kairo_asset_catalog.py', 'test_kairo_matchmaking.py'):
             step(name, [sys.executable, '-m', 'unittest', 'discover', '-s', ROOT / 'scripts/tests', '-p', name])
 

@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 GATES = frozenset((
     'KairoGameLabPlatformerNativeSmoke', 'KairoGameLabStrategyNativeSmoke',
-    'KairoGameLabRPGNativeSmoke', 'KairoGameLabAnimationNativeSmoke', 'KairoCoopNativeSmoke', 'KairoSimulationWaterNativeSmoke',
+    'KairoGameLabRPGNativeSmoke', 'KairoGameLabAnimationNativeSmoke', 'KairoCoopNativeSmoke', 'KairoImportedIKNativeSmoke', 'KairoSimulationWaterNativeSmoke',
     'KairoSimulationSoftNativeSmoke', 'KairoSimulationDestructionNativeSmoke'))
 
 
@@ -54,7 +54,7 @@ def run_ctest(build, evidence, expected=GATES):
     xml = evidence/'results.xml'
     with (evidence/'ctest.log').open('w', encoding='utf-8') as log:
         result = subprocess.run(base + ['--no-tests=error', '--output-on-failure', '--output-junit', str(xml)],
-                                stdout=log, stderr=subprocess.STDOUT, text=True, timeout=600)
+                                stdout=log, stderr=subprocess.STDOUT, text=True, timeout=720)
     require(result.returncode == 0, f'Native CTest failed ({result.returncode}); inspect {evidence}/ctest.log')
     return check_junit(xml, expected)
 
@@ -90,7 +90,7 @@ def main():
         # Build the actual targets before running tests; do not certify a stale
         # binary based solely on the current source checkout's revision.
         with (args.evidence/'build.log').open('w', encoding='utf-8') as log:
-            subprocess.run(['cmake','--build',str(build),'--parallel',str(args.jobs),'--target','KairoGameLab','KairoSimulationLab','KairoCoopLab','KairoCoopClient'],
+            subprocess.run(['cmake','--build',str(build),'--parallel',str(args.jobs),'--target','KairoGameLab','KairoSimulationLab','KairoCoopLab','KairoCoopClient','KairoImportedIKSmoke'],
                            stdout=log,stderr=subprocess.STDOUT,text=True,timeout=1800,check=True)
         results = run_ctest(build, args.evidence/'ctest')
         subprocess.run(command, cwd=ROOT, env=env, check=True)
@@ -100,8 +100,8 @@ def main():
         require(hashlib.sha256((ROOT/'workspace.lock').read_bytes()).hexdigest() == lock_digest,'Lock changed during test')
         report = {'status':'passed','engine_revision':revision,'workspace_lock_sha256':lock_digest,'gates':results,
                   'binaries_sha256': {name: hashlib.sha256((build/'Runtime/KairoPlayer'/name).read_bytes()).hexdigest()
-                                      for name in ('KairoGameLab','KairoSimulationLab','KairoCoopLab','KairoCoopClient')},
-                  'scope':'Eight native sample objective/capture gates; not complete M50 or a full release certification'}
+                                      for name in ('KairoGameLab','KairoSimulationLab','KairoCoopLab','KairoCoopClient','KairoImportedIKSmoke')},
+                  'scope':'Nine native sample objective/capture gates; not complete M50 or a full release certification'}
         (args.evidence/'summary.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
         print(f'PASS: {len(results)} required native sample gates')
         return 0

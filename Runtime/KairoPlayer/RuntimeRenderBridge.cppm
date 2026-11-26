@@ -172,6 +172,24 @@ export namespace kairo::player
             SetAnimation(entity, *clip, timeMode, playbackRate, restart);
         }
 
+        // Apply a rigid three-node correction after clip sampling. This is
+        // independent of clip controls and also works on a rest-only skin.
+        // Validate the retained artifact's rest chain before publishing; a
+        // later scaled/degenerate sampled chain will reject during extraction.
+        void SetTwoBoneIK(kairo::engine::Entity entity,
+            kairo::runtime::renderbridge::SceneTwoBoneIK request)
+        {
+            if(!m_Project.Scene().Contains(entity)||!m_Project.Scene().HasSceneInstance(entity))
+                throw std::invalid_argument("IK requires a scene-instance entity.");
+            const auto asset=m_Project.Scene().SceneInstance(entity).SceneAsset;
+            const auto* source=m_Assets.ResolveGltfSource(asset);
+            if(!source)throw std::invalid_argument("IK requires imported glTF metadata.");
+            (void)kairo::runtime::renderbridge::ApplyGltfTwoBoneIK(*source,
+                kairo::engine::BuildGltfRestPose(*source),request);
+            m_Animations.SetTwoBoneIK(entity,asset.ID,request);
+        }
+        void ClearTwoBoneIK(kairo::engine::Entity entity) noexcept { m_Animations.ClearTwoBoneIK(entity); }
+
         // Pause the already-initialized runtime clock, not the authoritative
         // Scene. RequireAnimationState rejects calls before initialization.
         void SetAnimationPaused(kairo::engine::Entity entity, bool paused)
@@ -231,6 +249,7 @@ export namespace kairo::player
             {
                 present.emplace(entity.Value);
                 const auto& instance = m_Project.Scene().SceneInstance(entity);
+                m_Animations.ForgetMismatchedIK(entity,instance.SceneAsset.ID);
                 const auto* source = m_Assets.ResolveGltfSource(instance.SceneAsset);
                 if (source == nullptr || source->Animations.empty())
                 {
@@ -269,6 +288,7 @@ export namespace kairo::player
                 });
             }
 
+            m_Animations.RetainTwoBoneIK(present);
             for (auto iterator = m_AnimationStates.begin();
                 iterator != m_AnimationStates.end();)
             {
