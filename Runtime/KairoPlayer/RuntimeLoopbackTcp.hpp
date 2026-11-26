@@ -163,7 +163,10 @@ namespace kairo::player::detail
 #ifdef _WIN32
             const DWORD timeout=static_cast<DWORD>(remaining.count());
 #else
-            const timeval timeout{static_cast<long>(remaining.count()/1000),static_cast<long>((remaining.count()%1000)*1000)};
+            const timeval timeout{
+                static_cast<decltype(timeval::tv_sec)>(remaining.count()/1000),
+                static_cast<decltype(timeval::tv_usec)>((remaining.count()%1000)*1000)
+            };
 #endif
             if(::setsockopt(m_Socket,SOL_SOCKET,option,reinterpret_cast<const char*>(&timeout),static_cast<NativeAddressLength>(sizeof(timeout)))!=0)
                 throw std::runtime_error("Cannot configure socket timeout.");
