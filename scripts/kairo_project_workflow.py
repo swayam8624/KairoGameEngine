@@ -8,7 +8,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-ACTIONS = ('editor', 'menu', 'validate', 'smoke', 'play', 'package')
+ACTIONS = ('editor', 'menu', 'gameplay', 'validate', 'smoke', 'play', 'package')
 
 
 class ProjectTools:
@@ -41,6 +41,13 @@ class ProjectTools:
         p = str(self.project)
         if action == 'editor':
             return [[self.binary('KairoEditorApp','components/KairoEditor','KairoEditor'), '--project', p]]
+        if action == 'gameplay':
+            if self.project.name != 'Project.kproject':
+                raise ValueError('Gameplay editor requires canonical Project.kproject')
+            script = self.root / 'scripts/kairo_gameplay_editor.py'
+            if not script.is_file():
+                raise ValueError('Gameplay editor script missing')
+            return [[sys.executable, str(script), p]]
         if action == 'menu':
             if self.project.name != 'Project.kproject':
                 raise ValueError('Menu designer requires canonical Project.kproject')
@@ -107,7 +114,7 @@ def gui(project, build, renderer):
             self.backend=ttk.Combobox(self,textvariable=self.renderer,values=('auto','metal','vulkan','opengl','d3d12'),state='readonly')
             self.backend.grid(row=2,column=1,sticky='w',padx=6,pady=3)
             bar=ttk.Frame(self);bar.grid(row=3,column=0,columnspan=3,sticky='ew',pady=8)
-            for action,label in zip(ACTIONS,('Open Editor','Design Menu','Validate','Native Smoke','Play','Package Release')):
+            for action,label in zip(ACTIONS,('Open Editor','Design Menu','Edit Gameplay','Validate','Native Smoke','Play','Package Release')):
                 button=ttk.Button(bar,text=label,command=lambda a=action:self.start(a))
                 button.pack(side='left',padx=2)
                 self.inputs.append(button)
@@ -188,7 +195,7 @@ def gui(project, build, renderer):
                 self.status.set('Close the running Editor/Player or let the current command finish first.');return
             self.parent.destroy()
 
-    root=tk.Tk();root.title('Kairo Project Workbench');root.geometry('900x460')
+    root=tk.Tk();root.title('Kairo Project Workbench');root.geometry('1020x460')
     Workbench(root);root.mainloop()
     return 0
 
