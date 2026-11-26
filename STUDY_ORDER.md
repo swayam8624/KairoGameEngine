@@ -587,3 +587,7 @@ Read [kairo_asset_catalog.py](scripts/kairo_asset_catalog.py) first: manifest va
 ### Catalog to editable game
 
 Follow [catalog project creation](scripts/kairo_asset_catalog.py) into [the recipe compiler](scripts/create_kairo_project.py), then return to [the catalog browser](scripts/kairo_asset_catalog_browser.py) for the explicit Editor launch. [GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) check retained files and the subprocess argument contract; native packaging is a separate gate.
+
+### Gameplay authoring from recipes
+
+Follow `author_gameplay` in [create_kairo_project.py](scripts/create_kairo_project.py) to the existing scene and input formats. Read [CustomControlsArena.json](Samples/ProjectRecipes/CustomControlsArena.json) for a complete recipe and [RuntimeMenuDocument.hpp](Runtime/KairoPlayer/RuntimeMenuDocument.hpp) for authoritative native menu validation. [Recipe tests](scripts/tests/test_create_kairo_project.py) compile the actual menu tool and check generated output and rejection cases.
