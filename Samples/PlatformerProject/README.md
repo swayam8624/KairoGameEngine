@@ -1,0 +1,7 @@
+# 2D Platformer project
+
+Choose 2D Platformer in Kairo Studio Hub. The Hub copies this sample into a new project, with its own editable map. Open the copied project through the Hub or Project Workbench to enter the tile workspace. Select a brush, click or drag in the canvas, undo/redo, save, then Play. A/D or arrow keys move; Space jumps; R resets; Escape closes the game. Spawn and goal moves are atomic; the border must remain solid.
+
+The regular KairoPlayer accepts this project for validate, play, smoke and package. `Scenes/Platformer.kscene` is the reserved empty scene marker, and `Config/Platformer.k2d` is the authoritative versioned level. Both must exist. The 3D asset registry and scene must be empty. The C++ parser accepts LF or CRLF, 3–48 columns and 3–32 rows, exactly one spawn and goal, and only the documented tile alphabet. The same deterministic platformer kernel drives the regular Player and the existing standalone lab.
+
+This initial 2D scope is tile-based platformer authoring with fixed keyboard controls and native Metal/Vulkan overlays. It is not yet a sprite-component editor, texture atlas, 2D physics body system, general 2D scripting runtime, arbitrary input remapping or multi-level game system. Structurally valid maps may be unwinnable. The graphics smoke checks real nonuniform pixels, not gameplay completion for every arbitrary authored map. Default sample completion is independently tested at the deterministic CPU layer. Native and actual GUI acceptance must pass before release.
