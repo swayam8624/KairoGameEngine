@@ -27,6 +27,7 @@ export namespace kairo::player
         std::optional<detail::RuntimeCombat> m_Combat;
         detail::RuntimeProjectileFlight m_Flights;
         std::vector<std::uint32_t> m_Defeated;
+        std::uint64_t m_LaunchSerial=0;
         kairo::foundation::math::Vec3f m_Aim{0,0,-1};
     public:
         RuntimeCombatBridge(RuntimeProject& project,RuntimePhysicsBridge& physics,
@@ -72,6 +73,12 @@ export namespace kairo::player
         void ClearInput() noexcept{if(m_Combat)m_Combat->ClearInput();}
         void CancelFlights() noexcept{m_Flights.Clear();}
         [[nodiscard]] std::size_t ActiveFlights() const noexcept{return m_Flights.Size();}
+        [[nodiscard]] std::uint64_t LaunchSerial() const noexcept{return m_LaunchSerial;}
+        [[nodiscard]] kairo::foundation::math::Vec3f FlightPosition(std::size_t index) const
+        {
+            const auto& p=m_Flights.Flights().at(index).Position;
+            return {float(p[0]),float(p[1]),float(p[2])};
+        }
         void Step(float dt=1.f/60)
         {
             if(!m_Combat)return;
@@ -108,10 +115,10 @@ export namespace kairo::player
             if(m_Combat->ProjectileSpeed())
             {
                 if(m_Flights.Launch(p,d,m_Combat->Range(),m_Combat->ProjectileSpeed()))
-                    std::cout<<"Projectile launched.\n";
+                {++m_LaunchSerial;std::cout<<"Projectile launched.\n";}
                 else std::cout<<"Projectile budget exhausted.\n";
             }
-            else Publish(m_Combat->ApplyHit(ray(p,d,m_Combat->Range()).value_or(0)));
+            else {++m_LaunchSerial;Publish(m_Combat->ApplyHit(ray(p,d,m_Combat->Range()).value_or(0)));}
         }
     private:
         void Publish(const detail::AttackResult& event)
