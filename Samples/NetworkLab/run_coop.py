@@ -9,6 +9,12 @@ import socket
 import struct
 import subprocess
 import threading
+import tempfile
+import sys
+
+# Standalone invocation and the portable runner use the same directory implementation.
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'scripts'))
+from kairo_matchmaking import Directory
 
 
 def ready(process):
@@ -129,6 +135,39 @@ def run(binary):
         if server.returncode or out.strip()!='SERVER 6 7 1 7 5 1':
             raise RuntimeError(f'Protected pair server mismatch: {out} {err}')
         print('Protected seats passed wrong, malformed, truncated and replay rejection; both native clients reached victory')
+        # Issue the exact server credentials via the real session directory.
+        # Start listening first, publish second, join atomically, then launch.
+        with tempfile.TemporaryDirectory(prefix='kairo-protected-directory-') as tmp:
+            directory=Directory(Path(tmp)/'sessions.db')
+            tickets=(secrets.token_hex(32),secrets.token_hex(32))
+            server=spawn('server',env=dict(base_env,KAIRO_COOP_SEAT0=tickets[0],KAIRO_COOP_SEAT1=tickets[1]))
+            port=ready(server)
+            session=directory.create('coop',port,tickets=tickets)
+            try:
+                listing=directory.list()
+                if len(listing)!=1 or listing[0]['id']!=session['id']:
+                    raise RuntimeError('Protected directory discovery failed')
+                members=[directory.join(listing[0]['id'],player) for player in ('alice','bob')]
+                if [(m['seat'],m['token']) for m in members]!=list(enumerate(tickets)):
+                    raise RuntimeError('Directory issued unexpected seats')
+                clients=[spawn('client',m['port'],env=dict(base_env,KAIRO_COOP_TICKET=m['token'])) for m in reversed(members)]
+                for client,member in zip(clients,reversed(members)):
+                    out,err=client.communicate(timeout=12)
+                    if client.returncode or out.splitlines()!=[f"SLOT {member['seat']}",*expected]:
+                        raise RuntimeError(f'Directory client failed: {out} {err}')
+                out,err=server.communicate(timeout=12)
+                if server.returncode or out.strip()!='SERVER 6 7 1 7 5 1':
+                    raise RuntimeError(f'Directory server failed: {out} {err}')
+                for member in members:
+                    if not directory.leave(member['token']):
+                        raise RuntimeError('Protected membership cleanup failed')
+                if directory.list()[0]['joined']!=2:
+                    raise RuntimeError('Protected seats were recycled')
+            finally:
+                if not directory.close(session['id'],session['owner']) or directory.list():
+                    raise RuntimeError('Protected directory cleanup failed')
+        print('Protected directory discovery, ticket issuance, native co-op victory and cleanup passed')
+
 
     finally:
         for process in processes: stop(process)
