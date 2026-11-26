@@ -107,7 +107,12 @@ def stage(manifest, ids, output):
         relative = f"assets/{key}.glb"
         license_relative = f"licenses/{key}.txt"
         files[relative], files[license_relative] = data, license_data
-        assets[key] = {"file": relative, "author": item["author"], "license": item["license"], "source": item["source"]}
+        # The recipe importer re-verifies the staged bytes and retains the
+        # actual license file in the generated project, even after staging
+        # is deleted. Metadata alone is not proof of legal entitlement.
+        assets[key] = {"file": relative, "author": item["author"], "license": item["license"], "source": item["source"],
+                       "sha256": item["sha256"], "license_file": license_relative,
+                       "license_sha256": hashlib.sha256(license_data).hexdigest()}
         provenance.append({**item, "file": relative, "license_file": license_relative,
                            "license_sha256": hashlib.sha256(license_data).hexdigest()})
     recipe = {"name": "Catalog Gallery", "layout": "empty", "assets": assets, "prefabs": {}, "instances": []}

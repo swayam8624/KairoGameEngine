@@ -9,4 +9,16 @@ From the repository root (new directories only):
     python3 scripts/kairo_asset_catalog.py /tmp/kairo-catalog/catalog.json stage /tmp/kairo-gallery triangle
     PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_kairo_asset_catalog.py
 
-The staged recipe is compatible with the project-recipe importer candidate in #106. Once that dependency is available, use its documented CLI to create the project. Retain the staged license records and provenance when distributing the generated project: the recipe importer currently propagates asset metadata but not these separate license evidence files. The catalog validates the GLB container and checksum; the recipe importer performs its deeper self-contained GLB validation. No automatic downloading, executing assets, extracting archives, or hosted payment flow.
+Generate an ordinary authored project from the staged recipe:
+
+    python3 scripts/create_kairo_project.py /tmp/kairo-gallery/recipe.json /tmp/kairo-gallery-project
+    KairoPlayer /tmp/kairo-gallery-project/Project.kproject --validate
+    KairoPlayer /tmp/kairo-gallery-project/Project.kproject --renderer vulkan
+
+The project contains the exact original GLB and license bytes, with SHA256
+records in ASSET_LICENSES.json. Staging can be deleted after successful
+generation. The importer re-verifies model and license hashes and rejects
+symlink/path traversal. Native acceptance remains a separate gate. The
+catalog validates the GLB container and checksum; the recipe importer
+performs deeper self-contained GLB validation. No automatic downloading,
+executing assets, extracting archives or hosted payment flow.

@@ -525,3 +525,7 @@ Revisit RuntimeMenuDocument::ReadMenuLine and its regression tests to distinguis
 ## Loopback transport hardening follow-up
 
 Read RuntimeLoopbackTcp::Accept, FrameDeadline, SetRemainingTimeout, Send and Receive, then [actual socket regression](Runtime/KairoPlayer/tests/RuntimeLoopbackTcpTests.cpp). Compare fd_set descriptor constraints, poll, monotonic deadlines and TCP's lack of message boundaries. A failed frame requires reconnect rather than continuing from an unknown byte boundary.
+
+## Catalog to project workflow
+
+Read the catalog's stage function and [recipe compiler](scripts/create_kairo_project.py) in order. Follow model and license SHA256 verification, deterministic UUID, scene-instance records and final project-owned attribution. Review [integration tests](scripts/tests/test_catalog_project_integration.py), then the Player validation and Vulkan gate in build-test.yml.

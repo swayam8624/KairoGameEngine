@@ -75,7 +75,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev
+          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev mesa-vulkan-drivers xauth
           echo "KAIRO_CXX_COMPILER=$(command -v clang++)" >> "$GITHUB_ENV"
 
       - name: Install macOS dependencies
@@ -174,6 +174,21 @@ jobs:
         run: |
           set -o pipefail
           ctest --preset ${{ matrix.preset }} --output-on-failure 2>&1 | tee test-${{ matrix.preset }}.log
+
+      - name: Validate actual catalog-generated project and native Vulkan capture
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          python3 Samples/AssetCatalog/create_demo_catalog.py "$scratch/catalog"
+          python3 scripts/kairo_asset_catalog.py "$scratch/catalog/catalog.json" stage "$scratch/staging" triangle
+          python3 scripts/create_kairo_project.py "$scratch/staging/recipe.json" "$scratch/project"
+          rm -rf "$scratch/catalog" "$scratch/staging"
+          player=build/ci-clang/Runtime/KairoPlayer/KairoPlayer
+          "$player" "$scratch/project/Project.kproject" --validate
+          xvfb-run -a "$player" "$scratch/project/Project.kproject" --renderer vulkan --smoke
 
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')

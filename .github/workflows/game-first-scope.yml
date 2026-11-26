@@ -12,6 +12,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check workspace and build profile contracts
         run: python3 scripts/test_game_first_scope.py -v
+      - name: Test authored project recipe and catalog integration
+        run: |
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_create_kairo_project.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_catalog_project_integration.py -v
       - name: Check shell syntax and CMake preset parsing
         run: |
           bash -n scripts/workspace_profiles.sh
