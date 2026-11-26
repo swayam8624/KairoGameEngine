@@ -587,3 +587,7 @@ Read [kairo_asset_catalog.py](scripts/kairo_asset_catalog.py) first: manifest va
 ### Catalog to editable game
 
 Follow [catalog project creation](scripts/kairo_asset_catalog.py) into [the recipe compiler](scripts/create_kairo_project.py), then return to [the catalog browser](scripts/kairo_asset_catalog_browser.py) for the explicit Editor launch. [GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) check retained files and the subprocess argument contract; native packaging is a separate gate.
+
+### Project workbench
+
+Read [kairo_project_workflow.py](scripts/kairo_project_workflow.py) for native binary discovery, the shared command contract, fail-fast CLI execution and Tk process polling. Follow the commands into the existing Editor, [menu designer](scripts/kairo_menu_designer.py), ProjectCompiler and Player; [workbench tests](scripts/tests/test_kairo_project_workflow.py) exercise real fixture processes and actual Tk buttons, not the native engine.
