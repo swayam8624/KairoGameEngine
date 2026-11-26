@@ -14,6 +14,9 @@
 // mathematical certification of physics.
 
 #include "RuntimeFrameClock.hpp"
+#include "RuntimeCollectibleRun.hpp"
+#include <algorithm>
+#include <vector>
 #include "RuntimeNativeAudioOutput.hpp"
 #include <memory>
 #include <exception>
@@ -27,6 +30,7 @@
 #include <string_view>
 
 import Kairo.EngineCore.InputMap;
+import Kairo.EngineCore.Entity;
 import Kairo.Foundation.Math;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeRenderBridge;
@@ -168,6 +172,23 @@ int main(int argc, char** argv)
                   << "  player controllers: " << playerController.ControllerCount() << '\n'
                   << "  native behaviours: " << nativeGameplay.InstanceCount() << '\n'
                   << "  production systems: " << (production.Enabled() ? "enabled" : "disabled") << '\n';
+        // Opt-in objectives use ordinary authored visual leaf entities. The
+        // narrow contract does not disable live physics or logic objects.
+        kairo::player::detail::RuntimeCollectibleRun collectibleRun;
+        for(const auto entity:project.Scene().Entities())
+            if(project.Scene().IsActiveInHierarchy(entity)&&project.Scene().HasTag(entity,"kairo.collectible"))
+            {
+                if(project.Scene().HasRigidBody(entity)||project.Scene().HasCollider(entity)||
+                    project.Scene().HasLogic(entity)||!project.Scene().Children(entity).empty()||
+                    (!project.Scene().HasMeshRenderer(entity)&&!project.Scene().HasSceneInstance(entity)))
+                    throw std::invalid_argument("Collectibles must be leaf visual-only entities.");
+                const auto p=project.Scene().WorldTransform(entity).Translation;
+                collectibleRun.Add(entity.Value,{p.x,p.y,p.z});
+            }
+        if(collectibleRun.Total()&&!playerController.PrimaryController())
+            throw std::invalid_argument("Collectible objective requires a player controller.");
+        if(collectibleRun.Total())
+            std::cout<<"  collectible goals: "<<collectibleRun.Total()<<'\n';
         // Headless validation stops before graphics initialization.
         if (arguments.ValidateOnly) return 0;
         if (arguments.PackageProfile.has_value())
@@ -226,6 +247,8 @@ int main(int argc, char** argv)
         bool captureRequested=false;
         std::uint32_t viewportWidth=0,viewportHeight=0;
         unsigned smokeFrames = 0u;
+        std::size_t publishedScore=static_cast<std::size_t>(-1);
+        unsigned overlayWidth=0,overlayHeight=0;
         const auto clockOrigin=std::chrono::steady_clock::now();
         kairo::player::detail::RuntimeFrameClock frameClock;
         while (!renderer.NativeWindow().ShouldClose())
@@ -243,6 +266,9 @@ int main(int argc, char** argv)
                 viewportWidth=frameWidth;viewportHeight=frameHeight;
             }
             const bool menuFrame=menu&&menu->Poll(frameWidth,frameHeight);
+            // The modal menu exclusively owns the overlay until it closes.
+            // Invalidate the HUD cache so the next gameplay frame restores it.
+            if(menuFrame)publishedScore=static_cast<std::size_t>(-1);
             // Menu owns this frame, including its closing action. Neutralize
             // held controls and queued jump so the next game frame cannot
             // replay menu input or a pre-menu pending physics event.
@@ -276,6 +302,32 @@ int main(int argc, char** argv)
             production.Step(static_cast<double>(elapsedSeconds));
             (void)shipping.Step(static_cast<double>(elapsedSeconds));
             bridge.StepAnimations(elapsedSeconds);
+            if(collectibleRun.Total()&&controlledEntity&&project.Scene().Contains(*controlledEntity))
+            {
+                const auto p=project.Scene().WorldTransform(*controlledEntity).Translation;
+                const auto collected=collectibleRun.Step({p.x,p.y,p.z},elapsedSeconds);
+                for(auto id:collected)project.Scene().SetEnabled(kairo::engine::Entity{id},false);
+                if(!collected.empty())
+                {
+                    std::cout<<"Beacons "<<collectibleRun.Score()<<"/"<<collectibleRun.Total()<<'\n';
+                    if(collectibleRun.Won())std::cout<<"All beacons collected in "<<collectibleRun.Elapsed()<<" seconds!\n";
+                }
+                // The menu branch never executes this HUD publication.
+                if(renderer.SupportsViewportOverlay()&&
+                    (publishedScore!=collectibleRun.Score()||overlayWidth!=frameWidth||overlayHeight!=frameHeight))
+                {
+                    const auto width=std::min(300u,frameWidth/2u);
+                    std::vector<kairo::renderer::ViewportOverlayRect> rects;
+                    if(frameWidth>=24u&&width&&frameHeight>36u)
+                    {
+                        rects.push_back({12u,12u,width,16u,{.08f,.12f,.18f}});
+                        const auto progress=static_cast<unsigned>(width*collectibleRun.Score()/collectibleRun.Total());
+                        if(progress)rects.push_back({12u,12u,progress,16u,{.18f,.85f,.45f}});
+                    }
+                    renderer.SetViewportOverlay(rects);
+                    publishedScore=collectibleRun.Score();overlayWidth=frameWidth;overlayHeight=frameHeight;
+                }
+            }
 
             // The game thread owns mixing and scene state. The native callback
             // consumes only bounded stereo PCM; it never touches the scene.
