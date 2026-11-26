@@ -85,7 +85,7 @@ def search(entries, query):
     return [item for _, item in sorted(entries.items()) if all(word in " ".join([item["id"], item["name"], item["author"], item["license"], *item["tags"]]).casefold() for word in words)]
 
 
-def stage(manifest, ids, output):
+def stage(manifest, ids, output, *, expected_entries=None):
     """Validate selected bytes before reserving a new output directory.
     Preserve original license evidence and SHA256 in a provenance manifest;
     emit the exact file/author/license/source fields expected by recipe import.
@@ -97,6 +97,10 @@ def stage(manifest, ids, output):
     for key in sorted(ids):
         require(key in entries, f"Unknown asset ID: {key}")
         item = entries[key]
+        # Authoring callers may bind the metadata the user actually reviewed.
+        # Recheck against this same manifest load before staging any bytes.
+        if expected_entries is not None:
+            require(item == expected_entries.get(key), f"Catalog metadata changed: {key}; reopen catalog")
         data = read_bounded(safe_path(root, item["file"]), MAX_FILE)
         require(len(data) >= 20 and struct.unpack_from("<4sII", data) == (b"glTF", 2, len(data)), "Invalid GLB container")
         require(hashlib.sha256(data).hexdigest() == item["sha256"], f"Asset checksum mismatch: {key}")

@@ -189,3 +189,7 @@ Original self-contained GLB fixture and actual imported skinned mesh/clip/IK cap
 ## Candidate progress: protected co-op admission
 
 Optional distinct 256-bit seat tickets bind protected local connections to their assigned seats rather than connection order. Wrong, malformed, truncated and replayed credentials are rejected before a seat is consumed. Portable process and native graphical gates now exercise protected admission. CI execution is required before promotion; this is not a hosted service, encrypted transport, or automatic matchmaking-directory token validation.
+
+## Candidate progress: graphical licensed catalog
+
+A standalone Tk catalog browser now reuses the canonical local manifest, search, checksum, license evidence and recipe staging code. It displays reviewed metadata, filters selectable assets, and stages asynchronously into a new directory; metadata changes between review and staging reject. Actual Tk/Xvfb tests are registered for search, selection, provenance, overwrite refusal and stale metadata. Main-editor import, actual native model preview, and CI execution remain open.

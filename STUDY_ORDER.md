@@ -575,3 +575,7 @@ Read [GLB generator](Samples/AnimationLab/run_imported_ik_native.py), [byte-leve
 ### Protected local multiplayer admission
 
 Read [RuntimeCoopSession.hpp](Runtime/KairoPlayer/RuntimeCoopSession.hpp) after the frame codec and loopback socket adapter. Follow ticket parsing, bounded pre-game admission, seat ownership and the existing turn exchange; then read [run_coop.py](Samples/NetworkLab/run_coop.py) for process-level negative cases and [run_coop_native.py](Samples/NetworkLab/run_coop_native.py) for the graphical gate. The local bearer ticket is not encryption or WAN identity.
+
+### Graphical licensed catalog
+
+Read [kairo_asset_catalog.py](scripts/kairo_asset_catalog.py) first: manifest validation, search, checksum, provenance and recipe output. Then read [kairo_asset_catalog_browser.py](scripts/kairo_asset_catalog_browser.py) to follow Tk selection and worker isolation; [the GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) verify real staged files and reject stale metadata. This is a standalone companion, not yet an Editor dock.

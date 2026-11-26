@@ -282,3 +282,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Added ticket-bound local seats with bounded handshake and attempt limits; legacy open lab remains available.
 - Extended actual three-process acceptance with wrong, malformed, truncated and replayed ticket cases, reverse arrival order and protected CLI victory.
 - Native dual-client capture gate now checks protected seat identity. CI and native acceptance pending; no percentage promotion.
+
+## M50 — graphical asset catalog companion (2026-11-26)
+
+- Added desktop catalog browsing, metadata inspection, multi-selection and nonblocking verified recipe staging.
+- Bound staging to reviewed metadata, avoiding silent source/license changes between display and export.
+- Added actual Tk widget and staged-file regression gates under Xvfb. CI pending; no native Editor or marketplace claim.
