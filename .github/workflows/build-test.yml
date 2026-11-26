@@ -211,6 +211,12 @@ jobs:
         run: |
           xvfb-run -a python3 Samples/BeaconRun/run_native_progress.py build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/BeaconRun vulkan
 
+      - name: Native health arena capture
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/HealthArena/Project.kproject --renderer vulkan --smoke
+
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')
         uses: actions/upload-artifact@v7

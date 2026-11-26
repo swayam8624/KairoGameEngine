@@ -1,0 +1,7 @@
+# Health Arena
+
+A regular Kairo project with a hazard on the right and a checkpoint on the left. Approach the left marker to update the respawn point. Standing near the right marker causes repeated damage; at zero health the character motor teleports the player to the selected checkpoint (or original spawn) and restores full health. Falling below the authored threshold also causes immediate death. On overlay-capable backends a red health bar appears alongside any objective bar.
+
+`Config/Health.khealth` starts with `kairo-health 1`, then `health MAXIMUM DAMAGE_COOLDOWN_TICKS FALL_Y`. Subsequent records are `hazard ID X Y Z RADIUS DAMAGE` or `checkpoint ID X Y Z RADIUS`. At the existing default 60 Hz fixed step, 30 ticks correspond to 0.5 seconds. Spherical zones sample the primary player's center after character movement. Overlapping zones of each kind use ascending ID priority. Checkpoints use their center as their respawn point; centers in hazard zones or below the fall threshold are rejected, but the author must provide clearance from solid colliders. There is no sweep between samples or timed death animation. Health and checkpoint selection are session-local, separate from optional objective persistence.
+
+Build the normal game profile, then run `build/game-clang/Runtime/KairoPlayer/KairoPlayer Samples/HealthArena/Project.kproject`. `KairoPlayerHealthBridgeTests` is a full workspace CTest that exercises the actual physics body, motor reset and checkpoint pose; portable core tests exercise 50,000 seeded samples independently.
