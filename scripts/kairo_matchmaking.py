@@ -3,6 +3,7 @@
 import argparse
 from contextlib import contextmanager
 import json
+import os
 from pathlib import Path
 import re
 import secrets
@@ -24,6 +25,10 @@ class Directory:
         with self.transaction() as db:
             db.execute('CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, name TEXT NOT NULL, port INTEGER NOT NULL UNIQUE, capacity INTEGER NOT NULL, expires REAL NOT NULL, owner TEXT NOT NULL)')
             db.execute('CREATE TABLE IF NOT EXISTS members (session TEXT REFERENCES sessions(id) ON DELETE CASCADE, player TEXT NOT NULL, token TEXT NOT NULL UNIQUE, PRIMARY KEY(session, player))')
+
+            # A protected session has exactly two pre-provisioned tickets.
+            # claimed_player is permanent for the session, even after leave.
+            db.execute('CREATE TABLE IF NOT EXISTS protected_seats (session TEXT REFERENCES sessions(id) ON DELETE CASCADE, seat INTEGER NOT NULL, token TEXT NOT NULL UNIQUE, claimed_player TEXT, PRIMARY KEY(session, seat), UNIQUE(session, claimed_player))')
 
     @contextmanager
     def transaction(self):
@@ -50,27 +55,35 @@ class Directory:
             raise ValueError('Invalid session/player label')
         return value
 
-    def create(self, name, port, capacity=2, ttl=60):
+    def create(self, name, port, capacity=2, ttl=60, *, tickets=None):
         """Advertise a loopback port already owned by a host. Capacity excludes host."""
         self.label(name)
         if type(port) is not int or not 1 <= port <= 65535 or type(capacity) is not int or not 1 <= capacity <= 64 or type(ttl) is not int or not 1 <= ttl <= 3600:
             raise ValueError('Invalid port, capacity or lifetime')
+        if tickets is not None:
+            if (capacity != 2 or not isinstance(tickets, (list, tuple)) or len(tickets) != 2
+                    or any(not isinstance(t, str) or not re.fullmatch(r'[0-9a-f]{64}', t) for t in tickets)
+                    or tickets[0] == tickets[1]):
+                raise ValueError('Protected sessions require two distinct 256-bit tickets')
         session, owner = secrets.token_hex(16), secrets.token_hex(32)
         with self.transaction() as db:
             self.prune(db)
             if db.execute('SELECT 1 FROM sessions WHERE port=?', (port,)).fetchone():
                 raise ValueError('Port already advertised')
             db.execute('INSERT INTO sessions VALUES (?,?,?,?,?,?)', (session, name, port, capacity, self.clock()+ttl, owner))
+            if tickets is not None:
+                db.executemany('INSERT INTO protected_seats(session,seat,token) VALUES (?,?,?)',
+                               [(session, seat, token) for seat,token in enumerate(tickets)])
         return {'id': session, 'owner': owner}
 
     def list(self):
         """Return public metadata only, never ownership or membership tokens."""
         with self.transaction() as db:
             self.prune(db)
-            rows = db.execute('SELECT s.id,s.name,s.port,s.capacity,COUNT(m.player) FROM sessions s LEFT JOIN members m ON s.id=m.session GROUP BY s.id ORDER BY s.name,s.id').fetchall()
-        return [dict(id=i, name=n, host='127.0.0.1', port=p, capacity=c, joined=j) for i,n,p,c,j in rows]
+            rows = db.execute('SELECT s.id,s.name,s.port,s.capacity, CASE WHEN EXISTS (SELECT 1 FROM protected_seats p WHERE p.session=s.id) THEN (SELECT COUNT(*) FROM protected_seats p WHERE p.session=s.id AND p.claimed_player IS NOT NULL) ELSE (SELECT COUNT(*) FROM members m WHERE m.session=s.id) END, EXISTS (SELECT 1 FROM protected_seats p WHERE p.session=s.id) FROM sessions s ORDER BY s.name,s.id').fetchall()
+        return [dict(id=i, name=n, host='127.0.0.1', port=p, capacity=c, joined=j, protected=bool(protected)) for i,n,p,c,j,protected in rows]
 
-    def join(self, session, player):
+    def join(self, session, player, *, require_protected=False):
         """Reserve one seat atomically; duplicate player IDs cannot consume two."""
         self.label(player)
         token = secrets.token_hex(32)
@@ -79,6 +92,20 @@ class Directory:
             row = db.execute('SELECT port,capacity FROM sessions WHERE id=?', (session,)).fetchone()
             if row is None:
                 raise ValueError('Session unavailable')
+            protected = db.execute('SELECT seat,token,claimed_player FROM protected_seats WHERE session=? ORDER BY seat', (session,)).fetchall()
+            if require_protected and not protected:
+                raise ValueError('Select a protected co-op session')
+            if protected:
+                if any(claimed == player for _,_,claimed in protected):
+                    raise ValueError('Player already claimed a protected seat')
+                available = next(((seat,ticket) for seat,ticket,claimed in protected if claimed is None), None)
+                if available is None:
+                    raise ValueError('Session full')
+                seat, token = available
+                db.execute('UPDATE protected_seats SET claimed_player=? WHERE session=? AND seat=?',
+                           (player,session,seat))
+                db.execute('INSERT INTO members VALUES (?,?,?)', (session,player,token))
+                return {'host': '127.0.0.1', 'port': row[0], 'token': token, 'seat': seat}
             if db.execute('SELECT 1 FROM members WHERE session=? AND player=?', (session,player)).fetchone():
                 raise ValueError('Player already joined')
             if db.execute('SELECT COUNT(*) FROM members WHERE session=?', (session,)).fetchone()[0] >= row[1]:
@@ -87,7 +114,7 @@ class Directory:
         return {'host': '127.0.0.1', 'port': row[0], 'token': token}
 
     def leave(self, token):
-        """Release one membership; unknown/expired tokens are harmless."""
+        """Release membership; protected tickets are never recycled within a match."""
         with self.transaction() as db:
             self.prune(db)
             return db.execute('DELETE FROM members WHERE token=?', (token,)).rowcount == 1
@@ -103,7 +130,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('database', type=Path)
     sub = parser.add_subparsers(dest='command', required=True)
-    create = sub.add_parser('create'); create.add_argument('name'); create.add_argument('port', type=int); create.add_argument('--capacity', type=int, default=2); create.add_argument('--ttl', type=int, default=60)
+    create = sub.add_parser('create'); create.add_argument('name'); create.add_argument('port', type=int); create.add_argument('--capacity', type=int, default=2); create.add_argument('--ttl', type=int, default=60); create.add_argument('--protected', action='store_true', help='read server seat tickets from environment')
     sub.add_parser('list')
     join = sub.add_parser('join'); join.add_argument('session'); join.add_argument('player')
     leave = sub.add_parser('leave'); leave.add_argument('token')
@@ -111,7 +138,9 @@ def main():
     args = parser.parse_args()
     try:
         directory = Directory(args.database)
-        if args.command == 'create': result = directory.create(args.name,args.port,args.capacity,args.ttl)
+        if args.command == 'create':
+            tickets = [os.getenv('KAIRO_COOP_SEAT0'), os.getenv('KAIRO_COOP_SEAT1')] if args.protected else None
+            result = directory.create(args.name,args.port,args.capacity,args.ttl,tickets=tickets)
         elif args.command == 'list': result = directory.list()
         elif args.command == 'join': result = directory.join(args.session,args.player)
         elif args.command == 'leave': result = directory.leave(args.token)

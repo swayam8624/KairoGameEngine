@@ -178,9 +178,25 @@ Both local compilers passed 95,825 randomized simultaneous turns each and an act
 
 Two-client asynchronous worker, keyboard/overlay host and independent native three-process capture gate added. Both portable compilers passed real worker network/cancellation/failure tests and 5,000 viewport cases each. Native CI and accepted-head gate pending.
 
+## Candidate progress: imported character IK
+
+Imported glTF node correction now feeds the real shared skin palette extraction and runtime controls. Both local compilers passed 10,000 structural adapter matrix reconstructions each; actual artifact/module regression registered, awaiting full workspace CI. No imported native GPU capture or accepted promotion yet.
+
+## Candidate progress: file-backed native skin acceptance
+
+Original self-contained GLB fixture and actual imported skinned mesh/clip/IK capture/pick gate registered as ninth strict native sample. Local byte tests passed; actual native importer/build/render acceptance remains pending. No promotion until accepted-head native results.
+
+## Candidate progress: protected co-op admission
+
+Optional distinct 256-bit seat tickets bind protected local connections to their assigned seats rather than connection order. Wrong, malformed, truncated and replayed credentials are rejected before a seat is consumed. Portable process and native graphical gates now exercise protected admission. CI execution is required before promotion; this is not a hosted service, encrypted transport, or automatic matchmaking-directory token validation.
+
 ## Candidate progress: graphical licensed catalog
 
 A standalone Tk catalog browser now reuses the canonical local manifest, search, checksum, license evidence and recipe staging code. It displays reviewed metadata, filters selectable assets, and stages asynchronously into a new directory; metadata changes between review and staging reject. Actual Tk/Xvfb tests are registered for search, selection, provenance, overwrite refusal and stale metadata. Main-editor import, actual native model preview, and CI execution remain open.
+
+## Candidate progress: protected directory-to-game workflow
+
+The SQLite directory now issues the actual protected server tickets atomically, never recycles a claimed seat within a match, and exposes a host/list/join launcher for terminal or graphical clients. The server allows a bounded interactive lobby window. Portable tests exercise 24-process contention, expiry, direct directory-to-native connection, and the actual launcher command flow. CI and native graphical execution are pending; no external matchmaking or percentage promotion.
 
 ## Candidate progress: catalog-to-Editor project creation
 

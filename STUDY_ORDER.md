@@ -564,7 +564,23 @@ Read [RuntimeCoopArena](Runtime/KairoPlayer/RuntimeCoopArena.hpp) for symmetric 
 
 Read [CoopWorker](Runtime/KairoPlayer/RuntimeCoopWorker.hpp), [CoopView](Runtime/KairoPlayer/RuntimeCoopView.hpp), [native client](Runtime/KairoPlayer/CoopClient.cpp) and [worker tests](Runtime/KairoPlayer/tests/RuntimeCoopWorkerTests.cpp). Trace one outstanding input, zero-duration future polling, visible state publication, interrupt/join and native overlay submission. [Native process gate](Samples/NetworkLab/run_coop_native.py) separates an actual GPU capture on each client from CPU view and socket tests.
 
-### Graphical licensed catalog
+### Protected local multiplayer admission
+
+Read [RuntimeCoopSession.hpp](Runtime/KairoPlayer/RuntimeCoopSession.hpp) after the frame codec and loopback socket adapter. Follow ticket parsing, bounded pre-game admission, seat ownership and the existing turn exchange; then read [run_coop.py](Samples/NetworkLab/run_coop.py) for process-level negative cases and [run_coop_native.py](Samples/NetworkLab/run_coop_native.py) for the graphical gate. The local bearer ticket is not encryption or WAN identity.
+
+### Directory-to-game workflow
+
+Read [kairo_matchmaking.py](scripts/kairo_matchmaking.py) for SQLite transactional seat ownership and one-time credentials. Then follow [coop_directory.py](Samples/NetworkLab/coop_directory.py) from host readiness to advertised session, client credential issuance and cleanup. [Directory tests](scripts/tests/test_kairo_matchmaking.py) cover concurrency, and [run_coop.py](Samples/NetworkLab/run_coop.py) covers actual process boundaries. The server remains the gameplay authority.
+
+## Imported character IK
+
+Read RuntimeSkeletonPose, [RuntimeImportedTwoBone](Runtime/KairoPlayer/RuntimeImportedTwoBone.hpp) and [adapter tests](Runtime/KairoPlayer/tests/RuntimeImportedTwoBoneTests.cpp). Follow SceneTwoBoneIK / ApplyGltfTwoBoneIK in [RealtimeSceneBridge](Runtime/KairoRealtimeRenderBridge/RealtimeSceneBridge.cppm) from sampled local pose through matrix refresh and asset-space joint palettes. [Shared extraction tests](Runtime/KairoRealtimeRenderBridge/tests/RealtimeSceneBridgeTests.cpp) check per-instance isolation. RuntimeRenderBridge exposes asset-bound set/clear and lifecycle pruning. Distinguish root-parent coordinates from outer entity placement.
+
+## File-backed skinned animation acceptance
+
+Read [GLB generator](Samples/AnimationLab/run_imported_ik_native.py), [byte-level fixture tests](Samples/AnimationLab/test_imported_ik_fixture.py), and [ImportedIKSmoke](Runtime/KairoPlayer/ImportedIKSmoke.cpp). Trace buffer views and accessors -> imported typed artifact -> renderer mesh influences -> sampled pose and IK -> jointWorld*inverseBind -> real native readback and object-ID picking. Separate local byte tests from actual native acceptance.
+
+## Graphical licensed catalog
 
 Read [kairo_asset_catalog.py](scripts/kairo_asset_catalog.py) first: manifest validation, search, checksum, provenance and recipe output. Then read [kairo_asset_catalog_browser.py](scripts/kairo_asset_catalog_browser.py) to follow Tk selection and worker isolation; [the GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) verify real staged files and reject stale metadata. This is a standalone companion, not yet an Editor dock.
 
