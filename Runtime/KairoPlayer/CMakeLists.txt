@@ -130,6 +130,13 @@ if(BUILD_TESTING)
     add_test(NAME KairoPlayerWorld2DTests COMMAND KairoPlayerWorld2DTests "${CMAKE_SOURCE_DIR}/Samples/World2DProject/Config/World.k2d")
     add_test(NAME KairoPlayerWorld2DValidate COMMAND KairoPlayer "${CMAKE_SOURCE_DIR}/Samples/World2DProject/Project.kproject" --validate)
     set_tests_properties(KairoPlayerWorld2DTests KairoPlayerWorld2DValidate PROPERTIES TIMEOUT 30)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME KairoPlayerWorld2DAuthoring
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/tests/world2d_native_authoring.py"
+                $<TARGET_FILE:KairoWorld2DTool> "${CMAKE_SOURCE_DIR}/Samples/World2DProject/Config/World.k2d")
+        set_tests_properties(KairoPlayerWorld2DAuthoring PROPERTIES TIMEOUT 60)
+    endif()
     add_executable(KairoPlayerPlatformerProjectTests tests/RuntimePlatformerProjectTests.cpp)
     target_compile_features(KairoPlayerPlatformerProjectTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerPlatformerProjectTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
