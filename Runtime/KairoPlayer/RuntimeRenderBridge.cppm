@@ -248,11 +248,23 @@ export namespace kairo::player
             const auto asset=m_Project.Scene().SceneInstance(entity).SceneAsset;
             const auto* definition=m_Assets.ResolveController(asset);
             if(!definition)throw std::logic_error("Entity has no authored animation controller.");
+            bool declared=false;
+            for(const auto& transition:definition->Transitions)
+                for(const auto& condition:transition.Conditions)
+                    declared|=condition.Parameter==name;
+            if(!declared)throw std::invalid_argument("Unknown controller parameter.");
             auto& binding=EnsureController(entity,asset.ID,*definition,source);
-            if(!binding.Parameters.Contains(name))
-                throw std::invalid_argument("Unknown controller parameter.");
             binding.Parameters.SetBool(std::string(name),value);
             m_AnimationStates.erase(entity.Value);
+        }
+
+        [[nodiscard]] std::optional<std::string> ControllerStateName(kairo::engine::Entity entity) const
+        {
+            const auto it=m_Controllers.find(entity.Value);
+            if(it==m_Controllers.end()||!m_Project.Scene().Contains(entity)||
+                !m_Project.Scene().HasSceneInstance(entity)||
+                m_Project.Scene().SceneInstance(entity).SceneAsset.ID!=it->second.Asset)return std::nullopt;
+            return std::string(it->second.Runtime.CurrentStateName());
         }
 
         void StepAnimations(float deltaSeconds)
