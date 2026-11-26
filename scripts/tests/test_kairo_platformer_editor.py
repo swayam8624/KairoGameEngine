@@ -52,6 +52,10 @@ class TileEditorTests(unittest.TestCase):
         command=editor_command(self.project,build,"vulkan")
         self.assertEqual(Path(command[1]),ROOT/"scripts/kairo_platformer_editor.py")
         self.assertEqual(command[2:],[str(self.project),"--build",str(build),"--renderer","vulkan"])
+        self.path.unlink()
+        self.assertEqual(editor_command(self.project,build,"vulkan"),command)
+        with self.assertRaises(ValueError):
+            TileDocument(self.path)
 
     @unittest.skipUnless(os.environ.get("DISPLAY") and os.name!="nt","Needs Xvfb and POSIX fixture")
     def test_actual_canvas_paint_and_play(self):
