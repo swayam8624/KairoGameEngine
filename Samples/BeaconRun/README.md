@@ -13,3 +13,5 @@ Run after building the game profile:
 No separate sample game executable or source asset downloads are needed.
 The collectible tag opts in visual-only leaf scene entities. The objective
 is session-local; no leaderboard, level progression or save persistence.
+
+The current integration is restacked on the newer modal menu host: gameplay score/HUD updates pause while the menu owns the frame, and the HUD is restored on resume. Use `python3 Samples/BeaconRun/run_native_acceptance.py /path/to/KairoPlayer Samples/BeaconRun metal` (or `vulkan`, with an appropriate display) for the native smoke gate. It validates the ordinary six-goal sample, relocates one goal to spawn in an isolated copy, checks collection and nonuniform frame capture, and rejects a nonvisual/physics collectible. It does not drive the entire six-goal journey interactively. Collectibles must remain static and visual-only; runtime persistence is out of scope.
