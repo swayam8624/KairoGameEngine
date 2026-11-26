@@ -11,7 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAYER = ROOT / 'Runtime/KairoPlayer'
-TESTS = ('GameplayEvents', 'EnemyNavigation', 'Enemy', 'EnemyDamage', 'ProjectileFlight', 'ProjectileCombat', 'Combat', 'Health', 'SlidingDoor', 'ProximityTriggers', 'CollectibleRun', 'QuestDialogue', 'QuestSave', 'ItemInventory', 'RpgSession', 'TwoBoneIK', 'AnimationRetarget', 'SkeletonPose', 'PoseLab', 'ImportedTwoBone',
+TESTS = ('EventDoor', 'GameplayEvents', 'EnemyNavigation', 'Enemy', 'EnemyDamage', 'ProjectileFlight', 'ProjectileCombat', 'Combat', 'Health', 'SlidingDoor', 'ProximityTriggers', 'CollectibleRun', 'QuestDialogue', 'QuestSave', 'ItemInventory', 'RpgSession', 'TwoBoneIK', 'AnimationRetarget', 'SkeletonPose', 'PoseLab', 'ImportedTwoBone',
          'NetworkProtocol', 'NetworkPrediction', 'LoopbackTcp', 'CoopArena', 'CoopWorker', 'Weather', 'RainStreaks',
          'WaterGrid', 'SoftBody', 'TetraSurface', 'TetraPublication', 'BreakableCube', 'MenuDocument', 'MenuFocus', 'MenuPresentation',
          'Platformer', 'Strategy', 'GridCanvas', 'GameLabView')
