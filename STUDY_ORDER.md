@@ -529,3 +529,7 @@ Read RuntimeLoopbackTcp::Accept, FrameDeadline, SetRemainingTimeout, Send and Re
 ## Catalog to project workflow
 
 Read the catalog's stage function and [recipe compiler](scripts/create_kairo_project.py) in order. Follow model and license SHA256 verification, deterministic UUID, scene-instance records and final project-owned attribution. Review [integration tests](scripts/tests/test_catalog_project_integration.py), then the Player validation and Vulkan gate in build-test.yml.
+
+## Android native sample
+
+After the shared platformer core and WebAssembly adapter, read [JNI adapter](Samples/AndroidPlatformer/app/src/main/cpp/PlatformerJni.cpp), [NativeGame](Samples/AndroidPlatformer/app/src/main/java/org/kairo/platformer/NativeGame.java), [TouchInput](Samples/AndroidPlatformer/app/src/main/java/org/kairo/platformer/TouchInput.java), [Activity and view](Samples/AndroidPlatformer/app/src/main/java/org/kairo/platformer/MainActivity.java), and [host tests](Samples/AndroidPlatformer/host-tests/org/kairo/platformer/HostTest.java). Trace Android pointer IDs, lifecycle, fixed ticks, JNI ownership and Canvas presentation. [Build guide](Samples/AndroidPlatformer/README.md).

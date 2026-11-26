@@ -149,3 +149,7 @@ Actual freestanding C++ WASM build and 20,279 native/WASM state/map comparisons 
 ## Post-merge integration status (2026-11-26)
 
 The previous implementation stack is merged into main. Follow-up fixes isolate modal gameplay input, use identical pixel hit/draw bounds, test native sample rectangle generation, repair rain mesh teardown, and reuse bounded dynamic mesh publication. [Expanded portable evidence](evidence/m50-portable-integration-2026-11-26.json) proves 28 execution gates per compiler at 58 exact source blobs. The [native acceptance runner](M50_NATIVE_ACCEPTANCE.md) requires six actual Vulkan/Metal sample gates and rejects skips; native CI execution is still pending. This is not a percentage promotion. Mobile native packaging, graphical editor authoring, native animation integration, real GPU capture and full release acceptance remain open.
+
+## Candidate progress: native Android deployment
+
+Single shared-core Android game, native JNI, touch/lifecycle and APK/emulator gate implemented; actual Linux JVM/JNI tests pass both compilers. Device/APK acceptance pending; iOS and full mobile engine renderer/exporter remain open. No accepted 50% promotion.
