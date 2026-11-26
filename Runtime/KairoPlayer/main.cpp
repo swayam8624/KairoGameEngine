@@ -82,8 +82,8 @@ namespace
         {
             m_Doors.BeforePhysicsStep(fixedDeltaSeconds);
             m_PlayerController.BeforePhysicsStep(fixedDeltaSeconds);
-            if(m_Health.AfterCharacterStep()){m_PlayerController.ClearInput();m_Combat.ClearInput();}
-            m_Combat.Step();
+            if(m_Health.AfterCharacterStep()){m_PlayerController.ClearInput();m_Combat.ClearInput();m_Combat.CancelFlights();}
+            m_Combat.Step(fixedDeltaSeconds);
             m_Logic.BeforePhysicsStep(fixedDeltaSeconds);
             m_Native.BeforePhysicsStep(fixedDeltaSeconds);
         }
