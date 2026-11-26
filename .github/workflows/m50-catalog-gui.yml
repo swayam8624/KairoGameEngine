@@ -21,3 +21,6 @@ jobs:
 
       - name: Run actual graphical gameplay authoring tests
         run: PYTHONPATH=scripts xvfb-run -a /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_gameplay_editor.py
+
+      - name: Run workbench acceptance
+        run: PYTHONPATH=scripts xvfb-run -a /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_project_workflow.py
