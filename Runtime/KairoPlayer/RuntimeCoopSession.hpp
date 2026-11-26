@@ -76,7 +76,8 @@ namespace kairo::player::detail
         std::array<std::optional<LoopbackTcp>,2> seats;
         // Reject malformed, incorrect or already-used tickets without
         // consuming a seat. Cap attempts to bound local resource exhaustion.
-        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(60);
+        // Stay below the first client's 30-second initial-state wait.
+        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(25);
         for(unsigned attempt=0;attempt<8;++attempt)
         {
             const auto remaining=std::chrono::ceil<std::chrono::milliseconds>(deadline-std::chrono::steady_clock::now());
