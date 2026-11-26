@@ -7,6 +7,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import struct
+import tempfile
 
 LICENSES = {"CC0-1.0", "CC-BY-4.0", "MIT"}
 MAX_FILE = 128 * 1024 * 1024
@@ -138,6 +139,22 @@ def stage(manifest, ids, output, *, expected_entries=None):
     return output / "recipe.json"
 
 
+def create_catalog_project(manifest, ids, output, *, expected_entries=None):
+    """Create a regular Kairo project, not an intermediate staging directory.
+
+    The existing recipe compiler owns the project format and provenance.
+    Temporary staging is isolated and removed even on failure. Destination
+    creation happens exclusively in create_project, which refuses overwrites.
+    """
+    from create_kairo_project import create_project
+    output = Path(output).absolute()
+    require(not output.exists() and not output.is_symlink(), "Project destination already exists")
+    with tempfile.TemporaryDirectory(prefix="kairo-catalog-project-") as work:
+        recipe = stage(Path(manifest), ids, Path(work) / "stage",
+                       expected_entries=expected_entries)
+        return create_project(recipe, output)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("catalog", type=Path)
@@ -147,13 +164,18 @@ def main():
     export = sub.add_parser("stage")
     export.add_argument("output", type=Path)
     export.add_argument("ids", nargs="+")
+    project = sub.add_parser("project", help="Create a new editable Kairo project")
+    project.add_argument("output", type=Path)
+    project.add_argument("ids", nargs="+")
     args = parser.parse_args()
     try:
         if args.command == "search":
             _, entries = load_catalog(args.catalog)
             print(json.dumps(search(entries, args.query), indent=2))
-        else:
+        elif args.command == "stage":
             print(stage(args.catalog, args.ids, args.output))
+        else:
+            print(create_catalog_project(args.catalog, args.ids, args.output))
     except (ValueError, OSError, RecursionError) as error:
         parser.exit(1, f"Catalog rejected: {error}\n")
 
