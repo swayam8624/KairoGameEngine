@@ -181,3 +181,7 @@ Two-client asynchronous worker, keyboard/overlay host and independent native thr
 ## Candidate progress: protected co-op admission
 
 Optional distinct 256-bit seat tickets bind protected local connections to their assigned seats rather than connection order. Wrong, malformed, truncated and replayed credentials are rejected before a seat is consumed. Portable process and native graphical gates now exercise protected admission. CI execution is required before promotion; this is not a hosted service, encrypted transport, or automatic matchmaking-directory token validation.
+
+## Candidate progress: protected directory-to-game workflow
+
+The SQLite directory now issues the actual protected server tickets atomically, never recycles a claimed seat within a match, and exposes a host/list/join launcher for terminal or graphical clients. The server allows a bounded interactive lobby window. Portable tests exercise 24-process contention, expiry, direct directory-to-native connection, and the actual launcher command flow. CI and native graphical execution are pending; no external matchmaking or percentage promotion.
