@@ -110,6 +110,17 @@ export namespace kairo::runtime::renderbridge
         return bytes;
     }
 
+    // Imported source has already passed the asset validator. Validate the
+    // new clip against its actual target nodes without copying meshes/textures.
+    inline void ValidateAuthoredClipTargets(const kairo::assets::GltfSceneArtifactData& source,
+        const kairo::assets::GltfAnimationClipData& clip)
+    {
+        clip_detail::Validate(clip);
+        for(const auto& track:clip.Channels)
+            if(track.TargetNode>=source.Nodes.size()||!source.Nodes[track.TargetNode].HasRestTRS)
+                throw std::invalid_argument("Authored track targets a missing or matrix-only node.");
+    }
+
     [[nodiscard]] inline std::optional<std::string> ApplyAuthoredClip(const std::filesystem::path& root,
         kairo::assets::AssetID asset,const kairo::assets::DerivedDataKey& key,
         kairo::assets::GltfSceneArtifactData& source)
@@ -117,9 +128,10 @@ export namespace kairo::runtime::renderbridge
         const auto revision=ReadAuthoredClip(root,asset);
         if(!revision)return std::nullopt;
         auto clip=clip_detail::Decode<kairo::assets::GltfAnimationClipData>(key.ToString(),*revision);
+        ValidateAuthoredClipTargets(source,clip);
+        if(source.Animations.size()>=1'000'000u)
+            throw std::length_error("Animation count exceeds asset safety limit.");
         source.Animations.push_back(std::move(clip));
-        try {kairo::assets::ValidateGltfSceneArtifactData(source);}
-        catch(...) {source.Animations.pop_back();throw;}
         return revision;
     }
 
@@ -138,21 +150,25 @@ export namespace kairo::runtime::renderbridge
         const std::optional<std::string>& expected)
     {
         auto bytes=clip_detail::Encode(key.ToString(),draft);
-        auto candidate=source;
+        ValidateAuthoredClipTargets(source,draft);
+        auto candidate=source.Animations;
         if(expected)
         {
             const auto previous=clip_detail::Decode<kairo::assets::GltfAnimationClipData>(key.ToString(),*expected);
-            if(candidate.Animations.empty()||candidate.Animations.back()!=previous)
+            if(candidate.empty()||candidate.back()!=previous)
                 throw std::runtime_error("Loaded animation revision differs from disk. Reopen the project.");
-            candidate.Animations.back()=draft;
+            candidate.back()=draft;
         }
-        else candidate.Animations.push_back(draft);
-        kairo::assets::ValidateGltfSceneArtifactData(candidate);
+        else
+        {
+            if(candidate.size()>=1'000'000u)throw std::length_error("Animation count exceeds asset safety limit.");
+            candidate.push_back(draft);
+        }
         const auto path=AuthoredClipPath(root,asset);
         if(ReadAuthoredClip(root,asset)!=expected)
             throw std::runtime_error("Authored clip changed on disk. Reopen the project.");
         kairo::engine::SaveTextFileAtomically(path,bytes,"authored animation clip");
-        return {std::move(candidate.Animations),std::move(bytes)};
+        return {std::move(candidate),std::move(bytes)};
     }
 
     /// Complete CPU-side glTF import needed by animation-aware runtime binding.
