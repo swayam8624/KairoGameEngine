@@ -12,12 +12,12 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PLAYER = ROOT / 'Runtime/KairoPlayer'
 TESTS = ('QuestDialogue', 'QuestSave', 'ItemInventory', 'RpgSession', 'TwoBoneIK', 'AnimationRetarget', 'SkeletonPose', 'PoseLab',
-         'NetworkProtocol', 'NetworkPrediction', 'LoopbackTcp', 'Weather', 'RainStreaks',
+         'NetworkProtocol', 'NetworkPrediction', 'LoopbackTcp', 'CoopArena', 'Weather', 'RainStreaks',
          'WaterGrid', 'SoftBody', 'TetraSurface', 'TetraPublication', 'BreakableCube', 'MenuDocument', 'MenuFocus', 'MenuPresentation',
          'Platformer', 'Strategy', 'GridCanvas', 'GameLabView')
 HEADERS = ('CraftSaveFile.hpp', 'RuntimeQuestDialogue.hpp', 'RuntimeQuestSave.hpp', 'RuntimeItemInventory.hpp', 'RuntimeRpgSession.hpp',
            'RuntimeTwoBoneIK.hpp', 'RuntimeAnimationRetarget.hpp', 'RuntimeSkeletonPose.hpp', 'RuntimePoseLab.hpp', 'RuntimeNetworkProtocol.hpp',
-           'RuntimeNetworkPrediction.hpp', 'RuntimeLoopbackTcp.hpp', 'RuntimeWeather.hpp',
+           'RuntimeNetworkPrediction.hpp', 'RuntimeLoopbackTcp.hpp', 'RuntimeCoopArena.hpp', 'RuntimeCoopSession.hpp', 'RuntimeWeather.hpp',
            'RuntimeRainStreaks.hpp', 'RuntimeWaterGrid.hpp', 'RuntimeSoftBody.hpp', 'RuntimeTetraSurface.hpp', 'VoxelMeshPublication.hpp',
            'RuntimeBreakableCube.hpp', 'RuntimeMenuDocument.hpp', 'RuntimeMenuFocus.hpp', 'RuntimeMenuPresentation.hpp',
            'RuntimePlatformerCore.hpp', 'RuntimePlatformer.hpp', 'RuntimeStrategy.hpp', 'RuntimeGridCanvas.hpp', 'RuntimeGameLabView.hpp',
@@ -27,7 +27,7 @@ SAMPLES = ('Samples/NetworkLab/NetworkLab.cpp', 'Samples/NetworkLab/run_pair.py'
            'Samples/PlatformerLab/PlatformerDemo.cpp', 'Samples/StrategyLab/StrategyDemo.cpp',
            'Samples/QuestDialogue/QuestDialogueDemo.cpp', 'scripts/kairo_asset_catalog.py',
            'scripts/kairo_matchmaking.py', 'scripts/tests/test_kairo_asset_catalog.py',
-           'scripts/tests/test_kairo_matchmaking.py')
+           'scripts/tests/test_kairo_matchmaking.py', 'Samples/NetworkLab/CoopLab.cpp', 'Samples/NetworkLab/run_coop.py')
 
 
 def fingerprint(path):
@@ -81,6 +81,9 @@ def run_suite(compiler, report):
         build('network lab', ROOT / SAMPLES[0], network)
         step('native loopback', [sys.executable, ROOT / SAMPLES[1], network])
         step('matchmaking connection', [sys.executable, ROOT / SAMPLES[2], network, ROOT / 'scripts/kairo_matchmaking.py'])
+        coop = work / 'coop-lab'
+        build('co-op lab', ROOT / 'Samples/NetworkLab/CoopLab.cpp', coop)
+        step('three process co-op', [sys.executable, ROOT / 'Samples/NetworkLab/run_coop.py', coop])
         good, bad = work / 'good.so', work / 'bad.so'
         build('good plugin', ROOT / SAMPLES[3], good, '-shared', '-fPIC')
         build('bad plugin', ROOT / SAMPLES[3], bad, '-shared', '-fPIC', '-DKAIRO_PLUGIN_BAD_ABI')
