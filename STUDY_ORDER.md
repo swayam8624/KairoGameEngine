@@ -567,3 +567,7 @@ Read [CoopWorker](Runtime/KairoPlayer/RuntimeCoopWorker.hpp), [CoopView](Runtime
 ### Protected local multiplayer admission
 
 Read [RuntimeCoopSession.hpp](Runtime/KairoPlayer/RuntimeCoopSession.hpp) after the frame codec and loopback socket adapter. Follow ticket parsing, bounded pre-game admission, seat ownership and the existing turn exchange; then read [run_coop.py](Samples/NetworkLab/run_coop.py) for process-level negative cases and [run_coop_native.py](Samples/NetworkLab/run_coop_native.py) for the graphical gate. The local bearer ticket is not encryption or WAN identity.
+
+### Directory-to-game workflow
+
+Read [kairo_matchmaking.py](scripts/kairo_matchmaking.py) for SQLite transactional seat ownership and one-time credentials. Then follow [coop_directory.py](Samples/NetworkLab/coop_directory.py) from host readiness to advertised session, client credential issuance and cleanup. [Directory tests](scripts/tests/test_kairo_matchmaking.py) cover concurrency, and [run_coop.py](Samples/NetworkLab/run_coop.py) covers actual process boundaries. The server remains the gameplay authority.
