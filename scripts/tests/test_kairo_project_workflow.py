@@ -53,6 +53,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.commands()[-1],['KairoPlayer',str(self.project),'--renderer','metal','--smoke'])
         self.assertEqual(run_cli(self.tools,'editor'),0)
         self.assertEqual(self.commands()[-1],['KairoEditorApp','--project',str(self.project)])
+        self.assertEqual(run_cli(self.tools,'editor','metal'),0)
+        self.assertEqual(self.commands()[-1],['KairoEditorApp','--project',str(self.project),'--renderer','metal'])
 
     @unittest.skipUnless(os.environ.get('DISPLAY'), 'Requires real graphical display/Xvfb')
     def test_gui_actual_buttons(self):
