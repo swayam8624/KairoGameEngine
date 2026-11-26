@@ -20,6 +20,15 @@ int main()
         bool rejected=false;try{(void)ParseRuntimeMenu(invalid);}catch(const std::exception&){rejected=true;}
         Check(rejected,"Invalid document accepted");
     }
+    // Unsigned stream extraction can wrap a negative decimal into a valid
+    // small width. The parser must reject it before geometry validation.
+    for(const auto* token:{"-4294967295","-0","+1","1x","4294967296","1001"})
+    {
+        bool rejected=false;
+        try{(void)ParseRuntimeMenu(std::string("kairo-menu 1\nbutton x a resume 0 0 ")+token+" 10\n");}
+        catch(const std::invalid_argument&){rejected=true;}
+        Check(rejected,"Noncanonical coordinate accepted");
+    }
     for(unsigned i=1;i<=1000;++i)
     {
         const auto doc=RuntimeMenuDocument{{"play","Play","resume",0,0,i,1}};

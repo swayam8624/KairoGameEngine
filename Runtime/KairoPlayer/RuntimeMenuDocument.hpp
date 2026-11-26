@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <charconv>
 #include <cstdint>
 #include <iomanip>
 #include <locale>
@@ -43,6 +44,19 @@ namespace kairo::player::detail
         if(line.find('\r')!=std::string::npos)throw std::invalid_argument("Unexpected carriage return in menu statement.");
         return true;
     }
+    // Parse decimal coordinates without formatted unsigned extraction's
+    // surprising acceptance of negative numbers modulo 2^N. The complete
+    // token must be digits; signs, suffixes and overflow are rejected.
+    inline unsigned ReadMenuCoordinate(std::istream& row)
+    {
+        std::string token;
+        if(!(row>>token)||token.empty())throw std::invalid_argument("Missing menu coordinate.");
+        unsigned result=0;
+        const auto [end,error]=std::from_chars(token.data(),token.data()+token.size(),result);
+        if(error!=std::errc{}||end!=token.data()+token.size()||result>1000)
+            throw std::invalid_argument("Invalid menu coordinate.");
+        return result;
+    }
     // Parse into a local candidate. Reject overlap, duplicate identity, empty
     // menus and unknown commands. A failed parse cannot change a live menu.
     [[nodiscard]] inline RuntimeMenuDocument ParseRuntimeMenu(std::string_view source)
@@ -57,8 +71,10 @@ namespace kairo::player::detail
             if(line.empty())continue;
             std::istringstream row(line);row.imbue(std::locale::classic());
             RuntimeMenuButton button;std::string command;
-            if(!(row>>command>>std::quoted(button.ID)>>std::quoted(button.Label)>>button.Action>>button.X>>button.Y>>button.W>>button.H)||command!="button")
+            if(!(row>>command>>std::quoted(button.ID)>>std::quoted(button.Label)>>button.Action)||command!="button")
                 throw std::invalid_argument("Malformed menu statement.");
+            button.X=ReadMenuCoordinate(row);button.Y=ReadMenuCoordinate(row);
+            button.W=ReadMenuCoordinate(row);button.H=ReadMenuCoordinate(row);
             row>>std::ws;if(!row.eof())throw std::invalid_argument("Trailing menu fields.");
             ValidateMenuButton(button);
             if(result.size()>=64)throw std::length_error("Menu button budget exceeded.");
