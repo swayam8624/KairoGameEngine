@@ -23,6 +23,7 @@ namespace kairo::player::detail
         TriggerEdge Edge=TriggerEdge::Enter;
         bool Enable=true;
     };
+    struct TriggerProgress{std::uint32_t ID;bool Inside,Fired;};
     struct TriggerEvent{std::uint32_t ID,Target;bool Enable;};
     inline constexpr std::size_t MaximumTriggerBytes=65536,MaximumTriggers=512;
     inline bool ValidTriggerPosition(const TriggerPosition& p)
@@ -94,6 +95,20 @@ namespace kairo::player::detail
             for(const auto& rule:ParseTriggerRules(document))m_States.push_back({rule,false,false});
         }
         [[nodiscard]] std::size_t Size() const noexcept{return m_States.size();}
+        [[nodiscard]] std::vector<TriggerProgress> Progress() const
+        {
+            std::vector<TriggerProgress> result;result.reserve(m_States.size());
+            for(const auto& s:m_States)result.push_back({s.Rule.ID,s.Inside,s.Fired});
+            return result;
+        }
+        void RestoreProgress(const std::vector<TriggerProgress>& progress)
+        {
+            if(progress.size()!=m_States.size())throw std::invalid_argument("Saved trigger count differs.");
+            for(std::size_t i=0;i<progress.size();++i)
+                if(progress[i].ID!=m_States[i].Rule.ID)throw std::invalid_argument("Saved trigger IDs differ.");
+            for(std::size_t i=0;i<progress.size();++i)
+            {m_States[i].Inside=progress[i].Inside;m_States[i].Fired=progress[i].Fired;}
+        }
         std::vector<TriggerEvent> Step(const TriggerPosition& position)
         {
             if(!ValidTriggerPosition(position))throw std::invalid_argument("Invalid trigger sample.");
