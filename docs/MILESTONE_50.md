@@ -177,3 +177,7 @@ Both local compilers passed 95,825 randomized simultaneous turns each and an act
 ## Candidate progress: graphical co-op
 
 Two-client asynchronous worker, keyboard/overlay host and independent native three-process capture gate added. Both portable compilers passed real worker network/cancellation/failure tests and 5,000 viewport cases each. Native CI and accepted-head gate pending.
+
+## Candidate progress: protected co-op admission
+
+Optional distinct 256-bit seat tickets bind protected local connections to their assigned seats rather than connection order. Wrong, malformed, truncated and replayed credentials are rejected before a seat is consumed. Portable process and native graphical gates now exercise protected admission. CI execution is required before promotion; this is not a hosted service, encrypted transport, or automatic matchmaking-directory token validation.
