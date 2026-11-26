@@ -169,3 +169,7 @@ Local rotation adapter and FK reconstruct 20,000 solved 3D chains per compiler; 
 ## Candidate progress: catalog release acceptance
 
 Exact payload and provenance verifier now integrates the recipe output, release packaging, relocated launch and extracted Debian launcher. Four local real archive/ELF fixture tests pass; actual generated-game Vulkan release CI is registered and pending. Fresh OS dependency/install certification remains open.
+
+## Candidate progress: authoritative two-client co-op
+
+Both local compilers passed 95,825 randomized simultaneous turns each and an actual three-process shared victory plus four failure-injection cases. Graphical integration, accepted-head CI and admission enforcement remain open. Not an Internet multiplayer service.

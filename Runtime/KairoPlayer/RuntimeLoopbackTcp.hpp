@@ -133,6 +133,16 @@ namespace kairo::player::detail
             }
             CheckDeadline(deadline);return DecodeNetworkFrame(bytes);
         }
+        // Cancel blocking I/O without changing the handle's ownership.
+        // A GUI worker must join before the owning socket is destroyed.
+        void Shutdown() const noexcept
+        {
+#ifdef _WIN32
+            (void)::shutdown(m_Socket,SD_BOTH);
+#else
+            (void)::shutdown(m_Socket,SHUT_RDWR);
+#endif
+        }
     private:
         NativeNetworkSocket m_Socket;
         using Clock=std::chrono::steady_clock;

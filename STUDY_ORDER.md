@@ -555,3 +555,7 @@ Read RuntimeTwoBoneIK and RuntimeAnimationRetarget first. Next read [RuntimeSkel
 ## Authored release and provenance
 
 Read RuntimePackaging.cppm (profile exclusion, payload counting, staging and publication), then [verify_project_release](scripts/verify_project_release.py), [Debian wrapper](scripts/package_kairo_deb.py) and [fixture tests](scripts/tests/test_verify_project_release.py). Follow the immutable project inventory, compiled payload, license hashes and executable hash across source copy, raw bundle, relocated launcher and extracted user-data initialization. Distinguish a real ELF fixture from actual Player/GPU acceptance.
+
+## Two-client authority and co-op
+
+Read [RuntimeCoopArena](Runtime/KairoPlayer/RuntimeCoopArena.hpp) for symmetric simultaneous movement and snapshot grouping, then [RuntimeCoopSession](Runtime/KairoPlayer/RuntimeCoopSession.hpp) for slot assignment and atomic turn input, and [CoopLab](Samples/NetworkLab/CoopLab.cpp) for process boundaries. [Oracle tests](Runtime/KairoPlayer/tests/RuntimeCoopArenaTests.cpp) and [real process harness](Samples/NetworkLab/run_coop.py) distinguish validation before commit from partial network delivery after commit. Review Shutdown in RuntimeLoopbackTcp before introducing a GUI worker.
