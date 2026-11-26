@@ -74,6 +74,7 @@ namespace
         bool ReplacePackage = false;
         std::optional<std::string> PackageProfile;
         std::optional<std::filesystem::path> ProgressFile;
+        std::optional<kairo::assets::AssetID> LogicTraceSession;
         std::optional<kairo::renderer::GraphicsBackend> BackendOverride;
     };
 
@@ -114,7 +115,7 @@ namespace
         if (count < 2)
             throw std::invalid_argument(
                 "Usage: KairoPlayer <Project.kproject> [--renderer auto|vulkan|metal|d3d12|opengl] "
-                "[--validate|--smoke|--package <profile> [--replace]] [--progress-file <path.kprogress>]");
+                "[--validate|--smoke|--package <profile> [--replace]] [--progress-file <path.kprogress>] [--logic-trace <session-uuid>]");
         Arguments result;
         result.Project = values[1];
         for (int index = 2; index < count; ++index)
@@ -128,6 +129,12 @@ namespace
                     throw std::invalid_argument("--package may be specified only once.");
                 if (++index >= count) throw std::invalid_argument("--package requires an exact build-profile name.");
                 result.PackageProfile = values[index];
+            }
+            else if (option == "--logic-trace")
+            {
+                if(result.LogicTraceSession||++index>=count)
+                    throw std::invalid_argument("--logic-trace requires one session UUID.");
+                result.LogicTraceSession=kairo::assets::AssetID::Parse(values[index]);
             }
             else if (option == "--progress-file")
             {
@@ -154,6 +161,8 @@ namespace
             throw std::invalid_argument("--replace is valid only with --package.");
         if(result.ProgressFile&&(result.ValidateOnly||result.PackageProfile))
             throw std::invalid_argument("--progress-file is for play or explicit smoke only.");
+        if(result.LogicTraceSession&&(result.ValidateOnly||result.PackageProfile))
+            throw std::invalid_argument("--logic-trace is for play or smoke only.");
         return result;
     }
 }
@@ -178,7 +187,7 @@ int main(int argc, char** argv)
             throw std::invalid_argument("Platformer tile file requires the reserved 2D startup scene.");
         if(platformerProject)
         {
-            if(project.Scene().Size()!=0||project.Assets().Size()!=0||arguments.ProgressFile)
+            if(project.Scene().Size()!=0||project.Assets().Size()!=0||arguments.ProgressFile||arguments.LogicTraceSession)
                 throw std::invalid_argument("2D platformer projects require an empty 3D scene/asset registry and no 3D progress file.");
             auto rows=kairo::player::detail::LoadPlatformerProject(
                 project.RequireProjectFile("Config/Platformer.k2d","platformer document"));
@@ -232,7 +241,7 @@ int main(int argc, char** argv)
         if(enemies.Size())std::cout<<"  enemies: "<<enemies.Size()<<'\n';
         kairo::player::RuntimeDoorBridge doors(project,physics,playerController.PrimaryController());
         if(doors.Size())std::cout<<"  sliding doors: "<<doors.Size()<<'\n';
-        kairo::player::RuntimeLogicBridge logic(project, physics);
+        kairo::player::RuntimeLogicBridge logic(project, physics,arguments.LogicTraceSession);
         kairo::player::RuntimeNativeGameplayBridge nativeGameplay(
             project, kairo::player::PlayerNativeGameplayRegistry());
         kairo::player::RuntimeProductionSystemsBridge production(project);
