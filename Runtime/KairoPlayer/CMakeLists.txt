@@ -110,6 +110,13 @@ if(BUILD_TESTING)
     # CPU-only quest state test: no renderer/OS window dependency.
     # Analytic IK is a portable CPU kernel; no window or GPU needed.
     # Compatible-rig retarget test is CPU-only; native skinning is separate.
+    foreach(_pose_test IN ITEMS SkeletonPose PoseLab)
+        add_executable(KairoPlayer${_pose_test}Tests tests/Runtime${_pose_test}Tests.cpp)
+        target_include_directories(KairoPlayer${_pose_test}Tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(KairoPlayer${_pose_test}Tests PRIVATE cxx_std_23)
+        set_property(TARGET KairoPlayer${_pose_test}Tests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+        add_test(NAME KairoPlayer${_pose_test}Tests COMMAND KairoPlayer${_pose_test}Tests)
+    endforeach()
     add_executable(KairoPlayerAnimationRetargetTests tests/RuntimeAnimationRetargetTests.cpp)
     target_compile_features(KairoPlayerAnimationRetargetTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerAnimationRetargetTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
@@ -556,10 +563,11 @@ if(BUILD_TESTING)
         add_test(NAME KairoGameLabPlatformerNativeSmoke COMMAND KairoGameLab --renderer ${_kairo_lab_backend} --smoke)
         add_test(NAME KairoGameLabStrategyNativeSmoke COMMAND KairoGameLab --renderer ${_kairo_lab_backend} --strategy --smoke)
         add_test(NAME KairoGameLabRPGNativeSmoke COMMAND KairoGameLab --renderer ${_kairo_lab_backend} --rpg --smoke)
+        add_test(NAME KairoGameLabAnimationNativeSmoke COMMAND KairoGameLab --renderer ${_kairo_lab_backend} --animation --smoke)
         add_test(NAME KairoSimulationWaterNativeSmoke COMMAND KairoSimulationLab --renderer ${_kairo_lab_backend} --smoke)
         add_test(NAME KairoSimulationSoftNativeSmoke COMMAND KairoSimulationLab --renderer ${_kairo_lab_backend} --soft --smoke)
         add_test(NAME KairoSimulationDestructionNativeSmoke COMMAND KairoSimulationLab --renderer ${_kairo_lab_backend} --destruction --smoke)
-        set_tests_properties(KairoGameLabPlatformerNativeSmoke KairoGameLabStrategyNativeSmoke KairoGameLabRPGNativeSmoke
+        set_tests_properties(KairoGameLabPlatformerNativeSmoke KairoGameLabStrategyNativeSmoke KairoGameLabRPGNativeSmoke KairoGameLabAnimationNativeSmoke
             KairoSimulationWaterNativeSmoke KairoSimulationSoftNativeSmoke KairoSimulationDestructionNativeSmoke
             PROPERTIES TIMEOUT 60 LABELS "m50-native")
     endif()

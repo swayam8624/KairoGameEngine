@@ -15,3 +15,7 @@ The native host consumes [RuntimeGameLabView.hpp](../../Runtime/KairoPlayer/Runt
 ## RPG inventory and reward
 
 The keeper's quest now grants an actual crystal item, consumes it on return and awards ten gold. Revisit the cave after picking up the crystal: the duplicate pickup is disabled. The inventory is visible in the HUD. Save/load writes KRL1, with migration of the earlier fixed-lab KQS1 saves. Invalid inventory/progress combinations reject without changing the current session. This is a small authored quest, not a full RPG inventory editor or equipment economy.
+
+## Animation laboratory
+
+Run KairoGameLab --animation --renderer metal (or vulkan). The left panel is the sampled source chain; the middle preserves target proportions while retargeting local rotations; the right applies the two-bone IK local rotation adapter and evaluates FK. The target marker turns green when reached, red when clamped. Space pauses; R resets phase. The native smoke requires clamped-to-reached state and a changed actual capture. The fixture is a procedural two-bone skeleton diagnostic, not imported glTF skinning or general clip authoring.

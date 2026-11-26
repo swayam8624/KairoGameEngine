@@ -547,3 +547,7 @@ Read RuntimeMenuDocument and [parser CLI](Samples/AuthoredMenu/MenuDocumentTool.
 ## RPG inventory and persistence
 
 After quest graph and save codec, read [RuntimeItemInventory](Runtime/KairoPlayer/RuntimeItemInventory.hpp) and [inventory oracle](Runtime/KairoPlayer/tests/RuntimeItemInventoryTests.cpp). Follow the net-change transaction into [RuntimeRpgSession](Runtime/KairoPlayer/RuntimeRpgSession.hpp): availability, candidate copy, cost/reward, graph mutation, invariant validation, KRL1 envelope and legacy migration. Then read [session tests](Runtime/KairoPlayer/tests/RuntimeRpgSessionTests.cpp), QuestView and GameLab's input/save routing. The native view borrows only const state.
+
+## Skeleton animation integration
+
+Read RuntimeTwoBoneIK and RuntimeAnimationRetarget first. Next read [RuntimeSkeletonPose](Runtime/KairoPlayer/RuntimeSkeletonPose.hpp): quaternion sandwich, shortest arc, parent-first FK, world swing transformed back to local rotation. [Pose tests](Runtime/KairoPlayer/tests/RuntimeSkeletonPoseTests.cpp) reconstruct solved targets; [RuntimePoseLab](Runtime/KairoPlayer/RuntimePoseLab.hpp) composes source/retarget/IK and projects the real joint positions to the canvas. [Lab tests](Runtime/KairoPlayer/tests/RuntimePoseLabTests.cpp) verify target lengths, reach and pixel bounds. Finish with AnimationView in GameLabView and the native --animation gate.

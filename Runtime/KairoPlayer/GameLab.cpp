@@ -20,7 +20,7 @@ namespace
 {
     using namespace kairo::player::detail;
     using namespace kairo::renderer;
-    enum class Mode{Platformer,Strategy,RPG};
+    enum class Mode{Platformer,Strategy,RPG,Animation};
     // Capture only the actual renderer output, never a synthetic CPU image.
     ViewportCapture Capture(RendererRuntime& renderer)
     {
@@ -50,10 +50,11 @@ int main(int argc,char** argv)
             const std::string_view arg=argv[i];
             if(arg=="--strategy")mode=Mode::Strategy;
             else if(arg=="--rpg")mode=Mode::RPG;
+            else if(arg=="--animation")mode=Mode::Animation;
             else if(arg=="--smoke")smoke=true;
             else if(arg=="--renderer"&&i+1<argc)backend=ParseGraphicsBackend(argv[++i]);
             else if(arg=="--save"&&i+1<argc)save=argv[++i];
-            else throw std::invalid_argument("Usage: KairoGameLab [--strategy|--rpg] [--renderer vulkan|metal] [--smoke] [--save path]");
+            else throw std::invalid_argument("Usage: KairoGameLab [--strategy|--rpg|--animation] [--renderer vulkan|metal] [--smoke] [--save path]");
         }
         RendererRuntime renderer({"Kairo Game Lab",960,540,!smoke,backend});
         if(!renderer.SupportsViewportOverlay())throw std::runtime_error("Game lab requires Vulkan or Metal overlay support.");
@@ -63,11 +64,12 @@ int main(int argc,char** argv)
         renderer.ResizeViewport(initialWidth,initialHeight);renderer.SubmitRenderScene(RenderScene{});
         RuntimePlatformer platformer(PlatformerDemoLevel());
         RuntimeStrategy strategy(StrategyDemoLevel());QuestLab quest;
-        std::size_t selected=0;StrategyCell cursor{2,1};
+        std::size_t selected=0;StrategyCell cursor{2,1};double phase=0.;
         const auto publish=[&](unsigned w,unsigned h)
         {
             const auto rects=mode==Mode::Platformer?PlatformerView(platformer,w,h):
-                mode==Mode::Strategy?StrategyView(strategy,selected,cursor,w,h):QuestView(quest,w,h);
+                mode==Mode::Strategy?StrategyView(strategy,selected,cursor,w,h):
+                mode==Mode::Animation?AnimationView(phase,w,h):QuestView(quest,w,h);
             // The CPU regression exercises these exact rectangles. The only
             // backend-specific step here is translation to the native API.
             std::vector<ViewportOverlayRect> native;native.reserve(rects.size());
@@ -75,7 +77,7 @@ int main(int argc,char** argv)
                 static_cast<std::uint32_t>(r.Box.W),static_cast<std::uint32_t>(r.Box.H),r.Tint});
             renderer.SetViewportOverlay(native);
         };
-        const auto won=[&](){return mode==Mode::Platformer?platformer.Current().Won:mode==Mode::Strategy?strategy.Won():quest.Book().Won();};
+        const auto won=[&](){return mode==Mode::Platformer?platformer.Current().Won:mode==Mode::Strategy?strategy.Won():mode==Mode::Animation?SamplePoseLab(phase).Reached:quest.Book().Won();};
         publish(initialWidth,initialHeight);
         if(smoke)
         {
@@ -91,6 +93,12 @@ int main(int argc,char** argv)
                 strategy.Move(0,{2,1});strategy.Gather(1,{8,1});
                 for(int i=0;i<100;++i)strategy.Tick();
             }
+            else if(mode==Mode::Animation)
+            {
+                // Phase zero is outside reach; this phase is reachable.
+                if(SamplePoseLab(phase).Reached)throw std::runtime_error("Animation fixture must start clamped.");
+                phase=1.6;
+            }
             else
             {
                 if(!quest.Choose(0)||!quest.Choose(0)||!quest.Choose(1))
@@ -104,9 +112,10 @@ int main(int argc,char** argv)
         }
         auto* window=renderer.NativeWindow().NativeHandle();
         glfwSetWindowTitle(window,mode==Mode::Platformer?"Platformer: A/D Space, R reset, Esc":
-            mode==Mode::Strategy?"Strategy: 1/2 select, arrows cursor, M move, G gather, Esc":"RPG: 1/2 choose, S save, L load, Esc");
+            mode==Mode::Strategy?"Strategy: 1/2 select, arrows cursor, M move, G gather, Esc":
+            mode==Mode::Animation?"Animation: source, retarget, IK, Space pause, R reset, Esc":"RPG: 1/2 choose, S save, L load, Esc");
         RuntimeFrameClock clock;const auto start=std::chrono::steady_clock::now();double accumulator=0;
-        std::array<MenuEdge,11> edges;
+        std::array<MenuEdge,11> edges;bool paused=false;
         std::uint32_t lastW=initialWidth,lastH=initialHeight;
         while(!renderer.NativeWindow().ShouldClose())
         {
@@ -144,6 +153,12 @@ int main(int argc,char** argv)
                 if(press(6,GLFW_KEY_M)&&strategy.Rows()[cursor.Y][cursor.X]=='.')strategy.Move(selected,cursor);
                 if(press(7,GLFW_KEY_G)&&strategy.Rows()[cursor.Y][cursor.X]=='R'&&strategy.Stock(cursor))strategy.Gather(selected,cursor);
                 accumulator+=dt;while(accumulator>=.15){strategy.Tick();accumulator-=.15;}
+            }
+            else if(mode==Mode::Animation)
+            {
+                if(press(0,GLFW_KEY_SPACE))paused=!paused;
+                if(press(1,GLFW_KEY_R))phase=0.;
+                if(!paused)phase=std::fmod(phase+dt,6.283185307179586);
             }
             else
             {
