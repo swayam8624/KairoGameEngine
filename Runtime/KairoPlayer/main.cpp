@@ -292,9 +292,11 @@ int main(int argc, char** argv)
                 std::cout<<"Saved objective progress.\n";
             }
         };
-        // Event actions own a distinct visual-only tag. Reject overlapping
+        // Visibility actions own a distinct visual-only tag; door actions
+        // delegate to the existing door owner. Reject overlapping
         // owners at load, and require every source to be authored and known.
         using GameplayEvent=kairo::player::detail::GameplayEvent;
+        using GameplayActionKind=kairo::player::detail::GameplayActionKind;
         std::optional<kairo::player::detail::RuntimeGameplayEvents> gameplayEvents;
         if(std::filesystem::exists(project.Root()/"Config/Events.kevent"))
         {
@@ -316,6 +318,11 @@ int main(int argc, char** argv)
                     (rule.Event==GameplayEvent::Defeated&&combat.HasTarget(source));
                 if(!known)throw std::invalid_argument("Unknown gameplay event source.");
                 const kairo::engine::Entity target{rule.Target};
+                if(rule.Kind!=GameplayActionKind::Visibility)
+                {
+                    if(!doors.HasDoor(target))throw std::invalid_argument("Gameplay event door target must be a registered door.");
+                    continue;
+                }
                 if(!scene.Contains(target)||!scene.HasTag(target,"kairo.event-visual")||
                     scene.HasTag(target,"kairo.collectible")||scene.HasTag(target,"kairo.trigger-visual")||
                     scene.HasTag(target,"kairo.player-controller")||scene.HasTag(target,"kairo.damageable")||
@@ -334,6 +341,16 @@ int main(int argc, char** argv)
             for(const auto& action:gameplayEvents->Dispatch(event,source))
             {
                 const kairo::engine::Entity target{action.Target};
+                if(action.Kind!=GameplayActionKind::Visibility)
+                {
+                    using Command=kairo::player::RuntimeDoorCommand;
+                    const auto command=action.Kind==GameplayActionKind::DoorOpen?Command::Open:
+                        action.Kind==GameplayActionKind::DoorLock?Command::Lock:Command::Automatic;
+                    doors.Command(target,command);
+                    const auto label=command==Command::Open?"door-open ":command==Command::Lock?"door-lock ":"door-auto ";
+                    std::cout<<"Gameplay event "<<action.Rule<<": "<<label<<action.Target<<'\n';
+                    continue;
+                }
                 if(!project.Scene().Contains(target))continue;
                 project.Scene().SetEnabled(target,action.Enable);
                 std::cout<<"Gameplay event "<<action.Rule<<": "<<(action.Enable?"show ":"hide ")<<action.Target<<'\n';

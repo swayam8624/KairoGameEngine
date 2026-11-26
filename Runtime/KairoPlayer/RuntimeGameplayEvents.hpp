@@ -12,13 +12,15 @@
 namespace kairo::player::detail
 {
     enum class GameplayEvent {Begin,Collected,Trigger,Defeated,Complete};
+    enum class GameplayActionKind {Visibility,DoorOpen,DoorAutomatic,DoorLock};
     struct GameplayRule
     {
         std::uint32_t ID,Source,Threshold,Target;
         GameplayEvent Event;
         bool Once,Enable;
+        GameplayActionKind Kind=GameplayActionKind::Visibility;
     };
-    struct GameplayAction{std::uint32_t Rule,Target;bool Enable;};
+    struct GameplayAction{std::uint32_t Rule,Target;bool Enable;GameplayActionKind Kind=GameplayActionKind::Visibility;};
     inline std::uint32_t EventInteger(std::istream& row,std::uint32_t max,bool zero=false)
     {
         std::string token;row>>token;std::uint32_t n=0;
@@ -59,6 +61,9 @@ namespace kairo::player::detail
             else throw std::invalid_argument("Invalid event repeat mode.");
             if(action=="show")r.Enable=true;
             else if(action=="hide")r.Enable=false;
+            else if(action=="door-open")r.Kind=GameplayActionKind::DoorOpen;
+            else if(action=="door-auto")r.Kind=GameplayActionKind::DoorAutomatic;
+            else if(action=="door-lock")r.Kind=GameplayActionKind::DoorLock;
             else throw std::invalid_argument("Invalid event action.");
             r.Target=EventInteger(row,UINT32_MAX);row>>std::ws;
             if(!row.eof())throw std::invalid_argument("Trailing event fields.");
@@ -88,7 +93,7 @@ namespace kairo::player::detail
                 const auto& r=state.Rule;
                 if(r.Event!=event||r.Source!=source||(r.Once&&state.Fired))continue;
                 if(++state.Count!=r.Threshold)continue;
-                actions.push_back({r.ID,r.Target,r.Enable});state.Count=0;state.Fired=true;
+                actions.push_back({r.ID,r.Target,r.Enable,r.Kind});state.Count=0;state.Fired=true;
             }
             return actions;
         }

@@ -627,3 +627,7 @@ Start with [Navigation Arena](Samples/NavigationArena/README.md) and [walkable r
 ### Declarative gameplay event rules
 
 Start with [Event Arena](Samples/EventArena/README.md) and [event rules](Samples/EventArena/Config/Events.kevent). [RuntimeGameplayEvents.hpp](Runtime/KairoPlayer/RuntimeGameplayEvents.hpp) validates rules and dispatches actions in deterministic order. [main.cpp](Runtime/KairoPlayer/main.cpp) validates source and target ownership and binds real gameplay events; [RuntimeCombatBridge.cppm](Runtime/KairoPlayer/RuntimeCombatBridge.cppm) records actual defeats. Compare the [portable event tests](Runtime/KairoPlayer/tests/RuntimeGameplayEventsTests.cpp) with [native acceptance](Samples/EventArena/run_native_acceptance.py).
+
+### Event-controlled physical gates
+
+Read [Key Gate Arena](Samples/KeyGateArena/README.md), [door rules](Samples/KeyGateArena/Config/Doors.kdoor), and [event rules](Samples/KeyGateArena/Config/Events.kevent). Follow typed actions in [RuntimeGameplayEvents.hpp](Runtime/KairoPlayer/RuntimeGameplayEvents.hpp) through generic [Player dispatch](Runtime/KairoPlayer/main.cpp) to [RuntimeDoorBridge.cppm](Runtime/KairoPlayer/RuntimeDoorBridge.cppm) and [RuntimeSlidingDoor.hpp](Runtime/KairoPlayer/RuntimeSlidingDoor.hpp). Compare [portable combined regression](Runtime/KairoPlayer/tests/RuntimeEventDoorTests.cpp), [native physics command test](Runtime/KairoPlayer/tests/RuntimeEventDoorBridgeTests.cpp), and [actual Player dispatch acceptance](Samples/KeyGateArena/run_native_acceptance.py).

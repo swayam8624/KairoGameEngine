@@ -16,6 +16,8 @@ import Kairo.Foundation.PhysicsEngine;
 
 export namespace kairo::player
 {
+    enum class RuntimeDoorCommand {Open,Automatic,Lock};
+
     // Door bindings borrow the existing authoritative physics world. Each
     // door is a kinematic solid; no body removal or render-only teleport.
     class RuntimeDoorBridge final
@@ -63,6 +65,21 @@ export namespace kairo::player
             }
         }
         [[nodiscard]] std::size_t Size() const noexcept{return m_Doors.size();}
+        [[nodiscard]] bool HasDoor(kairo::engine::Entity target) const noexcept
+        {return std::any_of(m_Doors.begin(),m_Doors.end(),[&](const auto& door){return door.Target==target;});}
+        // Only registered doors can receive commands. Motion remains owned
+        // by the fixed-step adapter, not by the event dispatch frame.
+        void Command(kairo::engine::Entity target,RuntimeDoorCommand command)
+        {
+            const auto it=std::find_if(m_Doors.begin(),m_Doors.end(),[&](const auto& d){return d.Target==target;});
+            if(it==m_Doors.end())throw std::invalid_argument("Unknown authored door.");
+            switch(command)
+            {
+                case RuntimeDoorCommand::Open:it->Motion.SetControl(detail::DoorControl::HoldOpen);break;
+                case RuntimeDoorCommand::Automatic:it->Motion.SetControl(detail::DoorControl::Automatic);break;
+                case RuntimeDoorCommand::Lock:it->Motion.SetControl(detail::DoorControl::Locked);break;
+            }
+        }
         void BeforePhysicsStep(float dt)
         {
             if(m_Doors.empty())return;
