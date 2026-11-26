@@ -75,7 +75,7 @@ int main(int argc,char** argv)
                 static_cast<std::uint32_t>(r.Box.W),static_cast<std::uint32_t>(r.Box.H),r.Tint});
             renderer.SetViewportOverlay(native);
         };
-        const auto won=[&](){return mode==Mode::Platformer?platformer.Current().Won:mode==Mode::Strategy?strategy.Won():quest.Book.Won();};
+        const auto won=[&](){return mode==Mode::Platformer?platformer.Current().Won:mode==Mode::Strategy?strategy.Won():quest.Book().Won();};
         publish(initialWidth,initialHeight);
         if(smoke)
         {
@@ -93,8 +93,10 @@ int main(int argc,char** argv)
             }
             else
             {
-                if(!quest.Dialogue.Choose(0,quest.Book)||!quest.Dialogue.Choose(0,quest.Book)||!quest.Dialogue.Choose(1,quest.Book))
+                if(!quest.Choose(0)||!quest.Choose(0)||!quest.Choose(1))
                     throw std::runtime_error("Quest route rejected.");
+                if(quest.Bag().Count("crystal")!=0||quest.Bag().Count("gold")!=10)
+                    throw std::runtime_error("Quest inventory reward mismatch.");
             }
             publish(initialWidth,initialHeight);const auto after=Capture(renderer);
             if(!won()||before.RGBA==after.RGBA)throw std::runtime_error("Game lab did not reach visible winning state.");
@@ -145,12 +147,12 @@ int main(int argc,char** argv)
             }
             else
             {
-                if(press(0,GLFW_KEY_1))(void)quest.Dialogue.Choose(0,quest.Book);
-                if(press(1,GLFW_KEY_2))(void)quest.Dialogue.Choose(1,quest.Book);
+                if(press(0,GLFW_KEY_1))(void)quest.Choose(0);
+                if(press(1,GLFW_KEY_2))(void)quest.Choose(1);
                 try
                 {
-                    if(press(2,GLFW_KEY_S))SaveQuest(save,quest.Book,quest.Dialogue);
-                    if(press(3,GLFW_KEY_L))LoadQuest(save,quest.Book,quest.Dialogue);
+                    if(press(2,GLFW_KEY_S))quest.Save(save);
+                    if(press(3,GLFW_KEY_L))quest.Load(save);
                 }
                 catch(const std::exception& e){std::cerr<<e.what()<<'\n';}
             }

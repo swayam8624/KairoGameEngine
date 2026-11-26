@@ -11,3 +11,7 @@ Platformer: A/D, Space, R reset. Strategy: 1/2 select, arrows move cursor, M mov
 ## Integration acceptance
 
 The native host consumes [RuntimeGameLabView.hpp](../../Runtime/KairoPlayer/RuntimeGameLabView.hpp), now tested against a CPU painter oracle and resized viewport bounds. The CTest label m50-native includes the three actual native objective/image-change smoke gates on Linux Vulkan and macOS Metal. Run ctest --preset game-clang -L m50-native --output-on-failure (use Xvfb on Linux). CPU rectangles are not native screenshots; the native gates remain unverified until executed. The presentation is intended for these small authored fixtures, not arbitrary maximum-sized levels or general GUI rendering.
+
+## RPG inventory and reward
+
+The keeper's quest now grants an actual crystal item, consumes it on return and awards ten gold. Revisit the cave after picking up the crystal: the duplicate pickup is disabled. The inventory is visible in the HUD. Save/load writes KRL1, with migration of the earlier fixed-lab KQS1 saves. Invalid inventory/progress combinations reject without changing the current session. This is a small authored quest, not a full RPG inventory editor or equipment economy.

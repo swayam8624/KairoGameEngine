@@ -248,3 +248,7 @@ Added 43 explanations across two existing runtime modules, covering physical uni
 
 - [RuntimeCharacterMotorBridge.cppm](Runtime/KairoPlayer/RuntimeCharacterMotorBridge.cppm): 23 new blocks.
 - [RuntimeSceneAudioBridge.cppm](Runtime/KairoPlayer/RuntimeSceneAudioBridge.cppm): 20 new blocks.
+
+## 2026-11-26 — transactional RPG inventory and combined quest session
+
+Added reusable bounded named-item inventory, atomic net-change trades, exact snapshot validation, and a combined QuestLab session which stages dialogue/objective/item updates together. Crystal pickup cannot duplicate, turn-in consumes the crystal and awards ten gold once. KRL1 stores actual counts plus the existing KQS1 payload; legacy fixed-lab saves migrate only if consistent. Native GameLab uses this session and shows live counts; extended native smoke reward check and portable painter tests. GCC/Clang each passed 50,000 inventory oracle transactions and 20,000 RPG choice/roundtrip transitions, corruption/truncation rejection, disk save and migration. Tested blobs 21031a781978004c18c99d6b2e1212a8a70c9368, 58089c35e8867140fbb5c799d83094b115c114d1, ae78c9b5a747a47203954b3d4972c9ec88fb0cb7, faee79677440971d190d9769b4dfae7f603f1e74; exact dependencies 1382f8b7a8699df17f0c0437235b180d7d889524, 124387420ddda5c02dc7edd04fa8c4fe5fb5e0fd, 27c83cd0a478a99326c355ad816833e0ea9a4919. Native host and updated painter not executed locally; full portable suite and native CI pending. Inventory catalog is reusable; QuestLab's authored rewards and legacy migration remain specific to its fixture.

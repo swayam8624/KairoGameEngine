@@ -32,9 +32,13 @@ int main()
     for(int i=0;i<17;++i)platformer.Step({1,true});
     for(int i=0;i<80;++i)platformer.Step({1,false});
     strategy.Move(0,{2,1});strategy.Gather(1,{8,1});for(int i=0;i<100;++i)strategy.Tick();
-    Check(!quest.Dialogue.Choose(1,quest.Book),"Locked choice accepted");
-    Check(quest.Dialogue.Choose(0,quest.Book)&&quest.Dialogue.Choose(0,quest.Book)&&quest.Dialogue.Choose(1,quest.Book),"Quest route rejected");
-    Check(platformer.Current().Won&&strategy.Won()&&quest.Book.Won(),"Objective not completed");
+    Check(!quest.Choose(1),"Locked choice accepted");
+    Check(quest.Choose(0)&&quest.Choose(0)&&quest.Bag().Count("crystal")==1,"Quest pickup rejected");
+    const auto carrying=Paint(QuestView(quest,768,324),768,324);
+    Check(q0!=carrying,"Carried item image unchanged");
+    Check(quest.Choose(1)&&quest.Bag().Count("gold")==10,"Quest reward rejected");
+    Check(carrying!=Paint(QuestView(quest,768,324),768,324),"Reward image unchanged");
+    Check(platformer.Current().Won&&strategy.Won()&&quest.Book().Won(),"Objective not completed");
     Check(p0!=Paint(PlatformerView(platformer,768,324),768,324),"Platformer winning image unchanged");
     Check(s0!=Paint(StrategyView(strategy,0,{2,1},768,324),768,324),"Strategy winning image unchanged");
     Check(q0!=Paint(QuestView(quest,768,324),768,324),"Quest winning image unchanged");

@@ -157,3 +157,7 @@ Single shared-core Android game, native JNI, touch/lifecycle and APK/emulator ga
 ## Candidate progress: graphical menu authoring
 
 Standalone Tk graphical designer consumes the exact native C++ parser/serializer and writes the existing menu format. GUI drag/edit/undo/add/delete/save and conflict tests passed on real Tk/Xvfb with both compiled validators. Main-editor integration and native runtime acceptance remain separate.
+
+## Candidate progress: RPG item loop
+
+The graphical RPG fixture now owns a real crystal and gold inventory with transactional dialogue rewards, persisted counts and legacy save migration. Both portable compilers passed 50,000 item transactions and 20,000 combined quest transitions each; updated native smoke and painter tests registered, pending execution. No promotion until relevant accepted-head gates pass.
