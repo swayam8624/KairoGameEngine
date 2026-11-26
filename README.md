@@ -491,3 +491,7 @@ Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json` with 
 ### Create and open a game from the catalog
 
 Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json --editor /absolute/path/to/KairoEditorApp`. Select models, choose **Create editable project**, select a new destination, then choose **Open in Editor**. The same creation operation is available without Tk: `python3 scripts/kairo_asset_catalog.py /path/to/catalog.json project /path/to/new-game triangle`. This creates an ordinary project rather than modifying an existing game; temporary staging is discarded while model and license provenance remain in the project. The explicit editor executable is required for the launch button. Native acceptance remains separate.
+
+### Author player controls and menus in a reusable project recipe
+
+`Samples/ProjectRecipes/CustomControlsArena.json` demonstrates optional `gameplay.spawn`, `gameplay.keyboard` and `gameplay.menu` fields. Create the game with `python3 scripts/create_kairo_project.py Samples/ProjectRecipes/CustomControlsArena.json /path/to/new-game --menu-validator build/game-clang/Runtime/KairoPlayer/KairoMenuDocumentTool`. Spawn moves the player and preserves the template camera offset; keyboard actions remap only the existing movement/jump/quit actions and retain gamepad bindings. Menu rectangles use integer viewport thousandths and must pass the actual native parser. Older recipes require no changes. This is an arena-template authoring workflow, not general scripting or collision-free spawn certification.
