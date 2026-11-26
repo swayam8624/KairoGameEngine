@@ -178,6 +178,14 @@ Both local compilers passed 95,825 randomized simultaneous turns each and an act
 
 Two-client asynchronous worker, keyboard/overlay host and independent native three-process capture gate added. Both portable compilers passed real worker network/cancellation/failure tests and 5,000 viewport cases each. Native CI and accepted-head gate pending.
 
+## Candidate progress: imported character IK
+
+Imported glTF node correction now feeds the real shared skin palette extraction and runtime controls. Both local compilers passed 10,000 structural adapter matrix reconstructions each; actual artifact/module regression registered, awaiting full workspace CI. No imported native GPU capture or accepted promotion yet.
+
+## Candidate progress: file-backed native skin acceptance
+
+Original self-contained GLB fixture and actual imported skinned mesh/clip/IK capture/pick gate registered as ninth strict native sample. Local byte tests passed; actual native importer/build/render acceptance remains pending. No promotion until accepted-head native results.
+
 ## Candidate progress: protected co-op admission
 
 Optional distinct 256-bit seat tickets bind protected local connections to their assigned seats rather than connection order. Wrong, malformed, truncated and replayed credentials are rejected before a seat is consumed. Portable process and native graphical gates now exercise protected admission. CI execution is required before promotion; this is not a hosted service, encrypted transport, or automatic matchmaking-directory token validation.

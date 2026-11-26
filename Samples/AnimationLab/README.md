@@ -22,3 +22,15 @@ target ray; the pole chooses the perpendicular direction for the joint.
     /tmp/kairo-retarget
 
 The sample plays five CPU poses of a synthetic clip on a longer target skeleton. Root displacement scales by two; the target arm stays length two. The algorithm applies local rest-relative quaternion deltas by name and parent identity. Compatible axes, single-root parent-first skeletons only; imported glTF rig adapters, different bone axes and native skin presentation remain open.
+
+## Imported glTF skin correction
+
+RuntimeRenderBridge::SetTwoBoneIK(entity, SceneTwoBoneIK{{root,middle,tip},{targetX,targetY,targetZ},{poleX,poleY,poleZ}}) applies a correction after clip sampling. Call ClearTwoBoneIK to restore ordinary playback. The same shared extraction can accept SceneAnimationOverrides::SetTwoBoneIK(entity,assetID,request) from an editor host. Nodes must form a direct glTF TRS chain, with unit sampled scale, and root/middle must belong to the same skin. The target/pole are in root-parent space, not entity/world space. The original pose and shared binding remain immutable. No automatic bone mapping or world-space control yet; imported scaled chains are rejected. Actual shared-module tests registered; the portable adapter passed both compilers with structural fixtures, not the full glTF importer/GPU.
+
+## Native imported skin acceptance
+
+After building KairoImportedIKSmoke in a locked native workspace, run:
+
+    python3 Samples/AnimationLab/run_imported_ik_native.py build/game-player-clang/Runtime/KairoPlayer/KairoImportedIKSmoke metal
+
+Use vulkan under xvfb-run on Linux. The Python driver generates a fresh original embedded GLB (six vertices, three joints, four triangles, one translation clip), with no external files or downloads. Actual importer, derived artifact, mesh upload, clip sampling, post-clip IK, palette, native pixels and object picking are required; clearing IK must restore the first capture. The independent Python byte tests passed locally. The native binary/actual asset importer has not run locally. This is a native test fixture, not a general character editor.
