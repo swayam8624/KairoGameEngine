@@ -41,7 +41,15 @@ class ProjectTools:
         p = str(self.project)
         if action == 'editor':
             tile = self.project.parent / 'Config/Platformer.k2d'
-            if tile.exists() or tile.is_symlink():
+            # The canonical descriptor marker preserves 2D dispatch even if
+            # the tile file is missing. The dedicated editor reports the error.
+            with self.project.open('rb') as stream:
+                header = stream.read(1024 * 1024 + 1)
+            if len(header) > 1024 * 1024:
+                raise ValueError('Project descriptor exceeds size limit')
+            platformer = any(line.strip() == b'startup-scene "Scenes/Platformer.kscene"'
+                             for line in header.splitlines())
+            if platformer or tile.exists() or tile.is_symlink():
                 script = self.root / 'scripts/kairo_platformer_editor.py'
                 if not script.is_file():
                     raise ValueError('2D editor script missing')
