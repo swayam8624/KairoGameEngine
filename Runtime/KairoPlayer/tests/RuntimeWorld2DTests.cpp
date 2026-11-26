@@ -13,7 +13,7 @@ std::string Fixture(std::string mode="topdown",std::string actors="1 player 16 1
     out<<"map\n########\n#......#\n#......#\n#......#\n#......#\n########\nactors "<<count<<"\n"<<actors;
     return out.str();
 }
-int main()
+int main(int argc,char** argv)
 {
     auto w=Parse(Fixture());
     Check(w.Colors[1]==0x123456&&w.Sprites.at("hero").Frames.size()==2);
@@ -60,5 +60,35 @@ int main()
         if(a.Won()||i%500==499){a.Reset();b.Reset();}
     }
     Check(View(a,0,100).empty());
+    auto wide=Fixture();
+    wide.replace(wide.find("kairo-world2d 1"),15,"kairo-world2d 2");
+    const std::string old="hero 2 2\n1111111111111111\n2222222222222222";
+    std::string checker;
+    for(int i=0;i<1024;++i)checker+=i%2?'2':'1';
+    wide.replace(wide.find(old),old.size(),"hero 32 32 2 1\n"+checker);
+    auto large=Parse(wide);
+    Check(large.Sprites.at("hero").Width==32);
+    Check(View(Game(large),1920,1080).size()<=MaxDrawRects);
+    auto excessive=wide;
+    excessive.replace(excessive.find("actors 3"),8,"actors 4");
+    excessive+="4 decor 32 32 16 16 hero 0\n";
+    Reject([&]{(void)Parse(excessive);});
+    if(argc==2)
+    {
+        Game sample(Load(argv[1]));
+        const auto go=[&](int x,int y)
+        {
+            for(int i=0;i<200;++i)
+            {
+                const auto b=sample.Player();
+                const int dx=(x>b.X+2)-(x<b.X-2),dy=(y>b.Y+2)-(y<b.Y-2);
+                if(!dx&&!dy)break;
+                sample.Step({dx,dy,false});
+            }
+        };
+        go(116,99);go(116,78);go(203,78);go(203,99);go(290,99);go(290,50);go(460,50);go(460,194);
+        Check(sample.Won()&&sample.Collected()==2&&sample.Deaths()==0);
+        std::cout<<"Reference adventure completed with both collectibles and zero deaths\n";
+    }
     std::cout<<"10000 deterministic world ticks and clipped viewport checks passed\n";
 }
