@@ -1,6 +1,9 @@
 import importlib.util
 import json
 import random
+import os
+import subprocess
+import shutil
 from pathlib import Path
 import struct
 import tempfile
@@ -126,6 +129,55 @@ class ProjectRecipeTests(unittest.TestCase):
             # The built-in player visual contributes one additional parent.
             self.assertEqual(sum(line.startswith("parent ") for line in lines),
                              len(self.data["instances"]) + 1)
+
+    def test_authored_spawn_and_controls(self):
+        self.data["layout"] = "empty"
+        self.data["gameplay"] = {"spawn": [-2, 1.5, 1], "keyboard": {"forward": "I", "back": "K",
+                                 "left": "J", "right": "L", "jump": "U", "quit": "Q"}}
+        self.write()
+        files = g.compile_recipe(self.recipe)
+        scene = files["Scenes/PlayableArena.kscene"].decode()
+        self.assertIn('transform -2 1.5 1 0 0 0 1 1 1 1', scene)
+        self.assertIn('transform -2 7.58 10.1 -0.21643961 0 0 0.97629601 1 1 1', scene)
+        self.assertIn('bind "Move" key I 0 1 0\n', files["Config/Input.kinput"].decode())
+        self.assertIn('bind "Jump" key U 1 0 0\n', files["Config/Input.kinput"].decode())
+        self.assertIn('bind "Move" gamepad-axis LeftX 1 0 0.15\n', files["Config/Input.kinput"].decode())
+        self.assertEqual(files, g.compile_recipe(self.recipe))
+        for bad in ({"spawn": [7, 1, 0]}, {"spawn": [0, .1, 0]}, {"spawn": [True, 1, 0]},
+                    {"keyboard": {"forward": "S"}}, {"keyboard": {"jump": "unknown"}},
+                    {"keyboard": {"fire": "F"}}, {"unsupported": True}):
+            self.data["gameplay"] = bad
+            self.write()
+            with self.assertRaises(ValueError):
+                g.create_project(self.recipe, self.root / "invalid")
+            self.assertFalse((self.root / "invalid").exists())
+
+    def test_native_menu_recipe(self):
+        # Compile the actual Player parser, not a Python approximation.
+        compiler = os.environ.get("CXX") or shutil.which("g++") or shutil.which("clang++")
+        if not compiler:
+            self.skipTest("Requires C++23 compiler")
+        validator = self.root / "menu-validator"
+        subprocess.run([compiler, "-std=c++23", "-O2", "-I", str(ROOT / "Runtime/KairoPlayer"),
+                        str(ROOT / "Samples/AuthoredMenu/MenuDocumentTool.cpp"), "-o", str(validator)],
+                       check=True, timeout=60)
+        menu = [{"id": "02-quit", "label": "EXIT", "action": "quit", "rect": [300, 520, 400, 140]},
+                {"id": "01-play", "label": 'START "GAME"', "action": "resume", "rect": [300, 320, 400, 140]}]
+        self.data["gameplay"] = {"menu": menu}
+        self.write()
+        with self.assertRaises(ValueError):
+            g.compile_recipe(self.recipe)
+        project = g.create_project(self.recipe, self.root / "valid", menu_validator=validator)
+        document = (project.parent / "Config/Menu.kmenu").read_bytes()
+        self.assertEqual(document, subprocess.run([str(validator)], input=document,
+                         check=True, capture_output=True, timeout=5).stdout)
+        self.assertLess(document.index(b"01-play"), document.index(b"02-quit"))
+        for rect in ([300, 320, 400, 140], [900, 500, 400, 140], [0, 0, 0, 100]):
+            menu[0]["rect"] = rect
+            self.write()
+            with self.assertRaises(ValueError):
+                g.create_project(self.recipe, self.root / "invalid", menu_validator=validator)
+            self.assertFalse((self.root / "invalid").exists())
 
     def test_instance_validation(self):
         for instance in [{"name": "A", "prefab": "box"},
