@@ -581,3 +581,84 @@ TEST_CASE("Authored animation clips persist without changing imported clips or r
     CHECK(pose==kairo::engine::SampleGltfAnimation(*assets.ResolveGltfSource({SceneID}),index,
         changed.DurationSeconds(),kairo::engine::AnimationTimeMode::Clamp));
 }
+
+TEST_CASE("Project controllers persist, blend and publish independent instance poses",
+    "[KairoRealtimeRenderBridge][Controller]")
+{
+    using namespace kairo::assets;
+    using namespace kairo::engine;
+    const auto root=std::filesystem::temp_directory_path()/("kairo-controller-"+GenerateAssetID().ToString());
+    struct Cleanup {std::filesystem::path Path;~Cleanup(){std::error_code ec;std::filesystem::remove_all(Path,ec);}} cleanup{root};
+    std::filesystem::create_directories(root);
+    auto source=AnimatedGltfScene();
+    auto second=source.Animations.front();
+    second.Name="Target";
+    for(auto& key:second.Channels.front().Keyframes)key.Value[0]=6.f;
+    source.Animations.push_back(second);
+    AnimationControllerDefinition definition;
+    definition.States={{"Idle",0,1,AnimationTimeMode::Clamp},{"Move",1,1,AnimationTimeMode::Clamp}};
+    AnimationControllerTransition transition;
+    transition.FromState=0;transition.ToState=1;transition.BlendSeconds=.5f;
+    transition.Conditions.push_back({"moving",AnimationConditionOperator::Equal,true});
+    definition.Transitions.push_back(transition);
+    const auto key=DerivedDataKey::Parse(std::string(64,'a'));
+    const auto otherKey=DerivedDataKey::Parse(std::string(64,'b'));
+    const auto bytes=EncodeProjectController(key,source,definition);
+    const auto decoded=DecodeProjectController(key,source,bytes);
+    CHECK(EncodeProjectController(key,source,decoded)==bytes);
+    CHECK_THROWS(DecodeProjectController(otherKey,source,bytes));
+    CHECK_THROWS(DecodeProjectController(key,source,bytes+" extra"));
+    auto invalid=definition;
+    invalid.States.back().ClipIndex=9999;
+    CHECK_THROWS(EncodeProjectController(key,source,invalid));
+
+    AssetRegistry registry;
+    RegisterAssets(registry);
+    RenderAssetBindings assets(registry);
+    const auto renderAsset=kairo::renderer::MakeGltfRenderAsset(source);
+    const std::array<kairo::renderer::MeshHandle,2> meshes{41u,42u};
+    assets.BindGltfScene({SceneID},source,renderAsset,meshes,key);
+    assets.CommitController(root,{SceneID},definition);
+    REQUIRE(assets.ResolveController({SceneID}));
+    const auto revision=ReadAuthoredClip(root,SceneID,true);
+    REQUIRE(revision);
+    CHECK(*revision==bytes);
+    RenderAssetBindings stale(registry);
+    stale.BindGltfScene({SceneID},source,renderAsset,meshes,key,std::nullopt,decoded,revision);
+    auto changed=definition;
+    changed.Transitions.front().BlendSeconds=.75f;
+    assets.CommitController(root,{SceneID},changed);
+    CHECK_THROWS(stale.CommitController(root,{SceneID},definition));
+
+    AnimationControllerRuntime first(decoded,source),secondInstance(decoded,source);
+    AnimationParameterSet parameters,off;
+    parameters.SetBool("moving",true);off.SetBool("moving",false);
+    (void)first.Advance(source,parameters,.25f);
+    REQUIRE(first.IsTransitioning());
+    const auto blended=first.Advance(source,parameters,.25f);
+    CHECK(first.TransitionAlpha()==.5f);
+    const auto expected=BlendGltfAnimationPoses(
+        SampleGltfAnimation(source,0,.5f,AnimationTimeMode::Clamp),
+        SampleGltfAnimation(source,1,.25f,AnimationTimeMode::Clamp),.5f);
+    CHECK(blended==expected);
+    const auto idle=secondInstance.Advance(source,off,.5f);
+    CHECK_FALSE(secondInstance.IsTransitioning());
+    Scene scene;
+    const auto a=scene.CreateEntity("First");
+    const auto b=scene.CreateEntity("Second");
+    scene.SetSceneInstance(a,{{SceneID},true,true,true,1u});
+    scene.SetSceneInstance(b,{{SceneID},true,true,true,1u});
+    SceneAnimationOverrides poses;
+    poses.SetPose(a,SceneID,blended);
+    poses.SetPose(b,SceneID,idle);
+    CHECK_FALSE(poses.FindPose(a,MeshID));
+    const auto rendered=BuildRenderScene(scene,assets,poses);
+    REQUIRE(rendered.Draws().size()==4);
+    CHECK(rendered.Draws()[0].Model(0u,3u)==4.5f);
+    CHECK(rendered.Draws()[2].Model(0u,3u)==2.f);
+    poses.Set(a,{0,.5f,AnimationTimeMode::Clamp});
+    CHECK_FALSE(poses.FindPose(a,SceneID));
+    REQUIRE(poses.Find(a));
+    poses.Clear(a);poses.Clear(b);
+    CHECK(poses.Empty());
+}
