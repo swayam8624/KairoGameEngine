@@ -288,3 +288,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Added desktop catalog browsing, metadata inspection, multi-selection and nonblocking verified recipe staging.
 - Bound staging to reviewed metadata, avoiding silent source/license changes between display and export.
 - Added actual Tk widget and staged-file regression gates under Xvfb. CI pending; no native Editor or marketplace claim.
+
+## M50 — protected local matchmaking workflow (2026-11-26)
+
+- Connected directory-issued one-time seats to protected server admission, with legacy open-session compatibility and permanent claimed-seat accounting.
+- Added host/list/join CLI companion with token-free command arguments, bounded lobby discovery and cleanup.
+- Registered concurrent directory and actual native process launcher tests in portable exact-source acceptance. CI pending; no hosted-service claim.

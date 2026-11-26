@@ -9,6 +9,12 @@ import socket
 import struct
 import subprocess
 import threading
+import tempfile
+import sys
+
+# Standalone invocation and the portable runner use the same directory implementation.
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'scripts'))
+from kairo_matchmaking import Directory
 
 
 def ready(process):
@@ -129,6 +135,76 @@ def run(binary):
         if server.returncode or out.strip()!='SERVER 6 7 1 7 5 1':
             raise RuntimeError(f'Protected pair server mismatch: {out} {err}')
         print('Protected seats passed wrong, malformed, truncated and replay rejection; both native clients reached victory')
+        # Issue the exact server credentials via the real session directory.
+        # Start listening first, publish second, join atomically, then launch.
+        with tempfile.TemporaryDirectory(prefix='kairo-protected-directory-') as tmp:
+            directory=Directory(Path(tmp)/'sessions.db')
+            tickets=(secrets.token_hex(32),secrets.token_hex(32))
+            server=spawn('server',env=dict(base_env,KAIRO_COOP_SEAT0=tickets[0],KAIRO_COOP_SEAT1=tickets[1]))
+            port=ready(server)
+            session=directory.create('coop',port,tickets=tickets)
+            try:
+                listing=directory.list()
+                if len(listing)!=1 or listing[0]['id']!=session['id']:
+                    raise RuntimeError('Protected directory discovery failed')
+                members=[directory.join(listing[0]['id'],player) for player in ('alice','bob')]
+                if [(m['seat'],m['token']) for m in members]!=list(enumerate(tickets)):
+                    raise RuntimeError('Directory issued unexpected seats')
+                clients=[spawn('client',m['port'],env=dict(base_env,KAIRO_COOP_TICKET=m['token'])) for m in reversed(members)]
+                for client,member in zip(clients,reversed(members)):
+                    out,err=client.communicate(timeout=12)
+                    if client.returncode or out.splitlines()!=[f"SLOT {member['seat']}",*expected]:
+                        raise RuntimeError(f'Directory client failed: {out} {err}')
+                out,err=server.communicate(timeout=12)
+                if server.returncode or out.strip()!='SERVER 6 7 1 7 5 1':
+                    raise RuntimeError(f'Directory server failed: {out} {err}')
+                for member in members:
+                    if not directory.leave(member['token']):
+                        raise RuntimeError('Protected membership cleanup failed')
+                if directory.list()[0]['joined']!=2:
+                    raise RuntimeError('Protected seats were recycled')
+            finally:
+                if not directory.close(session['id'],session['owner']) or directory.list():
+                    raise RuntimeError('Protected directory cleanup failed')
+        print('Protected directory discovery, ticket issuance, native co-op victory and cleanup passed')
+        # Exercise the actual user-facing host/list/join commands in separate
+        # processes as well, without exposing credentials in process arguments.
+        with tempfile.TemporaryDirectory(prefix='kairo-launcher-') as tmp:
+            db=Path(tmp)/'sessions.db'
+            launcher=Path(__file__).with_name('coop_directory.py')
+            prefix=[sys.executable,str(launcher),str(db)]
+            host=subprocess.Popen([*prefix,'host',executable,'arena'],
+                                  stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=base_env)
+            processes.append(host)
+            lines=queue.Queue(maxsize=1)
+            threading.Thread(target=lambda:lines.put(host.stdout.readline()),daemon=True).start()
+            announcement=lines.get(timeout=8).split()
+            if len(announcement)!=3 or announcement[0]!='SESSION':
+                raise RuntimeError('Launcher did not advertise session')
+            session=announcement[1]
+            listing=subprocess.run([*prefix,'list'],capture_output=True,text=True,check=True,timeout=8,env=base_env)
+            import json
+            rows=json.loads(listing.stdout)
+            if len(rows)!=1 or rows[0]['id']!=session or not rows[0]['protected']:
+                raise RuntimeError('Launcher session listing mismatch')
+            clients=[]
+            for player in ('alice','bob'):
+                client=subprocess.Popen([*prefix,'join',executable,session,player],
+                                         stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=base_env)
+                clients.append(client);processes.append(client)
+            slots=set()
+            for client in clients:
+                out,err=client.communicate(timeout=15)
+                lines=out.splitlines()
+                if client.returncode or not lines or lines[0] not in ('SLOT 0','SLOT 1') or lines[1:]!=expected:
+                    raise RuntimeError(f'Launcher client mismatch: {out} {err}')
+                slots.add(lines[0])
+            out,err=host.communicate(timeout=12)
+            if host.returncode or len(slots)!=2 or out.strip()!='SERVER 6 7 1 7 5 1' or Directory(db).list():
+                raise RuntimeError(f'Launcher host mismatch: {out} {err}')
+        print('User-facing host, discover and join commands completed a protected match')
+
+
 
     finally:
         for process in processes: stop(process)

@@ -579,3 +579,7 @@ Read [RuntimeCoopSession.hpp](Runtime/KairoPlayer/RuntimeCoopSession.hpp) after 
 ### Graphical licensed catalog
 
 Read [kairo_asset_catalog.py](scripts/kairo_asset_catalog.py) first: manifest validation, search, checksum, provenance and recipe output. Then read [kairo_asset_catalog_browser.py](scripts/kairo_asset_catalog_browser.py) to follow Tk selection and worker isolation; [the GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) verify real staged files and reject stale metadata. This is a standalone companion, not yet an Editor dock.
+
+### Directory-to-game workflow
+
+Read [kairo_matchmaking.py](scripts/kairo_matchmaking.py) for SQLite transactional seat ownership and one-time credentials. Then follow [coop_directory.py](Samples/NetworkLab/coop_directory.py) from host readiness to advertised session, client credential issuance and cleanup. [Directory tests](scripts/tests/test_kairo_matchmaking.py) cover concurrency, and [run_coop.py](Samples/NetworkLab/run_coop.py) covers actual process boundaries. The server remains the gameplay authority.

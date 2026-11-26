@@ -78,14 +78,15 @@ namespace kairo::player::detail
         }
         // Bounded wait for one peer. POSIX poll avoids FD_SET's fixed-size
         // descriptor array; Winsock select stores socket values instead.
-        [[nodiscard]] LoopbackTcp Accept() const
+        [[nodiscard]] LoopbackTcp Accept(std::chrono::milliseconds budget=std::chrono::seconds(5)) const
         {
+            if(budget.count()<1||budget.count()>60000)throw std::invalid_argument("Invalid accept deadline.");
 #ifdef _WIN32
-            fd_set set;FD_ZERO(&set);FD_SET(m_Socket,&set);timeval wait{5,0};
+            fd_set set;FD_ZERO(&set);FD_SET(m_Socket,&set);timeval wait{static_cast<long>(budget.count()/1000),static_cast<long>((budget.count()%1000)*1000)};
             const int ready=::select(0,&set,nullptr,nullptr,&wait);
 #else
             pollfd descriptor{m_Socket,POLLIN,0};
-            const int ready=::poll(&descriptor,1,5000);
+            const int ready=::poll(&descriptor,1,static_cast<int>(budget.count()));
 #endif
             if(ready!=1)throw std::runtime_error("Loopback accept timeout/failure.");
             LoopbackTcp peer(::accept(m_Socket,nullptr,nullptr));peer.Configure();return peer;

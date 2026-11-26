@@ -28,6 +28,7 @@ SAMPLES = ('Samples/NetworkLab/NetworkLab.cpp', 'Samples/NetworkLab/run_pair.py'
            'Samples/QuestDialogue/QuestDialogueDemo.cpp', 'scripts/kairo_asset_catalog.py',
            'scripts/kairo_matchmaking.py', 'scripts/tests/test_kairo_asset_catalog.py',
            'scripts/tests/test_kairo_matchmaking.py', 'Samples/NetworkLab/CoopLab.cpp', 'Samples/NetworkLab/run_coop.py',
+           'Samples/NetworkLab/coop_directory.py',
            'Samples/AnimationLab/run_imported_ik_native.py', 'Samples/AnimationLab/test_imported_ik_fixture.py')
 
 

@@ -193,3 +193,7 @@ Optional distinct 256-bit seat tickets bind protected local connections to their
 ## Candidate progress: graphical licensed catalog
 
 A standalone Tk catalog browser now reuses the canonical local manifest, search, checksum, license evidence and recipe staging code. It displays reviewed metadata, filters selectable assets, and stages asynchronously into a new directory; metadata changes between review and staging reject. Actual Tk/Xvfb tests are registered for search, selection, provenance, overwrite refusal and stale metadata. Main-editor import, actual native model preview, and CI execution remain open.
+
+## Candidate progress: protected directory-to-game workflow
+
+The SQLite directory now issues the actual protected server tickets atomically, never recycles a claimed seat within a match, and exposes a host/list/join launcher for terminal or graphical clients. The server allows a bounded interactive lobby window. Portable tests exercise 24-process contention, expiry, direct directory-to-native connection, and the actual launcher command flow. CI and native graphical execution are pending; no external matchmaking or percentage promotion.

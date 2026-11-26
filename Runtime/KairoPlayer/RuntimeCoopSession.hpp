@@ -76,9 +76,13 @@ namespace kairo::player::detail
         std::array<std::optional<LoopbackTcp>,2> seats;
         // Reject malformed, incorrect or already-used tickets without
         // consuming a seat. Cap attempts to bound local resource exhaustion.
+        // Stay below the first client's 30-second initial-state wait.
+        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(25);
         for(unsigned attempt=0;attempt<8;++attempt)
         {
-            auto peer=listener.Accept();
+            const auto remaining=std::chrono::ceil<std::chrono::milliseconds>(deadline-std::chrono::steady_clock::now());
+            if(remaining.count()<=0)throw std::runtime_error("Co-op admission deadline exceeded.");
+            auto peer=listener.Accept(remaining);
             try
             {
                 const auto ticket=ReceiveCoopTicket(peer);
