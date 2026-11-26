@@ -187,13 +187,15 @@ jobs:
           import sys
           from kairo_hub_core import create
           from kairo_project_workflow import ProjectTools, run_cli
-          for kind in ("empty", "arena", "beacon", "keygate"):
+          for kind in ("empty", "arena", "beacon", "keygate", "2d"):
               project = create(kind, "Hub " + kind, Path(sys.argv[1]))
               if run_cli(ProjectTools(project, Path("build/ci-clang")), "validate"):
                   raise SystemExit("Hub project validation failed: " + kind)
           PY
           xvfb-run -a build/ci-clang/components/KairoEditor/KairoEditorApp --project "$scratch/Hub empty/Project.kproject" --renderer vulkan --frames 3 --no-layout-persistence
           xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub arena/Project.kproject" --renderer vulkan --smoke
+          xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub 2d/Project.kproject" --renderer vulkan --smoke
+          build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub 2d/Project.kproject" --package Release
 
       - name: Validate actual catalog-generated project and native Vulkan capture
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
