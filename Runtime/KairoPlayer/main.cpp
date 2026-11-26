@@ -16,6 +16,7 @@
 #include "RuntimeFrameClock.hpp"
 #include "RuntimeCollectibleRun.hpp"
 #include "RuntimeProximityTriggers.hpp"
+#include "RuntimeGameplayEvents.hpp"
 #include "RuntimeProgressCheckpoint.hpp"
 #include "CraftSaveFile.hpp"
 #include <algorithm>
@@ -228,6 +229,7 @@ int main(int argc, char** argv)
         std::optional<kairo::player::detail::RuntimeProximityTriggers> triggers;
         kairo::player::detail::TriggerVisuals triggerVisuals;
         std::vector<std::filesystem::path> progressSources;
+        std::vector<std::uint32_t> triggerRuleIDs;
         if(std::filesystem::exists(project.Root()/"Config/Triggers.ktrigger"))
         {
             const auto path=project.RequireProjectFile("Config/Triggers.ktrigger","trigger document");
@@ -237,6 +239,7 @@ int main(int argc, char** argv)
             const auto rules=kairo::player::detail::ParseTriggerRules(document);
             for(const auto& rule:rules)
             {
+                triggerRuleIDs.push_back(rule.ID);
                 const kairo::engine::Entity entity{rule.Target};
                 const auto& scene=project.Scene();
                 if(!scene.Contains(entity)||!scene.HasTag(entity,"kairo.trigger-visual")||
@@ -287,6 +290,53 @@ int main(int argc, char** argv)
             {
                 kairo::player::detail::SaveProgress(*progressPath,progressIdentity,collectibleRun,triggers,triggerVisuals);
                 std::cout<<"Saved objective progress.\n";
+            }
+        };
+        // Event actions own a distinct visual-only tag. Reject overlapping
+        // owners at load, and require every source to be authored and known.
+        using GameplayEvent=kairo::player::detail::GameplayEvent;
+        std::optional<kairo::player::detail::RuntimeGameplayEvents> gameplayEvents;
+        if(std::filesystem::exists(project.Root()/"Config/Events.kevent"))
+        {
+            if(arguments.ProgressFile)
+                throw std::invalid_argument("Gameplay event rules are session-local; progress restore is unsupported.");
+            const auto path=project.RequireProjectFile("Config/Events.kevent","gameplay event document");
+            const auto bytes=kairo::player::detail::ReadCraftSaveFile(path,65536);
+            const std::string document(bytes.begin(),bytes.end());
+            const auto rules=kairo::player::detail::ParseGameplayEvents(document);
+            const auto& scene=project.Scene();
+            for(const auto& rule:rules)
+            {
+                const auto source=rule.Source;
+                const bool known=rule.Event==GameplayEvent::Begin||
+                    (rule.Event==GameplayEvent::Complete&&collectibleRun.Total())||
+                    (rule.Event==GameplayEvent::Collected&&std::any_of(collectibleRun.Goals().begin(),collectibleRun.Goals().end(),
+                        [&](const auto& goal){return goal.ID==source;}))||
+                    (rule.Event==GameplayEvent::Trigger&&std::find(triggerRuleIDs.begin(),triggerRuleIDs.end(),source)!=triggerRuleIDs.end())||
+                    (rule.Event==GameplayEvent::Defeated&&combat.HasTarget(source));
+                if(!known)throw std::invalid_argument("Unknown gameplay event source.");
+                const kairo::engine::Entity target{rule.Target};
+                if(!scene.Contains(target)||!scene.HasTag(target,"kairo.event-visual")||
+                    scene.HasTag(target,"kairo.collectible")||scene.HasTag(target,"kairo.trigger-visual")||
+                    scene.HasTag(target,"kairo.player-controller")||scene.HasTag(target,"kairo.damageable")||
+                    scene.HasTag(target,"kairo.enemy")||scene.HasTag(target,"kairo.sliding-door")||
+                    scene.Parent(target)||!scene.Children(target).empty()||scene.HasRigidBody(target)||
+                    scene.HasCollider(target)||scene.HasLogic(target)||scene.HasCamera(target)||scene.HasLight(target)||
+                    scene.HasEnvironment(target)||scene.HasAudioEmitter(target)||scene.HasAudioListener(target)||
+                    (!scene.HasMeshRenderer(target)&&!scene.HasSceneInstance(target)))
+                    throw std::invalid_argument("Gameplay event target must be an opted-in visual-only root.");
+            }
+            gameplayEvents.emplace(document);
+            std::cout<<"  gameplay event rules: "<<rules.size()<<'\n';
+        }
+        const auto dispatchEvent=[&](GameplayEvent event,std::uint32_t source){
+            if(!gameplayEvents)return;
+            for(const auto& action:gameplayEvents->Dispatch(event,source))
+            {
+                const kairo::engine::Entity target{action.Target};
+                if(!project.Scene().Contains(target))continue;
+                project.Scene().SetEnabled(target,action.Enable);
+                std::cout<<"Gameplay event "<<action.Rule<<": "<<(action.Enable?"show ":"hide ")<<action.Target<<'\n';
             }
         };
         // Headless validation stops before graphics initialization.
@@ -342,6 +392,8 @@ int main(int argc, char** argv)
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
         sceneAudio.BeginPlay();
+        dispatchEvent(GameplayEvent::Begin,0);
+        std::size_t publishedDefeats=0;
         renderer.SubmitRenderScene(bridge.BuildScene());
         renderer.SetCameraPose(activeCameraPose());
         bool captureRequested=false;
@@ -399,6 +451,8 @@ int main(int argc, char** argv)
             for (const auto& action : project.InputMap().Actions())
                 logic.DispatchInput(action.Name, input.Action(action.Name));
             (void)physics.Advance(elapsedSeconds, &fixedSteps);
+            const auto& defeats=combat.DefeatedTargets();
+            while(publishedDefeats<defeats.size())dispatchEvent(GameplayEvent::Defeated,defeats[publishedDefeats++]);
             logic.DispatchContacts();
             nativeGameplay.Update(static_cast<double>(elapsedSeconds));
             production.Step(static_cast<double>(elapsedSeconds));
@@ -415,6 +469,7 @@ int main(int argc, char** argv)
                     if(!project.Scene().Contains(target))continue;
                     project.Scene().SetEnabled(target,event.Enable);
                     triggerVisuals.at(event.Target)=event.Enable;
+                    dispatchEvent(GameplayEvent::Trigger,event.ID);
                     std::cout<<"Trigger "<<event.ID<<": "<<(event.Enable?"show ":"hide ")<<event.Target<<'\n';
                 }
             }
@@ -422,11 +477,11 @@ int main(int argc, char** argv)
             {
                 const auto p=project.Scene().WorldTransform(*controlledEntity).Translation;
                 const auto collected=collectibleRun.Step({p.x,p.y,p.z},elapsedSeconds);
-                for(auto id:collected)project.Scene().SetEnabled(kairo::engine::Entity{id},false);
+                for(auto id:collected){project.Scene().SetEnabled(kairo::engine::Entity{id},false);dispatchEvent(GameplayEvent::Collected,id);}
                 if(!collected.empty())
                 {
                     std::cout<<"Beacons "<<collectibleRun.Score()<<"/"<<collectibleRun.Total()<<'\n';
-                    if(collectibleRun.Won())std::cout<<"All beacons collected in "<<collectibleRun.Elapsed()<<" seconds!\n";
+                    if(collectibleRun.Won()){std::cout<<"All beacons collected in "<<collectibleRun.Elapsed()<<" seconds!\n";dispatchEvent(GameplayEvent::Complete,0);}
                 }
             }
             // One shared gameplay overlay owns both bars. The modal menu
