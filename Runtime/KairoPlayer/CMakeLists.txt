@@ -121,6 +121,12 @@ endforeach()
 
 if(BUILD_TESTING)
     find_package(Threads REQUIRED)
+    add_executable(KairoPlayerCollectibleRunTests tests/RuntimeCollectibleRunTests.cpp)
+    target_compile_features(KairoPlayerCollectibleRunTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerCollectibleRunTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerCollectibleRunTests COMMAND KairoPlayerCollectibleRunTests)
+    add_test(NAME KairoPlayerBeaconRunValidate COMMAND KairoPlayer "${CMAKE_SOURCE_DIR}/Samples/BeaconRun/Project.kproject" --validate)
+    set_tests_properties(KairoPlayerBeaconRunValidate PROPERTIES PASS_REGULAR_EXPRESSION "collectible goals: 6" TIMEOUT 20)
     # CPU-only quest state test: no renderer/OS window dependency.
     # Analytic IK is a portable CPU kernel; no window or GPU needed.
     # Compatible-rig retarget test is CPU-only; native skinning is separate.
