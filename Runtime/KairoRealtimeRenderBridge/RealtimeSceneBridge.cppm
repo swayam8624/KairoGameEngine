@@ -23,6 +23,11 @@ module;
 #include "AuthoredClip.hpp"
 #include <string>
 #include <string_view>
+#include <iomanip>
+#include <sstream>
+#include <locale>
+#include <limits>
+#include <variant>
 #include "FrameHierarchyCache.hpp"
 #include "FrameAssetCache.hpp"
 // Header-only rigid IK kernel; no dependency on the Player module or target.
@@ -80,10 +85,10 @@ export namespace kairo::runtime::renderbridge
     // importer caches and external glTF data, so normal packaging includes it.
     // Reject symlinks rather than following a path outside the project.
     [[nodiscard]] inline std::filesystem::path AuthoredClipPath(
-        const std::filesystem::path& root,kairo::assets::AssetID asset)
+        const std::filesystem::path& root,kairo::assets::AssetID asset,bool controller=false)
     {
         const auto folder=root/"Animations";
-        const auto file=folder/(asset.ToString()+".kanim");
+        const auto file=folder/(asset.ToString()+(controller?".kcontroller":".kanim"));
         if(std::filesystem::is_symlink(folder)||std::filesystem::is_symlink(file))
             throw std::invalid_argument("Linked authored clip paths are unsupported.");
         if(std::filesystem::exists(folder)&&!std::filesystem::is_directory(folder))
@@ -92,9 +97,9 @@ export namespace kairo::runtime::renderbridge
     }
 
     [[nodiscard]] inline std::optional<std::string> ReadAuthoredClip(
-        const std::filesystem::path& root,kairo::assets::AssetID asset)
+        const std::filesystem::path& root,kairo::assets::AssetID asset,bool controller=false)
     {
-        const auto path=AuthoredClipPath(root,asset);
+        const auto path=AuthoredClipPath(root,asset,controller);
         if(!std::filesystem::exists(path))return std::nullopt;
         if(!std::filesystem::is_regular_file(path))
             throw std::invalid_argument("Authored clip is not a regular file.");
@@ -171,6 +176,102 @@ export namespace kairo::runtime::renderbridge
         return {std::move(candidate),std::move(bytes)};
     }
 
+    // Controller v1 is a deliberately bounded subset of EngineCore's
+    // evaluator: one optional boolean condition per transition. The file
+    // uses the imported source key and stable clip indices.
+    inline void ValidateProjectController(const kairo::engine::AnimationControllerDefinition& definition,
+        const kairo::assets::GltfSceneArtifactData& source)
+    {
+        definition.Validate(source);
+        if(definition.States.size()>64||definition.Transitions.size()>256)
+            throw std::length_error("Controller exceeds 64 states or 256 transitions.");
+        for(const auto& state:definition.States)
+            if(!clip_detail::SafeName(state.Name)||state.Speed>16.f)
+                throw std::invalid_argument("Invalid controller state name or speed.");
+        for(const auto& transition:definition.Transitions)
+        {
+            if(transition.Conditions.size()>1||transition.BlendSeconds>60.f)
+                throw std::invalid_argument("Controller v1 supports one boolean condition and at most 60 seconds of blending.");
+            for(const auto& condition:transition.Conditions)
+                if(!clip_detail::SafeName(condition.Parameter)||!std::holds_alternative<bool>(condition.Value)||
+                    condition.Operator!=kairo::engine::AnimationConditionOperator::Equal)
+                    throw std::invalid_argument("Controller v1 supports boolean equality only.");
+        }
+    }
+
+    [[nodiscard]] inline std::string EncodeProjectController(
+        const kairo::assets::DerivedDataKey& key,const kairo::assets::GltfSceneArtifactData& source,
+        const kairo::engine::AnimationControllerDefinition& definition)
+    {
+        ValidateProjectController(definition,source);
+        std::ostringstream out;
+        out.imbue(std::locale::classic());
+        out<<std::setprecision(std::numeric_limits<float>::max_digits10);
+        out<<"kairo.controller.v1 "<<key.ToString()<<'\n'<<definition.EntryState<<' '
+            <<definition.States.size()<<' '<<definition.Transitions.size()<<'\n';
+        for(const auto& state:definition.States)
+            out<<std::quoted(state.Name)<<' '<<state.ClipIndex<<' '<<state.Speed<<' '
+                <<(state.TimeMode==kairo::engine::AnimationTimeMode::Loop?1:0)<<'\n';
+        for(const auto& transition:definition.Transitions)
+        {
+            out<<transition.FromState<<' '<<transition.ToState<<' '<<transition.BlendSeconds<<' '
+                <<transition.MinimumNormalizedTime<<' '<<transition.Priority<<' '<<transition.Conditions.size();
+            if(!transition.Conditions.empty())
+            {
+                const auto& condition=transition.Conditions.front();
+                out<<' '<<std::quoted(condition.Parameter)<<' '<<(std::get<bool>(condition.Value)?1:0);
+            }
+            out<<'\n';
+        }
+        return out.str();
+    }
+
+    [[nodiscard]] inline kairo::engine::AnimationControllerDefinition DecodeProjectController(
+        const kairo::assets::DerivedDataKey& key,const kairo::assets::GltfSceneArtifactData& source,
+        const std::string& bytes)
+    {
+        if(bytes.size()>128u*1024u)throw std::length_error("Controller exceeds byte budget.");
+        std::istringstream in(bytes);
+        in.imbue(std::locale::classic());
+        std::string magic,revision;
+        std::size_t states=0,transitions=0;
+        kairo::engine::AnimationControllerDefinition definition;
+        if(!(in>>magic>>revision>>definition.EntryState>>states>>transitions)||
+            magic!="kairo.controller.v1"||revision!=key.ToString()||!states||states>64||transitions>256)
+            throw std::invalid_argument("Invalid or stale controller header.");
+        definition.States.resize(states);
+        for(auto& state:definition.States)
+        {
+            unsigned loop=0;
+            in>>std::ws;
+            if(in.peek()!='"'||!(in>>std::quoted(state.Name)>>state.ClipIndex>>state.Speed>>loop)||loop>1)
+                throw std::invalid_argument("Invalid controller state record.");
+            state.TimeMode=loop?kairo::engine::AnimationTimeMode::Loop:kairo::engine::AnimationTimeMode::Clamp;
+        }
+        definition.Transitions.resize(transitions);
+        for(auto& transition:definition.Transitions)
+        {
+            unsigned conditions=0;
+            if(!(in>>transition.FromState>>transition.ToState>>transition.BlendSeconds>>
+                transition.MinimumNormalizedTime>>transition.Priority>>conditions)||conditions>1)
+                throw std::invalid_argument("Invalid controller transition record.");
+            if(conditions)
+            {
+                kairo::engine::AnimationTransitionCondition condition;
+                unsigned value=0;
+                in>>std::ws;
+                if(in.peek()!='"'||!(in>>std::quoted(condition.Parameter)>>value)||value>1)
+                    throw std::invalid_argument("Invalid controller condition.");
+                condition.Value=value!=0;
+                transition.Conditions.push_back(std::move(condition));
+            }
+        }
+        in>>std::ws;
+        if(!in.eof())throw std::invalid_argument("Trailing controller data.");
+        ValidateProjectController(definition,source);
+        return definition;
+    }
+
     /// Complete CPU-side glTF import needed by animation-aware runtime binding.
     /// Keep the validated source artifact beside the renderer adaptation so node,
     /// skin, rest-pose, and clip metadata are not discarded after mesh upload.
@@ -181,6 +282,8 @@ export namespace kairo::runtime::renderbridge
         kairo::assets::DerivedDataKey CacheKey;
         bool CacheHit = false;
         std::optional<std::string> AuthoredRevision{};
+        std::optional<kairo::engine::AnimationControllerDefinition> Controller{};
+        std::optional<std::string> ControllerRevision{};
     };
 
     // The ImportSourceAsset output is a typed CPU derived artifact. Retain
@@ -207,9 +310,12 @@ export namespace kairo::runtime::renderbridge
             importer, registry, imports, cache);
         auto source = kairo::assets::ParseGltfSceneDerivedArtifact(outcome.Artifact);
         auto authoredRevision=ApplyAuthoredClip(projectRoot,metadata.ID,outcome.Key,source);
+        auto controllerRevision=ReadAuthoredClip(projectRoot,metadata.ID,true);
+        std::optional<kairo::engine::AnimationControllerDefinition> controller;
+        if(controllerRevision)controller=DecodeProjectController(outcome.Key,source,*controllerRevision);
         auto renderAsset = kairo::renderer::MakeGltfRenderAsset(source, resolveTexture);
         return { std::move(source), std::move(renderAsset), outcome.Key,
-            outcome.CacheHit,std::move(authoredRevision) };
+            outcome.CacheHit,std::move(authoredRevision),std::move(controller),std::move(controllerRevision) };
     }
 
     /// Compatibility projection for callers that only need static render data.
@@ -397,6 +503,8 @@ export namespace kairo::runtime::renderbridge
             std::optional<EvaluatedGltfPose> RestPose{};
             std::optional<kairo::assets::DerivedDataKey> SourceKey{};
             std::optional<std::string> AuthoredRevision{};
+            std::optional<kairo::engine::AnimationControllerDefinition> Controller{};
+            std::optional<std::string> ControllerRevision{};
         };
 
         // Source has already passed full asset validation at binding time.
@@ -547,7 +655,9 @@ export namespace kairo::runtime::renderbridge
             const kairo::renderer::GltfRenderAsset& renderAsset,
             std::span<const kairo::renderer::MeshHandle> meshHandles,
             std::optional<kairo::assets::DerivedDataKey> sourceKey=std::nullopt,
-            std::optional<std::string> authoredRevision=std::nullopt)
+            std::optional<std::string> authoredRevision=std::nullopt,
+            std::optional<kairo::engine::AnimationControllerDefinition> controller=std::nullopt,
+            std::optional<std::string> controllerRevision=std::nullopt)
         {
             (void)m_Registry.Resolve(asset);
             kairo::assets::ValidateGltfSceneArtifactData(source);
@@ -578,7 +688,7 @@ export namespace kairo::runtime::renderbridge
             auto rest = EvaluateGltfPose(source, kairo::engine::BuildGltfRestPose(source), primitives);
             if (!m_Scenes.emplace(asset.ID,
                 SceneBinding{ std::move(primitives), std::move(source), std::move(rest),
-                    std::move(sourceKey),std::move(authoredRevision) }).second)
+                    std::move(sourceKey),std::move(authoredRevision),std::move(controller),std::move(controllerRevision) }).second)
                 throw std::invalid_argument("A render scene asset is already bound.");
         }
 
@@ -609,6 +719,28 @@ export namespace kairo::runtime::renderbridge
         [[nodiscard]] bool HasAuthoredClip(kairo::assets::SceneAssetHandle asset) const
         {
             return ResolveSceneBinding(asset).AuthoredRevision.has_value();
+        }
+
+        [[nodiscard]] const kairo::engine::AnimationControllerDefinition* ResolveController(
+            kairo::assets::SceneAssetHandle asset) const
+        {
+            const auto& binding=ResolveSceneBinding(asset);
+            return binding.Controller?&*binding.Controller:nullptr;
+        }
+
+        void CommitController(const std::filesystem::path& root,kairo::assets::SceneAssetHandle asset,
+            kairo::engine::AnimationControllerDefinition definition)
+        {
+            (void)m_Registry.Resolve(asset);
+            auto& binding=m_Scenes.at(asset.ID);
+            if(!binding.GltfSource||!binding.SourceKey)
+                throw std::logic_error("No animation source revision bound.");
+            auto bytes=EncodeProjectController(*binding.SourceKey,*binding.GltfSource,definition);
+            if(ReadAuthoredClip(root,asset.ID,true)!=binding.ControllerRevision)
+                throw std::runtime_error("Controller changed on disk. Reopen project.");
+            kairo::engine::SaveTextFileAtomically(AuthoredClipPath(root,asset.ID,true),bytes,"animation controller");
+            binding.Controller=std::move(definition);
+            binding.ControllerRevision=std::move(bytes);
         }
 
         // Publish only the new animation vector. Mesh handles, rest pose and
