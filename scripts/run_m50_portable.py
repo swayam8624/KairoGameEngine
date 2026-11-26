@@ -12,12 +12,12 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PLAYER = ROOT / 'Runtime/KairoPlayer'
 TESTS = ('QuestDialogue', 'QuestSave', 'ItemInventory', 'RpgSession', 'TwoBoneIK', 'AnimationRetarget', 'SkeletonPose', 'PoseLab',
-         'NetworkProtocol', 'NetworkPrediction', 'LoopbackTcp', 'CoopArena', 'Weather', 'RainStreaks',
+         'NetworkProtocol', 'NetworkPrediction', 'LoopbackTcp', 'CoopArena', 'CoopWorker', 'Weather', 'RainStreaks',
          'WaterGrid', 'SoftBody', 'TetraSurface', 'TetraPublication', 'BreakableCube', 'MenuDocument', 'MenuFocus', 'MenuPresentation',
          'Platformer', 'Strategy', 'GridCanvas', 'GameLabView')
 HEADERS = ('CraftSaveFile.hpp', 'RuntimeQuestDialogue.hpp', 'RuntimeQuestSave.hpp', 'RuntimeItemInventory.hpp', 'RuntimeRpgSession.hpp',
            'RuntimeTwoBoneIK.hpp', 'RuntimeAnimationRetarget.hpp', 'RuntimeSkeletonPose.hpp', 'RuntimePoseLab.hpp', 'RuntimeNetworkProtocol.hpp',
-           'RuntimeNetworkPrediction.hpp', 'RuntimeLoopbackTcp.hpp', 'RuntimeCoopArena.hpp', 'RuntimeCoopSession.hpp', 'RuntimeWeather.hpp',
+           'RuntimeNetworkPrediction.hpp', 'RuntimeLoopbackTcp.hpp', 'RuntimeCoopArena.hpp', 'RuntimeCoopSession.hpp', 'RuntimeCoopWorker.hpp', 'RuntimeCoopView.hpp', 'RuntimeWeather.hpp',
            'RuntimeRainStreaks.hpp', 'RuntimeWaterGrid.hpp', 'RuntimeSoftBody.hpp', 'RuntimeTetraSurface.hpp', 'VoxelMeshPublication.hpp',
            'RuntimeBreakableCube.hpp', 'RuntimeMenuDocument.hpp', 'RuntimeMenuFocus.hpp', 'RuntimeMenuPresentation.hpp',
            'RuntimePlatformerCore.hpp', 'RuntimePlatformer.hpp', 'RuntimeStrategy.hpp', 'RuntimeGridCanvas.hpp', 'RuntimeGameLabView.hpp',
@@ -75,7 +75,7 @@ def run_suite(compiler, report):
         step('compiler', [compiler, '--version'])
         for name in TESTS:
             binary = work / name
-            build(name, PLAYER / 'tests' / f'Runtime{name}Tests.cpp', binary, *(['-pthread'] if name == 'LoopbackTcp' else []))
+            build(name, PLAYER / 'tests' / f'Runtime{name}Tests.cpp', binary, *(['-pthread'] if name in ('LoopbackTcp', 'CoopWorker') else []))
             step('test ' + name, [binary])
         network = work / 'network-lab'
         build('network lab', ROOT / SAMPLES[0], network)

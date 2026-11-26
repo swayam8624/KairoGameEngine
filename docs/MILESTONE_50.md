@@ -173,3 +173,7 @@ Exact payload and provenance verifier now integrates the recipe output, release 
 ## Candidate progress: authoritative two-client co-op
 
 Both local compilers passed 95,825 randomized simultaneous turns each and an actual three-process shared victory plus four failure-injection cases. Graphical integration, accepted-head CI and admission enforcement remain open. Not an Internet multiplayer service.
+
+## Candidate progress: graphical co-op
+
+Two-client asynchronous worker, keyboard/overlay host and independent native three-process capture gate added. Both portable compilers passed real worker network/cancellation/failure tests and 5,000 viewport cases each. Native CI and accepted-head gate pending.

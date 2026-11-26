@@ -559,3 +559,7 @@ Read RuntimePackaging.cppm (profile exclusion, payload counting, staging and pub
 ## Two-client authority and co-op
 
 Read [RuntimeCoopArena](Runtime/KairoPlayer/RuntimeCoopArena.hpp) for symmetric simultaneous movement and snapshot grouping, then [RuntimeCoopSession](Runtime/KairoPlayer/RuntimeCoopSession.hpp) for slot assignment and atomic turn input, and [CoopLab](Samples/NetworkLab/CoopLab.cpp) for process boundaries. [Oracle tests](Runtime/KairoPlayer/tests/RuntimeCoopArenaTests.cpp) and [real process harness](Samples/NetworkLab/run_coop.py) distinguish validation before commit from partial network delivery after commit. Review Shutdown in RuntimeLoopbackTcp before introducing a GUI worker.
+
+## Graphical multiplayer
+
+Read [CoopWorker](Runtime/KairoPlayer/RuntimeCoopWorker.hpp), [CoopView](Runtime/KairoPlayer/RuntimeCoopView.hpp), [native client](Runtime/KairoPlayer/CoopClient.cpp) and [worker tests](Runtime/KairoPlayer/tests/RuntimeCoopWorkerTests.cpp). Trace one outstanding input, zero-duration future polling, visible state publication, interrupt/join and native overlay submission. [Native process gate](Samples/NetworkLab/run_coop_native.py) separates an actual GPU capture on each client from CPU view and socket tests.
