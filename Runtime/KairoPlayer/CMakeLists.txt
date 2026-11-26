@@ -71,6 +71,11 @@ add_executable(KairoGameLab GameLab.cpp)
 target_link_libraries(KairoGameLab PRIVATE KairoPlayerRuntime)
 set_property(TARGET KairoGameLab PROPERTY COMPILE_WARNING_AS_ERROR ON)
 
+# Actual imported asset + native skinning acceptance, not an overlay fixture.
+add_executable(KairoImportedIKSmoke ImportedIKSmoke.cpp)
+target_link_libraries(KairoImportedIKSmoke PRIVATE KairoPlayerRuntime)
+set_property(TARGET KairoImportedIKSmoke PROPERTY COMPILE_WARNING_AS_ERROR ON)
+
 # Asynchronous graphical co-op client; the standalone server is a test/sample target.
 find_package(Threads REQUIRED)
 add_executable(KairoCoopClient CoopClient.cpp)
@@ -606,6 +611,8 @@ if(BUILD_TESTING)
         if(Python3_Interpreter_FOUND)
             add_test(NAME KairoCoopNativeSmoke COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/Samples/NetworkLab/run_coop_native.py" $<TARGET_FILE:KairoCoopLab> $<TARGET_FILE:KairoCoopClient> ${_kairo_lab_backend})
             set_tests_properties(KairoCoopNativeSmoke PROPERTIES TIMEOUT 100 LABELS "m50-native")
+            add_test(NAME KairoImportedIKNativeSmoke COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/Samples/AnimationLab/run_imported_ik_native.py" $<TARGET_FILE:KairoImportedIKSmoke> ${_kairo_lab_backend})
+            set_tests_properties(KairoImportedIKNativeSmoke PROPERTIES TIMEOUT 75 LABELS "m50-native")
         endif()
     endif()
 
