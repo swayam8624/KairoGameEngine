@@ -42,6 +42,7 @@ import Kairo.Player.RuntimeSceneAudioBridge;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeDoorBridge;
 import Kairo.Player.RuntimeHealthBridge;
+import Kairo.Player.RuntimeCombatBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
 import Kairo.Player.RuntimePlayerControllerBridge;
 import Kairo.Player.RuntimeInputBridge;
@@ -74,14 +75,15 @@ namespace
         RuntimeFixedStepFanout(kairo::player::RuntimePlayerControllerBridge& playerController,
             kairo::player::RuntimeLogicBridge& logic,
             kairo::player::RuntimeNativeGameplayBridge& native, kairo::player::RuntimeDoorBridge& doors,
-            kairo::player::RuntimeHealthBridge& health)
-            : m_PlayerController(playerController), m_Logic(logic), m_Native(native), m_Doors(doors), m_Health(health) {}
+            kairo::player::RuntimeHealthBridge& health, kairo::player::RuntimeCombatBridge& combat)
+            : m_PlayerController(playerController), m_Logic(logic), m_Native(native), m_Doors(doors), m_Health(health), m_Combat(combat) {}
 
         void BeforePhysicsStep(float fixedDeltaSeconds) override
         {
             m_Doors.BeforePhysicsStep(fixedDeltaSeconds);
             m_PlayerController.BeforePhysicsStep(fixedDeltaSeconds);
-            if(m_Health.AfterCharacterStep())m_PlayerController.ClearInput();
+            if(m_Health.AfterCharacterStep()){m_PlayerController.ClearInput();m_Combat.ClearInput();}
+            m_Combat.Step();
             m_Logic.BeforePhysicsStep(fixedDeltaSeconds);
             m_Native.BeforePhysicsStep(fixedDeltaSeconds);
         }
@@ -92,6 +94,7 @@ namespace
         kairo::player::RuntimeNativeGameplayBridge& m_Native;
         kairo::player::RuntimeDoorBridge& m_Doors;
         kairo::player::RuntimeHealthBridge& m_Health;
+        kairo::player::RuntimeCombatBridge& m_Combat;
     };
 
     [[nodiscard]] Arguments ParseArguments(int count, char** values)
@@ -182,6 +185,8 @@ int main(int argc, char** argv)
         if (playerController.ControllerCount() != 0u && !input.HasAction("Move"))
             throw std::invalid_argument(
                 "A kairo.player-controller entity requires a project input action named 'Move'.");
+        kairo::player::RuntimeCombatBridge combat(project,physics,playerController.PrimaryController());
+        if(combat.Enabled())std::cout<<"  combat: enabled\n";
         kairo::player::RuntimeHealthBridge health(project,physics,characterMotor,playerController.PrimaryController());
         if(health.Enabled())std::cout<<"  health: "<<health.Health()<<'/'<<health.Maximum()<<'\n';
         kairo::player::RuntimeDoorBridge doors(project,physics,playerController.PrimaryController());
@@ -328,7 +333,7 @@ int main(int argc, char** argv)
             return pose;
         };
 
-        RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay, doors, health);
+        RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay, doors, health, combat);
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
         sceneAudio.BeginPlay();
@@ -364,7 +369,7 @@ int main(int argc, char** argv)
             // held controls and queued jump so the next game frame cannot
             // replay menu input or a pre-menu pending physics event.
             input.Poll(renderer.NativeWindow(),!menuFrame);
-            if(menuFrame)playerController.ClearInput();
+            if(menuFrame){playerController.ClearInput();combat.ClearInput();}
             const float elapsedSeconds=static_cast<float>(frameClock.Sample(elapsed,drawable&&!menuFrame));
             if(!drawable)
             {
@@ -384,6 +389,7 @@ int main(int argc, char** argv)
                 const auto jump = input.HasAction("Jump")
                     ? input.Action("Jump") : kairo::engine::InputActionState{};
                 playerController.CaptureInput(input.Action("Move"), jump);
+                if(combat.Enabled())combat.Capture(input.Action("Attack").Pressed,playerController.DesiredPlanarVelocity());
             }
             for (const auto& action : project.InputMap().Actions())
                 logic.DispatchInput(action.Name, input.Action(action.Name));
