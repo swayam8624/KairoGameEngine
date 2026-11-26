@@ -87,7 +87,9 @@ export namespace kairo::player
             {
                 std::optional<detail::LogicBreakpoint> breakpoint;
                 if(!m_BreakDocument.empty())breakpoint=detail::LogicBreakpoint{m_BreakDocument,m_BreakRevision,m_BreakPC};
-                const bool pause=m_Gate&&m_Gate->Before(m_Document,m_Revision,pc,breakpoint);
+                const bool attached=m_Gate&&m_Gate->Attached();
+                const bool pause=attached&&m_Gate->Before(m_Document,m_Revision,pc,breakpoint);
+                if(attached&&!m_Gate->Attached())PublishPause("detached");
                 const bool capture=m_Rows<MaximumRows&&!m_Failed;
                 if(!pause&&!capture)return;
                 std::ostringstream row;
@@ -137,7 +139,15 @@ export namespace kairo::player
                 }
                 if(pause){Flush();WaitForCommand(record);}
             }
-            catch(...){m_Failed=true;if(m_Gate)m_Gate->Detach();}
+            catch(...)
+            {
+                m_Failed=true;
+                if(m_Gate&&m_Gate->Attached())
+                {
+                    m_Gate->Detach();
+                    try{if(m_Gate->Stop())PublishPause("detached");}catch(...){}
+                }
+            }
         }
         void RecordFailure(std::string_view message) noexcept
         {
