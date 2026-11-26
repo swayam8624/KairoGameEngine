@@ -91,11 +91,14 @@ class RecentProjects:
     def _save(self, paths):
         if self.warning:
             raise ValueError(self.warning)
+        payload = json.dumps({"version": 1, "projects": paths}, ensure_ascii=False).encode("utf-8")
+        if len(payload) > MAX_RECENT_BYTES:
+            raise ValueError("Recent list exceeds size limit.")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, temporary = tempfile.mkstemp(prefix=".hub-recent-", dir=self.path.parent)
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as stream:
-                json.dump({"version": 1, "projects": paths}, stream, ensure_ascii=False)
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self.path)
@@ -159,10 +162,15 @@ def create(template_key, name, parent, root=ROOT):
                                           "prefabs": {}, "instances": []}), encoding="utf-8")
             return descriptor(create_project(recipe, output, Path(root) / "Samples/PlayableVerticalSlice"))
     source = Path(root) / "Samples" / template.sample
-    if source.resolve().is_relative_to(output) or output.is_relative_to(source.resolve()):
+    if source.is_symlink():
+        raise ValueError("Sample directory is linked.")
+    source = source.resolve(strict=True)
+    if source.is_relative_to(output) or output.is_relative_to(source):
         raise ValueError("A sample must be copied outside its own source tree.")
     files = sample_files(source)
     original = descriptor(source / "Project.kproject")
+    if original.stat().st_size > 1024 * 1024:
+        raise ValueError("Sample project descriptor exceeds size limit.")
     text = original.read_text(encoding="utf-8")
     renamed, count = re.subn(r'(?m)^name .+$', lambda _: 'name "' + name + '"', text)
     if count != 1:
