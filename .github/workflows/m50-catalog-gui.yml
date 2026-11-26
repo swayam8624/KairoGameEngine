@@ -1,0 +1,20 @@
+name: M50 graphical catalog acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  catalog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tk and virtual display
+        run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb xauth
+      - name: Run core and actual graphical catalog tests
+        run: |
+          PYTHONPATH=scripts /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_asset_catalog.py
+          PYTHONPATH=scripts xvfb-run -a /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_asset_catalog_browser.py
