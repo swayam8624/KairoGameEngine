@@ -239,6 +239,28 @@ jobs:
           build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/game/Project.kproject" --validate
           xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/game/Project.kproject" --renderer vulkan --smoke
 
+      - name: Diagnose Vulkan loader leak without engine code
+        if: failure() && matrix.platform == 'linux' && matrix.preset == 'ci-sanitized' && steps.test_linux.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++23 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer scripts/diagnose_vulkan_loader_leaks.cpp -lvulkan -o /tmp/kairo-vulkan-loader-probe
+          # Preserve the failed CTest gate. These two independent probes only
+          # report whether the bare loader/driver also produces the leak.
+          set +e
+          ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 xvfb-run -a /tmp/kairo-vulkan-loader-probe
+          default_status=$?
+          shopt -s nullglob
+          manifests=(/usr/share/vulkan/icd.d/lvp_icd*.json)
+          if (( ${#manifests[@]} == 1 )); then
+            VK_DRIVER_FILES="${manifests[0]}" ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 xvfb-run -a /tmp/kairo-vulkan-loader-probe
+            echo "Lavapipe-only diagnostic exit: $?"
+          else
+            echo "Lavapipe manifest is missing or ambiguous; isolation not run."
+          fi
+          echo "Default-loader diagnostic exit: $default_status"
+          exit 0
+
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')
         uses: actions/upload-artifact@v7

@@ -45,6 +45,7 @@ jobs:
             KairoEngineCoreTests KairoEngineCorePhase3Tests \
             KairoRendererTests KairoRendererOpenGLSkinningSmoke \
             KairoRendererVulkanSkinningSmoke KairoRendererPhysicsDebugTests \
+            KairoRendererEmbeddedVulkanShaderTests \
             KairoRendererNativeResourcePublicationTests KairoRendererVulkanFrameRecoveryJournalTests \
             KairoRendererTransactionalGenerationTests KairoRendererTextureMipUploadPlanTests \
             KairoRendererVulkanUploadRetirementPolicyTests KairoRendererVulkanInstancingSmoke \
