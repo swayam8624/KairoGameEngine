@@ -186,8 +186,7 @@ jobs:
           python3 scripts/kairo_asset_catalog.py "$scratch/catalog/catalog.json" project "$scratch/project" triangle
           rm -rf "$scratch/catalog"
           player=build/ci-clang/Runtime/KairoPlayer/KairoPlayer
-          "$player" "$scratch/project/Project.kproject" --validate
-          xvfb-run -a "$player" "$scratch/project/Project.kproject" --renderer vulkan --smoke
+          xvfb-run -a python3 scripts/kairo_project_workflow.py "$scratch/project/Project.kproject" --build build/ci-clang --action smoke --renderer vulkan
           # Exercise the genuine player, package command, relocated launcher and
           # extracted Debian game with the same generated licensed project.
           command -v dpkg-deb
