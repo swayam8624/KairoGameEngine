@@ -20,6 +20,9 @@ module;
 #include <filesystem>
 #include <fstream>
 #include "MaterialFileSizeBudget.hpp"
+#include "AuthoredClip.hpp"
+#include <string>
+#include <string_view>
 #include "FrameHierarchyCache.hpp"
 #include "FrameAssetCache.hpp"
 // Header-only rigid IK kernel; no dependency on the Player module or target.
@@ -73,6 +76,77 @@ export namespace kairo::runtime::renderbridge
             outcome.Key, outcome.CacheHit };
     }
 
+    // One project-owned authored clip per source asset. It is separate from
+    // importer caches and external glTF data, so normal packaging includes it.
+    // Reject symlinks rather than following a path outside the project.
+    [[nodiscard]] inline std::filesystem::path AuthoredClipPath(
+        const std::filesystem::path& root,kairo::assets::AssetID asset)
+    {
+        const auto folder=root/"Animations";
+        const auto file=folder/(asset.ToString()+".kanim");
+        if(std::filesystem::is_symlink(folder)||std::filesystem::is_symlink(file))
+            throw std::invalid_argument("Linked authored clip paths are unsupported.");
+        if(std::filesystem::exists(folder)&&!std::filesystem::is_directory(folder))
+            throw std::invalid_argument("Animations is not a directory.");
+        return file;
+    }
+
+    [[nodiscard]] inline std::optional<std::string> ReadAuthoredClip(
+        const std::filesystem::path& root,kairo::assets::AssetID asset)
+    {
+        const auto path=AuthoredClipPath(root,asset);
+        if(!std::filesystem::exists(path))return std::nullopt;
+        if(!std::filesystem::is_regular_file(path))
+            throw std::invalid_argument("Authored clip is not a regular file.");
+        if(std::filesystem::file_size(path)>clip_detail::MaxBytes)
+            throw std::length_error("Authored clip exceeds byte budget.");
+        std::ifstream in(path,std::ios::binary);
+        if(!in)throw std::runtime_error("Cannot open authored clip.");
+        std::string bytes(clip_detail::MaxBytes+1,'\0');
+        in.read(bytes.data(),static_cast<std::streamsize>(bytes.size()));
+        if(in.bad()||in.gcount()>static_cast<std::streamsize>(clip_detail::MaxBytes))
+            throw std::runtime_error("Cannot read bounded authored clip.");
+        bytes.resize(static_cast<std::size_t>(in.gcount()));
+        return bytes;
+    }
+
+    inline void ApplyAuthoredClip(const std::filesystem::path& root,
+        kairo::assets::AssetID asset,const kairo::assets::DerivedDataKey& key,
+        kairo::assets::GltfSceneArtifactData& source)
+    {
+        const auto revision=ReadAuthoredClip(root,asset);
+        if(!revision)return;
+        auto clip=clip_detail::Decode<kairo::assets::GltfAnimationClipData>(key.ToString(),*revision);
+        source.Animations.push_back(std::move(clip));
+        try {kairo::assets::ValidateGltfSceneArtifactData(source);}
+        catch(...) {source.Animations.pop_back();throw;}
+    }
+
+    // The loaded source already contains the previous authored clip, if any.
+    // Replacing a draft must preserve imported indices and detect disk edits.
+    inline void SaveAuthoredClip(const std::filesystem::path& root,
+        kairo::assets::AssetID asset,const kairo::assets::DerivedDataKey& key,
+        const kairo::assets::GltfSceneArtifactData& source,
+        const kairo::assets::GltfAnimationClipData& draft,
+        const std::optional<std::string>& expected)
+    {
+        const auto bytes=clip_detail::Encode(key.ToString(),draft);
+        auto candidate=source;
+        if(expected)
+        {
+            const auto previous=clip_detail::Decode<kairo::assets::GltfAnimationClipData>(key.ToString(),*expected);
+            if(candidate.Animations.empty()||candidate.Animations.back()!=previous)
+                throw std::runtime_error("Loaded animation revision differs from disk. Reopen the project.");
+            candidate.Animations.back()=draft;
+        }
+        else candidate.Animations.push_back(draft);
+        kairo::assets::ValidateGltfSceneArtifactData(candidate);
+        const auto path=AuthoredClipPath(root,asset);
+        if(ReadAuthoredClip(root,asset)!=expected)
+            throw std::runtime_error("Authored clip changed on disk. Reopen the project.");
+        kairo::engine::SaveTextFileAtomically(path,bytes,"authored animation clip");
+    }
+
     /// Complete CPU-side glTF import needed by animation-aware runtime binding.
     /// Keep the validated source artifact beside the renderer adaptation so node,
     /// skin, rest-pose, and clip metadata are not discarded after mesh upload.
@@ -107,6 +181,7 @@ export namespace kairo::runtime::renderbridge
         auto outcome = kairo::assets::ImportSourceAsset(projectRoot, std::move(record),
             importer, registry, imports, cache);
         auto source = kairo::assets::ParseGltfSceneDerivedArtifact(outcome.Artifact);
+        ApplyAuthoredClip(projectRoot,metadata.ID,outcome.Key,source);
         auto renderAsset = kairo::renderer::MakeGltfRenderAsset(source, resolveTexture);
         return { std::move(source), std::move(renderAsset), outcome.Key,
             outcome.CacheHit };
