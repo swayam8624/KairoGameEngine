@@ -10,7 +10,7 @@ namespace kairo::player::world2d
     struct DrawRect {Box Bounds;unsigned RGB=0;};
     inline constexpr std::size_t MaxDrawRects=4096;
     // Clip each primitive before mapping it to the letterboxed viewport.
-    // Two tile layers plus 128 four-by-four sprites stay below 4096 draws.
+    // Two bounded tile layers plus the validated sprite-run budget stay below 4096 draws.
     inline std::vector<DrawRect> View(const Game& game,unsigned width,unsigned height)
     {
         std::vector<DrawRect> out;
@@ -20,14 +20,15 @@ namespace kairo::player::world2d
         const int screenW=static_cast<int>(camera.W*scale),screenH=static_cast<int>(camera.H*scale);
         if(!screenW||!screenH)return out;
         const int ox=(static_cast<int>(width)-screenW)/2,oy=(static_cast<int>(height)-screenH)/2;
-        const auto draw=[&](Box b,unsigned color)
+        const auto drawFractional=[&](double bx,double by,double bw,double bh,unsigned color)
         {
-            const int left=std::clamp(b.X,0,camera.W),right=std::clamp(b.X+b.W,0,camera.W);
-            const int top=std::clamp(b.Y,0,camera.H),bottom=std::clamp(b.Y+b.H,0,camera.H);
-            const int x=ox+left*screenW/camera.W,y=oy+top*screenH/camera.H;
-            const int r=ox+right*screenW/camera.W,d=oy+bottom*screenH/camera.H;
+            const auto left=std::clamp(bx,0.,double(camera.W)),right=std::clamp(bx+bw,0.,double(camera.W));
+            const auto top=std::clamp(by,0.,double(camera.H)),bottom=std::clamp(by+bh,0.,double(camera.H));
+            const int x=ox+int(left*screenW/camera.W),y=oy+int(top*screenH/camera.H);
+            const int r=ox+int(right*screenW/camera.W),d=oy+int(bottom*screenH/camera.H);
             if(r>x&&d>y)out.push_back({{x,y,r-x,d-y},color});
         };
+        const auto draw=[&](Box b,unsigned color){drawFractional(b.X,b.Y,b.W,b.H,color);};
         draw({0,0,camera.W,camera.H},w.Colors[0]);
         const auto layer=[&](const std::vector<std::string>& rows,int cx,int cy)
         {
@@ -56,15 +57,16 @@ namespace kairo::player::world2d
             const auto& actor=w.Actors[i];const auto& sprite=w.Sprites.at(actor.SpriteName);
             const auto& frame=sprite.Frames[(game.Tick()/static_cast<unsigned>(sprite.Period))%sprite.Frames.size()];
             const auto b=game.Actors()[i].Bounds;
-            for(int y=0;y<4;++y)
-                for(int x=0;x<4;)
+            const double px=double(b.W)/sprite.Width,py=double(b.H)/sprite.Height;
+            for(int y=0;y<sprite.Height;++y)
+                for(int x=0;x<sprite.Width;)
                 {
-                    const int color=Hex(frame[y*4+x]);
+                    const int color=Hex(frame[y*sprite.Width+x]);
                     int end=x+1;
-                    while(end<4&&Hex(frame[y*4+end])==color)++end;
+                    while(end<sprite.Width&&Hex(frame[y*sprite.Width+end])==color)++end;
                     if(color)
-                        draw({b.X-camera.X+x*b.W/4,b.Y-camera.Y+y*b.H/4,
-                            end*b.W/4-x*b.W/4,(y+1)*b.H/4-y*b.H/4},w.Colors[static_cast<std::size_t>(color)]);
+                        drawFractional(b.X-camera.X+x*px,b.Y-camera.Y+y*py,
+                            (end-x)*px,py,w.Colors[static_cast<std::size_t>(color)]);
                     x=end;
                 }
         }
