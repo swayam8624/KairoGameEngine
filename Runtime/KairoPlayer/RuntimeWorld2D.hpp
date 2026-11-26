@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <utility>
 
 namespace kairo::player::world2d
 {
@@ -134,8 +135,10 @@ namespace kairo::player::world2d
         unsigned players=0,goals=0;
         for(int i=0;i<count;++i)
         {
-            Actor a;std::string kind;
-            Require(bool(in>>a.ID>>kind>>a.Bounds.X>>a.Bounds.Y>>a.Bounds.W>>a.Bounds.H>>a.SpriteName>>a.Range),"Invalid actor record.");
+            Actor a;std::string kind;long long id=0;
+            Require(bool(in>>id>>kind>>a.Bounds.X>>a.Bounds.Y>>a.Bounds.W>>a.Bounds.H>>a.SpriteName>>a.Range),"Invalid actor record.");
+            Require(id>0&&id<=0xffffffffll,"Invalid actor ID.");
+            a.ID=static_cast<unsigned>(id);
             a.Type=ParseKind(kind);
             const auto b=a.Bounds;
             Require(a.ID>0&&b.X>=0&&b.Y>=0&&b.W>=4&&b.W<=64&&b.H>=4&&b.H<=64&&
@@ -182,6 +185,26 @@ namespace kairo::player::world2d
                 if(m_World.Actors[i].Type==Kind::Solid&&Overlap(box,m_Actors[i].Bounds))return true;
             return false;
         }
+        // Check contacts at every unit sweep, including fast motion through
+        // narrow triggers. Hazards take precedence over collection and goals.
+        bool Contacts()
+        {
+            const auto player=m_Actors[m_Player].Bounds;
+            for(std::size_t i=0;i<m_Actors.size();++i)
+                if(m_Actors[i].Active&&Overlap(player,m_Actors[i].Bounds)&&
+                    (m_World.Actors[i].Type==Kind::Hazard||m_World.Actors[i].Type==Kind::Patrol))
+                {++m_Deaths;Reset();return true;}
+            bool goal=false;
+            for(std::size_t i=0;i<m_Actors.size();++i)
+            {
+                auto& actor=m_Actors[i];
+                if(!actor.Active||!Overlap(player,actor.Bounds))continue;
+                if(m_World.Actors[i].Type==Kind::Collect){actor.Active=false;++m_Collected;}
+                if(m_World.Actors[i].Type==Kind::Goal)goal=true;
+            }
+            m_Won=goal&&m_Collected==m_Total;
+            return m_Won;
+        }
         bool Sweep(int dx,int dy)
         {
             auto& b=m_Actors[m_Player].Bounds;
@@ -191,6 +214,7 @@ namespace kairo::player::world2d
                 Box next=b;next.X+=(dx>0)-(dx<0);next.Y+=(dy>0)-(dy<0);
                 if(Blocked(next))return false;
                 b=next;
+                if(Contacts())return false;
             }
             return true;
         }
@@ -224,7 +248,10 @@ namespace kairo::player::world2d
                     live.Direction=-live.Direction;
                 else live.Bounds=next;
             }
+            const auto deaths=m_Deaths;
+            if(Contacts()){m_PreviousJump=input.Jump;return;}
             Sweep(input.X*m_World.Speed,0);
+            if(m_Deaths!=deaths||m_Won){m_PreviousJump=input.Jump;return;}
             if(m_World.Movement==Mode::TopDown)Sweep(0,input.Y*m_World.Speed);
             else
             {
@@ -234,21 +261,6 @@ namespace kairo::player::world2d
                 if(!Sweep(0,m_VY))m_VY=0;
             }
             m_PreviousJump=input.Jump;
-            const auto player=m_Actors[m_Player].Bounds;
-            bool goal=false;
-            for(std::size_t i=0;i<m_Actors.size();++i)
-            {
-                auto& actor=m_Actors[i];
-                if(!actor.Active||!Overlap(player,actor.Bounds))continue;
-                switch(m_World.Actors[i].Type)
-                {
-                    case Kind::Hazard:case Kind::Patrol:++m_Deaths;Reset();m_PreviousJump=input.Jump;return;
-                    case Kind::Collect:actor.Active=false;++m_Collected;break;
-                    case Kind::Goal:goal=true;break;
-                    default:break;
-                }
-            }
-            m_Won=goal&&m_Collected==m_Total;
         }
         [[nodiscard]] const World& Definition() const noexcept{return m_World;}
         [[nodiscard]] const std::vector<LiveActor>& Actors() const noexcept{return m_Actors;}
