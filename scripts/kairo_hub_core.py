@@ -33,7 +33,7 @@ TEMPLATES = (
     Template("arena", "3D Arena", "A playable 3D level with ready-made scenery and controls.", layout="arena"),
     Template("beacon", "Collectible Game", "Collect six beacons and complete the objective.", sample="BeaconRun"),
     Template("keygate", "Adventure Starter", "Collect a key to open a physical gate.", sample="KeyGateArena"),
-    Template("2d", "2D Starter", "Editable native 2D project support is not yet available.", available=False),
+    Template("2d", "2D Platformer", "Editable tile map, collectibles, jumping, hazards and goal.", sample="PlatformerProject"),
 )
 
 
