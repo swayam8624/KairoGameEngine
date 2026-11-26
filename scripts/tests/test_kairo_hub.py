@@ -13,7 +13,7 @@ class HubTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="kairo hub ")
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
 
     def test_portable_names(self):
         for value in ("Game", "A game_2", "A-1"):
@@ -42,6 +42,11 @@ class HubTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rec.touch(a)
         self.assertEqual(path.read_text(), "{broken")
+        backup = rec.recover()
+        self.assertEqual(backup.read_text(), "{broken")
+        rec.touch(a)
+        self.assertEqual(RecentProjects(path).paths, [str(a)])
+        self.assertEqual(backup.read_text(), "{broken")
 
     def test_recent_limit(self):
         recent = RecentProjects(self.root / "recents.json")
