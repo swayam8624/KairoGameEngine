@@ -587,3 +587,7 @@ Read [kairo_asset_catalog.py](scripts/kairo_asset_catalog.py) first: manifest va
 ### Catalog to editable game
 
 Follow [catalog project creation](scripts/kairo_asset_catalog.py) into [the recipe compiler](scripts/create_kairo_project.py), then return to [the catalog browser](scripts/kairo_asset_catalog_browser.py) for the explicit Editor launch. [GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) check retained files and the subprocess argument contract; native packaging is a separate gate.
+
+### Generic collectible gameplay
+
+Read [RuntimeCollectibleRun.hpp](Runtime/KairoPlayer/RuntimeCollectibleRun.hpp) for the renderer-independent score, stable IDs and two-phase batch publication. Then follow its integration in [main.cpp](Runtime/KairoPlayer/main.cpp), including headless validation and menu/HUD ownership. [Beacon Run](Samples/BeaconRun/README.md) is an ordinary authored project, and [native acceptance](Samples/BeaconRun/run_native_acceptance.py) tests the real Player boundary. The [portable tests](Runtime/KairoPlayer/tests/RuntimeCollectibleRunTests.cpp) cover seeded runs and maximum-size collection batches.
