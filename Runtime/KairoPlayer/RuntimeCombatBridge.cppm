@@ -45,12 +45,14 @@ export namespace kairo::player
                 if(e==*primary||!scene.Contains(e)||!scene.IsActiveInHierarchy(e)||
                     !scene.HasTag(e,"kairo.damageable")||scene.Parent(e)||!scene.Children(e).empty()||
                     !scene.HasMeshRenderer(e)||!scene.HasCollider(e)||scene.Collider(e).IsTrigger||
-                    (scene.HasRigidBody(e)&&scene.RigidBody(e).Motion!=kairo::engine::RigidBodyMotion::Static)||
+                    (scene.HasRigidBody(e)&&scene.RigidBody(e).Motion!=kairo::engine::RigidBodyMotion::Static&&
+                     !(scene.HasTag(e,"kairo.enemy")&&scene.RigidBody(e).Motion==kairo::engine::RigidBodyMotion::Kinematic&&
+                       scene.Collider(e).Shape==kairo::engine::ColliderShape::Capsule))||
                     !physics.BodyFor(e)||scene.HasLogic(e)||scene.HasCamera(e)||scene.HasLight(e)||
                     scene.HasEnvironment(e)||scene.HasAudioEmitter(e)||scene.HasAudioListener(e)||
                     scene.HasTag(e,"kairo.collectible")||scene.HasTag(e,"kairo.trigger-visual")||
                     scene.HasTag(e,"kairo.sliding-door")||scene.HasTag(e,"kairo.player-controller"))
-                    throw std::invalid_argument("Combat targets must be opted-in static solid visual roots.");
+                    throw std::invalid_argument("Combat targets must be opted-in static or enemy capsule solid visual roots.");
             }
         }
         [[nodiscard]] bool Enabled() const noexcept{return m_Combat.has_value();}

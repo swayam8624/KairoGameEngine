@@ -44,13 +44,13 @@ export namespace kairo::player
         [[nodiscard]] std::uint32_t Checkpoint() const noexcept{return m_Health?m_Health->Checkpoint():0;}
         // Call after controller movement, once per physics substep, so
         // damage and cooldown do not depend on render frame rate.
-        bool AfterCharacterStep()
+        bool AfterCharacterStep(unsigned incomingDamage=0)
         {
             if(!m_Health)return false;
             const auto body=m_Physics.BodyFor(*m_Player);
             if(!body)return false;
             const auto p=m_Physics.World().Bodies().at(*body).State.Position;
-            const auto event=m_Health->Step({p.x,p.y,p.z});
+            const auto event=m_Health->Step({p.x,p.y,p.z},incomingDamage);
             if(event.Checkpoint)std::cout<<"Checkpoint "<<event.Checkpoint<<" activated.\n";
             if(event.Damage)std::cout<<"Damage "<<event.Damage<<"; health "<<Health()<<"/"<<Maximum()<<'\n';
             if(event.Respawn)

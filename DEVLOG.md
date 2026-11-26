@@ -339,3 +339,8 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 
 - Added bounded 512-flight point projectile pool and full travelled-segment queries at each fixed step. Existing hitscan behaviour remains default; optional projectile speed selects delayed impacts. Apply hits in launch order, remove destroyed colliders before subsequent queries, cancel active flights on respawn, pause with the existing modal simulation boundary.
 - Added Projectile Arena, combined combat regression and actual physics bridge CTest. Locally compiled flight (10,000 journeys), previous combat (50,000 samples), and combined launch/impact regressions on GCC, Clang and Clang ASan/UBSan. Exact five source/test Git blobs verified. Native workspace execution remains pending.
+
+## M50 — enemy perception and behaviour (2026-11-26)
+
+- Added deterministic patrol, pursue, attack and last-seen search policy, with bounded memory and attack cooldown. Authored NPC adapter queries real physics visibility, moves via the existing character motor, aggregates damage through the player-health bridge and unregisters defeated enemy motors.
+- Added Enemy Arena and native physics/health/combat integration CTest. Actual strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized decision samples and enemy damage/cooldown/respawn tests. Previous 50,000-sample health regression passed GCC and Clang after the change. Native execution pending.

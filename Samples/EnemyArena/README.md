@@ -1,0 +1,7 @@
+# Enemy Arena
+
+An ordinary authored Kairo project with one capsule enemy. The enemy patrols between its authored spawn and second waypoint, pursues the primary player while in sight, attacks within reach, searches the last seen location when occluded, and returns to patrol after its memory expires. Move with WASD and press F to attack; two successful hits defeat the enemy. Defeat removes the physics body and hides the mesh; the enemy adapter unregisters its motor on the next step.
+
+`Config/Enemies.kenemy` uses `kairo-enemies 1` followed by `enemy ENTITY_ID SPEED SIGHT REACH MEMORY_TICKS ATTACK_COOLDOWN_TICKS DAMAGE PATROL_X PATROL_Y PATROL_Z`. Enemies are tagged `kairo.enemy`, active kinematic capsule mesh roots, and may also be tagged `kairo.damageable` and listed in the combat document. The primary player must have health enabled. Enemy perception uses an omnidirectional range and a solid-occlusion physics ray. Damage is aggregated per fixed tick and respects the existing player damage cooldown. Movement is direct steering through the shared collision-resolving motor, not obstacle-aware navmesh routing; patrol and enemy health are session-local. No animation, ranged NPC attacks, or moving-target continuous collision claim.
+
+Run `build/game-clang/Runtime/KairoPlayer/KairoPlayer Samples/EnemyArena/Project.kproject` after building the normal profile. The full workspace `KairoPlayerEnemyBridgeTests` checks occlusion, attack, player damage, defeat and motor cleanup. Portable tests cover the decision policy and health boundary independently.

@@ -90,15 +90,16 @@ namespace kairo::player::detail
         [[nodiscard]] unsigned Health() const noexcept{return m_Health;}
         [[nodiscard]] unsigned Maximum() const noexcept{return m_Rules.Maximum;}
         [[nodiscard]] std::uint32_t Checkpoint() const noexcept{return m_Checkpoint;}
-        HealthEvent Step(HealthPosition position)
+        HealthEvent Step(HealthPosition position,unsigned incomingDamage=0)
         {
-            if(!ValidHealthPosition(position))throw std::invalid_argument("Invalid health sample.");
+            if(incomingDamage>10000||!ValidHealthPosition(position))throw std::invalid_argument("Invalid health sample.");
             if(m_Cooldown)--m_Cooldown;
             HealthEvent event{};
             if(position[1]<=m_Rules.FallY)event.Damage=m_Health;
             else if(!m_Cooldown)
                 for(const auto& h:m_Rules.Hazards)if(HealthDistance(h.Center,position)<=h.Radius)
                 {event.Damage=std::min(h.Damage,m_Health);break;}
+            if(!event.Damage&&!m_Cooldown)event.Damage=std::min(incomingDamage,m_Health);
             if(event.Damage)
             {
                 m_Health-=event.Damage;m_Cooldown=m_Rules.Cooldown;
