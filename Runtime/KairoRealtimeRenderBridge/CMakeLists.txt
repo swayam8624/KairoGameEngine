@@ -7,6 +7,10 @@ target_link_libraries(KairoRealtimeRenderBridge PUBLIC
 add_library(Kairo::RealtimeRenderBridge ALIAS KairoRealtimeRenderBridge)
 
 if(BUILD_TESTING)
+    add_executable(KairoAuthoredClipTests AuthoredClipTests.cpp)
+    target_compile_features(KairoAuthoredClipTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoAuthoredClipTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoAuthoredClipTests COMMAND KairoAuthoredClipTests)
     add_executable(KairoFrameAssetCacheTests tests/FrameAssetCacheTests.cpp)
     target_compile_features(KairoFrameAssetCacheTests PRIVATE cxx_std_23)
     add_test(NAME KairoFrameAssetCacheTests COMMAND KairoFrameAssetCacheTests)
