@@ -21,6 +21,7 @@ class CatalogBrowser(ttk.Frame):
         self.parent = parent
         self.editor = Path(editor).resolve(strict=True) if editor else None
         self.editor_process = None
+        self.editor_poll = None
         self.generated_project = None
         self.operation = None
         self.manifest = None
@@ -187,14 +188,16 @@ class CatalogBrowser(ttk.Frame):
             return
         self.status.set(f'Editor launched: {self.generated_project}')
         self.update_editor_button()
-        self.after(250,self.poll_editor)
+        if self.editor_poll is None:
+            self.editor_poll = self.after(250,self.poll_editor)
 
     def poll_editor(self):
+        self.editor_poll = None
         if self.editor_process is None:
             return
         code = self.editor_process.poll()
         if code is None:
-            self.after(250,self.poll_editor)
+            self.editor_poll = self.after(250,self.poll_editor)
             return
         self.editor_process = None
         self.update_editor_button()
@@ -205,6 +208,9 @@ class CatalogBrowser(ttk.Frame):
         if self.future is not None:
             self.status.set('Staging is still running; close after it finishes.')
             return
+        if self.editor_poll is not None:
+            self.after_cancel(self.editor_poll)
+            self.editor_poll = None
         self.worker.shutdown(wait=True)
         self.parent.destroy()
 

@@ -39,8 +39,7 @@ class BrowserTests(unittest.TestCase):
         self.manifest.write_text(json.dumps({'version':1,'assets':self.records}))
 
     def cleanup_gui(self):
-        self.browser.worker.shutdown(wait=True)
-        self.root.destroy()
+        self.browser.close()
 
     def finish(self):
         deadline=time.monotonic()+5
@@ -99,6 +98,11 @@ class BrowserTests(unittest.TestCase):
         self.assertTrue((output/records[0]['license_file']).is_file())
         self.assertEqual(hashlib.sha256((output/records[0]['path']).read_bytes()).hexdigest(),
                          records[0]['sha256'])
+        self.browser.start_stage(output,project=True)
+        self.finish()
+        self.assertIn('Project creation failed:',self.browser.status.get())
+        self.assertTrue((output/'Project.kproject').is_file())
+
         # Verify the actual argument boundary without pretending to launch
         # a native GPU editor on the GUI-only runner.
         self.browser.editor=Path(sys.executable)
@@ -109,11 +113,13 @@ class BrowserTests(unittest.TestCase):
                                            cwd=output)
             self.browser.open_editor()
             self.assertEqual(launch.call_count,1)
-        self.browser.editor_process=None
-        self.browser.start_stage(output,project=True)
-        self.finish()
-        self.assertIn('Project creation failed:',self.browser.status.get())
-        self.assertTrue((output/'Project.kproject').is_file())
+
+        timer = self.browser.editor_poll
+        self.assertIsNotNone(timer)
+        with patch.object(self.root, 'destroy'):
+            self.browser.close()
+        with self.assertRaises(tk.TclError):
+            self.root.tk.call('after', 'info', timer)
 
     def test_filter_clears_selection(self):
         self.select_cube()
