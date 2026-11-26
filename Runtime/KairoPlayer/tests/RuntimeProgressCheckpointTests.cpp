@@ -25,16 +25,27 @@ int main(int argc,char** argv)
         Check(goals.Step({0,0,0},.25).empty()&&triggers->Step({0,0,0}).empty(),"repeated progress");
         const auto exit=triggers->Step({3,0,0});
         Check(exit.size()==1&&exit[0].ID==2&&!exit[0].Enable,"missing restored exit");
+        for(const auto& e:exit)visuals.at(e.Target)=e.Enable;
         Check(triggers->Step({0,0,0}).empty(),"once repeated after reload");
         Check(goals.Step({3,0,0},.5).size()==1&&goals.Won()&&goals.Elapsed()==1,"completion differs");
         SaveProgress(path,identity,goals,triggers,visuals);
+        const auto before=ReadCraftSaveFile(path,MaximumProgressBytes);
+        auto lock=path;lock+=".write-lock";std::filesystem::create_directory(lock);
+        bool blocked=false;try{SaveProgress(path,identity,goals,triggers,visuals);}catch(const std::runtime_error&){blocked=true;}
+        Check(blocked&&ReadCraftSaveFile(path,MaximumProgressBytes)==before,"writer lock changed checkpoint");
+        std::filesystem::remove(lock);
     }
     else if(mode=="reject")
     {
+        auto copyGoals=goals;auto copyTriggers=triggers;auto copyVisuals=visuals;
+        LoadProgress(path,identity,copyGoals,copyTriggers,copyVisuals);
+        Check(copyGoals.Won()&&!copyVisuals.at(8),"second cold restore lost final state");
+        const auto fingerprint=ProgressIdentity({path});
         bool rejected=false;try{LoadProgress(path,identity+1,goals,triggers,visuals);}catch(const std::invalid_argument&){rejected=true;}
         Check(rejected&&!goals.Score()&&!visuals.at(8)&&!triggers->Progress()[0].Fired,"mismatch mutated progress");
         // Valid header/goal state but unknown target; all live state must remain unchanged.
         std::ofstream out(path);out<<"kairo-progress 1\n"<<identity<<" 2\n1\n1\n2\n1 1 1\n2 1 0\n1\n999 1\n";out.close();
+        Check(fingerprint!=ProgressIdentity({path}),"source edit fingerprint unchanged");
         rejected=false;try{LoadProgress(path,identity,goals,triggers,visuals);}catch(const std::invalid_argument&){rejected=true;}
         Check(rejected&&!goals.Score()&&!visuals.at(8)&&!triggers->Progress()[0].Fired,"invalid visual mutated progress");
     }
