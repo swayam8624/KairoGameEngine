@@ -1,5 +1,6 @@
 module;
 #include "RuntimeCombat.hpp"
+#include "RuntimeProjectileFlight.hpp"
 #include "CraftSaveFile.hpp"
 #include <array>
 #include <filesystem>
@@ -24,6 +25,7 @@ export namespace kairo::player
         RuntimePhysicsBridge& m_Physics;
         std::optional<kairo::engine::Entity> m_Player;
         std::optional<detail::RuntimeCombat> m_Combat;
+        detail::RuntimeProjectileFlight m_Flights;
         kairo::foundation::math::Vec3f m_Aim{0,0,-1};
     public:
         RuntimeCombatBridge(RuntimeProject& project,RuntimePhysicsBridge& physics,
@@ -61,12 +63,14 @@ export namespace kairo::player
             m_Combat->CapturePress(pressed);
         }
         void ClearInput() noexcept{if(m_Combat)m_Combat->ClearInput();}
-        void Step()
+        void CancelFlights() noexcept{m_Flights.Clear();}
+        [[nodiscard]] std::size_t ActiveFlights() const noexcept{return m_Flights.Size();}
+        void Step(float dt=1.f/60)
         {
             if(!m_Combat)return;
             const auto body=m_Physics.BodyFor(*m_Player);
-            if(!body){ClearInput();return;}
-            const auto event=m_Combat->Step([&](double range)->std::uint32_t{
+            if(!body){ClearInput();CancelFlights();return;}
+            const auto ray=[&](const detail::FlightVector& p,const detail::FlightVector& d,double range)->std::optional<std::uint32_t>{
                 const auto& world=m_Physics.World();
                 auto own=kairo::foundation::physics::InvalidColliderID;
                 for(const auto& c:world.Colliders())if(c.Active&&c.Body==*body)
@@ -77,18 +81,35 @@ export namespace kairo::player
                 }
                 if(own==kairo::foundation::physics::InvalidColliderID)
                     throw std::logic_error("Combat player has no collider.");
-                const auto origin=world.Bodies().at(*body).State.Position;
-                for(const auto& hit:world.RaycastAll(origin,m_Aim,static_cast<float>(range),0xFFFFFFFFu,own))
+                const kairo::foundation::math::Vec3f origin{float(p[0]),float(p[1]),float(p[2])};
+                const kairo::foundation::math::Vec3f direction{float(d[0]),float(d[1]),float(d[2])};
+                for(const auto& hit:world.RaycastAll(origin,direction,static_cast<float>(range),0xFFFFFFFFu,own))
                 {
                     const auto entity=m_Physics.EntityFor(hit.Body);
-                    if(!entity)return 0;
+                    if(!entity)return 0u;
                     if(m_Project.Scene().Collider(*entity).IsTrigger)continue;
-                    return entity->Value; // Nearest solid blocks all farther targets.
+                    return entity->Value;
                 }
-                return 0;
-            });
-            if(!event.Fired)return;
-            if(!event.Damage){std::cout<<"Attack missed.\n";return;}
+                return {};
+            };
+            // Resolve existing flights first. Destroyed bodies are removed
+            // before another projectile performs its query in the same tick.
+            m_Flights.Step(dt,ray,[&](std::uint32_t id){Publish(m_Combat->ApplyHit(id));});
+            if(!m_Combat->BeginAttack())return;
+            const auto origin=m_Physics.World().Bodies().at(*body).State.Position;
+            const detail::FlightVector p{origin.x,origin.y,origin.z},d{m_Aim.x,0,m_Aim.z};
+            if(m_Combat->ProjectileSpeed())
+            {
+                if(m_Flights.Launch(p,d,m_Combat->Range(),m_Combat->ProjectileSpeed()))
+                    std::cout<<"Projectile launched.\n";
+                else std::cout<<"Projectile budget exhausted.\n";
+            }
+            else Publish(m_Combat->ApplyHit(ray(p,d,m_Combat->Range()).value_or(0)));
+        }
+    private:
+        void Publish(const detail::AttackResult& event)
+        {
+            if(!event.Damage){std::cout<<"Attack blocked or missed.\n";return;}
             std::cout<<"Hit "<<event.Target<<" damage "<<event.Damage<<'\n';
             if(event.Destroyed)
             {

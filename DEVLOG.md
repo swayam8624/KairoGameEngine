@@ -334,3 +334,8 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 
 - Added authored combat configuration, discrete fixed-tick attack presses, bounded damage and cooldown state. Runtime adapter uses the locked PhysicsWorld RaycastAll query, ignores the player's collider and stops at the nearest solid hit. Destroyed static target roots are deactivated through the existing physics topology adapter before hiding their mesh.
 - Added Combat Arena and actual module integration CTest for occlusion and destruction. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized portable state samples. Exact Git blobs verified. Native execution pending.
+
+## M50 — travelling projectile attacks (2026-11-26)
+
+- Added bounded 512-flight point projectile pool and full travelled-segment queries at each fixed step. Existing hitscan behaviour remains default; optional projectile speed selects delayed impacts. Apply hits in launch order, remove destroyed colliders before subsequent queries, cancel active flights on respawn, pause with the existing modal simulation boundary.
+- Added Projectile Arena, combined combat regression and actual physics bridge CTest. Locally compiled flight (10,000 journeys), previous combat (50,000 samples), and combined launch/impact regressions on GCC, Clang and Clang ASan/UBSan. Exact five source/test Git blobs verified. Native workspace execution remains pending.
