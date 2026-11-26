@@ -29,6 +29,19 @@ namespace kairo::player::detail
         [[nodiscard]] bool Won() const noexcept{return Total()!=0&&m_Score==Total();}
         [[nodiscard]] double Elapsed() const noexcept{return m_Elapsed;}
         [[nodiscard]] const std::vector<Goal>& Goals() const noexcept{return m_Goals;}
+        // Restore only IDs belonging to this exact authored goal set.
+        void RestoreProgress(double elapsed,const std::vector<std::uint32_t>& collected)
+        {
+            if(!std::isfinite(elapsed)||elapsed<0||(!Total()&&elapsed!=0)||collected.size()>Total()||
+                !std::is_sorted(collected.begin(),collected.end())||
+                std::adjacent_find(collected.begin(),collected.end())!=collected.end())
+                throw std::invalid_argument("Invalid collectible progress.");
+            for(auto id:collected)
+                if(std::none_of(m_Goals.begin(),m_Goals.end(),[&](const auto& g){return g.ID==id;}))
+                    throw std::invalid_argument("Unknown saved collectible.");
+            for(auto& g:m_Goals)g.Collected=std::binary_search(collected.begin(),collected.end(),g.ID);
+            m_Score=collected.size();m_Elapsed=elapsed;m_Started=true;
+        }
         std::vector<std::uint32_t> Step(Position position,double dt,double radius=.85)
         {
             Validate(position);
