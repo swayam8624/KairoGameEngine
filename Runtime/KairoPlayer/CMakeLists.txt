@@ -6,7 +6,7 @@ target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
     FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
         RuntimeCharacterMotorBridge.cppm RuntimePlayerControllerBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeLocomotionAnimationBridge.cppm RuntimeEntityLifecycleBridge.cppm RuntimeSaveGameBridge.cppm RuntimeWorldSaveBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
-        RuntimeWorldStreamingBridge.cppm RuntimeMenuHost.cppm RuntimeDoorBridge.cppm)
+        RuntimeWorldStreamingBridge.cppm RuntimeMenuHost.cppm RuntimeDoorBridge.cppm RuntimeHealthBridge.cppm)
 # Prefer the small, deterministic gameplay module. Existing sibling checkouts
 # predating the split still provide that module through Kairo::AI.
 if(TARGET Kairo::GameplayAI)
@@ -121,6 +121,16 @@ endforeach()
 
 if(BUILD_TESTING)
     find_package(Threads REQUIRED)
+    add_executable(KairoPlayerHealthTests tests/RuntimeHealthTests.cpp)
+    target_compile_features(KairoPlayerHealthTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerHealthTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerHealthTests COMMAND KairoPlayerHealthTests)
+    add_executable(KairoPlayerHealthBridgeTests tests/RuntimeHealthBridgeTests.cpp)
+    target_link_libraries(KairoPlayerHealthBridgeTests PRIVATE KairoPlayerRuntime)
+    set_property(TARGET KairoPlayerHealthBridgeTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerHealthBridgeTests COMMAND KairoPlayerHealthBridgeTests "${CMAKE_SOURCE_DIR}/Samples/HealthArena/Project.kproject")
+    add_test(NAME KairoPlayerHealthArenaValidate COMMAND KairoPlayer "${CMAKE_SOURCE_DIR}/Samples/HealthArena/Project.kproject" --validate)
+    set_tests_properties(KairoPlayerHealthBridgeTests KairoPlayerHealthArenaValidate PROPERTIES TIMEOUT 30)
     add_executable(KairoPlayerSlidingDoorTests tests/RuntimeSlidingDoorTests.cpp)
     target_compile_features(KairoPlayerSlidingDoorTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerSlidingDoorTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
