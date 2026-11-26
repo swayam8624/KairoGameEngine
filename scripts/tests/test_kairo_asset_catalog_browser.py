@@ -3,6 +3,9 @@ import hashlib
 import json
 from pathlib import Path
 import struct
+import runpy
+import sys
+from unittest.mock import patch
 import tempfile
 import time
 import tkinter as tk
@@ -76,6 +79,41 @@ class BrowserTests(unittest.TestCase):
         self.finish()
         self.assertIn('Catalog metadata changed',self.browser.status.get())
         self.assertFalse(out.exists())
+
+    def test_create_project_and_editor_handoff(self):
+        # Use the actual renderable triangle fixture, not the minimal GLB
+        # header used by catalog-only tests.
+        generator=Path(__file__).resolve().parents[2]/'Samples/AssetCatalog/create_demo_catalog.py'
+        manifest=runpy.run_path(str(generator))['generate'](self.path/'real-catalog')
+        self.browser.load(manifest)
+        self.browser.tree.selection_set('triangle')
+        self.root.update()
+        output=self.path/'new game'
+        self.browser.start_stage(output,project=True)
+        self.finish()
+        self.assertIn('Created editable project:',self.browser.status.get())
+        self.assertEqual(self.browser.generated_project,output/'Project.kproject')
+        self.assertTrue(self.browser.generated_project.is_file())
+        records=json.loads((output/'ASSET_LICENSES.json').read_text())
+        self.assertEqual(len(records),1)
+        self.assertTrue((output/records[0]['license_file']).is_file())
+        self.assertEqual(hashlib.sha256((output/records[0]['path']).read_bytes()).hexdigest(),
+                         records[0]['sha256'])
+        # Verify the actual argument boundary without pretending to launch
+        # a native GPU editor on the GUI-only runner.
+        self.browser.editor=Path(sys.executable)
+        with patch('kairo_asset_catalog_browser.subprocess.Popen') as launch:
+            launch.return_value.poll.return_value=None
+            self.browser.open_editor()
+            launch.assert_called_once_with([sys.executable,'--project',str(output/'Project.kproject')],
+                                           cwd=output)
+            self.browser.open_editor()
+            self.assertEqual(launch.call_count,1)
+        self.browser.editor_process=None
+        self.browser.start_stage(output,project=True)
+        self.finish()
+        self.assertIn('Project creation failed:',self.browser.status.get())
+        self.assertTrue((output/'Project.kproject').is_file())
 
     def test_filter_clears_selection(self):
         self.select_cube()
