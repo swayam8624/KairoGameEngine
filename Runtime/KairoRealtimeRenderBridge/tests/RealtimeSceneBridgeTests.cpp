@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cmath>
+#include <filesystem>
+#include <system_error>
 #include <unordered_set>
 
 import Kairo.Runtime.RealtimeSceneBridge;
@@ -520,4 +522,62 @@ TEST_CASE("Imported two-bone IK corrects instance palettes without altering the 
     REQUIRE_THROWS_AS(ApplyGltfTwoBoneIK(source,scaled,request),std::invalid_argument);
     auto bad=request;bad.Nodes={0u,3u,1u};
     REQUIRE_THROWS_AS(ApplyGltfTwoBoneIK(source,sampled,bad),std::invalid_argument);
+}
+
+TEST_CASE("Authored animation clips persist without changing imported clips or render handles",
+    "[KairoRealtimeRenderBridge][AuthoredClip]")
+{
+    using namespace kairo::assets;
+    const auto root=std::filesystem::temp_directory_path()/("kairo-clip-"+GenerateAssetID().ToString());
+    struct Cleanup {std::filesystem::path Path;~Cleanup(){std::error_code ec;std::filesystem::remove_all(Path,ec);}} cleanup{root};
+    std::filesystem::create_directories(root);
+    AssetRegistry registry;
+    RegisterAssets(registry);
+    RenderAssetBindings assets(registry);
+    const auto source=AnimatedGltfScene();
+    const auto key=DerivedDataKey::Parse(std::string(64,'a'));
+    const auto otherKey=DerivedDataKey::Parse(std::string(64,'b'));
+    const auto renderAsset=kairo::renderer::MakeGltfRenderAsset(source);
+    const std::array<kairo::renderer::MeshHandle,2> meshes{41u,42u};
+    assets.BindGltfScene({SceneID},source,renderAsset,meshes,key);
+    auto draft=source.Animations.front();
+    draft.Name="Authored";
+    draft.Channels.front().Keyframes.back().Value[0]=9.f;
+    CHECK_FALSE(assets.HasAuthoredClip({SceneID}));
+    const auto index=assets.CommitAuthoredClip(root,{SceneID},draft);
+    CHECK(index==source.Animations.size());
+    CHECK(assets.HasAuthoredClip({SceneID}));
+    const auto* bound=assets.ResolveGltfSource({SceneID});
+    REQUIRE(bound);
+    CHECK(bound->Animations.front()==source.Animations.front());
+    CHECK(bound->Animations.back()==draft);
+    CHECK(assets.ResolveScene({SceneID}).front().Mesh==41u);
+    auto loaded=source;
+    const auto revision=ApplyAuthoredClip(root,SceneID,key,loaded);
+    REQUIRE(revision);
+    CHECK(loaded.Animations==bound->Animations);
+    auto wrong=source;
+    CHECK_THROWS(ApplyAuthoredClip(root,SceneID,otherKey,wrong));
+    CHECK(wrong==source);
+    auto invalid=draft;
+    invalid.Channels.front().TargetNode=999999u;
+    CHECK_THROWS(assets.CommitAuthoredClip(root,{SceneID},invalid));
+    CHECK(ReadAuthoredClip(root,SceneID)==revision);
+    auto changed=draft;
+    changed.Channels.front().Keyframes.back().Value[0]=12.f;
+    CHECK(assets.CommitAuthoredClip(root,{SceneID},changed)==index);
+    CHECK(assets.ResolveGltfSource({SceneID})->Animations.size()==source.Animations.size()+1);
+    CHECK(assets.ResolveGltfSource({SceneID})->Animations.back()==changed);
+    // The older independently loaded session cannot overwrite the new file.
+    RenderAssetBindings stale(registry);
+    stale.BindGltfScene({SceneID},loaded,renderAsset,meshes,key,revision);
+    CHECK_THROWS(stale.CommitAuthoredClip(root,{SceneID},draft));
+    CHECK(stale.ResolveGltfSource({SceneID})->Animations.back()==draft);
+    auto reopened=source;
+    REQUIRE(ApplyAuthoredClip(root,SceneID,key,reopened));
+    CHECK(reopened.Animations.back()==changed);
+    const auto pose=kairo::engine::SampleGltfAnimation(reopened,index,
+        changed.DurationSeconds(),kairo::engine::AnimationTimeMode::Clamp);
+    CHECK(pose==kairo::engine::SampleGltfAnimation(*assets.ResolveGltfSource({SceneID}),index,
+        changed.DurationSeconds(),kairo::engine::AnimationTimeMode::Clamp));
 }
