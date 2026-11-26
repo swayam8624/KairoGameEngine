@@ -1,6 +1,10 @@
 module;
 
 #include <iostream>
+#include <chrono>
+#include <thread>
+#include <sstream>
+#include "LogicDebugGate.hpp"
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -27,8 +31,8 @@ import Kairo.Player.RuntimeProject;
 
 export namespace kairo::player
 {
-    // Opt-in finite capture. A trace is diagnostic output only: it never
-    // interrupts a physics substep or reruns side-effecting instructions.
+    // Opt-in capture and debugger. Pause blocks the Player thread before
+    // an instruction, preserving the VM stack and host side effects.
     class RuntimeLogicTrace final:public kairo::engine::LogicTraceObserver
     {
     public:
@@ -48,8 +52,28 @@ export namespace kairo::player
             m_Out<<std::setprecision(std::numeric_limits<double>::max_digits10);
             m_Out<<"kairo.logic.trace.v1 "<<session.ToString()<<'\n';
             m_Out.flush();
+            m_Base=logs/("logic-"+session.ToString());
+            m_Session=session.ToString();
+            const auto config=ReadSmall(m_Base.string()+".debug",256);
+            if(config)
+            {
+                std::istringstream in(*config);
+                std::string mode,extra;
+                if(!(in>>mode))throw std::invalid_argument("Empty debug configuration.");
+                if(mode=="first")m_Gate.emplace(true);
+                else if(mode=="break")
+                {
+                    if(!(in>>m_BreakDocument>>m_BreakRevision>>m_BreakPC)||
+                        m_BreakDocument.size()!=36||m_BreakRevision.size()!=64)
+                        throw std::invalid_argument("Invalid breakpoint configuration.");
+                    m_Gate.emplace(false);
+                }
+                else throw std::invalid_argument("Unknown debug configuration.");
+                if(in>>extra)throw std::invalid_argument("Trailing debug configuration.");
+            }
         }
-        [[nodiscard]] bool Active() const noexcept{return m_Rows<MaximumRows&&!m_Failed;}
+        [[nodiscard]] bool Active() const noexcept
+        {return (m_Rows<MaximumRows&&!m_Failed)||(m_Gate&&m_Gate->Attached());}
         void SetDocument(std::string_view id,std::string_view revision) noexcept
         {
             m_Document=id;m_Revision=revision;
@@ -61,7 +85,17 @@ export namespace kairo::player
             if(!Active())return;
             try
             {
-                m_Out<<"step "<<m_Rows<<' '<<owner.Value<<' '<<m_Document<<' '<<m_Revision
+                std::optional<detail::LogicBreakpoint> breakpoint;
+                if(!m_BreakDocument.empty())breakpoint=detail::LogicBreakpoint{m_BreakDocument,m_BreakRevision,m_BreakPC};
+                const bool attached=m_Gate&&m_Gate->Attached();
+                const bool pause=attached&&m_Gate->Before(m_Document,m_Revision,pc,breakpoint);
+                if(attached&&!m_Gate->Attached())PublishPause("detached");
+                const bool capture=m_Rows<MaximumRows&&!m_Failed;
+                if(!pause&&!capture)return;
+                std::ostringstream row;
+                row.imbue(std::locale::classic());
+                row<<std::setprecision(std::numeric_limits<double>::max_digits10);
+                row<<"step "<<0<<' '<<owner.Value<<' '<<m_Document<<' '<<m_Revision
                     <<' '<<EventName(dispatch.Event)<<' '<<pc<<' '<<OpcodeName(instruction.Opcode)
                     <<' '<<instruction.A<<' '<<instruction.B<<' '<<instruction.C<<' '<<instruction.D<<" |";
                 // Reserved dispatch registers plus actual register operands.
@@ -85,21 +119,35 @@ export namespace kairo::player
                     bool repeated=false;
                     for(std::size_t j=0;j<i;++j)repeated|=watched[j]==watched[i];
                     if(repeated)continue;
-                    m_Out<<" r"<<watched[i]<<'=';
+                    row<<" r"<<watched[i]<<'=';
                     const auto& value=registers[watched[i]];
-                    if(const auto* v=std::get_if<bool>(&value))m_Out<<(*v?"true":"false");
-                    else if(const auto* v=std::get_if<double>(&value))m_Out<<*v;
+                    if(const auto* v=std::get_if<bool>(&value))row<<(*v?"true":"false");
+                    else if(const auto* v=std::get_if<double>(&value))row<<*v;
                     else if(const auto* v=std::get_if<kairo::foundation::math::Vec3d>(&value))
-                        m_Out<<'('<<v->x<<','<<v->y<<','<<v->z<<')';
-                    else if(const auto* v=std::get_if<kairo::engine::Entity>(&value))m_Out<<"entity:"<<v->Value;
-                    else m_Out<<"unset";
+                        row<<'('<<v->x<<','<<v->y<<','<<v->z<<')';
+                    else if(const auto* v=std::get_if<kairo::engine::Entity>(&value))row<<"entity:"<<v->Value;
+                    else row<<"unset";
                 }
-                m_Out<<'\n';
-                ++m_Rows;m_Dirty=true;
-                if(m_Rows==MaximumRows)m_Out<<"limit 4096 instruction records reached\n";
-                if(!m_Out)m_Failed=true;
+                row<<'\n';
+                const auto record=row.str();
+                if(capture)
+                {
+                    m_Out<<"step "<<m_Rows<<record.substr(6);
+                    ++m_Rows;m_Dirty=true;
+                    if(m_Rows==MaximumRows)m_Out<<"limit 4096 instruction records reached\n";
+                    if(!m_Out)m_Failed=true;
+                }
+                if(pause){Flush();WaitForCommand(record);}
             }
-            catch(...){m_Failed=true;}
+            catch(...)
+            {
+                m_Failed=true;
+                if(m_Gate&&m_Gate->Attached())
+                {
+                    m_Gate->Detach();
+                    try{if(m_Gate->Stop())PublishPause("detached");}catch(...){}
+                }
+            }
         }
         void RecordFailure(std::string_view message) noexcept
         {
@@ -120,6 +168,53 @@ export namespace kairo::player
             catch(...){m_Failed=true;}
         }
     private:
+        std::filesystem::path m_Base;
+        std::string m_Session,m_BreakDocument,m_BreakRevision;
+        std::uint32_t m_BreakPC=0;
+        std::optional<detail::LogicDebugGate> m_Gate;
+        static std::optional<std::string> ReadSmall(const std::filesystem::path& path,std::size_t limit)
+        {
+            if(std::filesystem::is_symlink(path))throw std::invalid_argument("Linked debug file rejected.");
+            if(!std::filesystem::exists(path))return std::nullopt;
+            if(!std::filesystem::is_regular_file(path)||std::filesystem::file_size(path)>limit)
+                throw std::invalid_argument("Invalid debug file.");
+            std::ifstream in(path,std::ios::binary);
+            std::string bytes(limit+1,'\0');
+            if(!in)throw std::runtime_error("Cannot read debug file.");
+            in.read(bytes.data(),static_cast<std::streamsize>(bytes.size()));
+            if(in.bad()||in.gcount()>static_cast<std::streamsize>(limit))
+                throw std::runtime_error("Debug read exceeded budget.");
+            bytes.resize(static_cast<std::size_t>(in.gcount()));
+            return bytes;
+        }
+        void PublishPause(std::string_view status,std::string_view record={})
+        {
+            const auto path=std::filesystem::path(m_Base.string()+".pause");
+            if(std::filesystem::is_symlink(path))throw std::invalid_argument("Linked pause file rejected.");
+            kairo::engine::SaveTextFileAtomically(path,
+                "kairo.logic.pause.v1 "+m_Session+"\n"+std::string(status)+" "+
+                std::to_string(m_Gate->Stop())+"\n"+std::string(record),"logic debug state");
+        }
+        void WaitForCommand(const std::string& record)
+        {
+            PublishPause("paused",record);
+            const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(120);
+            const auto stop=m_Gate->Stop();
+            const auto commandPath=std::filesystem::path(m_Base.string()+".cmd-"+std::to_string(stop));
+            while(std::chrono::steady_clock::now()<deadline)
+            {
+                if(const auto bytes=ReadSmall(commandPath,64))
+                    if(const auto action=detail::ParseDebugCommand(*bytes,stop))
+                        if(m_Gate->Apply(stop,*action))
+                        {
+                            PublishPause(m_Gate->Attached()?"running":"detached");
+                            return;
+                        }
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            m_Gate->Detach();
+            PublishPause("timeout");
+        }
         std::ofstream m_Out;
         std::size_t m_Rows=0;
         bool m_Dirty=false,m_Failed=false,m_ReportedFailure=false;
