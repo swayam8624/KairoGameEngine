@@ -8,6 +8,7 @@ module;
 #include <optional>
 #include <stdexcept>
 #include <string_view>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -139,6 +140,7 @@ export namespace kairo::player
             if (clipIndex >= source.Animations.size())
                 throw std::out_of_range("Runtime animation clip index is out of range.");
 
+            m_Controllers.erase(entity.Value);
             auto found = m_AnimationStates.find(entity.Value);
             if (found == m_AnimationStates.end())
             {
@@ -218,6 +220,7 @@ export namespace kairo::player
         void ClearAnimationControl(kairo::engine::Entity entity) noexcept
         {
             m_AnimationStates.erase(entity.Value);
+            m_Controllers.erase(entity.Value);
             m_Animations.Clear(entity);
         }
 
@@ -237,6 +240,21 @@ export namespace kairo::player
         // Advance each live scene instance's animation clock by delta*playbackRate,
         // normalize according to Loop/Clamp and publish playback overrides for shared
         // RealtimeSceneBridge sampling. Clear stale IDs after entity removal.
+        // A gameplay caller can drive declared boolean parameters without
+        // overriding the controller's clip/blend ownership.
+        void SetControllerBool(kairo::engine::Entity entity,std::string_view name,bool value)
+        {
+            const auto& source=RequireAnimationSource(entity);
+            const auto asset=m_Project.Scene().SceneInstance(entity).SceneAsset;
+            const auto* definition=m_Assets.ResolveController(asset);
+            if(!definition)throw std::logic_error("Entity has no authored animation controller.");
+            auto& binding=EnsureController(entity,asset.ID,*definition,source);
+            if(!binding.Parameters.Contains(name))
+                throw std::invalid_argument("Unknown controller parameter.");
+            binding.Parameters.SetBool(std::string(name),value);
+            m_AnimationStates.erase(entity.Value);
+        }
+
         void StepAnimations(float deltaSeconds)
         {
             if (!std::isfinite(deltaSeconds) || deltaSeconds < 0.0f ||
@@ -255,9 +273,22 @@ export namespace kairo::player
                 {
                     m_Animations.Clear(entity);
                     m_AnimationStates.erase(entity.Value);
+                    m_Controllers.erase(entity.Value);
                     continue;
                 }
 
+                const auto explicitState=m_AnimationStates.find(entity.Value);
+                const bool explicitClip=explicitState!=m_AnimationStates.end()&&explicitState->second.Explicit;
+                const auto* definition=m_Assets.ResolveController(instance.SceneAsset);
+                if(definition&&!explicitClip)
+                {
+                    auto& binding=EnsureController(entity,instance.SceneAsset.ID,*definition,*source);
+                    m_Animations.SetPose(entity,instance.SceneAsset.ID,
+                        binding.Runtime.Advance(*source,binding.Parameters,deltaSeconds));
+                    m_AnimationStates.erase(entity.Value);
+                    continue;
+                }
+                m_Controllers.erase(entity.Value);
                 auto [iterator, inserted] = m_AnimationStates.try_emplace(
                     entity.Value, RuntimeAnimationPlaybackState{});
                 auto& state = iterator->second;
@@ -289,6 +320,13 @@ export namespace kairo::player
             }
 
             m_Animations.RetainTwoBoneIK(present);
+            for(auto it=m_Controllers.begin();it!=m_Controllers.end();)
+                if(!present.contains(it->first))
+                {
+                    m_Animations.Clear(kairo::engine::Entity{it->first});
+                    it=m_Controllers.erase(it);
+                }
+                else ++it;
             for (auto iterator = m_AnimationStates.begin();
                 iterator != m_AnimationStates.end();)
             {
@@ -306,7 +344,7 @@ export namespace kairo::player
         // implicit clip-zero compatibility path (not number of GPU meshes).
         [[nodiscard]] std::size_t AnimatedSceneInstanceCount() const noexcept
         {
-            return m_AnimationStates.size();
+            return m_AnimationStates.size()+m_Controllers.size();
         }
 
         // Delegate CPU scene extraction to the shared Editor/Player BuildRenderScene
@@ -557,8 +595,29 @@ export namespace kairo::player
                     handles.push_back(handle);
                 }
                 m_Assets.BindGltfScene({ metadata.ID }, std::move(imported.Source),
-                    imported.RenderAsset, handles);
+                    imported.RenderAsset, handles,imported.CacheKey,std::move(imported.AuthoredRevision),
+                    std::move(imported.Controller),std::move(imported.ControllerRevision));
             }
+        }
+
+        struct ControllerBinding
+        {
+            kairo::assets::AssetID Asset;
+            kairo::engine::AnimationControllerRuntime Runtime;
+            kairo::engine::AnimationParameterSet Parameters;
+        };
+        std::unordered_map<std::uint32_t,ControllerBinding> m_Controllers;
+        ControllerBinding& EnsureController(kairo::engine::Entity entity,kairo::assets::AssetID asset,
+            const kairo::engine::AnimationControllerDefinition& definition,
+            const kairo::assets::GltfSceneArtifactData& source)
+        {
+            auto it=m_Controllers.find(entity.Value);
+            if(it!=m_Controllers.end()&&it->second.Asset==asset)return it->second;
+            ControllerBinding binding{asset,kairo::engine::AnimationControllerRuntime(definition,source),{}};
+            for(const auto& transition:definition.Transitions)
+                for(const auto& condition:transition.Conditions)
+                    binding.Parameters.SetBool(condition.Parameter,false);
+            return m_Controllers.insert_or_assign(entity.Value,std::move(binding)).first->second;
         }
 
         kairo::renderer::RendererRuntime& m_Renderer;
