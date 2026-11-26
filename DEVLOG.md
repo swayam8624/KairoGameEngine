@@ -312,3 +312,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Added versioned bounded declarative sphere rules, stable event ordering and enter/exit/once semantics. Explicit show/hide actions apply only to opted-in visual root leaves.
 - Added generic Player integration and ordinary Trigger Arena sample, with modal-menu pause semantics and rejection of incompatible targets.
 - Exact core and test blobs passed 50,000 randomized samples each under GCC, Clang and Clang ASan/UBSan. Native entry-effect and frame-capture integration tests registered; full workspace execution pending.
+
+## M50 — persistent objective and trigger state (2026-11-26)
+
+- Added explicit opt-in cold progress restore/save for collectible IDs, time, trigger history and visual enable states, bound to authored source bytes.
+- Parse and validate into copies before publication; reuse bounded atomic save helper and keep personal progress outside project payload. Save only on successful shutdown or explicit smoke completion.
+- Strict GCC, Clang and Clang ASan/UBSan each passed separate-process save, restore and rejection tests with exact source hashes. Native Player cold restore acceptance registered; native build/run pending.
