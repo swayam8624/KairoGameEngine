@@ -2,7 +2,7 @@ kairo-project 2
 name "Kairo Platformer Starter"
 engine-version "0.1.0"
 assets "Assets.kassets"
-startup-scene "Scenes/Main.kscene"
+startup-scene "Scenes/Platformer.kscene"
 input-map "Config/Input.kinput"
 rendering-profile "desktop"
 graphics-backend "auto"
