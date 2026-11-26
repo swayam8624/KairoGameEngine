@@ -3,6 +3,7 @@
 #include "RuntimePlatformer.hpp"
 #include "RuntimeStrategy.hpp"
 #include "RuntimeRpgSession.hpp"
+#include "RuntimePoseLab.hpp"
 #include "RuntimeMenuFocus.hpp"
 #include <array>
 #include <string>
@@ -32,6 +33,18 @@ namespace kairo::player::detail
                 if(glyph[row]&(1u<<(4-col)))AddGameRect(rects,canvas.Rect(x+int(col),y+int(row)),color);
             x+=6;available-=6;
         }
+    }
+    // Translate the exact independently tested pose overlay, then add labels.
+    [[nodiscard]] inline GameLabRects AnimationView(double phase,unsigned w,unsigned h)
+    {
+        GameLabRects result;
+        for(const auto& r:PoseLabView(phase,w,h))result.push_back({r.Box,r.Color});
+        RuntimeGridCanvas canvas(w,h,216,90);
+        GameLabText(result,canvas,5,4,65,"SOURCE",{1,1,1});
+        GameLabText(result,canvas,77,4,65,"RETARGET",{1,1,1});
+        GameLabText(result,canvas,149,4,65,"IK",{1,1,1});
+        GameLabText(result,canvas,149,80,65,SamplePoseLab(phase).Reached?"REACHED":"CLAMPED",{1,1,1});
+        return result;
     }
     [[nodiscard]] inline GameLabRects PlatformerView(const RuntimePlatformer& game,unsigned w,unsigned h)
     {

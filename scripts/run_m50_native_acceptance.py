@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 GATES = frozenset((
     'KairoGameLabPlatformerNativeSmoke', 'KairoGameLabStrategyNativeSmoke',
-    'KairoGameLabRPGNativeSmoke', 'KairoSimulationWaterNativeSmoke',
+    'KairoGameLabRPGNativeSmoke', 'KairoGameLabAnimationNativeSmoke', 'KairoSimulationWaterNativeSmoke',
     'KairoSimulationSoftNativeSmoke', 'KairoSimulationDestructionNativeSmoke'))
 
 
@@ -101,7 +101,7 @@ def main():
         report = {'status':'passed','engine_revision':revision,'workspace_lock_sha256':lock_digest,'gates':results,
                   'binaries_sha256': {name: hashlib.sha256((build/'Runtime/KairoPlayer'/name).read_bytes()).hexdigest()
                                       for name in ('KairoGameLab','KairoSimulationLab')},
-                  'scope':'Six native sample objective/capture gates; not complete M50 or a full release certification'}
+                  'scope':'Seven native sample objective/capture gates; not complete M50 or a full release certification'}
         (args.evidence/'summary.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
         print(f'PASS: {len(results)} required native sample gates')
         return 0
