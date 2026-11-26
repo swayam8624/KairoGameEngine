@@ -12,6 +12,7 @@ export module Kairo.Player.RuntimeCombatBridge;
 import Kairo.EngineCore;
 import Kairo.Foundation.Math;
 import Kairo.Foundation.PhysicsEngine;
+import Kairo.Foundation.PhysicsMath.Types;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimePhysicsBridge;
 
