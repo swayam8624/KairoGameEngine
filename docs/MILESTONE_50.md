@@ -165,3 +165,7 @@ The graphical RPG fixture now owns a real crystal and gold inventory with transa
 ## Candidate progress: animated skeleton diagnostic
 
 Local rotation adapter and FK reconstruct 20,000 solved 3D chains per compiler; native animation mode now presents source, retargeted and IK-corrected poses, with 5,000 portable motion/layout tests per compiler and seventh required native capture gate. Native verification and imported skinned rigs remain open. No accepted promotion yet.
+
+## Candidate progress: catalog release acceptance
+
+Exact payload and provenance verifier now integrates the recipe output, release packaging, relocated launch and extracted Debian launcher. Four local real archive/ELF fixture tests pass; actual generated-game Vulkan release CI is registered and pending. Fresh OS dependency/install certification remains open.
