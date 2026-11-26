@@ -26,6 +26,7 @@ export namespace kairo::player
         std::optional<kairo::engine::Entity> m_Player;
         std::optional<detail::RuntimeCombat> m_Combat;
         detail::RuntimeProjectileFlight m_Flights;
+        std::vector<std::uint32_t> m_Defeated;
         kairo::foundation::math::Vec3f m_Aim{0,0,-1};
     public:
         RuntimeCombatBridge(RuntimeProject& project,RuntimePhysicsBridge& physics,
@@ -38,6 +39,7 @@ export namespace kairo::player
             const auto path=project.RequireProjectFile("Config/Combat.kcombat","combat document");
             const auto bytes=detail::ReadCraftSaveFile(path,detail::MaximumCombatBytes);
             m_Combat.emplace(std::string_view(reinterpret_cast<const char*>(bytes.data()),bytes.size()));
+            m_Defeated.reserve(m_Combat->Targets().size());
             const auto& scene=project.Scene();
             for(const auto& target:m_Combat->Targets())
             {
@@ -56,6 +58,9 @@ export namespace kairo::player
             }
         }
         [[nodiscard]] bool Enabled() const noexcept{return m_Combat.has_value();}
+        [[nodiscard]] bool HasTarget(std::uint32_t id) const noexcept
+        {return m_Combat&&std::any_of(m_Combat->Targets().begin(),m_Combat->Targets().end(),[&](const auto& t){return t.ID==id;});}
+        [[nodiscard]] const std::vector<std::uint32_t>& DefeatedTargets() const noexcept{return m_Defeated;}
         void Capture(bool pressed,const kairo::foundation::math::Vec3f& planar)
         {
             if(!m_Combat)return;
@@ -119,6 +124,7 @@ export namespace kairo::player
                 const std::array entities{target};
                 (void)m_Physics.DeactivateEntities(entities);
                 m_Project.Scene().SetEnabled(target,false);
+                m_Defeated.push_back(event.Target);
                 std::cout<<"Destroyed target "<<event.Target<<'\n';
             }
         }
