@@ -344,3 +344,8 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 
 - Added deterministic patrol, pursue, attack and last-seen search policy, with bounded memory and attack cooldown. Authored NPC adapter queries real physics visibility, moves via the existing character motor, aggregates damage through the player-health bridge and unregisters defeated enemy motors.
 - Added Enemy Arena and native physics/health/combat integration CTest. Actual strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized decision samples and enemy damage/cooldown/respawn tests. Previous 50,000-sample health regression passed GCC and Clang after the change. Native execution pending.
+
+## M50 — authored enemy navigation (2026-11-26)
+
+- Added a bounded planar walkable-region document and rate-limited decision goal refresh. Optional mesh binds the enemy brain to existing NavMesh, navigation and crowd bridges, preserving direct movement for projects without the document. Unavailable routes stop planar movement; defeated agents unregister from all three adapters.
+- Added Navigation Arena and full-workspace obstacle-detour CTest. Actual strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized replan ticks (4,164 plans) and the existing 50,000 enemy decision regression after goal exposure. Exact source hashes verified. Full-workspace compile and detour execution pending.

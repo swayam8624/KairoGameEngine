@@ -1,5 +1,7 @@
 module;
 #include "RuntimeEnemy.hpp"
+#include "RuntimeEnemyNavigation.hpp"
+#include <memory>
 #include "RuntimeHealth.hpp"
 #include "CraftSaveFile.hpp"
 #include <filesystem>
@@ -15,17 +17,24 @@ import Kairo.Foundation.PhysicsEngine;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
+import Kairo.Player.RuntimeNavigationAgentBridge;
+import Kairo.Player.RuntimeCrowdNavigationBridge;
+import Kairo.Foundation.Spatial.NavMesh;
+import Kairo.AI.Gameplay;
 
 export namespace kairo::player
 {
     class RuntimeEnemyBridge final
     {
-        struct Entry{ kairo::engine::Entity Entity; detail::RuntimeEnemy Brain; double Sight; };
+        struct Entry{ kairo::engine::Entity Entity; detail::RuntimeEnemy Brain; double Sight,Speed; detail::EnemyReplanPolicy Replan; };
         RuntimeProject& m_Project;
         RuntimePhysicsBridge& m_Physics;
         RuntimeCharacterMotorBridge& m_Motor;
         std::optional<kairo::engine::Entity> m_Player;
         std::vector<Entry> m_Enemies;
+        kairo::foundation::spatial::NavMesh m_NavMesh;
+        std::unique_ptr<RuntimeNavigationAgentBridge> m_Navigation;
+        std::unique_ptr<RuntimeCrowdNavigationBridge> m_Crowd;
     public:
         RuntimeEnemyBridge(RuntimeProject& project,RuntimePhysicsBridge& physics,
             RuntimeCharacterMotorBridge& motor,std::optional<kairo::engine::Entity> primary,bool healthEnabled)
@@ -72,14 +81,42 @@ export namespace kairo::player
                     scene.HasTag(e,"kairo.trigger-visual")||scene.HasTag(e,"kairo.sliding-door"))
                     throw std::invalid_argument("Enemy must be an opted-in kinematic capsule mesh root.");
                 const auto p=scene.WorldTransform(e).Translation;
-                m_Enemies.push_back({e,detail::RuntimeEnemy(settings,{{p.x,p.y,p.z},patrol}),settings.Sight});
+                m_Enemies.push_back({e,detail::RuntimeEnemy(settings,{{p.x,p.y,p.z},patrol}),settings.Sight,settings.Speed,{}});
             }
             std::sort(m_Enemies.begin(),m_Enemies.end(),[](const auto& a,const auto& b){return a.Entity.Value<b.Entity.Value;});
             for(const auto& enemy:m_Enemies)motor.Register(enemy.Entity);
+            // Optional center-walkable mesh: load once, then delegate to
+            // the existing A*/funnel and crowd movement adapters.
+            if(std::filesystem::exists(project.Root()/"Config/EnemyNav.knav"))
+            {
+                const auto navPath=project.RequireProjectFile("Config/EnemyNav.knav","enemy navmesh");
+                const auto data=detail::ReadCraftSaveFile(navPath,65536);
+                const auto doc=detail::ParseEnemyNav(std::string_view(reinterpret_cast<const char*>(data.data()),data.size()));
+                std::uint32_t id=1;
+                for(const auto& r:doc.Rects)
+                    m_NavMesh.AddPolygon(id++,{{r.X0,doc.Y,r.Z0},{r.X1,doc.Y,r.Z0},
+                        {r.X1,doc.Y,r.Z1},{r.X0,doc.Y,r.Z1}});
+                m_NavMesh.BuildAdjacency();
+                m_Navigation=std::make_unique<RuntimeNavigationAgentBridge>(project.Scene(),motor,m_NavMesh);
+                m_Crowd=std::make_unique<RuntimeCrowdNavigationBridge>(project.Scene(),*m_Navigation);
+                for(const auto& enemy:m_Enemies)
+                {
+                    RuntimeNavigationAgentSettings nav;
+                    nav.MaximumSpeed=static_cast<float>(enemy.Speed);
+                    nav.WaypointRadius=.12f;
+                    nav.PathSnapDistance=0;
+                    m_Navigation->Register(enemy.Entity,nav);
+                    RuntimeCrowdAgentSettings crowd;
+                    const auto scale=scene.WorldTransform(enemy.Entity).Scale;
+                    crowd.Radius=scene.Collider(enemy.Entity).Radius*std::max(std::abs(scale.x),std::abs(scale.z));
+                    crowd.NeighborDistance=std::max(6.f,crowd.Radius);
+                    m_Crowd->Register(enemy.Entity,crowd);
+                }
+            }
         }
         [[nodiscard]] std::size_t Size() const noexcept{return m_Enemies.size();}
-        // Stable authored ID order. Direct steering uses the existing
-        // collision-resolving motor; navmesh routing is a separate pass.
+        [[nodiscard]] bool NavigationEnabled() const noexcept{return bool(m_Navigation);}
+        // Stable authored ID order; navigation mode plans before batch movement.
         unsigned Step(float dt)
         {
             if(m_Enemies.empty())return 0;
@@ -90,7 +127,7 @@ export namespace kairo::player
             for(auto& enemy:m_Enemies)
             {
                 const auto body=m_Physics.BodyFor(enemy.Entity);
-                if(!body){m_Motor.Unregister(enemy.Entity);continue;}
+                if(!body){if(m_Crowd)m_Crowd->Unregister(enemy.Entity);if(m_Navigation)m_Navigation->Unregister(enemy.Entity);m_Motor.Unregister(enemy.Entity);continue;}
                 const auto q=m_Physics.World().Bodies().at(*body).State.Position;
                 const auto delta=p-q;const float distance=delta.Length();
                 bool visible=false;
@@ -109,9 +146,29 @@ export namespace kairo::player
                 }
                 const auto decision=enemy.Brain.Step({q.x,q.y,q.z},{p.x,p.y,p.z},visible,dt);
                 const auto v=decision.Velocity;
-                (void)m_Motor.Step(enemy.Entity,{float(v[0]),0,float(v[2])},false,dt);
+                if(!m_Navigation)
+                    (void)m_Motor.Step(enemy.Entity,{float(v[0]),0,float(v[2])},false,dt);
+                else if(decision.Mode==detail::EnemyMode::Attack)
+                    m_Navigation->ClearIntent(enemy.Entity);
+                else
+                {
+                    const auto status=m_Navigation->State(enemy.Entity).Status;
+                    const bool retry=status==RuntimeNavigationAgentStatus::Idle||
+                        status==RuntimeNavigationAgentStatus::PathUnavailable;
+                    if(enemy.Replan.Step(static_cast<unsigned>(decision.Mode),decision.Goal,retry))
+                    {
+                        kairo::ai::gameplay::NavigationIntent intent;
+                        intent.Destination={decision.Goal[0],decision.Goal[1],decision.Goal[2]};
+                        intent.AcceptanceRadius=.15;
+                        (void)m_Navigation->SetIntent(enemy.Entity,intent);
+                    }
+                }
                 damage=std::min(10000u,damage+decision.Damage);
             }
+            if(m_Crowd)
+                for(const auto& result:m_Crowd->StepAll(dt))
+                    if(!result.Navigation.Motor)
+                        (void)m_Motor.Step(result.Entity,{0,0,0},false,dt);
             return damage;
         }
     };
