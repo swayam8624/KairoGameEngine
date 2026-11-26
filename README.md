@@ -491,3 +491,7 @@ Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json` with 
 ### Create and open a game from the catalog
 
 Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json --editor /absolute/path/to/KairoEditorApp`. Select models, choose **Create editable project**, select a new destination, then choose **Open in Editor**. The same creation operation is available without Tk: `python3 scripts/kairo_asset_catalog.py /path/to/catalog.json project /path/to/new-game triangle`. This creates an ordinary project rather than modifying an existing game; temporary staging is discarded while model and license provenance remain in the project. The explicit editor executable is required for the launch button. Native acceptance remains separate.
+
+### Graphical gameplay record authoring (candidate)
+
+Run `python3 scripts/kairo_gameplay_editor.py Samples/KeyGateArena/Project.kproject` with Python Tk installed. Select an existing gameplay configuration, edit records through Add/Replace/Remove, and save atomically. Supported documents: doors, events, health, combat, enemies, navigation rectangles and proximity triggers. The companion editor checks document version, record kind and field count; it does not replace native `KairoPlayer --validate` for numeric values, entity bindings, ownership or cross-document checks. The Editor does not create missing files, modify scene/asset data, or provide a 3D viewport. See each sample's README for record grammar. Save or explicitly discard pending changes before switching documents.
