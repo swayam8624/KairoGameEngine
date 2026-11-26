@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 import tkinter as tk
 import unittest
+from unittest.mock import patch
 from kairo_gameplay_editor import Document, GameplayEditor, parse
 
 
@@ -34,6 +35,17 @@ class EditorTests(unittest.TestCase):
         self.path.unlink(); self.path.symlink_to(outside)
         with self.assertRaises(ValueError): Document(self.project,'Doors.kdoor')
         self.assertEqual(outside.read_text(),'untouched')
+
+    def test_discard_after_conflict(self):
+        window=tk.Tk(); self.addCleanup(window.destroy)
+        editor=GameplayEditor(window,self.project); editor.load()
+        editor.record.set('door 41 3 2 4.2'); editor.add()
+        self.path.write_text('kairo-doors 1\ndoor 40 5 2 4.2\n')
+        editor.save(); self.assertIn('changed externally',editor.status.get())
+        with patch('kairo_gameplay_editor.messagebox.askyesno',return_value=False): editor.discard()
+        self.assertEqual(editor.list.size(),2)
+        with patch('kairo_gameplay_editor.messagebox.askyesno',return_value=True): editor.discard()
+        self.assertEqual(editor.list.size(),1); self.assertIn('40 5',editor.list.get(0))
 
     def test_actual_widgets(self):
         window=tk.Tk(); self.addCleanup(window.destroy)
