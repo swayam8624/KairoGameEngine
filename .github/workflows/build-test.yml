@@ -193,6 +193,17 @@ jobs:
           command -v dpkg-deb
           xvfb-run -a python3 scripts/verify_project_release.py "$player" "$scratch/project/Project.kproject" --smoke --deb --catalog-models 1
 
+      - name: Validate authored gameplay recipe with actual Player
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          python3 scripts/create_kairo_project.py Samples/ProjectRecipes/CustomControlsArena.json "$scratch/game" --menu-validator build/ci-clang/Runtime/KairoPlayer/KairoMenuDocumentTool
+          build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/game/Project.kproject" --validate
+          xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/game/Project.kproject" --renderer vulkan --smoke
+
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')
         uses: actions/upload-artifact@v7
