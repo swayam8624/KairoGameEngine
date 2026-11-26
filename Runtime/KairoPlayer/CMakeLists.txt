@@ -6,7 +6,7 @@ target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
     FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
         RuntimeCharacterMotorBridge.cppm RuntimePlayerControllerBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeLocomotionAnimationBridge.cppm RuntimeEntityLifecycleBridge.cppm RuntimeSaveGameBridge.cppm RuntimeWorldSaveBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
-        RuntimeWorldStreamingBridge.cppm RuntimeMenuHost.cppm RuntimeDoorBridge.cppm RuntimeHealthBridge.cppm RuntimeCombatBridge.cppm RuntimeEnemyBridge.cppm)
+        RuntimeWorldStreamingBridge.cppm RuntimeMenuHost.cppm RuntimeDoorBridge.cppm RuntimeHealthBridge.cppm RuntimeCombatBridge.cppm RuntimeEnemyBridge.cppm RuntimeCombatPresentationBridge.cppm)
 # Prefer the small, deterministic gameplay module. Existing sibling checkouts
 # predating the split still provide that module through Kairo::AI.
 if(TARGET Kairo::GameplayAI)
@@ -121,6 +121,16 @@ endforeach()
 
 if(BUILD_TESTING)
     find_package(Threads REQUIRED)
+    add_executable(KairoPlayerCombatPresentationTests tests/RuntimeCombatPresentationTests.cpp)
+    target_compile_features(KairoPlayerCombatPresentationTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerCombatPresentationTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerCombatPresentationTests COMMAND KairoPlayerCombatPresentationTests)
+    add_executable(KairoPlayerCombatPresentationBridgeTests tests/RuntimeCombatPresentationBridgeTests.cpp)
+    target_link_libraries(KairoPlayerCombatPresentationBridgeTests PRIVATE KairoPlayerRuntime)
+    set_property(TARGET KairoPlayerCombatPresentationBridgeTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerCombatPresentationBridgeTests COMMAND KairoPlayerCombatPresentationBridgeTests "${CMAKE_SOURCE_DIR}/Samples/VisibleProjectileArena/Project.kproject")
+    add_test(NAME KairoPlayerVisibleProjectileArenaValidate COMMAND KairoPlayer "${CMAKE_SOURCE_DIR}/Samples/VisibleProjectileArena/Project.kproject" --validate)
+    set_tests_properties(KairoPlayerCombatPresentationBridgeTests KairoPlayerVisibleProjectileArenaValidate PROPERTIES TIMEOUT 30)
     add_executable(KairoPlayerEventDoorTests tests/RuntimeEventDoorTests.cpp)
     target_compile_features(KairoPlayerEventDoorTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerEventDoorTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
