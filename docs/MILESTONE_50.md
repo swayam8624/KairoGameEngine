@@ -177,3 +177,7 @@ Both local compilers passed 95,825 randomized simultaneous turns each and an act
 ## Candidate progress: graphical co-op
 
 Two-client asynchronous worker, keyboard/overlay host and independent native three-process capture gate added. Both portable compilers passed real worker network/cancellation/failure tests and 5,000 viewport cases each. Native CI and accepted-head gate pending.
+
+## Candidate progress: imported character IK
+
+Imported glTF node correction now feeds the real shared skin palette extraction and runtime controls. Both local compilers passed 10,000 structural adapter matrix reconstructions each; actual artifact/module regression registered, awaiting full workspace CI. No imported native GPU capture or accepted promotion yet.

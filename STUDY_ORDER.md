@@ -563,3 +563,7 @@ Read [RuntimeCoopArena](Runtime/KairoPlayer/RuntimeCoopArena.hpp) for symmetric 
 ## Graphical multiplayer
 
 Read [CoopWorker](Runtime/KairoPlayer/RuntimeCoopWorker.hpp), [CoopView](Runtime/KairoPlayer/RuntimeCoopView.hpp), [native client](Runtime/KairoPlayer/CoopClient.cpp) and [worker tests](Runtime/KairoPlayer/tests/RuntimeCoopWorkerTests.cpp). Trace one outstanding input, zero-duration future polling, visible state publication, interrupt/join and native overlay submission. [Native process gate](Samples/NetworkLab/run_coop_native.py) separates an actual GPU capture on each client from CPU view and socket tests.
+
+## Imported character IK
+
+Read RuntimeSkeletonPose, [RuntimeImportedTwoBone](Runtime/KairoPlayer/RuntimeImportedTwoBone.hpp) and [adapter tests](Runtime/KairoPlayer/tests/RuntimeImportedTwoBoneTests.cpp). Follow SceneTwoBoneIK / ApplyGltfTwoBoneIK in [RealtimeSceneBridge](Runtime/KairoRealtimeRenderBridge/RealtimeSceneBridge.cppm) from sampled local pose through matrix refresh and asset-space joint palettes. [Shared extraction tests](Runtime/KairoRealtimeRenderBridge/tests/RealtimeSceneBridgeTests.cpp) check per-instance isolation. RuntimeRenderBridge exposes asset-bound set/clear and lifecycle pruning. Distinguish root-parent coordinates from outer entity placement.

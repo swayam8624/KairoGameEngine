@@ -22,3 +22,7 @@ target ray; the pole chooses the perpendicular direction for the joint.
     /tmp/kairo-retarget
 
 The sample plays five CPU poses of a synthetic clip on a longer target skeleton. Root displacement scales by two; the target arm stays length two. The algorithm applies local rest-relative quaternion deltas by name and parent identity. Compatible axes, single-root parent-first skeletons only; imported glTF rig adapters, different bone axes and native skin presentation remain open.
+
+## Imported glTF skin correction
+
+RuntimeRenderBridge::SetTwoBoneIK(entity, SceneTwoBoneIK{{root,middle,tip},{targetX,targetY,targetZ},{poleX,poleY,poleZ}}) applies a correction after clip sampling. Call ClearTwoBoneIK to restore ordinary playback. The same shared extraction can accept SceneAnimationOverrides::SetTwoBoneIK(entity,assetID,request) from an editor host. Nodes must form a direct glTF TRS chain, with unit sampled scale, and root/middle must belong to the same skin. The target/pole are in root-parent space, not entity/world space. The original pose and shared binding remain immutable. No automatic bone mapping or world-space control yet; imported scaled chains are rejected. Actual shared-module tests registered; the portable adapter passed both compilers with structural fixtures, not the full glTF importer/GPU.

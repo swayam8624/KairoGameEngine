@@ -119,7 +119,7 @@ if(BUILD_TESTING)
     # CPU-only quest state test: no renderer/OS window dependency.
     # Analytic IK is a portable CPU kernel; no window or GPU needed.
     # Compatible-rig retarget test is CPU-only; native skinning is separate.
-    foreach(_pose_test IN ITEMS SkeletonPose PoseLab)
+    foreach(_pose_test IN ITEMS SkeletonPose PoseLab ImportedTwoBone)
         add_executable(KairoPlayer${_pose_test}Tests tests/Runtime${_pose_test}Tests.cpp)
         target_include_directories(KairoPlayer${_pose_test}Tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
         target_compile_features(KairoPlayer${_pose_test}Tests PRIVATE cxx_std_23)
