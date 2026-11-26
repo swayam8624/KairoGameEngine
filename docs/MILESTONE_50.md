@@ -201,3 +201,7 @@ The SQLite directory now issues the actual protected server tickets atomically, 
 ## Candidate progress: catalog-to-Editor project creation
 
 The graphical catalog and CLI now share a direct new-project operation using isolated verified staging and the canonical recipe compiler. The browser can open the generated Project.kproject in an explicitly configured KairoEditorApp. Tk tests cover project output, exact model/license evidence, destination refusal and the editor argument boundary; native release CI uses the same creation operation. Actual native Editor execution and in-project asset import remain open.
+
+## Candidate progress: reusable gameplay recipe authoring
+
+Optional gameplay fields generate the existing native player/camera transforms, keyboard input bindings and canonical menu document. The native menu validator must accept all authored menus before project creation. Adds a sample recipe and deterministic/rejection tests, with dual-compiler parser tests and actual Player validation/smoke CI registered. Native execution remains pending. Spawn placement is bounded to the existing arena but arbitrary authored collider clearance is not certified; this is not general scripting.
