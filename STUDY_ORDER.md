@@ -563,3 +563,7 @@ Read [RuntimeCoopArena](Runtime/KairoPlayer/RuntimeCoopArena.hpp) for symmetric 
 ## Graphical multiplayer
 
 Read [CoopWorker](Runtime/KairoPlayer/RuntimeCoopWorker.hpp), [CoopView](Runtime/KairoPlayer/RuntimeCoopView.hpp), [native client](Runtime/KairoPlayer/CoopClient.cpp) and [worker tests](Runtime/KairoPlayer/tests/RuntimeCoopWorkerTests.cpp). Trace one outstanding input, zero-duration future polling, visible state publication, interrupt/join and native overlay submission. [Native process gate](Samples/NetworkLab/run_coop_native.py) separates an actual GPU capture on each client from CPU view and socket tests.
+
+### Protected local multiplayer admission
+
+Read [RuntimeCoopSession.hpp](Runtime/KairoPlayer/RuntimeCoopSession.hpp) after the frame codec and loopback socket adapter. Follow ticket parsing, bounded pre-game admission, seat ownership and the existing turn exchange; then read [run_coop.py](Samples/NetworkLab/run_coop.py) for process-level negative cases and [run_coop_native.py](Samples/NetworkLab/run_coop_native.py) for the graphical gate. The local bearer ticket is not encryption or WAN identity.
