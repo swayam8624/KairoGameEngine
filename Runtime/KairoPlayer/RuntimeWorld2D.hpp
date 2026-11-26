@@ -144,7 +144,7 @@ namespace kairo::player::world2d
             Require(a.ID>0&&b.X>=0&&b.Y>=0&&b.W>=4&&b.W<=64&&b.H>=4&&b.H<=64&&
                 b.X<=w.Width*Tile-b.W&&b.Y<=w.Height*Tile-b.H&&w.Sprites.contains(a.SpriteName)&&
                 a.Range>=0&&a.Range<=512&&(a.Type==Kind::Patrol||a.Range==0),"Invalid actor bounds or sprite.");
-            Require(a.Type!=Kind::Patrol||b.X>=a.Range&&b.X+b.W+a.Range<=w.Width*Tile,"Patrol range outside world.");
+            Require(a.Type!=Kind::Patrol||(b.X>=a.Range&&b.X+b.W+a.Range<=w.Width*Tile),"Patrol range outside world.");
             Require(std::none_of(w.Actors.begin(),w.Actors.end(),[&](const Actor& other){return other.ID==a.ID;}),"Duplicate actor ID.");
             if(a.Type==Kind::Player)++players;
             if(a.Type==Kind::Goal)++goals;
