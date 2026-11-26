@@ -185,3 +185,7 @@ Imported glTF node correction now feeds the real shared skin palette extraction 
 ## Candidate progress: file-backed native skin acceptance
 
 Original self-contained GLB fixture and actual imported skinned mesh/clip/IK capture/pick gate registered as ninth strict native sample. Local byte tests passed; actual native importer/build/render acceptance remains pending. No promotion until accepted-head native results.
+
+## Candidate progress: protected co-op admission
+
+Optional distinct 256-bit seat tickets bind protected local connections to their assigned seats rather than connection order. Wrong, malformed, truncated and replayed credentials are rejected before a seat is consumed. Portable process and native graphical gates now exercise protected admission. CI execution is required before promotion; this is not a hosted service, encrypted transport, or automatic matchmaking-directory token validation.

@@ -571,3 +571,7 @@ Read RuntimeSkeletonPose, [RuntimeImportedTwoBone](Runtime/KairoPlayer/RuntimeIm
 ## File-backed skinned animation acceptance
 
 Read [GLB generator](Samples/AnimationLab/run_imported_ik_native.py), [byte-level fixture tests](Samples/AnimationLab/test_imported_ik_fixture.py), and [ImportedIKSmoke](Runtime/KairoPlayer/ImportedIKSmoke.cpp). Trace buffer views and accessors -> imported typed artifact -> renderer mesh influences -> sampled pose and IK -> jointWorld*inverseBind -> real native readback and object-ID picking. Separate local byte tests from actual native acceptance.
+
+### Protected local multiplayer admission
+
+Read [RuntimeCoopSession.hpp](Runtime/KairoPlayer/RuntimeCoopSession.hpp) after the frame codec and loopback socket adapter. Follow ticket parsing, bounded pre-game admission, seat ownership and the existing turn exchange; then read [run_coop.py](Samples/NetworkLab/run_coop.py) for process-level negative cases and [run_coop_native.py](Samples/NetworkLab/run_coop_native.py) for the graphical gate. The local bearer ticket is not encryption or WAN identity.

@@ -276,3 +276,9 @@ Added rigid imported-node pose adapter and shared Editor/Player two-bone overrid
 ## 2026-11-26 — native imported GLB skin acceptance
 
 Added original deterministic self-contained three-joint skinned GLB generator, independent byte-level fixture checks and KairoImportedIKSmoke. Native gate uses actual KairoAssets import/derived-data path and shared glTF render binding, uploads the skinned mesh, samples its root motion, applies the post-clip IK request, checks asset-space tip via inverse bind, requires actual changed GPU pixels and expected interior object picking, then clears IK and requires restoration. Both local Python fixture tests passed (alignment, lengths, skin influences, inverse binds, triangle winding, clip, exclusive write); exact tested blobs 6f0cbef80d786ba79d5fd3600f92b1b470fc5428 and fbebe24dff40b7a4bd39466783d084e7f7e2a2d5. Registered ninth strict native CTest gate and source/binary evidence. Full C++ module build, actual importer and native Vulkan/Metal capture pending. Generated ribbon is an original narrow fixture, not a production character or authored IK editor.
+
+## M50 — protected local co-op admission (2026-11-26)
+
+- Added ticket-bound local seats with bounded handshake and attempt limits; legacy open lab remains available.
+- Extended actual three-process acceptance with wrong, malformed, truncated and replayed ticket cases, reverse arrival order and protected CLI victory.
+- Native dual-client capture gate now checks protected seat identity. CI and native acceptance pending; no percentage promotion.
