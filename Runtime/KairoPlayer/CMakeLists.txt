@@ -6,7 +6,7 @@ target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
     FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
         RuntimeCharacterMotorBridge.cppm RuntimePlayerControllerBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeLocomotionAnimationBridge.cppm RuntimeEntityLifecycleBridge.cppm RuntimeSaveGameBridge.cppm RuntimeWorldSaveBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
-        RuntimeWorldStreamingBridge.cppm RuntimeMenuHost.cppm)
+        RuntimeWorldStreamingBridge.cppm RuntimeMenuHost.cppm RuntimeDoorBridge.cppm)
 # Prefer the small, deterministic gameplay module. Existing sibling checkouts
 # predating the split still provide that module through Kairo::AI.
 if(TARGET Kairo::GameplayAI)
@@ -121,6 +121,16 @@ endforeach()
 
 if(BUILD_TESTING)
     find_package(Threads REQUIRED)
+    add_executable(KairoPlayerSlidingDoorTests tests/RuntimeSlidingDoorTests.cpp)
+    target_compile_features(KairoPlayerSlidingDoorTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerSlidingDoorTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerSlidingDoorTests COMMAND KairoPlayerSlidingDoorTests)
+    add_executable(KairoPlayerDoorBridgeTests tests/RuntimeDoorBridgeTests.cpp)
+    target_link_libraries(KairoPlayerDoorBridgeTests PRIVATE KairoPlayerRuntime)
+    set_property(TARGET KairoPlayerDoorBridgeTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerDoorBridgeTests COMMAND KairoPlayerDoorBridgeTests "${CMAKE_SOURCE_DIR}/Samples/DoorArena/Project.kproject")
+    add_test(NAME KairoPlayerDoorArenaValidate COMMAND KairoPlayer "${CMAKE_SOURCE_DIR}/Samples/DoorArena/Project.kproject" --validate)
+    set_tests_properties(KairoPlayerDoorBridgeTests KairoPlayerDoorArenaValidate PROPERTIES TIMEOUT 30)
     add_executable(KairoPlayerProgressCheckpointTests tests/RuntimeProgressCheckpointTests.cpp)
     target_compile_features(KairoPlayerProgressCheckpointTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerProgressCheckpointTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
