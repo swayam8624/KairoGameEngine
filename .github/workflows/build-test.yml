@@ -223,6 +223,12 @@ jobs:
         run: |
           xvfb-run -a python3 Samples/EventArena/run_native_acceptance.py build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/EventArena vulkan
 
+      - name: Actual collectible-to-door event chain
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          xvfb-run -a python3 Samples/KeyGateArena/run_native_acceptance.py build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/KeyGateArena vulkan
+
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')
         uses: actions/upload-artifact@v7
