@@ -300,3 +300,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Added direct editable project creation from reviewed catalog records through the canonical recipe compiler, with automatic temporary staging cleanup.
 - Added graphical create/open workflow and explicit native Editor process handoff without shell expansion.
 - Registered graphical project/provenance tests and switched native Vulkan release acceptance to the shared catalog project operation. CI pending; no native Editor launch evidence claimed.
+
+## M50 — generic authored collectible objectives (2026-11-26)
+
+- Restacked the core and six-beacon sample from older PR #108 onto the current integrated engine, without transplanting the old Player wholesale.
+- Integrated proximity collection, score, elapsed time, completion and visual disabling into the generic Player. Modal menus own the overlay; the gameplay HUD is republished only after resume. Linear batch publication replaces the old per-goal result lookup.
+- Exact-source GCC, Clang, and Clang ASan/UBSan runs each passed 1,000 seeded journeys plus a 4,096-goal batch. Native integration and actual capture gate are registered but not yet executed.
