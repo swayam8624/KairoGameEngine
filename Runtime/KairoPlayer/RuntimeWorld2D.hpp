@@ -19,7 +19,7 @@ namespace kairo::player::world2d
     enum class Mode { TopDown,Platform };
     enum class Kind { Player,Solid,Collect,Hazard,Goal,Patrol,Decor };
     struct Box {int X=0,Y=0,W=0,H=0;friend bool operator==(const Box&,const Box&)=default;};
-    struct Sprite {int Period=1;std::vector<std::string> Frames;};
+    struct Sprite {int Width=4,Height=4,Period=1;std::vector<std::string> Frames;};
     struct TileType {unsigned Color=0;bool Solid=false;};
     struct Actor {unsigned ID=0;Kind Type=Kind::Decor;Box Bounds;std::string SpriteName;int Range=0;};
     struct World
@@ -69,13 +69,14 @@ namespace kairo::player::world2d
         return false;
     }
     // Strict token grammar; maps have exactly Height rows, sprites have
-    // exactly N 4x4 indexed-color frames, and zero sprite pixels are transparent.
+    // exactly N indexed-color frames, and zero sprite pixels are transparent.
+    // Version 1 is retained for the original 4x4 sprite grammar.
     inline World Parse(std::string_view bytes)
     {
         Require(bytes.size()<=MaxBytes,"2D world exceeds byte budget.");
         std::istringstream in{std::string(bytes)};
         std::string tag;int version=0;
-        Require(bool(in>>tag>>version)&&tag=="kairo-world2d"&&version==1,"Unsupported 2D world.");
+        Require(bool(in>>tag>>version)&&tag=="kairo-world2d"&&(version==1||version==2),"Unsupported 2D world.");
         World w;
         Require(bool(in>>tag>>w.Width>>w.Height)&&tag=="size"&&w.Width>=3&&w.Width<=128&&w.Height>=3&&w.Height<=128,"Invalid world size.");
         std::string mode;
@@ -109,12 +110,15 @@ namespace kairo::player::world2d
         for(int i=0;i<count;++i)
         {
             std::string name;int period=0,frames=0;
-            Require(bool(in>>name>>period>>frames)&&Name(name)&&period>=1&&period<=600&&frames>=1&&frames<=16,"Invalid sprite definition.");
-            Sprite sprite; sprite.Period=period;
+            Sprite sprite;
+            Require(bool(in>>name)&&Name(name),"Invalid sprite name.");
+            if(version==2)Require(bool(in>>sprite.Width>>sprite.Height)&&sprite.Width>=1&&sprite.Width<=32&&sprite.Height>=1&&sprite.Height<=32,"Invalid sprite dimensions.");
+            Require(bool(in>>period>>frames)&&period>=1&&period<=600&&frames>=1&&frames<=16,"Invalid sprite definition.");
+            sprite.Period=period;
             for(int j=0;j<frames;++j)
             {
                 std::string frame;
-                Require(bool(in>>frame)&&frame.size()==16,"Invalid sprite frame.");
+                Require(bool(in>>frame)&&frame.size()==static_cast<std::size_t>(sprite.Width*sprite.Height),"Invalid sprite frame.");
                 for(char c:frame)Require(Hex(c)>=0,"Invalid sprite pixel.");
                 sprite.Frames.push_back(std::move(frame));
             }
@@ -152,6 +156,24 @@ namespace kairo::player::world2d
             w.Actors.push_back(std::move(a));
         }
         Require(players==1&&goals>=1&&!(in>>tag),"Expected one player, a goal and no trailing data.");
+        // Bound the worst possible simultaneous run count across all actors.
+        // No sprite is dropped or silently degraded at render time.
+        std::map<std::string,std::size_t> maximumRuns;
+        for(const auto& [name,sprite]:w.Sprites)
+            for(const auto& frame:sprite.Frames)
+            {
+                std::size_t runs=0;
+                for(int y=0;y<sprite.Height;++y)
+                    for(int x=0;x<sprite.Width;++x)
+                    {
+                        const int c=Hex(frame[y*sprite.Width+x]);
+                        if(c&&(x==0||Hex(frame[y*sprite.Width+x-1])!=c))++runs;
+                    }
+                maximumRuns[name]=std::max(maximumRuns[name],runs);
+            }
+        std::size_t spriteRuns=0;
+        for(const auto& actor:w.Actors)spriteRuns+=maximumRuns[actor.SpriteName];
+        Require(spriteRuns<=3072,"World sprite draw budget exceeds 3072 color runs.");
         for(const auto& a:w.Actors)if(a.Type==Kind::Player)
             for(const auto& b:w.Actors)if(b.Type==Kind::Solid)
                 Require(!Overlap(a.Bounds,b.Bounds),"Player overlaps solid actor.");
