@@ -1,10 +1,12 @@
 #include <cmath>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 
 import Kairo.EngineCore;
 import Kairo.Foundation.Math;
 import Kairo.Foundation.PhysicsEngine;
+import Kairo.Foundation.PhysicsMath.Types;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
@@ -27,6 +29,13 @@ int main(int argc,char** argv)
         player::RuntimeHealthBridge health(project,physics,motor,controlled);
         Check(health.Enabled()&&health.Health()==100,"Health binding failed.");
         const auto body=physics.BodyFor(controlled);
+        // Explicitly compare the contained IDs after checking presence. This
+        // preserves the identity invariant without relying on optional's
+        // constrained comparison across C++ module boundaries on MSVC.
+        const auto sameBody=[&]{
+            const auto current=physics.BodyFor(controlled);
+            return body.has_value()&&current.has_value()&&*current==*body;
+        };
         Check(body.has_value(),"Character body missing.");
         motor.Teleport(controlled,{-3,.92f,3.4f});
         Check(!health.AfterCharacterStep()&&health.Checkpoint()==7,"Checkpoint activation failed.");
@@ -38,7 +47,7 @@ int main(int argc,char** argv)
         Check(health.AfterCharacterStep()&&health.Health()==100,"Death and health reset failed.");
         const auto pose=project.Scene().WorldTransform(controlled).Translation;
         Check(std::abs(pose.x+3)<.001f&&std::abs(pose.y-.92f)<.001f&&std::abs(pose.z-3.4f)<.001f,"Checkpoint pose failed.");
-        Check(physics.BodyFor(controlled)==body&&physics.World().Bodies().at(*body).State.Position==pose,
+        Check(sameBody()&&physics.World().Bodies().at(*body).State.Position==pose,
             "Respawn scene/body disagreement.");
         Check(motor.State(controlled).VerticalVelocity==0,"Motor vertical velocity was not reset.");
         motor.Teleport(controlled,{0,-11,0});

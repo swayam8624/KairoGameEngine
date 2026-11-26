@@ -1,8 +1,12 @@
 #include <cmath>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 
 import Kairo.EngineCore;
+import Kairo.Foundation.Math;
+import Kairo.Foundation.PhysicsEngine;
+import Kairo.Foundation.PhysicsMath.Types;
 import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimePhysicsBridge;
 import Kairo.Player.RuntimeDoorBridge;
@@ -31,6 +35,13 @@ int main(int argc,char** argv)
         player::RuntimeDoorBridge doors(project,physics,controlled);
         Check(doors.Size()==1,"Expected exactly one authored gate.");
         const auto body=physics.BodyFor(gate);
+        // Explicitly compare the contained IDs after checking presence. This
+        // preserves the identity invariant without relying on optional's
+        // constrained comparison across C++ module boundaries on MSVC.
+        const auto sameBody=[&]{
+            const auto current=physics.BodyFor(gate);
+            return body.has_value()&&current.has_value()&&*current==*body;
+        };
         Check(body.has_value(),"Gate body absent.");
         const auto blocked=[&]{
             const auto hit=physics.Raycast({0,1.25f,-2},{0,0,1},3);
@@ -39,7 +50,7 @@ int main(int argc,char** argv)
         Check(blocked(),"Closed gate collider did not block ray.");
         DoorStep listener(doors);
         for(int i=0;i<180;++i)(void)physics.Advance(1.f/60,&listener);
-        Check(physics.BodyFor(gate)==body,"Opening changed body identity.");
+        Check(sameBody(),"Opening changed body identity.");
         Check(!blocked(),"Open gate collider still blocks passage.");
         const auto opened=project.Scene().WorldTransform(gate).Translation;
         Check(std::abs(opened.y-4.45f)<.02f,"Open rendered pose incorrect.");
@@ -47,7 +58,7 @@ int main(int argc,char** argv)
             "Open scene and collider pose disagree.");
         physics.SetEntityPosition(controlled,{6,1,3});
         for(int i=0;i<180;++i)(void)physics.Advance(1.f/60,&listener);
-        Check(physics.BodyFor(gate)==body&&blocked(),"Closing did not restore original collider.");
+        Check(sameBody()&&blocked(),"Closing did not restore original collider.");
         Check(std::abs(project.Scene().WorldTransform(gate).Translation.y-1.25f)<.02f,
             "Closed scene pose incorrect.");
         std::cout<<"Door fixed-step scene/physics/raycast round trip passed\n";
