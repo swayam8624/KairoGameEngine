@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 # Record arities are the version-one runtime grammar, not semantic validation.
 SCHEMAS = {
@@ -78,6 +78,7 @@ class GameplayEditor(ttk.Frame):
     def __init__(self, parent, project):
         super().__init__(parent, padding=12)
         self.pack(fill='both', expand=True)
+        self.parent = parent
         self.project = Path(project)
         self.doc = None
         self.name = tk.StringVar(value=next(iter(SCHEMAS)))
@@ -86,6 +87,8 @@ class GameplayEditor(ttk.Frame):
         bar = ttk.Frame(self); bar.pack(fill='x')
         ttk.Combobox(bar, textvariable=self.name, values=list(SCHEMAS), state='readonly').pack(side='left')
         ttk.Button(bar, text='Open / reload', command=self.load).pack(side='left')
+        ttk.Button(bar, text='Discard edits', command=self.discard).pack(side='left')
+        self.parent.protocol('WM_DELETE_WINDOW', self.close)
         self.list = tk.Listbox(self, exportselection=False, height=14)
         self.list.pack(fill='both', expand=True, pady=8)
         self.list.bind('<<ListboxSelect>>', self.select)
@@ -115,6 +118,20 @@ class GameplayEditor(ttk.Frame):
             self.doc=Document(self.project,self.name.get()); self.refresh()
             self.status.set('Opened '+self.doc.name+'; runtime semantic validation still required')
         self.attempt(action)
+
+    def discard(self):
+        def action():
+            if not self.doc: raise ValueError('Open a configuration first')
+            if self.dirty() and not messagebox.askyesno('Discard edits?', 'Reload the current file from disk?',parent=self.parent):
+                return
+            self.doc=Document(self.project,self.doc.name); self.name.set(self.doc.name); self.refresh()
+            self.status.set('Reloaded '+self.doc.name)
+        self.attempt(action)
+
+    def close(self):
+        if self.doc and self.dirty() and not messagebox.askyesno('Discard edits?', 'Close without saving?',parent=self.parent):
+            return
+        self.parent.destroy()
 
     def dirty(self):
         return self.doc.rows != parse(self.doc.name,self.doc.original)
