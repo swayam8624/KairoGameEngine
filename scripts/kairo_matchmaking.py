@@ -80,10 +80,10 @@ class Directory:
         """Return public metadata only, never ownership or membership tokens."""
         with self.transaction() as db:
             self.prune(db)
-            rows = db.execute('SELECT s.id,s.name,s.port,s.capacity, CASE WHEN EXISTS (SELECT 1 FROM protected_seats p WHERE p.session=s.id) THEN (SELECT COUNT(*) FROM protected_seats p WHERE p.session=s.id AND p.claimed_player IS NOT NULL) ELSE (SELECT COUNT(*) FROM members m WHERE m.session=s.id) END FROM sessions s ORDER BY s.name,s.id').fetchall()
-        return [dict(id=i, name=n, host='127.0.0.1', port=p, capacity=c, joined=j) for i,n,p,c,j in rows]
+            rows = db.execute('SELECT s.id,s.name,s.port,s.capacity, CASE WHEN EXISTS (SELECT 1 FROM protected_seats p WHERE p.session=s.id) THEN (SELECT COUNT(*) FROM protected_seats p WHERE p.session=s.id AND p.claimed_player IS NOT NULL) ELSE (SELECT COUNT(*) FROM members m WHERE m.session=s.id) END, EXISTS (SELECT 1 FROM protected_seats p WHERE p.session=s.id) FROM sessions s ORDER BY s.name,s.id').fetchall()
+        return [dict(id=i, name=n, host='127.0.0.1', port=p, capacity=c, joined=j, protected=bool(protected)) for i,n,p,c,j,protected in rows]
 
-    def join(self, session, player):
+    def join(self, session, player, *, require_protected=False):
         """Reserve one seat atomically; duplicate player IDs cannot consume two."""
         self.label(player)
         token = secrets.token_hex(32)
@@ -93,6 +93,8 @@ class Directory:
             if row is None:
                 raise ValueError('Session unavailable')
             protected = db.execute('SELECT seat,token,claimed_player FROM protected_seats WHERE session=? ORDER BY seat', (session,)).fetchall()
+            if require_protected and not protected:
+                raise ValueError('Select a protected co-op session')
             if protected:
                 if any(claimed == player for _,_,claimed in protected):
                     raise ValueError('Player already claimed a protected seat')
