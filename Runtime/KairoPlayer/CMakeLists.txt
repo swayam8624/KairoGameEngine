@@ -71,6 +71,12 @@ add_executable(KairoGameLab GameLab.cpp)
 target_link_libraries(KairoGameLab PRIVATE KairoPlayerRuntime)
 set_property(TARGET KairoGameLab PROPERTY COMPILE_WARNING_AS_ERROR ON)
 
+# Standalone native validation tool for the graphical menu designer.
+add_executable(KairoMenuDocumentTool ../../Samples/AuthoredMenu/MenuDocumentTool.cpp)
+target_include_directories(KairoMenuDocumentTool PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_features(KairoMenuDocumentTool PRIVATE cxx_std_23)
+set_property(TARGET KairoMenuDocumentTool PROPERTY COMPILE_WARNING_AS_ERROR ON)
+
 add_executable(KairoPlayer main.cpp)
 target_link_libraries(KairoPlayer PRIVATE KairoPlayerRuntime)
 if(APPLE)

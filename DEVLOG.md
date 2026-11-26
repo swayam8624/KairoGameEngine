@@ -233,3 +233,18 @@ Ported the reusable project recipe generator, TempleArena sample and its tests f
 ## 2026-11-26 — native Android platformer candidate
 
 Added a Java Android Canvas/Choreographer and multi-touch host, JNI snapshot adapter to the existing freestanding platformer C ABI, pinned Gradle/SDK/NDK config, JVM host tests and separate APK/emulator smoke workflow. Local JDK plus GCC/Clang built actual JNI .so and ran 20,000 deterministic replay snapshots per compiler, full death/respawn/win, simultaneous pointer input and invalid JNI array/input checks. Exact tested blobs JNI 67a2eec1b7a74383b27a8e0fdc47b69e28e8485b, shared adapter 1e872c67b53ce4448a43ebb7c129438d1de8ffe7, core 9ef53e3e1261a41efb4a844517d11057d39e87e7, HostTest 2d23bd5bbb7ee3ced506857ac51d2c594e8f3a5c, NativeGame ec4200a2ba556a073abfb78b60079c06b39f8da4, TouchInput a845264a83ceaf34d4443cd33b21a12b97627a3d. Android SDK/NDK/emulator absent locally; Activity, APK and device screenshot gate not executed. No iOS/full engine port claim. [Sample guide](Samples/AndroidPlatformer/README.md).
+
+## 2026-11-26 — graphical menu authoring companion
+
+Added [native parser tool](Samples/AuthoredMenu/MenuDocumentTool.cpp) and [Tk designer](scripts/kairo_menu_designer.py), normalized drag preview, property inspector, add/delete, bounded undo, validated atomic save, external-change conflict detection. Real Tk/Xvfb tests passed using GCC and Clang compiled validator, including actual canvas press/move/release, edit/undo/add/delete, save/reopen, quote/backslash label, invalid overlap and external edit rejection. Tested exact blobs d71d1ff3b59ce4b42e0969f3957267166d3265aa, 24b0b17450dc35e785377d0d2f21d657b9de8604, b6a5032fd67b10764e823d7f0630697c77435568; parser 81b6f51da5044bb940b1c046cf263124b6f20683. Registered CMake target and independent GUI CI. Standalone companion, not embedded editor; preview text differs from runtime bitmap labels; native Player run still separate.
+
+### Menu designer portability follow-up
+
+Replace unsigned stream coordinate extraction with full-token from_chars bounded to 1000: reject negative modulo-wrap, explicit signs, suffixes and overflow. Set native validator stdin/stdout to binary mode on Windows so the graphical client's canonical LF protocol is preserved. GCC and Clang each passed 1,000 document roundtrips and six new invalid numeric fixtures plus both actual Tk interaction tests after the change. Tested blobs parser 7354c2cde90ad4f70ea8c4bb1e7a41b006568bc5, tests 82cb3c327bfc3a856d3b2e31fd74bb9209e62c1c, tool 3c0d9d2d09f9fa9782356e6a3361e1f2e0785dd5. Windows binary-mode branch reviewed but not executed locally.
+
+## 2026-11-26 — teaching pass: character motor and scene audio
+
+Added 43 explanations across two existing runtime modules, covering physical units, capsule scaling, collider identity, ground/jump integration, resolved displacement, scene/physics lifetime, emitter active intervals, voice restart policy, sample-frame remainder and mixer ownership. All non-comment lines compared identical before commit. No native module compilation claimed for the comment-only pass.
+
+- [RuntimeCharacterMotorBridge.cppm](Runtime/KairoPlayer/RuntimeCharacterMotorBridge.cppm): 23 new blocks.
+- [RuntimeSceneAudioBridge.cppm](Runtime/KairoPlayer/RuntimeSceneAudioBridge.cppm): 20 new blocks.

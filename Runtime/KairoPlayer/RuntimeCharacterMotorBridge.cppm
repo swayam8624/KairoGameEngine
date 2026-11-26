@@ -19,6 +19,9 @@ import Kairo.Player.RuntimePhysicsBridge;
 
 export namespace kairo::player
 {
+    // Settings are in world units and seconds: Gravity is acceleration,
+    // JumpSpeed/MaximumFallSpeed are velocities, and skin/probe are lengths.
+    // SlideIterations and SweepSamples bound the underlying query workload.
     struct RuntimeCharacterMotorSettings final
     {
         float Gravity = -24.0f;
@@ -30,6 +33,8 @@ export namespace kairo::player
         std::uint32_t MaxSlideIterations = 6u;
         std::uint32_t SweepSamples = 5u;
 
+        // Validate independent policy before reading or mutating the scene.
+        // The derived capsule configuration performs its own geometry checks.
         void Validate() const
         {
             if (!std::isfinite(Gravity) || Gravity > 0.0f)
@@ -60,6 +65,8 @@ export namespace kairo::player
         }
     };
 
+    // Per-character transient motor state, separate from the persisted scene.
+    // GroundNormal is meaningful as a contact normal only while Grounded.
     struct RuntimeCharacterMotorState final
     {
         float VerticalVelocity = 0.0f;
@@ -68,6 +75,8 @@ export namespace kairo::player
             kairo::foundation::math::Vec3f::Up();
     };
 
+    // Output combines the physics query's resolved displacement/contact data
+    // with the new motor state and the one-step jump decision.
     struct RuntimeCharacterMotorStep final
     {
         kairo::foundation::physics::CharacterMoveResult Move;
@@ -82,10 +91,14 @@ export namespace kairo::player
     class RuntimeCharacterMotorBridge final
     {
     public:
+        // Borrow both authorities: Scene stores authored components/poses,
+        // RuntimePhysicsBridge owns live bodies and collision queries.
         RuntimeCharacterMotorBridge(kairo::engine::Scene& scene,
             RuntimePhysicsBridge& physics)
             : m_Scene(scene), m_Physics(physics) {}
 
+        // Construct and validate a local controller before inserting a record.
+        // Kinematic capsule is intentional; a dynamic body has its own solver.
         void Register(kairo::engine::Entity entity,
             RuntimeCharacterMotorSettings settings = {})
         {
@@ -109,6 +122,8 @@ export namespace kairo::player
                 throw std::invalid_argument(
                     "Runtime character requires an authored capsule collider.");
 
+            // Bake absolute scale into capsule geometry. Use the larger radial
+            // X/Z scale conservatively rather than shrinking one side.
             const auto worldTransform = m_Scene.WorldTransform(entity);
             const kairo::foundation::math::Vec3f absoluteScale{
                 std::abs(worldTransform.Scale.x),
@@ -118,6 +133,8 @@ export namespace kairo::player
                 std::max(absoluteScale.x, absoluteScale.z);
             const float halfSegment = collider.HalfHeight * absoluteScale.y;
 
+            // Translate authored shape and motor policy into PhysicsEngine's
+            // query-controller contract. Height includes both hemisphere caps.
             kairo::foundation::physics::CharacterControllerConfig config;
             config.Radius = radius;
             config.Height = 2.0f * (halfSegment + radius);
@@ -130,6 +147,8 @@ export namespace kairo::player
             config.EnableGroundSnap = true;
             config.Validate();
 
+            // Resolve process-local body/collider identity; ignoring this own
+            // collider prevents the capsule sweep from colliding with itself.
             const auto bodyID = m_Physics.BodyFor(entity);
             if (!bodyID.has_value())
                 throw std::logic_error(
@@ -143,6 +162,8 @@ export namespace kairo::player
                 colliderID,
                 {}
             };
+            // Probe immediately at registration, so the first jump decision
+            // has a real ground result rather than a fabricated grounded flag.
             const auto initialGround = record.Controller.ProbeGround(
                 m_Physics.World(), record.OwnCollider);
             record.State.Grounded = initialGround.Grounded;
@@ -151,22 +172,28 @@ export namespace kairo::player
             m_Characters.emplace(entity.Value, std::move(record));
         }
 
+        // Remove motor state only. The runtime physics bridge still owns the
+        // live body; scene lifecycle must separately unload its descriptors.
         bool Unregister(kairo::engine::Entity entity) noexcept
         {
             return m_Characters.erase(entity.Value) != 0u;
         }
 
+        // Test membership in the motor map, not existence of an authored body.
         [[nodiscard]] bool IsRegistered(kairo::engine::Entity entity) const noexcept
         {
             return m_Characters.contains(entity.Value);
         }
 
+        // Borrow the current per-entity state; do not retain after unregister.
         [[nodiscard]] const RuntimeCharacterMotorState& State(
             kairo::engine::Entity entity) const
         {
             return Require(entity).State;
         }
 
+        // Synchronize query controller, velocity/contact state, authored pose
+        // and physics pose history. No interpolated travel across a teleport.
         void Teleport(kairo::engine::Entity entity,
             const kairo::foundation::math::Vec3f& worldPosition)
         {
@@ -208,12 +235,16 @@ export namespace kairo::player
             if (drift.LengthSquared() > 1.0e-10f)
                 record.Controller.Teleport(sceneWorld.Translation);
 
+            // Query ground before integration, including external teleports.
+            // Jump is permitted only by this actual contact result.
             const auto preGround = record.Controller.ProbeGround(
                 m_Physics.World(), record.OwnCollider);
             record.State.Grounded = preGround.Grounded;
             if (preGround.Grounded)
                 record.State.GroundNormal = preGround.Normal;
 
+            // Choose exactly one vertical update: jump impulse as velocity or
+            // gravity integrated over dt and clamped to maximum fall speed.
             bool jumped = false;
             if (jumpRequested && record.State.Grounded && record.Settings.JumpSpeed > 0.0f)
             {
@@ -228,6 +259,8 @@ export namespace kairo::player
                     record.State.VerticalVelocity + record.Settings.Gravity * deltaSeconds);
             }
 
+            // Convert velocity (units/second) to displacement (units) exactly
+            // once. PhysicsEngine resolves the sweep/slide against live geometry.
             const kairo::foundation::math::Vec3f displacement{
                 desiredPlanarVelocity.x * deltaSeconds,
                 record.State.VerticalVelocity * deltaSeconds,
@@ -235,6 +268,8 @@ export namespace kairo::player
             auto move = record.Controller.Move(
                 m_Physics.World(), displacement, record.OwnCollider);
 
+            // Ceiling cancels upward velocity; a supporting contact cancels
+            // downward velocity. Do not cancel the launch merely due to snap.
             if (move.HitCeiling && record.State.VerticalVelocity > 0.0f)
                 record.State.VerticalVelocity = 0.0f;
             if (move.Ground.Grounded && record.State.VerticalVelocity <= 0.0f)
@@ -250,6 +285,8 @@ export namespace kairo::player
                     record.State.GroundNormal = move.Ground.Normal;
             }
 
+            // Publish the collision-resolved position, not the desired endpoint,
+            // back through the authoritative physics/scene adapter.
             const auto resolved = record.Controller.Position();
             m_Physics.SetEntityPosition(entity, {
                 static_cast<double>(resolved.x),
@@ -259,6 +296,8 @@ export namespace kairo::player
         }
 
     private:
+        // One record owns the controller and state; OwnCollider is a borrowed
+        // process-local ID, valid only while its physics body remains active.
         struct CharacterRecord final
         {
             RuntimeCharacterMotorSettings Settings;
@@ -272,6 +311,8 @@ export namespace kairo::player
         RuntimePhysicsBridge& m_Physics;
         std::unordered_map<std::uint32_t, CharacterRecord> m_Characters;
 
+        // Strict lookup: a missing entity is a lifecycle error, not a request
+        // to silently create a default controller.
         [[nodiscard]] CharacterRecord& Require(kairo::engine::Entity entity)
         {
             const auto found = m_Characters.find(entity.Value);
@@ -281,6 +322,7 @@ export namespace kairo::player
             return found->second;
         }
 
+        // Read-only lookup has the same identity/lifetime contract as Require.
         [[nodiscard]] const CharacterRecord& Require(
             kairo::engine::Entity entity) const
         {
@@ -291,6 +333,8 @@ export namespace kairo::player
             return found->second;
         }
 
+        // This adapter supports one active collider per character body.
+        // Reject ambiguous multi-shape bodies rather than ignore the wrong shape.
         [[nodiscard]] kairo::foundation::physics::ColliderID FindOwnedCollider(
             kairo::foundation::physics::BodyID body) const
         {

@@ -20,6 +20,8 @@ import Kairo.Player.RuntimeAudioBridge;
 
 export namespace kairo::player
 {
+    // Snapshot the fields that require restarting a mixer voice when edited.
+    // Gain and position are intentionally absent: they update in place.
     struct RuntimeAudioVoicePolicy final
     {
         kairo::assets::AssetID Clip;
@@ -47,6 +49,8 @@ export namespace kairo::player
     /// becoming one platform-specific subsystem.
     class RuntimeSceneAudioBridge final
     {
+        // One scene entity maps to at most one managed voice. WasActive and
+        // AutoStarted distinguish active intervals from finished one-shot clips.
         struct EmitterState final
         {
             kairo::engine::AudioVoiceHandle Voice{};
@@ -57,6 +61,8 @@ export namespace kairo::player
         };
 
     public:
+        // Both collaborators are borrowed. The scene and mixer must outlive
+        // this adapter; native output is a separate consumer of mixed frames.
         RuntimeSceneAudioBridge(kairo::engine::Scene& scene,
             RuntimeAudioBridge& audio) noexcept
             : m_Scene(scene), m_Audio(audio) {}
@@ -64,6 +70,8 @@ export namespace kairo::player
         RuntimeSceneAudioBridge(const RuntimeSceneAudioBridge&) = delete;
         RuntimeSceneAudioBridge& operator=(const RuntimeSceneAudioBridge&) = delete;
 
+        // Enter play once, reset fractional frame accounting, and synchronize
+        // all authored emitters/listeners before the first mix.
         void BeginPlay()
         {
             if (m_Running)
@@ -87,6 +95,8 @@ export namespace kairo::player
                     "Runtime scene audio elapsed time must be finite and within one second.");
 
             SynchronizeScene();
+            // Convert seconds to sample frames, preserving sub-frame remainder.
+            // Rounding every frame independently would drift over time.
             m_FrameRemainder += elapsedSeconds *
                 static_cast<double>(m_Audio.OutputSampleRate());
             const auto frameCount = static_cast<std::size_t>(
@@ -96,6 +106,8 @@ export namespace kairo::player
             return m_Audio.Mix(frameCount);
         }
 
+        // Stop managed voices before discarding identity mappings. Clear
+        // listener and clock even if the device/mixer cleanup reports an error.
         void EndPlay() noexcept
         {
             for (auto& [entity, state] : m_Emitters)
@@ -110,8 +122,11 @@ export namespace kairo::player
             catch (...) {}
         }
 
+        // Lifecycle flag: it does not imply a physical audio device is open.
         [[nodiscard]] bool Running() const noexcept { return m_Running; }
 
+        // A cached voice may already have completed or been evicted; return
+        // only a live mixer handle, never an invalid authored asset ID.
         [[nodiscard]] std::optional<kairo::engine::AudioVoiceHandle> VoiceFor(
             kairo::engine::Entity entity) const noexcept
         {
@@ -123,6 +138,7 @@ export namespace kairo::player
             return found->second.Voice;
         }
 
+        // Count live managed emitter voices, excluding unrelated mixer voices.
         [[nodiscard]] std::size_t PlayingEmitterCount() const noexcept
         {
             std::size_t count = 0u;
@@ -153,6 +169,8 @@ export namespace kairo::player
             return state.Voice;
         }
 
+        // Manual stop consumes this interval's automatic-start opportunity.
+        // Re-enable or a changed policy permits the next auto-start.
         bool Stop(kairo::engine::Entity entity) noexcept
         {
             const auto found = m_Emitters.find(entity.Value);
@@ -162,6 +180,8 @@ export namespace kairo::player
             return stopped;
         }
 
+        // Resolve listener first so the emitter positions/gains will mix
+        // against the same current scene transform snapshot.
         void SynchronizeScene()
         {
             SynchronizeListener();
@@ -175,6 +195,8 @@ export namespace kairo::player
         bool m_Running = false;
         double m_FrameRemainder = 0.0;
 
+        // Widen world-space float coordinates to the mixer double convention;
+        // no coordinate system remapping occurs here.
         [[nodiscard]] static kairo::engine::AudioVec3 ToAudioVec3(
             const kairo::foundation::math::Vector3<float>& value) noexcept
         {
@@ -185,6 +207,8 @@ export namespace kairo::player
             };
         }
 
+        // Validate authored attenuation/voice settings before taking the
+        // restart-sensitive snapshot used by SynchronizeEmitter.
         [[nodiscard]] static RuntimeAudioVoicePolicy MakePolicy(
             const kairo::engine::AudioEmitterComponent& emitter)
         {
@@ -203,6 +227,8 @@ export namespace kairo::player
             };
         }
 
+        // Map the scene's selected active listener to world position and basis.
+        // An absent listener resets mixer defaults, not a stale camera pose.
         void SynchronizeListener()
         {
             const auto active = m_Scene.ActiveAudioListener();
@@ -222,6 +248,8 @@ export namespace kairo::player
             m_Audio.SetListener(listener);
         }
 
+        // Sweep current authored emitters, then retire entries that disappeared.
+        // This handles scene removal without relying on external callbacks.
         void SynchronizeEmitters()
         {
             std::unordered_set<std::uint32_t> present;
@@ -244,6 +272,9 @@ export namespace kairo::player
             }
         }
 
+        // Reconcile one authored emitter with its process-local mixer state.
+        // Disabling resets the active interval; policy edits restart eligible
+        // autoplay, while position/gain changes keep the current playback phase.
         void SynchronizeEmitter(kairo::engine::Entity entity)
         {
             auto& state = m_Emitters[entity.Value];
@@ -262,6 +293,8 @@ export namespace kairo::player
                 state.AutoStarted = false;
 
             const auto policy = MakePolicy(emitter);
+            // Clip, loop, pitch, distance model or bus changed: stop old voice
+            // before applying the new restart-sensitive policy.
             if (state.PolicyInitialized && policy != state.Policy)
             {
                 StopVoice(state);
@@ -293,6 +326,8 @@ export namespace kairo::player
             state.WasActive = true;
         }
 
+        // Ensure the authored bus exists and construct voice settings from
+        // current world translation. Clip decoding/caching belongs to AudioBridge.
         [[nodiscard]] kairo::engine::AudioVoiceHandle StartVoice(
             kairo::engine::Entity entity,
             const kairo::engine::AudioEmitterComponent& emitter)
@@ -304,6 +339,8 @@ export namespace kairo::player
                 emitter.VoiceSettings(position));
         }
 
+        // Explicit Play must target an existing enabled emitter in an active
+        // hierarchy; scene authorship alone does not imply runtime activity.
         void RequirePlayableEmitter(kairo::engine::Entity entity) const
         {
             if (!m_Scene.Contains(entity) || !m_Scene.HasAudioEmitter(entity))
@@ -315,6 +352,8 @@ export namespace kairo::player
                     "Runtime scene audio cannot play a disabled emitter entity.");
         }
 
+        // Invalidate the cached handle before asking the mixer to stop; an
+        // already-completed voice must not remain a live ownership record.
         bool StopVoice(EmitterState& state) noexcept
         {
             if (state.Voice == kairo::engine::InvalidAudioVoice) return false;

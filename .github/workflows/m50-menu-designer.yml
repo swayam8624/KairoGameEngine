@@ -1,0 +1,37 @@
+name: M50 graphical menu authoring
+on:
+  pull_request:
+    paths:
+      - 'scripts/kairo_menu_designer.py'
+      - 'scripts/tests/test_menu_designer.py'
+      - 'Samples/AuthoredMenu/**'
+      - 'Runtime/KairoPlayer/RuntimeMenuDocument.hpp'
+      - '.github/workflows/m50-menu-designer.yml'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kairo_menu_designer.py'
+      - 'scripts/tests/test_menu_designer.py'
+      - 'Samples/AuthoredMenu/**'
+      - 'Runtime/KairoPlayer/RuntimeMenuDocument.hpp'
+      - '.github/workflows/m50-menu-designer.yml'
+permissions:
+  contents: read
+jobs:
+  authoring:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb xauth
+      - name: Compile actual Player menu parser tool
+        run: |
+          "${{ matrix.compiler }}" -std=c++23 -O2 -Wall -Wextra -Werror -IRuntime/KairoPlayer Samples/AuthoredMenu/MenuDocumentTool.cpp -o /tmp/kairo-menu-validator
+      - name: Exercise Tk events and validated file authoring
+        run: KAIRO_MENU_VALIDATOR=/tmp/kairo-menu-validator PYTHONPATH=scripts xvfb-run -a /usr/bin/python3 -m unittest discover -s scripts/tests -p test_menu_designer.py -v
