@@ -34,6 +34,7 @@
 #include <stdexcept>
 #include <string_view>
 
+import Kairo.Assets.AssetID;
 import Kairo.EngineCore.InputMap;
 import Kairo.EngineCore.Entity;
 import Kairo.Foundation.Math;
