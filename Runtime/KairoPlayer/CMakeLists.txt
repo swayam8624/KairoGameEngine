@@ -110,6 +110,17 @@ if(BUILD_TESTING)
     add_test(NAME KairoPlayerAnimationRetargetTests COMMAND KairoPlayerAnimationRetargetTests)
     # Protocol unit tests never open a socket. The lab uses two processes.
     # Prediction tests model delivery impairment independently of sockets.
+    # Linux regression uses a real high-numbered descriptor and socketpair.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        find_package(Threads REQUIRED)
+        add_executable(KairoPlayerLoopbackTcpTests tests/RuntimeLoopbackTcpTests.cpp)
+        target_include_directories(KairoPlayerLoopbackTcpTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(KairoPlayerLoopbackTcpTests PRIVATE cxx_std_23)
+        target_link_libraries(KairoPlayerLoopbackTcpTests PRIVATE Threads::Threads)
+        set_property(TARGET KairoPlayerLoopbackTcpTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+        add_test(NAME KairoPlayerLoopbackTcpTests COMMAND KairoPlayerLoopbackTcpTests)
+        set_tests_properties(KairoPlayerLoopbackTcpTests PROPERTIES TIMEOUT 10)
+    endif()
     add_executable(KairoPlayerNetworkPredictionTests tests/RuntimeNetworkPredictionTests.cpp)
     target_compile_features(KairoPlayerNetworkPredictionTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerNetworkPredictionTests PROPERTY COMPILE_WARNING_AS_ERROR ON)

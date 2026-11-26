@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PLAYER = ROOT / 'Runtime/KairoPlayer'
 TESTS = ('QuestDialogue', 'QuestSave', 'TwoBoneIK', 'AnimationRetarget',
-         'NetworkProtocol', 'NetworkPrediction', 'Weather', 'RainStreaks',
+         'NetworkProtocol', 'NetworkPrediction', 'LoopbackTcp', 'Weather', 'RainStreaks',
          'WaterGrid', 'SoftBody', 'TetraSurface', 'TetraPublication', 'BreakableCube', 'MenuDocument', 'MenuFocus', 'MenuPresentation',
          'Platformer', 'Strategy', 'GridCanvas', 'GameLabView')
 HEADERS = ('CraftSaveFile.hpp', 'RuntimeQuestDialogue.hpp', 'RuntimeQuestSave.hpp',
@@ -75,7 +75,7 @@ def run_suite(compiler, report):
         step('compiler', [compiler, '--version'])
         for name in TESTS:
             binary = work / name
-            build(name, PLAYER / 'tests' / f'Runtime{name}Tests.cpp', binary)
+            build(name, PLAYER / 'tests' / f'Runtime{name}Tests.cpp', binary, *(['-pthread'] if name == 'LoopbackTcp' else []))
             step('test ' + name, [binary])
         network = work / 'network-lab'
         build('network lab', ROOT / SAMPLES[0], network)

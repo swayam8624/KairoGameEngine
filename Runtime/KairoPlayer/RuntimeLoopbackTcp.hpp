@@ -1,6 +1,7 @@
 #pragma once
 #include "RuntimeNetworkProtocol.hpp"
 #include <cerrno>
+#include <chrono>
 #include <utility>
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -11,6 +12,7 @@
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -74,14 +76,16 @@ namespace kairo::player::detail
             if(::getsockname(m_Socket,reinterpret_cast<sockaddr*>(&a),&length)!=0)throw std::runtime_error("Port query failed.");
             return ntohs(a.sin_port);
         }
-        // Bounded wait for one peer. Listener is not used for data frames.
+        // Bounded wait for one peer. POSIX poll avoids FD_SET's fixed-size
+        // descriptor array; Winsock select stores socket values instead.
         [[nodiscard]] LoopbackTcp Accept() const
         {
-            fd_set set;FD_ZERO(&set);FD_SET(m_Socket,&set);timeval wait{5,0};
 #ifdef _WIN32
+            fd_set set;FD_ZERO(&set);FD_SET(m_Socket,&set);timeval wait{5,0};
             const int ready=::select(0,&set,nullptr,nullptr,&wait);
 #else
-            const int ready=::select(m_Socket+1,&set,nullptr,nullptr,&wait);
+            pollfd descriptor{m_Socket,POLLIN,0};
+            const int ready=::poll(&descriptor,1,5000);
 #endif
             if(ready!=1)throw std::runtime_error("Loopback accept timeout/failure.");
             LoopbackTcp peer(::accept(m_Socket,nullptr,nullptr));peer.Configure();return peer;
@@ -95,13 +99,16 @@ namespace kairo::player::detail
                 throw std::runtime_error("Loopback connect failed.");
             s.Configure();return s;
         }
-        // TCP is a byte stream, not a message transport. Loop until the
-        // entire fixed-size frame is written/read; EOF or timeout fails.
-        void Send(NetworkFrame frame) const
+        // TCP is a byte stream, not a message transport. Each partial call
+        // consumes the same monotonic frame deadline. A failed frame leaves
+        // the stream unusable for further framing; the caller closes it.
+        void Send(NetworkFrame frame,std::chrono::milliseconds budget=std::chrono::seconds(3)) const
         {
             const auto bytes=EncodeNetworkFrame(frame);std::size_t done=0;
+            const auto deadline=FrameDeadline(budget);
             while(done<bytes.size())
             {
+                SetRemainingTimeout(SO_SNDTIMEO,deadline);
 #ifdef MSG_NOSIGNAL
                 constexpr int flags=MSG_NOSIGNAL;
 #else
@@ -111,36 +118,54 @@ namespace kairo::player::detail
                 if(n<=0)throw std::runtime_error("Loopback send failed.");
                 done+=static_cast<std::size_t>(n);
             }
+            CheckDeadline(deadline);
         }
-        [[nodiscard]] NetworkFrame Receive() const
+        [[nodiscard]] NetworkFrame Receive(std::chrono::milliseconds budget=std::chrono::seconds(3)) const
         {
             NetworkBytes bytes{};std::size_t done=0;
+            const auto deadline=FrameDeadline(budget);
             while(done<bytes.size())
             {
+                SetRemainingTimeout(SO_RCVTIMEO,deadline);
                 const auto n=::recv(m_Socket,reinterpret_cast<char*>(bytes.data()+done),static_cast<int>(bytes.size()-done),0);
                 if(n<=0)throw std::runtime_error("Loopback receive failed/closed.");
                 done+=static_cast<std::size_t>(n);
             }
-            return DecodeNetworkFrame(bytes);
+            CheckDeadline(deadline);return DecodeNetworkFrame(bytes);
         }
     private:
         NativeNetworkSocket m_Socket;
+        using Clock=std::chrono::steady_clock;
+        static Clock::time_point FrameDeadline(std::chrono::milliseconds budget)
+        {
+            if(budget.count()<1||budget.count()>30000)throw std::invalid_argument("Invalid network frame deadline.");
+            return Clock::now()+budget;
+        }
+        static void CheckDeadline(Clock::time_point deadline)
+        {if(Clock::now()>=deadline)throw std::runtime_error("Loopback frame deadline exceeded.");}
+        // Round up rather than sending a zero timeout (which means infinite).
+        // Socket timing is OS-granular; the final monotonic check rejects late
+        // completion even if a syscall returned data after its deadline.
+        void SetRemainingTimeout(int option,Clock::time_point deadline) const
+        {
+            const auto remaining=std::chrono::ceil<std::chrono::milliseconds>(deadline-Clock::now());
+            if(remaining.count()<=0)throw std::runtime_error("Loopback frame deadline exceeded.");
+#ifdef _WIN32
+            const DWORD timeout=static_cast<DWORD>(remaining.count());
+#else
+            const timeval timeout{static_cast<long>(remaining.count()/1000),static_cast<long>((remaining.count()%1000)*1000)};
+#endif
+            if(::setsockopt(m_Socket,SOL_SOCKET,option,reinterpret_cast<const char*>(&timeout),static_cast<NativeAddressLength>(sizeof(timeout)))!=0)
+                throw std::runtime_error("Cannot configure socket timeout.");
+        }
         static sockaddr_in Address(std::uint16_t port)
         {
             sockaddr_in a{};a.sin_family=AF_INET;a.sin_port=htons(port);a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);return a;
         }
-        // Three-second per-operation timeouts. On macOS suppress SIGPIPE
-        // on broken connections; Linux does this per send with MSG_NOSIGNAL.
+        // On macOS suppress SIGPIPE on broken connections; Linux does this
+        // per send with MSG_NOSIGNAL. Frame timeouts are set on each operation.
         void Configure()
         {
-#ifdef _WIN32
-            const DWORD timeout=3000;
-#else
-            const timeval timeout{3,0};
-#endif
-            for(const int option:{SO_RCVTIMEO,SO_SNDTIMEO})
-                if(::setsockopt(m_Socket,SOL_SOCKET,option,reinterpret_cast<const char*>(&timeout),sizeof(timeout))!=0)
-                    throw std::runtime_error("Cannot configure socket timeout.");
 #ifdef SO_NOSIGPIPE
             const int enabled=1;
             if(::setsockopt(m_Socket,SOL_SOCKET,SO_NOSIGPIPE,reinterpret_cast<const char*>(&enabled),sizeof(enabled))!=0)

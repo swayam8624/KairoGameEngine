@@ -521,3 +521,7 @@ Read [M50 native guide](docs/M50_NATIVE_ACCEPTANCE.md), [runner](scripts/run_m50
 ## Cross-platform text and browser CI follow-up
 
 Revisit RuntimeMenuDocument::ReadMenuLine and its regression tests to distinguish binary reads from text-mode newline conversion. Compare the explicit WASM toolchain installation in .github/workflows/m50-web.yml with scripts/build_web_platformer.py; then read browser process error propagation in scripts/tests/test_web_platformer.py.
+
+## Loopback transport hardening follow-up
+
+Read RuntimeLoopbackTcp::Accept, FrameDeadline, SetRemainingTimeout, Send and Receive, then [actual socket regression](Runtime/KairoPlayer/tests/RuntimeLoopbackTcpTests.cpp). Compare fd_set descriptor constraints, poll, monotonic deadlines and TCP's lack of message boundaries. A failed frame requires reconnect rather than continuing from an unknown byte boundary.
