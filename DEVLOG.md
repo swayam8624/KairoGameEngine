@@ -349,3 +349,8 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 
 - Added a bounded planar walkable-region document and rate-limited decision goal refresh. Optional mesh binds the enemy brain to existing NavMesh, navigation and crowd bridges, preserving direct movement for projects without the document. Unavailable routes stop planar movement; defeated agents unregister from all three adapters.
 - Added Navigation Arena and full-workspace obstacle-detour CTest. Actual strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized replan ticks (4,164 plans) and the existing 50,000 enemy decision regression after goal exposure. Exact source hashes verified. Full-workspace compile and detour execution pending.
+
+## M50 — declarative gameplay event rules (2026-11-26)
+
+- Added bounded typed event dispatch with exact source bindings, occurrence thresholds, one-shot/repeat policies and stable ascending rule order. Generic Player publishes start, actual combat defeat, proximity rule, collection and completion events. Effects are limited to separate opted-in visual roots; reject incompatible checkpoint usage.
+- Added Event Arena and actual native four-rule chain/rejection gate. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 seeded event dispatches and malformed document tests. Exact Git blobs verified; native build/run pending.
