@@ -115,6 +115,22 @@ class RecentProjects:
     def remove(self, value):
         self._save([p for p in self.paths if p != value])
 
+    def recover(self):
+        """Explicit recovery retains the original malformed bytes."""
+        if not self.warning:
+            raise ValueError("The recent list does not require recovery.")
+        fd, name = tempfile.mkstemp(prefix="hub-recent-invalid-", suffix=".bak", dir=self.path.parent)
+        os.close(fd)
+        backup = Path(name)
+        try:
+            os.replace(self.path, backup)
+        except OSError:
+            backup.unlink(missing_ok=True)
+            raise
+        self.warning = ""
+        self.paths = []
+        return backup
+
 
 def sample_files(source):
     """Return only regular authored files; reject links and bound total bytes.
