@@ -268,3 +268,9 @@ Added symmetric simultaneous-turn arena, slot assignment by accept order, paired
 ## 2026-11-26 — nonblocking graphical co-op client
 
 Added single-outstanding-turn asynchronous worker, complete-snapshot-only view, local actor outline and waiting/turn-limit/win HUD, and KairoCoopClient using the actual Vulkan/Metal overlay and keyboard edges. Both GCC and Clang passed real local two-client worker turns, cancellation below 2 s, disconnect/failure latch, and 5,000 viewport bounds cases each. Exact tested blobs worker 201db4d20ef3a96d3796ab531662b4b92392aa31, view e1c223eede3d7f44b5a53b80ca297d1144a4fc57, tests 30a79cbeb9179054b2697048ad64307153007ec5, exact grid 70bb888d774b8f51f82f376e4e912cb358591194, font/focus a9c2577a3c5ada694121af3a9803bdd28401e3bd and parent transport blobs. Registered an eighth strict native gate launching the real server and two graphical clients, requiring matching all six turns and changed nonuniform actual captures. Native renderer/client build and capture not executed here. Initial connection is synchronous; no Internet service, authentication, reconnect, real-time movement or matchmaking admission claim.
+
+## M50 — graphical asset catalog companion (2026-11-26)
+
+- Added desktop catalog browsing, metadata inspection, multi-selection and nonblocking verified recipe staging.
+- Bound staging to reviewed metadata, avoiding silent source/license changes between display and export.
+- Added actual Tk widget and staged-file regression gates under Xvfb. CI pending; no native Editor or marketplace claim.
