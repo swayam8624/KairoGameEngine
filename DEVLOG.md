@@ -269,6 +269,20 @@ Added symmetric simultaneous-turn arena, slot assignment by accept order, paired
 
 Added single-outstanding-turn asynchronous worker, complete-snapshot-only view, local actor outline and waiting/turn-limit/win HUD, and KairoCoopClient using the actual Vulkan/Metal overlay and keyboard edges. Both GCC and Clang passed real local two-client worker turns, cancellation below 2 s, disconnect/failure latch, and 5,000 viewport bounds cases each. Exact tested blobs worker 201db4d20ef3a96d3796ab531662b4b92392aa31, view e1c223eede3d7f44b5a53b80ca297d1144a4fc57, tests 30a79cbeb9179054b2697048ad64307153007ec5, exact grid 70bb888d774b8f51f82f376e4e912cb358591194, font/focus a9c2577a3c5ada694121af3a9803bdd28401e3bd and parent transport blobs. Registered an eighth strict native gate launching the real server and two graphical clients, requiring matching all six turns and changed nonuniform actual captures. Native renderer/client build and capture not executed here. Initial connection is synchronous; no Internet service, authentication, reconnect, real-time movement or matchmaking admission claim.
 
+## 2026-11-26 — imported glTF skin IK integration
+
+Added rigid imported-node pose adapter and shared Editor/Player two-bone override applied after clip/rest pose sampling and before jointWorld*inverseBind generation. Asset-bound per-instance requests preserve source rest/clip state; RuntimeRenderBridge supplies explicit set/clear and prunes removed/rebound entities. Actual shared-module regression checks separate instances of one three-joint artifact, corrected skin palette and unchanged outer placement, restoration and invalid-chain rejection. Local GCC and Clang each passed 10,000 matrix reconstructions using independent matrix multiplication and structural node fixtures, including non-parent-first source order, unchanged tip/unrelated nodes and callback failure rollback. Exact tested blobs 145bdff6e93538ede1d4135c2394259af14bd7e7 and bda8b031eab855cec087efce7149992c15559759; dependencies 2cc16f72e2e591c6f519990c12b967885c087ecc, e7a9eb1ac38e60c1a1ee660979f3e4a0e887660c, 91a57d786ed88c631e47ddaf160a3a14a1becbf7. Shared C++ module/actual artifact regression and native GPU capture not run locally. No source file import or automatic retargeting/scale/world-space target claim. Existing Player header-only math reused by shared bridge without linking Player; no workspace pin change.
+
+## 2026-11-26 — native imported GLB skin acceptance
+
+Added original deterministic self-contained three-joint skinned GLB generator, independent byte-level fixture checks and KairoImportedIKSmoke. Native gate uses actual KairoAssets import/derived-data path and shared glTF render binding, uploads the skinned mesh, samples its root motion, applies the post-clip IK request, checks asset-space tip via inverse bind, requires actual changed GPU pixels and expected interior object picking, then clears IK and requires restoration. Both local Python fixture tests passed (alignment, lengths, skin influences, inverse binds, triangle winding, clip, exclusive write); exact tested blobs 6f0cbef80d786ba79d5fd3600f92b1b470fc5428 and fbebe24dff40b7a4bd39466783d084e7f7e2a2d5. Registered ninth strict native CTest gate and source/binary evidence. Full C++ module build, actual importer and native Vulkan/Metal capture pending. Generated ribbon is an original narrow fixture, not a production character or authored IK editor.
+
+## M50 — protected local co-op admission (2026-11-26)
+
+- Added ticket-bound local seats with bounded handshake and attempt limits; legacy open lab remains available.
+- Extended actual three-process acceptance with wrong, malformed, truncated and replayed ticket cases, reverse arrival order and protected CLI victory.
+- Native dual-client capture gate now checks protected seat identity. CI and native acceptance pending; no percentage promotion.
+
 ## M50 — graphical asset catalog companion (2026-11-26)
 
 - Added desktop catalog browsing, metadata inspection, multi-selection and nonblocking verified recipe staging.

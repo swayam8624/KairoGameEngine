@@ -1,6 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <cmath>
+#include <unordered_set>
 
 import Kairo.Runtime.RealtimeSceneBridge;
 import Kairo.Assets;
@@ -450,4 +452,72 @@ TEST_CASE("Frame asset lookups refresh after registry removal and replacement",
     const auto restored = BuildRenderScene(scene, assets);
     REQUIRE(restored.Draws().size() == first.Draws().size());
     CHECK(restored.Draws()[63].ObjectID == first.Draws()[63].ObjectID);
+}
+
+
+// Exercise the actual glTF artifact -> sampled pose -> IK -> shared palette
+// extraction, with two instances of the same immutable imported binding.
+TEST_CASE("Imported two-bone IK corrects instance palettes without altering the shared rest or clip",
+    "[KairoRealtimeRenderBridge][Animation][Skinning][IK]")
+{
+    using namespace kairo::assets;
+    auto source=AnimatedGltfScene();
+    GltfNodeData tip;tip.Name="Tip";tip.Parent=1;tip.HasRestTRS=true;
+    tip.LocalTransform[12]=1.f;tip.RestTranslation={1.f,0.f,0.f};
+    source.Nodes.push_back(tip);
+    auto& skin=source.Skins[0];skin.Joints={0u,1u,3u};
+    auto inverse=skin.InverseBindMatrices[0];inverse[12]=-1.f;skin.InverseBindMatrices.push_back(inverse);
+    inverse[12]=-2.f;skin.InverseBindMatrices.push_back(inverse);
+    source.Primitives[1].Skinning[1].Joints={1u,0u,0u,0u};
+    source.Primitives[1].Skinning[2].Joints={2u,0u,0u,0u};
+    ValidateGltfSceneArtifactData(source);
+    kairo::assets::AssetRegistry registry;RegisterAssets(registry);
+    RenderAssetBindings assets(registry);
+    const auto renderAsset=kairo::renderer::MakeGltfRenderAsset(source);
+    const std::array<kairo::renderer::MeshHandle,2> meshes{41u,42u};
+    assets.BindGltfScene({SceneID},source,renderAsset,meshes);
+
+    kairo::engine::Scene scene;
+    const auto a=scene.CreateEntity("IK"),b=scene.CreateEntity("Clip only");
+    for(const auto e:{a,b})scene.SetSceneInstance(e,{{SceneID},true,true,true,0x4u});
+    scene.Transform(a).Local.Translation.x=3.f;scene.Transform(b).Local.Translation.x=7.f;
+    SceneAnimationOverrides overrides;
+    for(const auto e:{a,b})overrides.Set(e,{0u,.5f,kairo::engine::AnimationTimeMode::Clamp});
+    const auto baseline=BuildRenderScene(scene,assets,overrides,0x4u);
+    REQUIRE(baseline.Draws().size()==4u);
+    const SceneTwoBoneIK request{{0u,1u,3u},{1.,2.,0.},{0.,0.,1.}};
+    overrides.SetTwoBoneIK(a,SceneID,request);
+    const auto corrected=BuildRenderScene(scene,assets,overrides,0x4u);
+    REQUIRE(corrected.Draws().size()==4u);
+    const auto& rigid=corrected.Draws()[0];const auto& skinned=corrected.Draws()[1];
+    CHECK(std::abs(rigid.Model(0u,3u)-4.f)<1e-5f);
+    CHECK(std::abs(rigid.Model(1u,3u)-1.f)<1e-5f);
+    CHECK(skinned.Model==baseline.Draws()[1].Model);
+    CHECK(skinned.ObjectID==a.Value);
+    REQUIRE(skinned.Skinning.Size()==3u);
+    const auto& palette=skinned.Skinning.JointMatrices[2];
+    // The bind-space tip at x=2 transforms to asset-space target (1,2,0).
+    CHECK(std::abs(2.f*palette(0u,0u)+palette(0u,3u)-1.f)<1e-5f);
+    CHECK(std::abs(2.f*palette(1u,0u)+palette(1u,3u)-2.f)<1e-5f);
+    CHECK(std::abs(2.f*palette(2u,0u)+palette(2u,3u))<1e-5f);
+    CHECK(corrected.Draws()[3].Skinning.JointMatrices==baseline.Draws()[3].Skinning.JointMatrices);
+
+    // Rest and clip snapshots must not share mutable procedural state.
+    const auto sampled=kairo::engine::SampleGltfAnimation(source,0u,.5f,kairo::engine::AnimationTimeMode::Clamp);
+    const auto saved=sampled;const auto [pose,reached]=ApplyGltfTwoBoneIK(source,sampled,request);
+    CHECK(reached);CHECK(sampled==saved);CHECK(pose!=sampled);
+    const auto expected=kairo::engine::BuildGltfAssetSpaceSkinPalette(source,pose,0u);
+    CHECK(skinned.Skinning.JointMatrices==expected.JointMatrices);
+    overrides.ClearTwoBoneIK(a);
+    CHECK(BuildRenderScene(scene,assets,overrides,0x4u).Draws()[1].Skinning.JointMatrices==baseline.Draws()[1].Skinning.JointMatrices);
+    overrides.SetTwoBoneIK(a,SceneID,request);
+    overrides.ForgetMismatchedIK(a,MeshID);
+    CHECK(overrides.FindTwoBoneIK(a,SceneID)==nullptr);
+    overrides.SetTwoBoneIK(a,SceneID,request);
+    overrides.RetainTwoBoneIK(std::unordered_set<std::uint32_t>{b.Value});
+    CHECK(overrides.FindTwoBoneIK(a,SceneID)==nullptr);
+    auto scaled=sampled;scaled.Nodes[1].LocalTRS.Scale.y=2.f;
+    REQUIRE_THROWS_AS(ApplyGltfTwoBoneIK(source,scaled,request),std::invalid_argument);
+    auto bad=request;bad.Nodes={0u,3u,1u};
+    REQUIRE_THROWS_AS(ApplyGltfTwoBoneIK(source,sampled,bad),std::invalid_argument);
 }

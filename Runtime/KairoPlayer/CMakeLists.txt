@@ -71,6 +71,11 @@ add_executable(KairoGameLab GameLab.cpp)
 target_link_libraries(KairoGameLab PRIVATE KairoPlayerRuntime)
 set_property(TARGET KairoGameLab PROPERTY COMPILE_WARNING_AS_ERROR ON)
 
+# Actual imported asset + native skinning acceptance, not an overlay fixture.
+add_executable(KairoImportedIKSmoke ImportedIKSmoke.cpp)
+target_link_libraries(KairoImportedIKSmoke PRIVATE KairoPlayerRuntime)
+set_property(TARGET KairoImportedIKSmoke PROPERTY COMPILE_WARNING_AS_ERROR ON)
+
 # Asynchronous graphical co-op client; the standalone server is a test/sample target.
 find_package(Threads REQUIRED)
 add_executable(KairoCoopClient CoopClient.cpp)
@@ -119,7 +124,7 @@ if(BUILD_TESTING)
     # CPU-only quest state test: no renderer/OS window dependency.
     # Analytic IK is a portable CPU kernel; no window or GPU needed.
     # Compatible-rig retarget test is CPU-only; native skinning is separate.
-    foreach(_pose_test IN ITEMS SkeletonPose PoseLab)
+    foreach(_pose_test IN ITEMS SkeletonPose PoseLab ImportedTwoBone)
         add_executable(KairoPlayer${_pose_test}Tests tests/Runtime${_pose_test}Tests.cpp)
         target_include_directories(KairoPlayer${_pose_test}Tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
         target_compile_features(KairoPlayer${_pose_test}Tests PRIVATE cxx_std_23)
@@ -606,6 +611,8 @@ if(BUILD_TESTING)
         if(Python3_Interpreter_FOUND)
             add_test(NAME KairoCoopNativeSmoke COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/Samples/NetworkLab/run_coop_native.py" $<TARGET_FILE:KairoCoopLab> $<TARGET_FILE:KairoCoopClient> ${_kairo_lab_backend})
             set_tests_properties(KairoCoopNativeSmoke PROPERTIES TIMEOUT 100 LABELS "m50-native")
+            add_test(NAME KairoImportedIKNativeSmoke COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/Samples/AnimationLab/run_imported_ik_native.py" $<TARGET_FILE:KairoImportedIKSmoke> ${_kairo_lab_backend})
+            set_tests_properties(KairoImportedIKNativeSmoke PROPERTIES TIMEOUT 75 LABELS "m50-native")
         endif()
     endif()
 

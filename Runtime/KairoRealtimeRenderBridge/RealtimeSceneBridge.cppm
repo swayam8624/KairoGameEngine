@@ -22,6 +22,9 @@ module;
 #include "MaterialFileSizeBudget.hpp"
 #include "FrameHierarchyCache.hpp"
 #include "FrameAssetCache.hpp"
+// Header-only rigid IK kernel; no dependency on the Player module or target.
+#include "../KairoPlayer/RuntimeImportedTwoBone.hpp"
+#include <unordered_set>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -553,6 +556,26 @@ export namespace kairo::runtime::renderbridge
         }
     };
 
+    // Procedural correction applied AFTER clip sampling and BEFORE building
+    // asset-space skin palettes. Caller supplies root-parent-space coordinates.
+    struct SceneTwoBoneIK final
+    {
+        std::array<std::uint32_t,3> Nodes{};
+        std::array<double,3> Target{}, Pole{};
+        void Validate() const
+        {
+            kairo::player::detail::ValidateImportedTwoBoneRequest(Nodes,Target,Pole);
+        }
+    };
+
+    [[nodiscard]] inline std::pair<kairo::engine::GltfAnimationPose,bool> ApplyGltfTwoBoneIK(
+        const kairo::assets::GltfSceneArtifactData& source,
+        const kairo::engine::GltfAnimationPose& pose,const SceneTwoBoneIK& request)
+    {
+        return kairo::player::detail::ApplyImportedTwoBone(source,pose,request.Nodes,request.Target,request.Pole,
+            [](const auto& trs){return kairo::foundation::math::ToMatrix4(trs);});
+    }
+
     /// Per-instance playback overrides. Animation state is intentionally kept
     /// outside serialized ECS in this first runtime slice so Editor/Player can
     /// drive preview/playback without changing the Scene schema prematurely.
@@ -562,6 +585,8 @@ export namespace kairo::runtime::renderbridge
     class SceneAnimationOverrides final
     {
         std::unordered_map<std::uint32_t, SceneAnimationPlayback> m_Playback;
+        struct IKBinding{ kairo::assets::AssetID Asset; SceneTwoBoneIK Request; };
+        std::unordered_map<std::uint32_t,IKBinding> m_IK;
 
     public:
         // Store validated finite playback time for this authored instance.
@@ -586,7 +611,32 @@ export namespace kairo::runtime::renderbridge
             return found == m_Playback.end() ? nullptr : &found->second;
         }
 
-        [[nodiscard]] bool Empty() const noexcept { return m_Playback.empty(); }
+        // Keep IK independent from clip selection and bound to the asset
+        // identity, so replacing a scene instance cannot reuse old node indices.
+        void SetTwoBoneIK(kairo::engine::Entity entity,kairo::assets::AssetID asset,SceneTwoBoneIK request)
+        {
+            request.Validate();
+            m_IK.insert_or_assign(entity.Value,IKBinding{asset,request});
+        }
+        void ClearTwoBoneIK(kairo::engine::Entity entity) noexcept { m_IK.erase(entity.Value); }
+        [[nodiscard]] const SceneTwoBoneIK* FindTwoBoneIK(kairo::engine::Entity entity,
+            kairo::assets::AssetID asset) const noexcept
+        {
+            const auto it=m_IK.find(entity.Value);
+            return it!=m_IK.end()&&it->second.Asset==asset?&it->second.Request:nullptr;
+        }
+        void ForgetMismatchedIK(kairo::engine::Entity entity,kairo::assets::AssetID asset)
+        {
+            const auto it=m_IK.find(entity.Value);
+            if(it!=m_IK.end()&&it->second.Asset!=asset)m_IK.erase(it);
+        }
+        void RetainTwoBoneIK(const std::unordered_set<std::uint32_t>& present)
+        {
+            for(auto it=m_IK.begin();it!=m_IK.end();)
+                if(!present.contains(it->first))it=m_IK.erase(it);else ++it;
+        }
+
+        [[nodiscard]] bool Empty() const noexcept { return m_Playback.empty()&&m_IK.empty(); }
     };
 
     /// Input: one validated EngineCore light and its world transform.
@@ -706,14 +756,15 @@ export namespace kairo::runtime::renderbridge
             const auto& primitives = binding.Primitives;
             const auto* gltf = binding.GltfSource ? &*binding.GltfSource : nullptr;
             const auto* playback = animations.Find(entity);
+            const auto* ik=animations.FindTwoBoneIK(entity,source.SceneAsset.ID);
             // A non-glTF multi-primitive scene uses the prebound LocalToAsset transforms.
             // Requesting animation for it is invalid because there is no validated glTF
             // node hierarchy to sample.
             if (gltf == nullptr)
             {
-                if (playback != nullptr)
+                if (playback != nullptr||ik!=nullptr)
                     throw std::invalid_argument(
-                        "Animation playback requires a glTF-aware scene binding.");
+                        "Animation playback or IK requires a glTF-aware scene binding.");
                 for (const auto& primitive : primitives)
                     result.Add({ .Mesh = primitive.Mesh,
                         .Model = world * primitive.LocalToAsset,
@@ -728,11 +779,13 @@ export namespace kairo::runtime::renderbridge
             // asset binding. Each animated entity evaluates a separate pose;
             // no cross-entity mutable state or frame-to-frame cache.
             std::optional<RenderAssetBindings::EvaluatedGltfPose> animated;
-            if (playback != nullptr)
+            if (playback != nullptr||ik!=nullptr)
             {
-                const auto pose = kairo::engine::SampleGltfAnimation(*gltf,
-                    playback->ClipIndex, playback->TimeSeconds, playback->TimeMode);
-                animated.emplace(RenderAssetBindings::EvaluateGltfPose(*gltf, pose, primitives));
+                auto pose=playback?kairo::engine::SampleGltfAnimation(*gltf,
+                    playback->ClipIndex,playback->TimeSeconds,playback->TimeMode):
+                    kairo::engine::BuildGltfRestPose(*gltf);
+                if(ik)pose=ApplyGltfTwoBoneIK(*gltf,pose,*ik).first;
+                animated.emplace(RenderAssetBindings::EvaluateGltfPose(*gltf,pose,primitives));
             }
             const auto& evaluated = animated ? *animated : binding.RestPose.value();
             for (const auto& primitive : primitives)
