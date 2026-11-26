@@ -274,3 +274,9 @@ Added single-outstanding-turn asynchronous worker, complete-snapshot-only view, 
 - Added desktop catalog browsing, metadata inspection, multi-selection and nonblocking verified recipe staging.
 - Bound staging to reviewed metadata, avoiding silent source/license changes between display and export.
 - Added actual Tk widget and staged-file regression gates under Xvfb. CI pending; no native Editor or marketplace claim.
+
+## M50 — catalog-to-Editor authoring (2026-11-26)
+
+- Added direct editable project creation from reviewed catalog records through the canonical recipe compiler, with automatic temporary staging cleanup.
+- Added graphical create/open workflow and explicit native Editor process handoff without shell expansion.
+- Registered graphical project/provenance tests and switched native Vulkan release acceptance to the shared catalog project operation. CI pending; no native Editor launch evidence claimed.
