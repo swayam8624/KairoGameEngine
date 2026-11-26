@@ -2,6 +2,7 @@
 #include "RuntimeNetworkProtocol.hpp"
 #include <cerrno>
 #include <chrono>
+#include <string>
 #include <utility>
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -32,6 +33,26 @@ namespace kairo::player::detail
     inline constexpr NativeNetworkSocket InvalidNetworkSocket=-1;
     using NativeAddressLength=socklen_t;
 #endif
+    // Snapshot the native error immediately after a failed socket call.
+    // Preserve OS error numbers in diagnostics without printing ticket data.
+    inline int NetworkSocketError() noexcept
+    {
+#ifdef _WIN32
+        return WSAGetLastError();
+#else
+        return errno;
+#endif
+    }
+    inline bool NetworkSocketInterrupted(int error) noexcept
+    {
+#ifdef _WIN32
+        return error==WSAEINTR;
+#else
+        return error==EINTR;
+#endif
+    }
+    inline std::runtime_error NetworkSocketFailure(const char* operation,int error)
+    {return std::runtime_error(std::string(operation)+" (socket error "+std::to_string(error)+").");}
     class NetworkSocketSession
     {
     public:
@@ -66,7 +87,7 @@ namespace kairo::player::detail
         {
             LoopbackTcp s(::socket(AF_INET,SOCK_STREAM,IPPROTO_TCP));
             const auto a=Address(port);
-            if(::bind(s.m_Socket,reinterpret_cast<const sockaddr*>(&a),sizeof(a))!=0||::listen(s.m_Socket,1)!=0)
+            if(::bind(s.m_Socket,reinterpret_cast<const sockaddr*>(&a),sizeof(a))!=0||::listen(s.m_Socket,8)!=0)
                 throw std::runtime_error("Loopback bind/listen failed.");
             return s;
         }
@@ -116,7 +137,13 @@ namespace kairo::player::detail
                 constexpr int flags=0;
 #endif
                 const auto n=::send(m_Socket,reinterpret_cast<const char*>(bytes.data()+done),static_cast<int>(bytes.size()-done),flags);
-                if(n<=0)throw std::runtime_error("Loopback send failed.");
+                if(n<0)
+                {
+                    const int error=NetworkSocketError();
+                    if(NetworkSocketInterrupted(error))continue;
+                    throw NetworkSocketFailure("Loopback send failed",error);
+                }
+                if(n==0)throw std::runtime_error("Loopback send returned zero bytes.");
                 done+=static_cast<std::size_t>(n);
             }
             CheckDeadline(deadline);
@@ -129,7 +156,14 @@ namespace kairo::player::detail
             {
                 SetRemainingTimeout(SO_RCVTIMEO,deadline);
                 const auto n=::recv(m_Socket,reinterpret_cast<char*>(bytes.data()+done),static_cast<int>(bytes.size()-done),0);
-                if(n<=0)throw std::runtime_error("Loopback receive failed/closed.");
+                if(n<0)
+                {
+                    const int error=NetworkSocketError();
+                    if(NetworkSocketInterrupted(error))continue;
+                    throw NetworkSocketFailure("Loopback receive failed",error);
+                }
+                if(n==0)throw std::runtime_error("Loopback peer closed before a complete frame ("+
+                    std::to_string(done)+"/"+std::to_string(bytes.size())+" bytes).");
                 done+=static_cast<std::size_t>(n);
             }
             CheckDeadline(deadline);return DecodeNetworkFrame(bytes);
@@ -170,7 +204,7 @@ namespace kairo::player::detail
             };
 #endif
             if(::setsockopt(m_Socket,SOL_SOCKET,option,reinterpret_cast<const char*>(&timeout),static_cast<NativeAddressLength>(sizeof(timeout)))!=0)
-                throw std::runtime_error("Cannot configure socket timeout.");
+                throw NetworkSocketFailure("Cannot configure socket timeout",NetworkSocketError());
         }
         static sockaddr_in Address(std::uint16_t port)
         {
