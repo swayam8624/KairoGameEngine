@@ -153,3 +153,7 @@ The previous implementation stack is merged into main. Follow-up fixes isolate m
 ## Candidate progress: native Android deployment
 
 Single shared-core Android game, native JNI, touch/lifecycle and APK/emulator gate implemented; actual Linux JVM/JNI tests pass both compilers. Device/APK acceptance pending; iOS and full mobile engine renderer/exporter remain open. No accepted 50% promotion.
+
+## Candidate progress: graphical menu authoring
+
+Standalone Tk graphical designer consumes the exact native C++ parser/serializer and writes the existing menu format. GUI drag/edit/undo/add/delete/save and conflict tests passed on real Tk/Xvfb with both compiled validators. Main-editor integration and native runtime acceptance remain separate.

@@ -533,3 +533,7 @@ Read the catalog's stage function and [recipe compiler](scripts/create_kairo_pro
 ## Android native sample
 
 After the shared platformer core and WebAssembly adapter, read [JNI adapter](Samples/AndroidPlatformer/app/src/main/cpp/PlatformerJni.cpp), [NativeGame](Samples/AndroidPlatformer/app/src/main/java/org/kairo/platformer/NativeGame.java), [TouchInput](Samples/AndroidPlatformer/app/src/main/java/org/kairo/platformer/TouchInput.java), [Activity and view](Samples/AndroidPlatformer/app/src/main/java/org/kairo/platformer/MainActivity.java), and [host tests](Samples/AndroidPlatformer/host-tests/org/kairo/platformer/HostTest.java). Trace Android pointer IDs, lifecycle, fixed ticks, JNI ownership and Canvas presentation. [Build guide](Samples/AndroidPlatformer/README.md).
+
+## Graphical menu authoring companion
+
+Read RuntimeMenuDocument and [parser CLI](Samples/AuthoredMenu/MenuDocumentTool.cpp), then [Tk model and designer](scripts/kairo_menu_designer.py) and [actual GUI events test](scripts/tests/test_menu_designer.py). Follow cursor pixels to normalized coordinates, candidate validation through the exact C++ parser, undo history and same-directory publication to Config/Menu.kmenu. Next trace the Player shipping bridge and native menu host.
