@@ -34,6 +34,7 @@ class ReleaseTests(unittest.TestCase):
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 int main(int argc,char **argv) {
     if(argc==4&&!strcmp(argv[2],"--package")) {
         const char *script=getenv("KAIRO_FIXTURE_PACKAGER");
@@ -46,6 +47,18 @@ int main(int argc,char **argv) {
     if(chdir(path))return 6;
     const char *files[]={"Project.kproject",".kairo/compiled/logic.bin","Licenses/model.txt","Content/Imported/model.glb"};
     for(unsigned i=0;i<4;i++){FILE *f=fopen(files[i],"rb");if(!f)return 7;fclose(f);}
+    if(argc==5) {
+        mkdir(".kairo",0755);
+        mkdir(".kairo/cache",0755);
+        FILE *cache=fopen(".kairo/cache/runtime.bin","wb");
+        if(!cache)return 8;
+        fputs("generated cache",cache); if(fclose(cache))return 9;
+        if(getenv("KAIRO_FIXTURE_MUTATE_AUTHORED")) {
+            FILE *bad=fopen("Licenses/model.txt","ab");
+            if(!bad)return 10;
+            fputs("mutated",bad);if(fclose(bad))return 11;
+        }
+    }
     return 0;
 }''')
         subprocess.run(['cc','-Wall','-Wextra','-Werror',str(source),'-o',str(player)],check=True)
@@ -86,6 +99,14 @@ launcher=out/'run.sh';launcher.write_text('#!/bin/sh\\nset -eu\\nroot=$(dirname 
             result=verify(player,self.descriptor,smoke=True,deb=True,catalog_models=1)
         self.assertEqual(result['files'],5);self.assertEqual(result['licensed_models'],1);self.assertTrue(result['debian'])
         self.assertTrue((self.project/'Build/Release/stale').exists())
+
+    @unittest.skipUnless(shutil.which('cc'),'Requires native C compiler')
+    def test_launch_rejects_authored_mutation(self):
+        player,script=self.fixture_player()
+        with patch.dict(os.environ,{'KAIRO_FIXTURE_PACKAGER':str(script),'KAIRO_FIXTURE_TAMPER':'0',
+                                    'KAIRO_FIXTURE_MUTATE_AUTHORED':'1'}):
+            with self.assertRaisesRegex(ValueError,'Relocated launch changed authored payload'):
+                verify(player,self.descriptor,smoke=True)
 
     @unittest.skipUnless(shutil.which('cc'),'Requires native C compiler')
     def test_package_rejects_modified_or_extra_bytes(self):
