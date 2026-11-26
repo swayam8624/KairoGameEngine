@@ -167,6 +167,43 @@ def run(binary):
                 if not directory.close(session['id'],session['owner']) or directory.list():
                     raise RuntimeError('Protected directory cleanup failed')
         print('Protected directory discovery, ticket issuance, native co-op victory and cleanup passed')
+        # Exercise the actual user-facing host/list/join commands in separate
+        # processes as well, without exposing credentials in process arguments.
+        with tempfile.TemporaryDirectory(prefix='kairo-launcher-') as tmp:
+            db=Path(tmp)/'sessions.db'
+            launcher=Path(__file__).with_name('coop_directory.py')
+            prefix=[sys.executable,str(launcher),str(db)]
+            host=subprocess.Popen([*prefix,'host',executable,'arena'],
+                                  stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=base_env)
+            processes.append(host)
+            lines=queue.Queue(maxsize=1)
+            threading.Thread(target=lambda:lines.put(host.stdout.readline()),daemon=True).start()
+            announcement=lines.get(timeout=8).split()
+            if len(announcement)!=3 or announcement[0]!='SESSION':
+                raise RuntimeError('Launcher did not advertise session')
+            session=announcement[1]
+            listing=subprocess.run([*prefix,'list'],capture_output=True,text=True,check=True,timeout=8,env=base_env)
+            import json
+            rows=json.loads(listing.stdout)
+            if len(rows)!=1 or rows[0]['id']!=session or not rows[0]['protected']:
+                raise RuntimeError('Launcher session listing mismatch')
+            clients=[]
+            for player in ('alice','bob'):
+                client=subprocess.Popen([*prefix,'join',executable,session,player],
+                                         stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=base_env)
+                clients.append(client);processes.append(client)
+            slots=set()
+            for client in clients:
+                out,err=client.communicate(timeout=15)
+                lines=out.splitlines()
+                if client.returncode or not lines or lines[0] not in ('SLOT 0','SLOT 1') or lines[1:]!=expected:
+                    raise RuntimeError(f'Launcher client mismatch: {out} {err}')
+                slots.add(lines[0])
+            out,err=host.communicate(timeout=12)
+            if host.returncode or len(slots)!=2 or out.strip()!='SERVER 6 7 1 7 5 1' or Directory(db).list():
+                raise RuntimeError(f'Launcher host mismatch: {out} {err}')
+        print('User-facing host, discover and join commands completed a protected match')
+
 
 
     finally:
