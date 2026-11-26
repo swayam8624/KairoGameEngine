@@ -318,3 +318,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Added explicit opt-in cold progress restore/save for collectible IDs, time, trigger history and visual enable states, bound to authored source bytes.
 - Parse and validate into copies before publication; reuse bounded atomic save helper and keep personal progress outside project payload. Save only on successful shutdown or explicit smoke completion.
 - Strict GCC, Clang and Clang ASan/UBSan each passed separate-process save, restore and rejection tests with exact source hashes. Native Player cold restore acceptance registered; native build/run pending.
+
+## M50 — physics-backed sliding doors (2026-11-26)
+
+- Added bounded data-only door rules and fixed-step vertical movement; actual Player adapter binds opted-in kinematic solid boxes, verifies player capsule/clearance, and updates authoritative physics and scene together.
+- Added Door Arena project and actual physics raycast/body/scene round-trip CTest.
+- Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized controller samples and invalid-input checks, exact source hashes verified. Native integration test is registered but not yet executed.

@@ -40,6 +40,7 @@ import Kairo.Player.RuntimeRenderBridge;
 import Kairo.Player.RuntimeAudioBridge;
 import Kairo.Player.RuntimeSceneAudioBridge;
 import Kairo.Player.RuntimePhysicsBridge;
+import Kairo.Player.RuntimeDoorBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
 import Kairo.Player.RuntimePlayerControllerBridge;
 import Kairo.Player.RuntimeInputBridge;
@@ -71,11 +72,12 @@ namespace
     public:
         RuntimeFixedStepFanout(kairo::player::RuntimePlayerControllerBridge& playerController,
             kairo::player::RuntimeLogicBridge& logic,
-            kairo::player::RuntimeNativeGameplayBridge& native)
-            : m_PlayerController(playerController), m_Logic(logic), m_Native(native) {}
+            kairo::player::RuntimeNativeGameplayBridge& native, kairo::player::RuntimeDoorBridge& doors)
+            : m_PlayerController(playerController), m_Logic(logic), m_Native(native), m_Doors(doors) {}
 
         void BeforePhysicsStep(float fixedDeltaSeconds) override
         {
+            m_Doors.BeforePhysicsStep(fixedDeltaSeconds);
             m_PlayerController.BeforePhysicsStep(fixedDeltaSeconds);
             m_Logic.BeforePhysicsStep(fixedDeltaSeconds);
             m_Native.BeforePhysicsStep(fixedDeltaSeconds);
@@ -85,6 +87,7 @@ namespace
         kairo::player::RuntimePlayerControllerBridge& m_PlayerController;
         kairo::player::RuntimeLogicBridge& m_Logic;
         kairo::player::RuntimeNativeGameplayBridge& m_Native;
+        kairo::player::RuntimeDoorBridge& m_Doors;
     };
 
     [[nodiscard]] Arguments ParseArguments(int count, char** values)
@@ -175,6 +178,8 @@ int main(int argc, char** argv)
         if (playerController.ControllerCount() != 0u && !input.HasAction("Move"))
             throw std::invalid_argument(
                 "A kairo.player-controller entity requires a project input action named 'Move'.");
+        kairo::player::RuntimeDoorBridge doors(project,physics,playerController.PrimaryController());
+        if(doors.Size())std::cout<<"  sliding doors: "<<doors.Size()<<'\n';
         kairo::player::RuntimeLogicBridge logic(project, physics);
         kairo::player::RuntimeNativeGameplayBridge nativeGameplay(
             project, kairo::player::PlayerNativeGameplayRegistry());
@@ -317,7 +322,7 @@ int main(int argc, char** argv)
             return pose;
         };
 
-        RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay);
+        RuntimeFixedStepFanout fixedSteps(playerController, logic, nativeGameplay, doors);
         logic.BeginPlay();
         nativeGameplay.BeginPlay();
         sceneAudio.BeginPlay();

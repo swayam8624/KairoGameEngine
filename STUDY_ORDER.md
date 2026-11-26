@@ -599,3 +599,7 @@ Start with [Trigger Arena](Samples/TriggerArena/README.md) and its [rules](Sampl
 ### Persistent objective and trigger state
 
 Read [RuntimeProgressCheckpoint.hpp](Runtime/KairoPlayer/RuntimeProgressCheckpoint.hpp) for source binding, versioned encoding and transactional restore. Follow restore methods in [RuntimeCollectibleRun.hpp](Runtime/KairoPlayer/RuntimeCollectibleRun.hpp) and [RuntimeProximityTriggers.hpp](Runtime/KairoPlayer/RuntimeProximityTriggers.hpp), then the atomic local file publication in [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp). [Cold-process tests](Runtime/KairoPlayer/tests/RuntimeProgressCheckpointTests.cpp) and [native acceptance](Samples/BeaconRun/run_native_progress.py) distinguish portable state verification from actual Player execution.
+
+### Physics-backed door interactions
+
+Read [Door Arena](Samples/DoorArena/README.md) and [door rules](Samples/DoorArena/Config/Doors.kdoor). [RuntimeSlidingDoor.hpp](Runtime/KairoPlayer/RuntimeSlidingDoor.hpp) owns portable motion and parser validation; [RuntimeDoorBridge.cppm](Runtime/KairoPlayer/RuntimeDoorBridge.cppm) binds authored entities to the authoritative physics world. Follow `RuntimeFixedStepFanout` in [main.cpp](Runtime/KairoPlayer/main.cpp) and `SetEntityPosition` in [RuntimePhysicsBridge.cppm](Runtime/KairoPlayer/RuntimePhysicsBridge.cppm). The [portable controller regression](Runtime/KairoPlayer/tests/RuntimeSlidingDoorTests.cpp) and [actual physics integration test](Runtime/KairoPlayer/tests/RuntimeDoorBridgeTests.cpp) cover distinct evidence boundaries.
