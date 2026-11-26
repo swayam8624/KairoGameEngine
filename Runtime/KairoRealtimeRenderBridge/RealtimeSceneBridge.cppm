@@ -125,13 +125,19 @@ export namespace kairo::runtime::renderbridge
 
     // The loaded source already contains the previous authored clip, if any.
     // Replacing a draft must preserve imported indices and detect disk edits.
-    inline void SaveAuthoredClip(const std::filesystem::path& root,
+    struct AuthoredClipPublication
+    {
+        std::vector<kairo::assets::GltfAnimationClipData> Animations;
+        std::string Revision;
+    };
+
+    [[nodiscard]] inline AuthoredClipPublication SaveAuthoredClip(const std::filesystem::path& root,
         kairo::assets::AssetID asset,const kairo::assets::DerivedDataKey& key,
         const kairo::assets::GltfSceneArtifactData& source,
         const kairo::assets::GltfAnimationClipData& draft,
         const std::optional<std::string>& expected)
     {
-        const auto bytes=clip_detail::Encode(key.ToString(),draft);
+        auto bytes=clip_detail::Encode(key.ToString(),draft);
         auto candidate=source;
         if(expected)
         {
@@ -146,6 +152,7 @@ export namespace kairo::runtime::renderbridge
         if(ReadAuthoredClip(root,asset)!=expected)
             throw std::runtime_error("Authored clip changed on disk. Reopen the project.");
         kairo::engine::SaveTextFileAtomically(path,bytes,"authored animation clip");
+        return {std::move(candidate.Animations),std::move(bytes)};
     }
 
     /// Complete CPU-side glTF import needed by animation-aware runtime binding.
@@ -372,6 +379,8 @@ export namespace kairo::runtime::renderbridge
             std::vector<ScenePrimitive> Primitives;
             std::optional<kairo::assets::GltfSceneArtifactData> GltfSource;
             std::optional<EvaluatedGltfPose> RestPose{};
+            std::optional<kairo::assets::DerivedDataKey> SourceKey{};
+            std::optional<std::string> AuthoredRevision{};
         };
 
         // Source has already passed full asset validation at binding time.
@@ -520,7 +529,9 @@ export namespace kairo::runtime::renderbridge
         void BindGltfScene(kairo::assets::SceneAssetHandle asset,
             kairo::assets::GltfSceneArtifactData source,
             const kairo::renderer::GltfRenderAsset& renderAsset,
-            std::span<const kairo::renderer::MeshHandle> meshHandles)
+            std::span<const kairo::renderer::MeshHandle> meshHandles,
+            std::optional<kairo::assets::DerivedDataKey> sourceKey=std::nullopt,
+            std::optional<std::string> authoredRevision=std::nullopt)
         {
             (void)m_Registry.Resolve(asset);
             kairo::assets::ValidateGltfSceneArtifactData(source);
@@ -550,7 +561,8 @@ export namespace kairo::runtime::renderbridge
             // non-playing instances share this rest snapshot.
             auto rest = EvaluateGltfPose(source, kairo::engine::BuildGltfRestPose(source), primitives);
             if (!m_Scenes.emplace(asset.ID,
-                SceneBinding{ std::move(primitives), std::move(source), std::move(rest) }).second)
+                SceneBinding{ std::move(primitives), std::move(source), std::move(rest),
+                    std::move(sourceKey),std::move(authoredRevision) }).second)
                 throw std::invalid_argument("A render scene asset is already bound.");
         }
 
@@ -571,6 +583,32 @@ export namespace kairo::runtime::renderbridge
         {
             const auto& binding = ResolveSceneBinding(asset);
             return binding.GltfSource.has_value() ? &*binding.GltfSource : nullptr;
+        }
+
+        [[nodiscard]] bool CanAuthorClip(kairo::assets::SceneAssetHandle asset) const
+        {
+            return ResolveSceneBinding(asset).SourceKey.has_value();
+        }
+
+        [[nodiscard]] bool HasAuthoredClip(kairo::assets::SceneAssetHandle asset) const
+        {
+            return ResolveSceneBinding(asset).AuthoredRevision.has_value();
+        }
+
+        // Publish only the new animation vector. Mesh handles, rest pose and
+        // skin metadata remain valid; no editor restart or lost scene drafts.
+        [[nodiscard]] std::size_t CommitAuthoredClip(const std::filesystem::path& root,
+            kairo::assets::SceneAssetHandle asset,const kairo::assets::GltfAnimationClipData& draft)
+        {
+            (void)m_Registry.Resolve(asset);
+            auto& binding=m_Scenes.at(asset.ID);
+            if(!binding.GltfSource||!binding.SourceKey)
+                throw std::logic_error("No source revision bound for animation authoring.");
+            auto result=SaveAuthoredClip(root,asset.ID,*binding.SourceKey,
+                *binding.GltfSource,draft,binding.AuthoredRevision);
+            binding.GltfSource->Animations.swap(result.Animations);
+            binding.AuthoredRevision=std::move(result.Revision);
+            return binding.GltfSource->Animations.size()-1;
         }
 
     private:
