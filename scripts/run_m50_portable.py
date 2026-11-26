@@ -27,7 +27,7 @@ SAMPLES = ('Samples/NetworkLab/NetworkLab.cpp', 'Samples/NetworkLab/run_pair.py'
            'Samples/PlatformerLab/PlatformerDemo.cpp', 'Samples/StrategyLab/StrategyDemo.cpp',
            'Samples/QuestDialogue/QuestDialogueDemo.cpp', 'scripts/kairo_asset_catalog.py',
            'scripts/kairo_matchmaking.py', 'scripts/tests/test_kairo_asset_catalog.py',
-           'scripts/tests/test_kairo_matchmaking.py', 'Samples/NetworkLab/CoopLab.cpp', 'Samples/NetworkLab/run_coop.py')
+           'scripts/tests/test_kairo_matchmaking.py', 'Samples/NetworkLab/CoopLab.cpp', 'Samples/NetworkLab/run_coop.py', 'Samples/NetworkLab/coop_directory.py')
 
 
 def fingerprint(path):
