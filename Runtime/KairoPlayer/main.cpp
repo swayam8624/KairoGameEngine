@@ -223,7 +223,8 @@ int main(int argc, char** argv)
         sceneAudio.BeginPlay();
         renderer.SubmitRenderScene(bridge.BuildScene());
         renderer.SetCameraPose(activeCameraPose());
-        if (arguments.SmokeTest) renderer.RequestViewportCapture();
+        bool captureRequested=false;
+        std::uint32_t viewportWidth=0,viewportHeight=0;
         unsigned smokeFrames = 0u;
         const auto clockOrigin=std::chrono::steady_clock::now();
         kairo::player::detail::RuntimeFrameClock frameClock;
@@ -231,11 +232,22 @@ int main(int argc, char** argv)
         {
             renderer.NativeWindow().PollEvents();
             if(renderer.NativeWindow().ShouldClose())break;
-            input.Poll(renderer.NativeWindow());
             const auto [frameWidth,frameHeight]=renderer.NativeWindow().FramebufferExtent();
             const bool drawable=frameWidth!=0&&frameHeight!=0;
             const auto elapsed=std::chrono::duration<double>(std::chrono::steady_clock::now()-clockOrigin).count();
+            // The offscreen target must match physical framebuffer pixels,
+            // including Retina scale and resize, before menu hit/draw layout.
+            if(drawable&&(frameWidth!=viewportWidth||frameHeight!=viewportHeight))
+            {
+                renderer.ResizeViewport(frameWidth,frameHeight);
+                viewportWidth=frameWidth;viewportHeight=frameHeight;
+            }
             const bool menuFrame=menu&&menu->Poll(frameWidth,frameHeight);
+            // Menu owns this frame, including its closing action. Neutralize
+            // held controls and queued jump so the next game frame cannot
+            // replay menu input or a pre-menu pending physics event.
+            input.Poll(renderer.NativeWindow(),!menuFrame);
+            if(menuFrame)playerController.ClearInput();
             const float elapsedSeconds=static_cast<float>(frameClock.Sample(elapsed,drawable&&!menuFrame));
             if(!drawable)
             {
@@ -281,6 +293,10 @@ int main(int argc, char** argv)
             }
             renderer.SubmitRenderScene(bridge.BuildScene());
             renderer.SetCameraPose(activeCameraPose());
+            if(arguments.SmokeTest&&!captureRequested)
+            {
+                renderer.RequestViewportCapture();captureRequested=true;
+            }
             renderer.DrawFrame();
             if (arguments.SmokeTest)
             {
@@ -300,6 +316,7 @@ int main(int argc, char** argv)
         }
         sceneAudio.EndPlay();
         nativeGameplay.EndPlay();
+        if(arguments.SmokeTest)throw std::runtime_error("Native smoke closed before capture.");
         return 0;
     }
     catch (const std::exception& error)
