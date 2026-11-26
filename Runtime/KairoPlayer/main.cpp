@@ -339,6 +339,7 @@ int main(int argc, char** argv)
         unsigned smokeFrames = 0u;
         std::size_t publishedScore=static_cast<std::size_t>(-1);
         unsigned overlayWidth=0,overlayHeight=0;
+        unsigned publishedHealth=static_cast<unsigned>(-1);
         const auto clockOrigin=std::chrono::steady_clock::now();
         kairo::player::detail::RuntimeFrameClock frameClock;
         while (!renderer.NativeWindow().ShouldClose())
@@ -358,7 +359,7 @@ int main(int argc, char** argv)
             const bool menuFrame=menu&&menu->Poll(frameWidth,frameHeight);
             // The modal menu exclusively owns the overlay until it closes.
             // Invalidate the HUD cache so the next gameplay frame restores it.
-            if(menuFrame)publishedScore=static_cast<std::size_t>(-1);
+            if(menuFrame){publishedScore=static_cast<std::size_t>(-1);publishedHealth=static_cast<unsigned>(-1);}
             // Menu owns this frame, including its closing action. Neutralize
             // held controls and queued jump so the next game frame cannot
             // replay menu input or a pre-menu pending physics event.
@@ -416,21 +417,29 @@ int main(int argc, char** argv)
                     std::cout<<"Beacons "<<collectibleRun.Score()<<"/"<<collectibleRun.Total()<<'\n';
                     if(collectibleRun.Won())std::cout<<"All beacons collected in "<<collectibleRun.Elapsed()<<" seconds!\n";
                 }
-                // The menu branch never executes this HUD publication.
-                if(renderer.SupportsViewportOverlay()&&
-                    (publishedScore!=collectibleRun.Score()||overlayWidth!=frameWidth||overlayHeight!=frameHeight))
-                {
-                    const auto width=std::min(300u,frameWidth/2u);
-                    std::vector<kairo::renderer::ViewportOverlayRect> rects;
-                    if(frameWidth>=24u&&width&&frameHeight>36u)
+            }
+            // One shared gameplay overlay owns both bars. The modal menu
+            // remains the only other publisher, and invalidates this cache.
+            if((collectibleRun.Total()||health.Enabled())&&renderer.SupportsViewportOverlay()&&
+                (publishedScore!=collectibleRun.Score()||publishedHealth!=health.Health()||
+                 overlayWidth!=frameWidth||overlayHeight!=frameHeight))
+            {
+                const auto width=std::min(300u,frameWidth/2u);
+                std::vector<kairo::renderer::ViewportOverlayRect> rects;
+                const auto bar=[&](unsigned y,unsigned filled,bool isHealth){
+                    if(frameWidth<24u||!width||frameHeight<y+16u)return;
+                    rects.push_back({12u,y,width,16u,{.08f,.12f,.18f}});
+                    if(filled)
                     {
-                        rects.push_back({12u,12u,width,16u,{.08f,.12f,.18f}});
-                        const auto progress=static_cast<unsigned>(width*collectibleRun.Score()/collectibleRun.Total());
-                        if(progress)rects.push_back({12u,12u,progress,16u,{.18f,.85f,.45f}});
+                        if(isHealth)rects.push_back({12u,y,filled,16u,{.85f,.18f,.22f}});
+                        else rects.push_back({12u,y,filled,16u,{.18f,.85f,.45f}});
                     }
-                    renderer.SetViewportOverlay(rects);
-                    publishedScore=collectibleRun.Score();overlayWidth=frameWidth;overlayHeight=frameHeight;
-                }
+                };
+                if(collectibleRun.Total())bar(12u,static_cast<unsigned>(width*collectibleRun.Score()/collectibleRun.Total()),false);
+                if(health.Enabled())bar(collectibleRun.Total()?36u:12u,width*health.Health()/health.Maximum(),true);
+                renderer.SetViewportOverlay(rects);
+                publishedScore=collectibleRun.Score();publishedHealth=health.Health();
+                overlayWidth=frameWidth;overlayHeight=frameHeight;
             }
 
             // The game thread owns mixing and scene state. The native callback
