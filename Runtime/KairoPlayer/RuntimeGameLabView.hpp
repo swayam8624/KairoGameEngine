@@ -2,7 +2,7 @@
 #include "RuntimeGridCanvas.hpp"
 #include "RuntimePlatformer.hpp"
 #include "RuntimeStrategy.hpp"
-#include "RuntimeQuestDialogue.hpp"
+#include "RuntimeRpgSession.hpp"
 #include "RuntimeMenuFocus.hpp"
 #include <array>
 #include <string>
@@ -82,37 +82,24 @@ namespace kairo::player::detail
         const auto label=game.Won()?std::string("OBJECTIVE COMPLETE"):("STORED "+std::to_string(game.Stored())+"/"+std::to_string(game.Goal()));
         GameLabText(rects,canvas,3,boardHeight+2,columns-6,label,{1,1,1});return rects;
     }
-    // The RPG fixture uses the existing objective graph and branching state;
-    // the native host separately owns the save-file path.
-    struct QuestLab
-    {
-        RuntimeQuestBook Book;
-        RuntimeDialogue Dialogue;
-        static RuntimeQuestBook Definitions()
-        {
-            RuntimeQuestBook b;b.Add({"accept",{}});b.Add({"find",{"accept"}});b.Add({"return",{"find"}});return b;
-        }
-        QuestLab():Book(Definitions()),Dialogue({
-            {"village","THE KEEPER NEEDS A CRYSTAL",{{"ACCEPT QUEST","cave",{},"accept"},{"RETURN CRYSTAL","","find","return"}}},
-            {"cave","A CRYSTAL GLOWS",{{"PICK UP CRYSTAL","village","accept","find"},{"GO BACK","village",{},{}}}}
-        },"village",Book){}
-    };
     [[nodiscard]] inline GameLabRects QuestView(const QuestLab& q,unsigned w,unsigned h)
     {
         RuntimeGridCanvas canvas(w,h,180,100);GameLabRects rects;
         AddGameRect(rects,canvas.Rect(0,0,180,100),{.055f,.07f,.13f});
-        if(const auto* node=q.Dialogue.Current())
+        if(const auto* node=q.Dialogue().Current())
         {
             GameLabText(rects,canvas,4,12,172,node->Text,{1,1,1});
             for(std::size_t i=0;i<node->Choices.size();++i)
             {
-                const bool enabled=q.Dialogue.Available(i,q.Book);
+                const bool enabled=q.Available(i);
                 AddGameRect(rects,canvas.Rect(4,28+int(i)*20,172,16),enabled?GameLabColor{.12f,.35f,.3f}:GameLabColor{.24f,.24f,.24f});
                 GameLabText(rects,canvas,7,32+int(i)*20,166,std::to_string(i+1)+" "+node->Choices[i].Label,enabled?GameLabColor{1,1,1}:GameLabColor{.55f,.55f,.55f});
             }
             GameLabText(rects,canvas,4,83,172,"1 2 CHOOSE S SAVE L LOAD",{.75f,.85f,1});
         }
-        else GameLabText(rects,canvas,4,40,172,q.Book.Won()?"QUEST COMPLETE":"CONVERSATION ENDED",{.3f,1,.6f});
+        else GameLabText(rects,canvas,4,40,172,q.Book().Won()?"QUEST COMPLETE":"CONVERSATION ENDED",{.3f,1,.6f});
+        // Inventory is real session state, not an inferred objective label.
+        GameLabText(rects,canvas,4,70,172,"CRYSTAL "+std::to_string(q.Bag().Count("crystal"))+" GOLD "+std::to_string(q.Bag().Count("gold")),{1,.75f,.2f});
         return rects;
     }
 }

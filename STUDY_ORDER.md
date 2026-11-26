@@ -543,3 +543,7 @@ Read RuntimeMenuDocument and [parser CLI](Samples/AuthoredMenu/MenuDocumentTool.
 1. [RuntimePhysicsBridge](Runtime/KairoPlayer/RuntimePhysicsBridge.cppm) maps entity identity to live bodies and fixed-step poses.
 2. [RuntimeCharacterMotorBridge](Runtime/KairoPlayer/RuntimeCharacterMotorBridge.cppm) derives capsule dimensions, queries grounded contact, integrates velocity, resolves displacement and publishes the pose back to the bridge. Follow RuntimePlayerControllerBridge for named actions.
 3. [RuntimeSceneAudioBridge](Runtime/KairoPlayer/RuntimeSceneAudioBridge.cppm) maps active listener and emitters to live voice handles, then RuntimeAudioBridge to decoded clip and mixed frames, RuntimePcmQueue and RuntimeNativeAudioOutput to device handoff. Compare lifecycle and resource ownership with the physics path.
+
+## RPG inventory and persistence
+
+After quest graph and save codec, read [RuntimeItemInventory](Runtime/KairoPlayer/RuntimeItemInventory.hpp) and [inventory oracle](Runtime/KairoPlayer/tests/RuntimeItemInventoryTests.cpp). Follow the net-change transaction into [RuntimeRpgSession](Runtime/KairoPlayer/RuntimeRpgSession.hpp): availability, candidate copy, cost/reward, graph mutation, invariant validation, KRL1 envelope and legacy migration. Then read [session tests](Runtime/KairoPlayer/tests/RuntimeRpgSessionTests.cpp), QuestView and GameLab's input/save routing. The native view borrows only const state.
