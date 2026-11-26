@@ -364,3 +364,8 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 
 - Added accepted launch serial and read-only flight positions; dedicated authored visual-only mesh markers reuse slots without creating per-shot resources. Optional imported player visual selects Idle/Attack through existing render animation clock. Fixed presentation window; no crossfade.
 - Added Visible Projectile Arena, full-workspace marker lifecycle CTest and portable presentation regression. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized presentation samples. Exact source hashes verified. Native scene adapter, renderer and imported attack clip verification remain pending.
+
+## M50 — graphical gameplay record authoring (2026-11-26)
+
+- Added a standalone Tk desktop companion for seven existing authored configuration formats, record add/replace/remove, same-directory atomic publication, external edit detection, explicit discard/reload and unsaved-close confirmation. No scene or asset rewrite. Structural validation only; native semantic validation required.
+- Executed four local unittest cases using actual Tk windows under Xvfb (7 format subtests, record edits, save, stale-source rejection, symlink rejection and discard recovery). Exact uploaded source/test blobs match the locally executed files. Registered existing graphical CI workflow. Native Mac and full Player validation remain pending.

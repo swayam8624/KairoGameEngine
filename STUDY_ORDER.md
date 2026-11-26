@@ -635,3 +635,7 @@ Read [Key Gate Arena](Samples/KeyGateArena/README.md), [door rules](Samples/KeyG
 ### Combat presentation and attack clips
 
 Read [Visible Projectile Arena](Samples/VisibleProjectileArena/README.md). [RuntimeCombatPresentation.hpp](Runtime/KairoPlayer/RuntimeCombatPresentation.hpp) owns accepted-launch timing and slot count; [RuntimeCombatBridge.cppm](Runtime/KairoPlayer/RuntimeCombatBridge.cppm) exposes authoritative projectile positions; [RuntimeCombatPresentationBridge.cppm](Runtime/KairoPlayer/RuntimeCombatPresentationBridge.cppm) publishes visual marker state and imported clip selection using [RuntimeRenderBridge.cppm](Runtime/KairoPlayer/RuntimeRenderBridge.cppm). Compare [portable policy tests](Runtime/KairoPlayer/tests/RuntimeCombatPresentationTests.cpp) and [full-workspace marker tests](Runtime/KairoPlayer/tests/RuntimeCombatPresentationBridgeTests.cpp).
+
+### Graphical gameplay record authoring
+
+Read [kairo_gameplay_editor.py](scripts/kairo_gameplay_editor.py) for the structural grammar, document snapshot, atomic replacement and Tk editing callbacks. [Actual widget and document tests](scripts/tests/test_kairo_gameplay_editor.py) exercise edit/save, external changes and discard recovery. Compare the runtime grammar in the corresponding sample README and C++ parser; native Player remains the authority for semantic validation.
