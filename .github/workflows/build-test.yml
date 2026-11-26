@@ -189,6 +189,10 @@ jobs:
           player=build/ci-clang/Runtime/KairoPlayer/KairoPlayer
           "$player" "$scratch/project/Project.kproject" --validate
           xvfb-run -a "$player" "$scratch/project/Project.kproject" --renderer vulkan --smoke
+          # Exercise the genuine player, package command, relocated launcher and
+          # extracted Debian game with the same generated licensed project.
+          command -v dpkg-deb
+          xvfb-run -a python3 scripts/verify_project_release.py "$player" "$scratch/project/Project.kproject" --smoke --deb --catalog-models 1
 
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')

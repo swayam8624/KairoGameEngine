@@ -1,7 +1,7 @@
 # Native M50 sample acceptance
 
 Configure a clean exact-lock workspace with the existing game-player-clang
-preset and native renderer dependencies. Build and run the six native
+preset and native renderer dependencies. Build and run the seven native
 sample gates together:
 
     # macOS (Metal)
@@ -11,7 +11,7 @@ sample gates together:
 
 The runner binds the verification to the configured CMake source and sibling
 roots, verifies the workspace.lock revisions, builds KairoGameLab and
-KairoSimulationLab, requires exactly six named CTest gates, and rejects
+KairoSimulationLab, requires exactly seven named CTest gates, and rejects
 missing, failed or skipped tests. It retains build output, discovery JSON,
 CTest log and JUnit XML. A success summary records engine commit, lock digest,
 binary hashes and gate times. Use a new evidence directory per run.

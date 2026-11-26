@@ -551,3 +551,7 @@ After quest graph and save codec, read [RuntimeItemInventory](Runtime/KairoPlaye
 ## Skeleton animation integration
 
 Read RuntimeTwoBoneIK and RuntimeAnimationRetarget first. Next read [RuntimeSkeletonPose](Runtime/KairoPlayer/RuntimeSkeletonPose.hpp): quaternion sandwich, shortest arc, parent-first FK, world swing transformed back to local rotation. [Pose tests](Runtime/KairoPlayer/tests/RuntimeSkeletonPoseTests.cpp) reconstruct solved targets; [RuntimePoseLab](Runtime/KairoPlayer/RuntimePoseLab.hpp) composes source/retarget/IK and projects the real joint positions to the canvas. [Lab tests](Runtime/KairoPlayer/tests/RuntimePoseLabTests.cpp) verify target lengths, reach and pixel bounds. Finish with AnimationView in GameLabView and the native --animation gate.
+
+## Authored release and provenance
+
+Read RuntimePackaging.cppm (profile exclusion, payload counting, staging and publication), then [verify_project_release](scripts/verify_project_release.py), [Debian wrapper](scripts/package_kairo_deb.py) and [fixture tests](scripts/tests/test_verify_project_release.py). Follow the immutable project inventory, compiled payload, license hashes and executable hash across source copy, raw bundle, relocated launcher and extracted user-data initialization. Distinguish a real ELF fixture from actual Player/GPU acceptance.
