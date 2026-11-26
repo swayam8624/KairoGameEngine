@@ -18,3 +18,4 @@ jobs:
         run: |
           PYTHONPATH=scripts /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_asset_catalog.py
           PYTHONPATH=scripts xvfb-run -a /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_asset_catalog_browser.py
+          PYTHONPATH=scripts xvfb-run -a /usr/bin/python3 -m unittest discover -s scripts/tests -p test_kairo_project_workflow.py
