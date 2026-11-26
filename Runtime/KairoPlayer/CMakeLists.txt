@@ -91,6 +91,9 @@ target_include_directories(KairoMenuDocumentTool PRIVATE "${CMAKE_CURRENT_SOURCE
 target_compile_features(KairoMenuDocumentTool PRIVATE cxx_std_23)
 set_property(TARGET KairoMenuDocumentTool PROPERTY COMPILE_WARNING_AS_ERROR ON)
 
+add_executable(KairoWorld2DTool World2DTool.cpp)
+target_compile_features(KairoWorld2DTool PRIVATE cxx_std_23)
+set_property(TARGET KairoWorld2DTool PROPERTY COMPILE_WARNING_AS_ERROR ON)
 add_executable(KairoPlayer main.cpp PlatformerProjectHost.cpp World2DProjectHost.cpp)
 target_link_libraries(KairoPlayer PRIVATE KairoPlayerRuntime)
 if(APPLE)
