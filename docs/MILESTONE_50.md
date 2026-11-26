@@ -177,3 +177,7 @@ Both local compilers passed 95,825 randomized simultaneous turns each and an act
 ## Candidate progress: graphical co-op
 
 Two-client asynchronous worker, keyboard/overlay host and independent native three-process capture gate added. Both portable compilers passed real worker network/cancellation/failure tests and 5,000 viewport cases each. Native CI and accepted-head gate pending.
+
+## Candidate progress: graphical licensed catalog
+
+A standalone Tk catalog browser now reuses the canonical local manifest, search, checksum, license evidence and recipe staging code. It displays reviewed metadata, filters selectable assets, and stages asynchronously into a new directory; metadata changes between review and staging reject. Actual Tk/Xvfb tests are registered for search, selection, provenance, overwrite refusal and stale metadata. Main-editor import, actual native model preview, and CI execution remain open.
