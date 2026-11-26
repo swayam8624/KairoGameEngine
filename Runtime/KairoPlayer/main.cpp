@@ -14,6 +14,7 @@
 // mathematical certification of physics.
 
 #include "RuntimeFrameClock.hpp"
+#include "RuntimePlatformerProject.hpp"
 #include "RuntimeCollectibleRun.hpp"
 #include "RuntimeProximityTriggers.hpp"
 #include "RuntimeGameplayEvents.hpp"
@@ -56,6 +57,12 @@ import Kairo.Player.RuntimeShippingBridge;
 import Kairo.Player.RuntimeMenuHost;
 import Kairo.Player.RuntimePackaging;
 import Kairo.Renderer;
+
+namespace kairo::player::detail
+{
+    int RunPlatformerProject(RuntimePlatformer game,const std::string& title,
+        kairo::renderer::GraphicsBackend backend,bool smoke);
+}
 
 namespace
 {
@@ -163,6 +170,28 @@ int main(int argc, char** argv)
                   << "  assets: " << project.Assets().Size() << "\n"
                   << "  entities: " << project.Scene().Size() << "\n"
                   << "  startup scene: " << project.Descriptor().StartupScene.generic_string() << '\n';
+        // A canonical opt-in file selects the bounded 2D runtime. The regular
+        // project descriptor, containment rules and package pipeline remain shared.
+        const auto tileFile=project.Root()/"Config/Platformer.k2d";
+        if(std::filesystem::exists(tileFile)||std::filesystem::is_symlink(tileFile))
+        {
+            if(project.Scene().Size()!=0||project.Assets().Size()!=0||arguments.ProgressFile)
+                throw std::invalid_argument("2D platformer projects require an empty 3D scene/asset registry and no 3D progress file.");
+            auto rows=kairo::player::detail::LoadPlatformerProject(
+                project.RequireProjectFile("Config/Platformer.k2d","platformer document"));
+            if(arguments.ValidateOnly){std::cout<<"Validated native 2D platformer project\n";return 0;}
+            if(arguments.PackageProfile)
+            {
+                const auto package=kairo::player::PackageRuntimeProject(project,
+                    {*arguments.PackageProfile,argv[0],arguments.ReplacePackage});
+                std::cout<<"Packaged "<<package.ProjectFileCount<<" project files to "<<package.OutputDirectory<<'\n';
+                return 0;
+            }
+            const auto backend=arguments.BackendOverride.value_or(
+                kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend));
+            return kairo::player::detail::RunPlatformerProject(
+                kairo::player::detail::RuntimePlatformer(std::move(rows)),project.Descriptor().Name,backend,arguments.SmokeTest);
+        }
         kairo::player::RuntimePhysicsBridge physics(project.Scene());
         kairo::player::RuntimeAudioBridge audio(project);
         std::unique_ptr<kairo::player::detail::RuntimeNativeAudioOutput> audioOutput;
