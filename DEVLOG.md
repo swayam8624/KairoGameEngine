@@ -300,3 +300,9 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Added direct editable project creation from reviewed catalog records through the canonical recipe compiler, with automatic temporary staging cleanup.
 - Added graphical create/open workflow and explicit native Editor process handoff without shell expansion.
 - Registered graphical project/provenance tests and switched native Vulkan release acceptance to the shared catalog project operation. CI pending; no native Editor launch evidence claimed.
+
+## M50 — unified project workbench (2026-11-26)
+
+- Added desktop and headless workflows for editor, authored menu, validation, smoke, play and release packaging using existing built engine binaries.
+- Compile and validate before subsequent operations; fail fast, retain child output and never implicitly overwrite releases.
+- Five local real-process/Tk tests passed under Xvfb; exact tested blobs match the branch. Native smoke and full workspace CI pending.
