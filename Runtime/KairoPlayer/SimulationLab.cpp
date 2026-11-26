@@ -160,6 +160,9 @@ int main(int argc,char** argv)
             // Empty submission also unbinds the shared cube in every mode.
             if(tetraPublication.Release(submitTetra,destroy)!=0)
                 throw std::runtime_error("Simulation lab retained dynamic mesh handles.");
+            // The dynamic journal may be empty in water/destruction mode.
+            // Explicitly unbind the cube even if an empty journal reported zero.
+            renderer.SubmitRenderScene(RenderScene{});
             renderer.DestroyMesh(cube);
         };
         const auto publish=[&]()

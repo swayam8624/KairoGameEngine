@@ -24,3 +24,8 @@ Linux only: other operating systems require separate build verification.
 ## Post-extraction regression
 
 The WebAssembly shared-core extraction was followed by a complete portable rerun on both compilers: 96/96 commands and 48/48 execution gates combined; all 50 source blobs matched the tested tree. [Exact-source evidence](evidence/m50-portable-web-2026-11-26.json). Browser rendering and full workspace acceptance remain separate gates.
+
+
+## Post-merge integration regression
+
+GCC and Clang passed 56/56 commands each (28 execution gates each) including four new C++ presentation/publication tests; 58 exact source blobs matched the tested candidate tree. [Local evidence](evidence/m50-portable-integration-2026-11-26.json). Native acceptance is separately defined in [M50 native guide](M50_NATIVE_ACCEPTANCE.md).

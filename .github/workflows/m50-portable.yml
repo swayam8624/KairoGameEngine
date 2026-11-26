@@ -28,6 +28,8 @@ jobs:
           command -v dpkg-deb
           command -v cc
           PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_package_kairo_deb.py
+      - name: Test native acceptance report checker with real CTest fixtures
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_m50_native_acceptance.py
       - name: Preserve commands, hashes and test evidence
         if: always()
         uses: actions/upload-artifact@v4

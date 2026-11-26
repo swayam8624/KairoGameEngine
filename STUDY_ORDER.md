@@ -513,3 +513,7 @@ Read [RuntimeGameLabView](Runtime/KairoPlayer/RuntimeGameLabView.hpp) and [CPU p
 ## Simulation lab integration follow-up
 
 After RuntimeSoftBody, read [tetra surface](Runtime/KairoPlayer/RuntimeTetraSurface.hpp) and [surface tests](Runtime/KairoPlayer/tests/RuntimeTetraSurfaceTests.cpp). Follow signed volume to outward winding, flat normals and MeshVertex conversion in SimulationLab. Then read [VoxelMeshPublication](Runtime/KairoPlayer/VoxelMeshPublication.hpp) and [single-slot recovery tests](Runtime/KairoPlayer/tests/RuntimeTetraPublicationTests.cpp), tracing both generations through submission, rollback and release. Read CraftStreamDemo shutdown to understand shared rain/creature mesh references.
+
+## Native acceptance and release evidence
+
+Read [M50 native guide](docs/M50_NATIVE_ACCEPTANCE.md), [runner](scripts/run_m50_native_acceptance.py), [CTest fixture tests](scripts/tests/test_m50_native_acceptance.py) and the existing lock verifier. Follow configured CMake roots -> lock verification -> actual target build -> exact labeled tests -> JUnit evidence -> binary hashes. A CPU fixture validates the checker, not native graphics. Compare the portable [integration evidence](docs/evidence/m50-portable-integration-2026-11-26.json) with the actual native CI artifacts when available.
