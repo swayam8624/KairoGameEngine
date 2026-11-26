@@ -59,7 +59,7 @@ class HubTests(unittest.TestCase):
         self.assertEqual(recent.paths[-1], str(self.root / "8.kproject"))
 
     def test_actual_repository_templates(self):
-        for kind in ("empty", "arena", "beacon", "keygate"):
+        for kind in ("empty", "arena", "beacon", "keygate", "2d"):
             with self.subTest(kind=kind):
                 name = "My " + kind
                 p = create(kind, name, self.root)
@@ -72,7 +72,7 @@ class HubTests(unittest.TestCase):
                     create(kind, name, self.root)
                 self.assertEqual(p.read_bytes(), before)
         with self.assertRaises(ValueError):
-            create("2d", "Not native yet", self.root)
+            create("unknown", "Not native yet", self.root)
         self.assertFalse((self.root / "Not native yet").exists())
 
     def test_sample_copy_rejects_links_and_excludes_runtime(self):
