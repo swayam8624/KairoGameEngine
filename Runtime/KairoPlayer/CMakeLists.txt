@@ -71,6 +71,15 @@ add_executable(KairoGameLab GameLab.cpp)
 target_link_libraries(KairoGameLab PRIVATE KairoPlayerRuntime)
 set_property(TARGET KairoGameLab PROPERTY COMPILE_WARNING_AS_ERROR ON)
 
+# Asynchronous graphical co-op client; the standalone server is a test/sample target.
+find_package(Threads REQUIRED)
+add_executable(KairoCoopClient CoopClient.cpp)
+target_link_libraries(KairoCoopClient PRIVATE KairoPlayerRuntime Threads::Threads)
+set_property(TARGET KairoCoopClient PROPERTY COMPILE_WARNING_AS_ERROR ON)
+if(WIN32)
+    target_link_libraries(KairoCoopClient PRIVATE ws2_32)
+endif()
+
 # Standalone native validation tool for the graphical menu designer.
 add_executable(KairoMenuDocumentTool ../../Samples/AuthoredMenu/MenuDocumentTool.cpp)
 target_include_directories(KairoMenuDocumentTool PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -147,6 +156,16 @@ if(BUILD_TESTING)
     target_compile_features(KairoPlayerCoopArenaTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerCoopArenaTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
     add_test(NAME KairoPlayerCoopArenaTests COMMAND KairoPlayerCoopArenaTests)
+    add_executable(KairoPlayerCoopWorkerTests tests/RuntimeCoopWorkerTests.cpp)
+    target_include_directories(KairoPlayerCoopWorkerTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(KairoPlayerCoopWorkerTests PRIVATE cxx_std_23)
+    target_link_libraries(KairoPlayerCoopWorkerTests PRIVATE Threads::Threads)
+    set_property(TARGET KairoPlayerCoopWorkerTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    if(WIN32)
+        target_link_libraries(KairoPlayerCoopWorkerTests PRIVATE ws2_32)
+    endif()
+    add_test(NAME KairoPlayerCoopWorkerTests COMMAND KairoPlayerCoopWorkerTests)
+    set_tests_properties(KairoPlayerCoopWorkerTests PROPERTIES TIMEOUT 45)
     add_executable(KairoCoopLab ../../Samples/NetworkLab/CoopLab.cpp)
     target_include_directories(KairoCoopLab PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(KairoCoopLab PRIVATE cxx_std_23)
@@ -584,6 +603,10 @@ if(BUILD_TESTING)
         set_tests_properties(KairoGameLabPlatformerNativeSmoke KairoGameLabStrategyNativeSmoke KairoGameLabRPGNativeSmoke KairoGameLabAnimationNativeSmoke
             KairoSimulationWaterNativeSmoke KairoSimulationSoftNativeSmoke KairoSimulationDestructionNativeSmoke
             PROPERTIES TIMEOUT 60 LABELS "m50-native")
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME KairoCoopNativeSmoke COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/Samples/NetworkLab/run_coop_native.py" $<TARGET_FILE:KairoCoopLab> $<TARGET_FILE:KairoCoopClient> ${_kairo_lab_backend})
+            set_tests_properties(KairoCoopNativeSmoke PROPERTIES TIMEOUT 100 LABELS "m50-native")
+        endif()
     endif()
 
     # Linux CI provides Xvfb; macOS and Windows are explicit manual simulation lab gates.
