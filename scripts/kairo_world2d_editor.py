@@ -60,7 +60,7 @@ class World:
             if not lo <= value <= hi:
                 raise ValueError("Number outside world limit")
             return value
-        expect("kairo-world2d"); expect("1"); expect("size")
+        expect("kairo-world2d"); version=number(1,2); expect("size")
         size = (number(3,128), number(3,128))
         expect("mode"); mode = token()
         if mode not in ("topdown","platform"):
@@ -83,13 +83,15 @@ class World:
             raise ValueError("Missing empty tile")
         expect("sprites"); sprites = {}
         for _ in range(number(1,64)):
-            name, period, count = token(), number(1,600), number(1,16)
+            name=token()
+            width,height=(number(1,32),number(1,32)) if version==2 else (4,4)
+            period,count=number(1,600),number(1,16)
             frames = tuple(token() for _ in range(count))
             if name in sprites or len(name)>32 or not all(c.isascii() and (c.isalnum() or c=="_") for c in name):
                 raise ValueError("Invalid sprite name")
-            if any(len(frame)!=16 or any(c not in "0123456789abcdefABCDEF" for c in frame) for frame in frames):
+            if any(len(frame)!=width*height or any(c not in "0123456789abcdefABCDEF" for c in frame) for frame in frames):
                 raise ValueError("Invalid sprite frame")
-            sprites[name] = (period,frames)
+            sprites[name] = (width,height,period,frames)
         def layer(name):
             expect(name)
             rows = [token() for _ in range(size[1])]
@@ -110,14 +112,14 @@ class World:
         return cls(size,mode,camera,motion,colors,tiles,sprites,background,foreground,actors)
 
     def encode(self):
-        lines = ["kairo-world2d 1",f"size {self.size[0]} {self.size[1]}",f"mode {self.mode}",
+        lines = ["kairo-world2d 2",f"size {self.size[0]} {self.size[1]}",f"mode {self.mode}",
                  "camera "+" ".join(map(str,self.camera)),"motion "+" ".join(map(str,self.motion)),
                  f"colors {len(self.colors)}"]
         lines += [f"{i} {rgb:06x}" for i,rgb in sorted(self.colors.items())]
         lines += [f"tiles {len(self.tiles)}"]+[f"{c} {color} {solid}" for c,(color,solid) in self.tiles.items()]
         lines += [f"sprites {len(self.sprites)}"]
-        for name,(period,frames) in self.sprites.items():
-            lines += [f"{name} {period} {len(frames)}",*frames]
+        for name,(width,height,period,frames) in self.sprites.items():
+            lines += [f"{name} {width} {height} {period} {len(frames)}",*frames]
         lines += ["background",*self.background,"map",*self.map,f"actors {len(self.actors)}"]
         lines += [f"{a.id} {a.kind} {a.x} {a.y} {a.w} {a.h} {a.sprite} {a.patrol}" for a in self.actors]
         data = ("\n".join(lines)+"\n").encode("ascii")
@@ -194,7 +196,7 @@ class Document:
 
 def run_editor(project,build,renderer):
     import tkinter as tk
-    from tkinter import ttk,messagebox,simpledialog
+    from tkinter import ttk,messagebox,simpledialog,filedialog,colorchooser
     from kairo_project_workflow import ProjectTools
     tools=ProjectTools(project,build)
     path=tools.project.parent/"Config/World.k2d"
@@ -275,12 +277,13 @@ def run_editor(project,build,renderer):
                     fill=world.rgb(world.tiles[c][0]),outline="#303640")
         for a in world.actors:
             x,y,w,h=(v*scale/16 for v in (a.x,a.y,a.w,a.h))
-            frame=world.sprites[a.sprite][1][0]
+            sw,sh,_,frames=world.sprites[a.sprite]
+            frame=frames[0]
             for i,pixel in enumerate(frame):
                 color=int(pixel,16)
                 if color:
-                    px,py=i%4,i//4
-                    canvas.create_rectangle(x+px*w/4,y+py*h/4,x+(px+1)*w/4,y+(py+1)*h/4,
+                    px,py=i%sw,i//sw
+                    canvas.create_rectangle(x+px*w/sw,y+py*h/sh,x+(px+1)*w/sw,y+(py+1)*h/sh,
                         fill=world.rgb(color),outline="")
             if a.id==selected:
                 canvas.create_rectangle(x,y,x+w,y+h,outline="#70b6ff",width=2)
@@ -369,12 +372,12 @@ def run_editor(project,build,renderer):
         try:
             name=simpledialog.askstring("Sprite","Existing or new sprite name",parent=root)
             if name is None:return
-            period,frames=doc.world.sprites.get(name,(8,("1111111111111111",)))
-            raw=simpledialog.askstring("Indexed animation","Ticks per frame, then 16 hex pixels per frame (0 transparent)",
-                initialvalue=" ".join(map(str,(period,*frames))),parent=root)
+            width,height,period,frames=doc.world.sprites.get(name,(4,4,8,("1111111111111111",)))
+            raw=simpledialog.askstring("Indexed animation","Width height ticks; then one hex string per frame (0 transparent)",
+                initialvalue=" ".join(map(str,(width,height,period,*frames))),parent=root)
             if raw is None:return
-            ticks,*new_frames=raw.split()
-            doc.edit(lambda w:w.sprites.__setitem__(name,(int(ticks),tuple(new_frames))));refresh()
+            sw,sh,ticks,*new_frames=raw.split()
+            doc.edit(lambda w:w.sprites.__setitem__(name,(int(sw),int(sh),int(ticks),tuple(new_frames))));refresh()
         except ValueError as error:report(error)
     def edit_tile():
         try:
@@ -383,7 +386,48 @@ def run_editor(project,build,renderer):
             symbol,color,solid=raw.split()
             doc.edit(lambda w:w.tiles.__setitem__(symbol,(int(color),int(solid))));refresh()
         except ValueError as error:report(error)
-    for text,fn in (("World settings",config),("Edit sprites",edit_sprite),("Define tile",edit_tile)):
+    def edit_color():
+        try:
+            index=simpledialog.askinteger("Palette index","Choose color index (0–15)",minvalue=0,maxvalue=15,parent=root)
+            if index is None:return
+            _,value=colorchooser.askcolor(doc.world.rgb(index),parent=root)
+            if value:doc.edit(lambda w:w.colors.__setitem__(index,int(value[1:],16)));refresh()
+        except ValueError as error:report(error)
+    def import_sheet():
+        try:
+            path=filedialog.askopenfilename(parent=root,filetypes=[("PNG sprite sheet","*.png")])
+            if not path:return
+            # Bound decoded PNG dimensions before Tk loads the pixels.
+            source=Path(path)
+            if source.stat().st_size>8*1024*1024:raise ValueError("PNG exceeds 8 MiB")
+            with source.open("rb") as stream:header=stream.read(24)
+            if len(header)!=24 or header[:8]!=b"\x89PNG\r\n\x1a\n" or header[12:16]!=b"IHDR":
+                raise ValueError("Expected PNG header")
+            iw,ih=int.from_bytes(header[16:20],"big"),int.from_bytes(header[20:24],"big")
+            if not 1<=iw<=512 or not 1<=ih<=512:raise ValueError("PNG dimensions exceed 512x512")
+            image=tk.PhotoImage(file=path)
+            if image.width()!=iw or image.height()!=ih:raise ValueError("PNG dimensions changed")
+            raw=simpledialog.askstring("Sprite sheet","Name frameWidth frameHeight ticks (row-major frames; max 16)",parent=root)
+            if raw is None:return
+            name,sw,sh,period=raw.split();sw,sh,period=map(int,(sw,sh,period))
+            if not 1<=sw<=32 or not 1<=sh<=32 or iw%sw or ih%sh or not 1<=iw//sw*(ih//sh)<=16:
+                raise ValueError("Sheet must contain 1–16 complete frames, each at most 32x32")
+            palette_values=[tuple(int(doc.world.rgb(i)[p:p+2],16) for p in (1,3,5)) for i in range(16)]
+            frames=[]
+            for fy in range(0,ih,sh):
+                for fx in range(0,iw,sw):
+                    pixels=[]
+                    for y in range(fy,fy+sh):
+                        for x in range(fx,fx+sw):
+                            if image.transparency_get(x,y):pixels.append("0");continue
+                            rgb=image.get(x,y)
+                            index=min(range(1,16),key=lambda i:sum((a-b)**2 for a,b in zip(rgb,palette_values[i])))
+                            pixels.append(format(index,"x"))
+                    frames.append("".join(pixels))
+            doc.edit(lambda w:w.sprites.__setitem__(name,(sw,sh,period,tuple(frames))));refresh()
+        except (ValueError,OSError,tk.TclError) as error:report(error)
+    for text,fn in (("World settings",config),("Edit sprites",edit_sprite),("Import PNG sheet",import_sheet),
+                    ("Define tile",edit_tile),("Edit palette",edit_color)):
         ttk.Button(left,text=text,command=fn).pack(fill="x",pady=3)
     def save():
         try:doc.save();refresh();return True
