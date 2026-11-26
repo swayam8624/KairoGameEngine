@@ -1,0 +1,10 @@
+kairo-enemy-nav 1
+height 0
+rect -3.5 -3.5 -1 -1
+rect -1 -3.5 1 -1
+rect 1 -3.5 3.5 -1
+rect -3.5 -1 -1 1
+rect 1 -1 3.5 1
+rect -3.5 1 -1 3.5
+rect -1 1 1 3.5
+rect 1 1 3.5 3.5
