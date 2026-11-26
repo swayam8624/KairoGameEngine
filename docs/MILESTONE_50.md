@@ -201,3 +201,7 @@ The SQLite directory now issues the actual protected server tickets atomically, 
 ## Candidate progress: catalog-to-Editor project creation
 
 The graphical catalog and CLI now share a direct new-project operation using isolated verified staging and the canonical recipe compiler. The browser can open the generated Project.kproject in an explicitly configured KairoEditorApp. Tk tests cover project output, exact model/license evidence, destination refusal and the editor argument boundary; native release CI uses the same creation operation. Actual native Editor execution and in-project asset import remain open.
+
+## Candidate progress: generic collectible objectives
+
+Restacked older #108 on current main. The ordinary Player recognizes opt-in static visual-only leaf collectibles, reports score/time/completion, and hides collected entities. HUD publication is deferred during modal menu frames and refreshed on resume. Exact tested core/test Git blobs `f5d09f452e08680bb0d00eba33f7be632a011601` and `369db57ab97862a1ff0e479d61f8220540b5a73b` passed GCC, Clang and Clang ASan/UBSan, each with 1,000 seeded runs and a 4,096-goal batch. Native CI validates the six-goal project, checks one goal collected at spawn and a nonuniform native capture, and rejects a tagged rigid-body player. The native gate is pending, not evidence of a complete playthrough. No moving collectible, arbitrary trigger graph, persistence or percentage promotion claim.
