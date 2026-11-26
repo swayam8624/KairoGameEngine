@@ -516,11 +516,13 @@ int main(int argc, char** argv)
                 std::vector<kairo::renderer::ViewportOverlayRect> rects;
                 const auto bar=[&](unsigned y,unsigned filled,bool isHealth){
                     if(frameWidth<24u||!width||frameHeight<y+16u)return;
-                    rects.push_back({12u,y,width,16u,{.08f,.12f,.18f}});
+                    // Coordinates are signed in the renderer API. y is a bounded HUD constant.
+                    const auto top=static_cast<std::int32_t>(y);
+                    rects.push_back({12,top,width,16u,{.08f,.12f,.18f}});
                     if(filled)
                     {
-                        if(isHealth)rects.push_back({12u,y,filled,16u,{.85f,.18f,.22f}});
-                        else rects.push_back({12u,y,filled,16u,{.18f,.85f,.45f}});
+                        if(isHealth)rects.push_back({12,top,filled,16u,{.85f,.18f,.22f}});
+                        else rects.push_back({12,top,filled,16u,{.18f,.85f,.45f}});
                     }
                 };
                 if(collectibleRun.Total())bar(12u,static_cast<unsigned>(width*collectibleRun.Score()/collectibleRun.Total()),false);
