@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from kairo_hub_core import ROOT, TEMPLATES, RecentProjects, create, descriptor, default_recent_path, editor_command
 
@@ -143,6 +143,23 @@ class Hub(ttk.Frame):
         ttk.Label(page, text="Renderer").grid(row=3, column=0, sticky="w", pady=(16, 4))
         ttk.Combobox(page, textvariable=self.renderer, values=("auto", "metal", "vulkan", "opengl", "d3d12"), state="readonly").grid(row=4, column=0, sticky="w")
         ttk.Label(page, text="Opening projects never downloads dependencies or starts a build.", style="Muted.TLabel", wraplength=600).grid(row=5, column=0, sticky="w", pady=20)
+        if self.recent.warning:
+            ttk.Button(page, text="Recover recent list", command=self.recover_recent).grid(row=6, column=0, sticky="w")
+
+    def recover_recent(self):
+        if not self.recent.warning:
+            self.status.set("Recent list is healthy.")
+            return
+        if not messagebox.askyesno("Recover recent projects",
+                                  "Keep a backup of the damaged list and start a new list? Project files are unaffected.",
+                                  parent=self.parent):
+            return
+        try:
+            backup = self.recent.recover()
+            self.refresh()
+            self.status.set(f"Recovered recent list. Backup: {backup}")
+        except (OSError, ValueError) as error:
+            self.status.set(str(error))
 
     def choose_directory(self, variable):
         value = filedialog.askdirectory(parent=self.parent)
