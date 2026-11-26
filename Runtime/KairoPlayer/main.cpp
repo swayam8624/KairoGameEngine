@@ -16,6 +16,7 @@
 #include "RuntimeFrameClock.hpp"
 #include "RuntimeCollectibleRun.hpp"
 #include "RuntimeProximityTriggers.hpp"
+#include "RuntimeProgressCheckpoint.hpp"
 #include "CraftSaveFile.hpp"
 #include <algorithm>
 #include <vector>
@@ -59,6 +60,7 @@ namespace
         bool SmokeTest = false;
         bool ReplacePackage = false;
         std::optional<std::string> PackageProfile;
+        std::optional<std::filesystem::path> ProgressFile;
         std::optional<kairo::renderer::GraphicsBackend> BackendOverride;
     };
 
@@ -90,7 +92,7 @@ namespace
         if (count < 2)
             throw std::invalid_argument(
                 "Usage: KairoPlayer <Project.kproject> [--renderer auto|vulkan|metal|d3d12|opengl] "
-                "[--validate|--smoke|--package <profile> [--replace]]");
+                "[--validate|--smoke|--package <profile> [--replace]] [--progress-file <path.kprogress>]");
         Arguments result;
         result.Project = values[1];
         for (int index = 2; index < count; ++index)
@@ -104,6 +106,12 @@ namespace
                     throw std::invalid_argument("--package may be specified only once.");
                 if (++index >= count) throw std::invalid_argument("--package requires an exact build-profile name.");
                 result.PackageProfile = values[index];
+            }
+            else if (option == "--progress-file")
+            {
+                if(result.ProgressFile||++index>=count)
+                    throw std::invalid_argument("--progress-file requires one explicit path.");
+                result.ProgressFile=values[index];
             }
             else if (option == "--replace") result.ReplacePackage = true;
             else if (option == "--renderer")
@@ -122,6 +130,8 @@ namespace
             throw std::invalid_argument("--validate, --smoke, and --package are mutually exclusive operations.");
         if (result.ReplacePackage && !result.PackageProfile.has_value())
             throw std::invalid_argument("--replace is valid only with --package.");
+        if(result.ProgressFile&&(result.ValidateOnly||result.PackageProfile))
+            throw std::invalid_argument("--progress-file is for play or explicit smoke only.");
         return result;
     }
 }
@@ -195,9 +205,12 @@ int main(int argc, char** argv)
         // static visual root leaves. No physics bodies or gameplay owners are
         // silently enabled/disabled by the visual trigger adapter.
         std::optional<kairo::player::detail::RuntimeProximityTriggers> triggers;
+        kairo::player::detail::TriggerVisuals triggerVisuals;
+        std::vector<std::filesystem::path> progressSources;
         if(std::filesystem::exists(project.Root()/"Config/Triggers.ktrigger"))
         {
             const auto path=project.RequireProjectFile("Config/Triggers.ktrigger","trigger document");
+            progressSources.push_back(path);
             const auto bytes=kairo::player::detail::ReadCraftSaveFile(path,kairo::player::detail::MaximumTriggerBytes);
             const std::string document(bytes.begin(),bytes.end());
             const auto rules=kairo::player::detail::ParseTriggerRules(document);
@@ -213,12 +226,48 @@ int main(int argc, char** argv)
                     scene.HasAudioEmitter(entity)||scene.HasAudioListener(entity)||
                     (!scene.HasMeshRenderer(entity)&&!scene.HasSceneInstance(entity)))
                     throw std::invalid_argument("Trigger target must be an opted-in visual-only root leaf.");
+                triggerVisuals.emplace(rule.Target,scene.IsActiveInHierarchy(entity));
             }
             triggers.emplace(document);
             if(triggers->Size()&&!playerController.PrimaryController())
                 throw std::invalid_argument("Proximity triggers require a player controller.");
             std::cout<<"  proximity triggers: "<<triggers->Size()<<'\n';
         }
+        // Progress is explicitly opt-in and stored outside the authored
+        // project tree, so personal state cannot enter a release payload.
+        std::optional<std::filesystem::path> progressPath;
+        std::uint64_t progressIdentity=0;
+        if(arguments.ProgressFile)
+        {
+            if(!collectibleRun.Total()&&(!triggers||!triggers->Size()))
+                throw std::invalid_argument("Project has no persistent objective or trigger state.");
+            const auto requested=std::filesystem::absolute(*arguments.ProgressFile);
+            if(requested.extension()!=".kprogress"||std::filesystem::is_symlink(requested))
+                throw std::invalid_argument("Progress requires a regular .kprogress path.");
+            progressPath=std::filesystem::canonical(requested.parent_path())/requested.filename();
+            const auto relative=progressPath->lexically_relative(project.Root());
+            if(!relative.empty()&&*relative.begin()!="..")
+                throw std::invalid_argument("Progress file must be outside the authored project.");
+            progressSources.push_back(std::filesystem::canonical(arguments.Project));
+            progressSources.push_back(project.RequireProjectFile(project.Descriptor().StartupScene,"progress scene"));
+            progressIdentity=kairo::player::detail::ProgressIdentity(progressSources);
+            if(std::filesystem::exists(*progressPath))
+            {
+                kairo::player::detail::LoadProgress(*progressPath,progressIdentity,collectibleRun,triggers,triggerVisuals);
+                for(const auto& goal:collectibleRun.Goals())
+                    if(goal.Collected)project.Scene().SetEnabled(kairo::engine::Entity{goal.ID},false);
+                for(const auto& [id,enabled]:triggerVisuals)
+                    project.Scene().SetEnabled(kairo::engine::Entity{id},enabled);
+                std::cout<<"Restored objective progress: "<<collectibleRun.Score()<<"/"<<collectibleRun.Total()<<'\n';
+            }
+        }
+        const auto saveProgress=[&]{
+            if(progressPath)
+            {
+                kairo::player::detail::SaveProgress(*progressPath,progressIdentity,collectibleRun,triggers,triggerVisuals);
+                std::cout<<"Saved objective progress.\n";
+            }
+        };
         // Headless validation stops before graphics initialization.
         if (arguments.ValidateOnly) return 0;
         if (arguments.PackageProfile.has_value())
@@ -342,6 +391,7 @@ int main(int argc, char** argv)
                     const kairo::engine::Entity target{event.Target};
                     if(!project.Scene().Contains(target))continue;
                     project.Scene().SetEnabled(target,event.Enable);
+                    triggerVisuals.at(event.Target)=event.Enable;
                     std::cout<<"Trigger "<<event.ID<<": "<<(event.Enable?"show ":"hide ")<<event.Target<<'\n';
                 }
             }
@@ -403,6 +453,7 @@ int main(int argc, char** argv)
                               << 'x' << capture->Height << ".\n";
                     sceneAudio.EndPlay();
                     nativeGameplay.EndPlay();
+                    saveProgress();
                     return 0;
                 }
                 if (++smokeFrames > 16u)
@@ -412,6 +463,7 @@ int main(int argc, char** argv)
         sceneAudio.EndPlay();
         nativeGameplay.EndPlay();
         if(arguments.SmokeTest)throw std::runtime_error("Native smoke closed before capture.");
+        saveProgress();
         return 0;
     }
     catch (const std::exception& error)
