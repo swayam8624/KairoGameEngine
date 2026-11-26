@@ -181,3 +181,7 @@ Two-client asynchronous worker, keyboard/overlay host and independent native thr
 ## Candidate progress: imported character IK
 
 Imported glTF node correction now feeds the real shared skin palette extraction and runtime controls. Both local compilers passed 10,000 structural adapter matrix reconstructions each; actual artifact/module regression registered, awaiting full workspace CI. No imported native GPU capture or accepted promotion yet.
+
+## Candidate progress: file-backed native skin acceptance
+
+Original self-contained GLB fixture and actual imported skinned mesh/clip/IK capture/pick gate registered as ninth strict native sample. Local byte tests passed; actual native importer/build/render acceptance remains pending. No promotion until accepted-head native results.

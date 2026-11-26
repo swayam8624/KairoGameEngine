@@ -567,3 +567,7 @@ Read [CoopWorker](Runtime/KairoPlayer/RuntimeCoopWorker.hpp), [CoopView](Runtime
 ## Imported character IK
 
 Read RuntimeSkeletonPose, [RuntimeImportedTwoBone](Runtime/KairoPlayer/RuntimeImportedTwoBone.hpp) and [adapter tests](Runtime/KairoPlayer/tests/RuntimeImportedTwoBoneTests.cpp). Follow SceneTwoBoneIK / ApplyGltfTwoBoneIK in [RealtimeSceneBridge](Runtime/KairoRealtimeRenderBridge/RealtimeSceneBridge.cppm) from sampled local pose through matrix refresh and asset-space joint palettes. [Shared extraction tests](Runtime/KairoRealtimeRenderBridge/tests/RealtimeSceneBridgeTests.cpp) check per-instance isolation. RuntimeRenderBridge exposes asset-bound set/clear and lifecycle pruning. Distinguish root-parent coordinates from outer entity placement.
+
+## File-backed skinned animation acceptance
+
+Read [GLB generator](Samples/AnimationLab/run_imported_ik_native.py), [byte-level fixture tests](Samples/AnimationLab/test_imported_ik_fixture.py), and [ImportedIKSmoke](Runtime/KairoPlayer/ImportedIKSmoke.cpp). Trace buffer views and accessors -> imported typed artifact -> renderer mesh influences -> sampled pose and IK -> jointWorld*inverseBind -> real native readback and object-ID picking. Separate local byte tests from actual native acceptance.
