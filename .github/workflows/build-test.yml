@@ -149,7 +149,21 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: |
-          set -o pipefail
+          set -euo pipefail
+          # A hosted headless sanitizer runner has no physical GPU. The
+          # standalone loader probe reproduced a leak on default enumeration
+          # but exited cleanly with the Lavapipe ICD alone. Select that known
+          # software device explicitly; keep every test and leak check active.
+          if [[ "${{ matrix.preset }}" == ci-sanitized ]]; then
+            shopt -s nullglob
+            manifests=(/usr/share/vulkan/icd.d/lvp_icd*.json)
+            if (( ${#manifests[@]} != 1 )); then
+              echo "Expected exactly one Lavapipe ICD manifest." >&2
+              exit 1
+            fi
+            export VK_DRIVER_FILES="${manifests[0]}"
+            echo "Sanitizer Vulkan ICD: $VK_DRIVER_FILES"
+          fi
           xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" \
             ctest --preset ${{ matrix.preset }} --output-on-failure 2>&1 | tee test-${{ matrix.preset }}.log
 
