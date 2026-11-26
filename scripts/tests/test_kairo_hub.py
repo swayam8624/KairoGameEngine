@@ -59,7 +59,7 @@ class HubTests(unittest.TestCase):
         self.assertEqual(recent.paths[-1], str(self.root / "8.kproject"))
 
     def test_actual_repository_templates(self):
-        for kind in ("empty", "arena", "beacon", "keygate", "2d"):
+        for kind in ("empty", "arena", "beacon", "keygate", "2d", "world2d"):
             with self.subTest(kind=kind):
                 name = "My " + kind
                 p = create(kind, name, self.root)
@@ -74,6 +74,16 @@ class HubTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             create("unknown", "Not native yet", self.root)
         self.assertFalse((self.root / "Not native yet").exists())
+
+    def test_world2d_dispatch(self):
+        p = create("world2d", "World Test", self.root)
+        build = self.root / "build"
+        build.mkdir()
+        self.assertEqual(editor_command(p, build)[1], str(ROOT / "scripts/kairo_world2d_editor.py"))
+        self.assertTrue((p.parent / "Config/World.k2d").is_file())
+        # Descriptor marker still dispatches if the scene document is missing.
+        (p.parent / "Config/World.k2d").unlink()
+        self.assertEqual(editor_command(p, build)[1], str(ROOT / "scripts/kairo_world2d_editor.py"))
 
     def test_sample_copy_rejects_links_and_excludes_runtime(self):
         source = self.root / "engine/Samples/KeyGateArena"

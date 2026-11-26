@@ -47,6 +47,14 @@ class ProjectTools:
                 header = stream.read(1024 * 1024 + 1)
             if len(header) > 1024 * 1024:
                 raise ValueError('Project descriptor exceeds size limit')
+            world = self.project.parent / 'Config/World.k2d'
+            world2d = any(line.strip() == b'startup-scene "Scenes/World2D.kscene"'
+                          for line in header.splitlines())
+            if world2d or world.exists() or world.is_symlink():
+                script = self.root / 'scripts/kairo_world2d_editor.py'
+                if not script.is_file():
+                    raise ValueError('World2D editor script missing')
+                return [[sys.executable, str(script), p, '--build', str(self.build), '--renderer', renderer]]
             platformer = any(line.strip() == b'startup-scene "Scenes/Platformer.kscene"'
                              for line in header.splitlines())
             if platformer or tile.exists() or tile.is_symlink():

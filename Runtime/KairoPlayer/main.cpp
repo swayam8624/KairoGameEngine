@@ -15,6 +15,7 @@
 
 #include "RuntimeFrameClock.hpp"
 #include "RuntimePlatformerProject.hpp"
+#include "RuntimeWorld2D.hpp"
 #include "RuntimeCollectibleRun.hpp"
 #include "RuntimeProximityTriggers.hpp"
 #include "RuntimeGameplayEvents.hpp"
@@ -63,6 +64,11 @@ namespace kairo::player::detail
 {
     int RunPlatformerProject(RuntimePlatformer game,const std::string& title,
         kairo::renderer::GraphicsBackend backend,bool smoke);
+}
+
+namespace kairo::player::world2d
+{
+    int Run(Game game,const std::string& title,kairo::renderer::GraphicsBackend backend,bool smoke);
 }
 
 namespace
@@ -182,6 +188,28 @@ int main(int argc, char** argv)
                   << "  startup scene: " << project.Descriptor().StartupScene.generic_string() << '\n';
         // A canonical opt-in file selects the bounded 2D runtime. The regular
         // project descriptor, containment rules and package pipeline remain shared.
+        const auto worldFile=project.Root()/"Config/World.k2d";
+        const bool worldProject=project.Descriptor().StartupScene.generic_string()=="Scenes/World2D.kscene";
+        if(!worldProject&&(std::filesystem::exists(worldFile)||std::filesystem::is_symlink(worldFile)))
+            throw std::invalid_argument("World2D file requires the reserved 2D startup scene.");
+        if(worldProject)
+        {
+            if(project.Scene().Size()!=0||project.Assets().Size()!=0||arguments.ProgressFile||arguments.LogicTraceSession)
+                throw std::invalid_argument("World2D uses its own inline asset scene; 3D progress and logic tracing are unavailable.");
+            auto world=kairo::player::world2d::Load(project.RequireProjectFile("Config/World.k2d","2D world document"));
+            if(arguments.ValidateOnly){std::cout<<"Validated native World2D project\n";return 0;}
+            if(arguments.PackageProfile)
+            {
+                const auto package=kairo::player::PackageRuntimeProject(project,
+                    {*arguments.PackageProfile,argv[0],arguments.ReplacePackage});
+                std::cout<<"Packaged "<<package.ProjectFileCount<<" project files to "<<package.OutputDirectory<<'\n';
+                return 0;
+            }
+            const auto backend=arguments.BackendOverride.value_or(
+                kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend));
+            return kairo::player::world2d::Run(kairo::player::world2d::Game(std::move(world)),
+                project.Descriptor().Name,backend,arguments.SmokeTest);
+        }
         const auto tileFile=project.Root()/"Config/Platformer.k2d";
         const bool platformerProject=project.Descriptor().StartupScene.generic_string()=="Scenes/Platformer.kscene";
         if(!platformerProject&&(std::filesystem::exists(tileFile)||std::filesystem::is_symlink(tileFile)))
