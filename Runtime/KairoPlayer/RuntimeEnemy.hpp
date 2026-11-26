@@ -11,7 +11,7 @@ namespace kairo::player::detail
     using EnemyPosition=std::array<double,3>;
     enum class EnemyMode{Patrol,Pursue,Attack,Search};
     struct EnemySettings{double Speed=2,Sight=8,Reach=1.5;unsigned Memory=120,Cooldown=45,Damage=10;};
-    struct EnemyCommand{EnemyMode Mode;EnemyPosition Velocity;unsigned Damage;};
+    struct EnemyCommand{EnemyMode Mode;EnemyPosition Velocity;unsigned Damage;EnemyPosition Goal{};};
     inline bool EnemyFinite(const EnemyPosition& p)
     {return std::all_of(p.begin(),p.end(),[](double v){return std::isfinite(v)&&std::abs(v)<=100000;});}
     inline double EnemyDistance(const EnemyPosition& a,const EnemyPosition& b)
@@ -53,7 +53,7 @@ namespace kairo::player::detail
                 {
                     unsigned damage=0;
                     if(!m_Cooldown){damage=m_Settings.Damage;m_Cooldown=m_Settings.Cooldown;}
-                    return {EnemyMode::Attack,{},damage};
+                    return {EnemyMode::Attack,{},damage,self};
                 }
                 goal=player;mode=EnemyMode::Pursue;
             }
@@ -65,9 +65,9 @@ namespace kairo::player::detail
                 goal=m_Patrol[m_Waypoint];mode=EnemyMode::Patrol;
             }
             const double x=goal[0]-self[0],z=goal[2]-self[2],length=std::hypot(x,z);
-            if(length<=1e-9)return {mode,{},0};
+            if(length<=1e-9)return {mode,{},0,goal};
             const double speed=std::min(m_Settings.Speed,length/dt);
-            return {mode,{x*speed/length,0,z*speed/length},0};
+            return {mode,{x*speed/length,0,z*speed/length},0,goal};
         }
     };
 }
