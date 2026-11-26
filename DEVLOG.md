@@ -274,3 +274,9 @@ Added single-outstanding-turn asynchronous worker, complete-snapshot-only view, 
 - Added ticket-bound local seats with bounded handshake and attempt limits; legacy open lab remains available.
 - Extended actual three-process acceptance with wrong, malformed, truncated and replayed ticket cases, reverse arrival order and protected CLI victory.
 - Native dual-client capture gate now checks protected seat identity. CI and native acceptance pending; no percentage promotion.
+
+## M50 — protected local matchmaking workflow (2026-11-26)
+
+- Connected directory-issued one-time seats to protected server admission, with legacy open-session compatibility and permanent claimed-seat accounting.
+- Added host/list/join CLI companion with token-free command arguments, bounded lobby discovery and cleanup.
+- Registered concurrent directory and actual native process launcher tests in portable exact-source acceptance. CI pending; no hosted-service claim.
