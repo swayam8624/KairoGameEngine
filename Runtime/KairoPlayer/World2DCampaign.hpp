@@ -1,5 +1,7 @@
 #pragma once
+#include <algorithm>
 #include <array>
+#include <utility>
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
