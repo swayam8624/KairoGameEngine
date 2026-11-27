@@ -236,6 +236,10 @@ if(BUILD_TESTING)
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/tests/world2d_audio_authoring.py"
                 $<TARGET_FILE:KairoWorld2DAudioTool> $<TARGET_FILE:KairoPlayer> "${CMAKE_SOURCE_DIR}/Samples/PhysicsWorld2DProject")
         set_tests_properties(KairoPlayerWorld2DAudioAuthoring PROPERTIES TIMEOUT 120)
+        add_test(NAME KairoPlayerWorld2DVFXAuthoring
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/tests/world2d_vfx_authoring.py"
+                $<TARGET_FILE:KairoWorld2DTool> "${CMAKE_SOURCE_DIR}/Samples/PhysicsWorld2DProject")
+        set_tests_properties(KairoPlayerWorld2DVFXAuthoring PROPERTIES TIMEOUT 60)
     endif()
     add_executable(KairoPlayerPlatformerProjectTests tests/RuntimePlatformerProjectTests.cpp)
     target_compile_features(KairoPlayerPlatformerProjectTests PRIVATE cxx_std_23)
