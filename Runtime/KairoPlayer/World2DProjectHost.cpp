@@ -126,20 +126,31 @@ namespace kairo::player::world2d
         publish(width,height);
         if(smoke)
         {
-            renderer.RequestViewportCapture();
-            for(unsigned i=0;i<16;++i)
+            const auto captureScreen=[&]()
             {
-                renderer.NativeWindow().PollEvents();
-                renderer.DrawFrame();
-                if(auto capture=renderer.TakeViewportCapture())
+                renderer.RequestViewportCapture();
+                for(unsigned i=0;i<16;++i)
                 {
-                    if(!capture->IsVisuallyNonUniform())throw std::runtime_error("World2D capture is uniform.");
-                    if(!rectangles)VerifyAtlasCapture(game,*capture,renderer.Backend(),rects,!campaign.UI);
-                    std::cout<<"Native World2D "<<(rectangles?"rectangle":"textured atlas")<<" viewport smoke passed\n";
-                    return 0;
+                    renderer.NativeWindow().PollEvents();
+                    renderer.DrawFrame();
+                    if(auto capture=renderer.TakeViewportCapture())
+                    {
+                        if(!capture->IsVisuallyNonUniform())throw std::runtime_error("World2D capture is uniform.");
+                        if(!rectangles||campaign.UI)VerifyAtlasCapture(game,*capture,renderer.Backend(),rects,!campaign.UI);
+                        return;
+                    }
                 }
+                throw std::runtime_error("World2D capture unavailable.");
+            };
+            captureScreen();
+            if(campaign.UI)
+            {
+                paused=true;publish(width,height);captureScreen();
+                paused=false;progress.Finished=true;publish(width,height);captureScreen();
+                std::cout<<"Authored play, pause and completion UI captures passed\n";
             }
-            throw std::runtime_error("World2D capture unavailable.");
+            std::cout<<"Native World2D "<<(rectangles?"rectangle":"textured atlas")<<" viewport smoke passed\n";
+            return 0;
         }
         auto* window=renderer.NativeWindow().NativeHandle();
         const auto updateTitle=[&]()
