@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import math
 import re
 import shlex
+import subprocess
 
 LIMIT=16384
 PAGES=("play","pause","complete")
@@ -205,7 +206,7 @@ def open_designer(root,target,validator,bounded_config,publish_config,report):
         try:
             data=encode(widgets);publish_config(target,baseline,data,LIMIT,[validator,"--ui"])
             baseline=original=data;refresh()
-        except (OSError,ValueError,UnicodeError) as e:report(e)
+        except (OSError,ValueError,UnicodeError,subprocess.SubprocessError) as e:report(e)
     def close():
         if encode(widgets)!=original and not messagebox.askyesno("Unsaved UI","Discard unsaved UI changes?",parent=win):return
         win.destroy()
