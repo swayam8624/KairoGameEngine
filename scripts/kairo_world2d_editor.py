@@ -583,6 +583,38 @@ def run_editor(project,build,renderer):
             open_designer(root,target,validator,bounded_config,publish_config,report)
         except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
 
+    def logic_editor():
+        if child is not None and child.poll() is None:
+            report(ValueError("Close Player before editing logic"));return
+        if doc.dirty and not save():return
+        try:
+            target=project_root/"Config/Logic.klogic2d"
+            if target.parent.is_symlink() or target.is_symlink():raise ValueError("Linked logic path rejected")
+            baseline=bounded_config(target,16384)
+            tool=tools.binary("KairoWorld2DInputTool","Runtime/KairoPlayer")
+            window=tk.Toplevel(root);window.title("Kairo Studio / Gameplay Logic")
+            window.geometry("900x620");window.transient(root);window.grab_set()
+            ttk.Label(window,text="Level event [selector] command [arguments]",font=("TkDefaultFont",13,"bold")).pack(anchor="w",padx=12,pady=8)
+            ttk.Label(window,text="Events: begin, tick, collect, death, complete, input ACTION, sensor_begin ID, sensor_end ID, ui BUTTON_ID, timer TICKS. Commands: print \"text\", position ID X Y, impulse ID X Y, add SLOT VALUE, set SLOT VALUE, sound EVENT_INDEX.",wraplength=860).pack(fill="x",padx=12)
+            editor=tk.Text(window,bg="#161a20",fg="#e4e8ef",insertbackground="white",undo=True,wrap="none")
+            editor.pack(fill="both",expand=True,padx=12,pady=8)
+            editor.insert("1.0",(baseline or b'kairo-logic2d 1\nrules 1\nmain timer 60 add 0 1\n').decode("ascii"))
+            def publish():
+                nonlocal baseline
+                try:
+                    data=editor.get("1.0","end-1c").encode("ascii")
+                    publish_config(target,baseline,data,16384,[tool,"--logic",project_root])
+                    baseline=data
+                    messagebox.showinfo("Gameplay Logic","Native validation and VM compilation passed.",parent=window)
+                except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+            def close():
+                current=editor.get("1.0","end-1c").encode("ascii",errors="replace")
+                if current!=baseline and not messagebox.askyesno("Unsaved logic","Discard unsaved rule edits?",parent=window):return
+                window.destroy()
+            ttk.Button(window,text="Validate, compile and save",command=publish).pack(pady=8)
+            window.protocol("WM_DELETE_WINDOW",close)
+        except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+
     def audio_editor():
         if child is not None and child.poll() is None:
             report(ValueError("Close Player before editing audio"));return
@@ -593,7 +625,7 @@ def run_editor(project,build,renderer):
             open_audio(root,project_root,tool,bounded_config,publish_config,report)
         except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
 
-    for text,fn in (("Audio studio",audio_editor),("Game UI designer",ui_designer),("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
+    for text,fn in (("Gameplay logic",logic_editor),("Audio studio",audio_editor),("Game UI designer",ui_designer),("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
                     ("Input bindings",lambda:config_window(False))):
         ttk.Button(left,text=text,command=fn).pack(fill="x",pady=3)
     def play():

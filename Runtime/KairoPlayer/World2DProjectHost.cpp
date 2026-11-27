@@ -25,6 +25,10 @@ import Kairo.Assets.AudioArtifact;
 import Kairo.Assets.Importer;
 import Kairo.Assets.Types;
 import Kairo.EngineCore.AudioRuntime;
+import Kairo.EngineCore.LogicBytecode;
+import Kairo.EngineCore.Entity;
+import Kairo.Foundation.Math.Vector;
+#include "World2DNativeLogic.hpp"
 
 #include "World2DNativeAudio.hpp"
 
@@ -32,13 +36,21 @@ import Kairo.EngineCore.AudioRuntime;
 
 namespace kairo::player::world2d
 {
+    void ValidateWorldLogic(const CampaignProject& campaign,const kairo::player::RuntimeProject& project)
+    {
+        if(campaign.Logic)
+        {
+            ValidateWorldLogicInputs(*campaign.Logic,project.InputMap());
+            WorldLogic compiled(*campaign.Logic,[](unsigned){});
+        }
+    }
     void ValidateWorldAudio(const CampaignProject& campaign,const std::filesystem::path& root)
     {
         if(campaign.Audio)(void)LoadWorldAudio(root,*campaign.Audio);
     }
 
     int Run(CampaignProject campaign,const kairo::player::RuntimeProject& project,
-        kairo::renderer::GraphicsBackend backend,bool smoke,bool rectangles)
+        kairo::renderer::GraphicsBackend backend,bool smoke,bool rectangles,bool logicTrace)
     {
         using namespace kairo::renderer;
         const auto levelCount=static_cast<unsigned>(campaign.Worlds.size());
@@ -60,6 +72,17 @@ namespace kairo::player::world2d
         if(campaign.Audio)authoredAudio=std::make_unique<WorldAudio>(*campaign.Audio,LoadWorldAudio(project.Root(),*campaign.Audio));
         const auto clearEffects=[&]{mixer.Clear();if(authoredAudio)authoredAudio->ClearEffects();};
         const auto trigger=[&](unsigned event){if(authoredAudio)authoredAudio->Trigger(event);else mixer.Trigger(event);};
+        std::unique_ptr<WorldLogic> logic;
+        using LogicEvent=logic2d::Event;
+        if(campaign.Logic)
+        {
+            logic=std::make_unique<WorldLogic>(*campaign.Logic,trigger,logicTrace);
+            logic->Restore(progress.ScriptValues);
+            logic->SelectLevel(campaign.Config.Levels.at(progress.Level));
+        }
+        const auto signal=[&](logic2d::Signal event){if(logic)logic->Dispatch(game,event);};
+        const auto beginLogic=[&]{if(logic)logic->Begin(game,campaign.Config.Levels.at(progress.Level));};
+        if(!progress.Finished)beginLogic();
         std::unique_ptr<kairo::player::detail::RuntimeNativeAudioOutput> audio;
         if(!smoke)
         {
@@ -73,6 +96,7 @@ namespace kairo::player::world2d
         const auto save=[&]()
         {
             if(!checkpointWritable)return;
+            if(logic)progress.ScriptValues=logic->Values();
             try{WriteCheckpoint(project.Root(),campaign,progress);}
             catch(const std::exception& e){std::cerr<<"World2D checkpoint write failed: "<<e.what()<<'\n';}
         };
@@ -127,7 +151,7 @@ namespace kairo::player::world2d
             if(campaign.UI)
             {
                 if(paused||progress.Finished){rects.clear();rects.push_back({{0,0,int(w),int(h)},0x10161f});}
-                ui2d::Paint(*campaign.UI,page(),{game.Collected(),game.Total(),game.Deaths(),progress.Level+1,levelCount,campaign.Config.Title},pointer,w,h,uiRects,keyboard.Focus());
+                ui2d::Paint(*campaign.UI,page(),{game.Collected(),game.Total(),game.Deaths(),progress.Level+1,levelCount,campaign.Config.Title,logic?logic->Value():0},pointer,w,h,uiRects,keyboard.Focus());
                 for(const auto& item:uiRects)rects.push_back({{item.Bounds.X,item.Bounds.Y,item.Bounds.W,item.Bounds.H},item.RGB});
             }
             if(rects.size()>MaxDrawRects)throw std::length_error("Combined World2D/UI rectangle budget exceeded; use the textured renderer or simplify the UI.");
@@ -231,17 +255,25 @@ namespace kairo::player::world2d
                 const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS;};
                 const auto keyAction=keyboard.Update(*campaign.UI,page(),w,h,key(GLFW_KEY_TAB),
                     key(GLFW_KEY_LEFT_SHIFT)||key(GLFW_KEY_RIGHT_SHIFT),key(GLFW_KEY_ENTER)||key(GLFW_KEY_KP_ENTER),true);
+                if(uiAction!=ui2d::Action::None&&pressed)signal({LogicEvent::UI,campaign.UI->Widgets.at(*pressed).ID});
+                else if(keyAction!=ui2d::Action::None&&keyboard.Focus())signal({LogicEvent::UI,campaign.UI->Widgets.at(*keyboard.Focus()).ID});
                 if(uiAction==ui2d::Action::None)uiAction=keyAction;
+                if(uiAction!=ui2d::Action::None&&logic)++visualRevision;
                 if(hover!=pointer.Hover()||pressed!=pointer.Pressed()||oldFocus!=keyboard.Focus())++visualRevision;
             }
+            if(logic&&!paused&&!progress.Finished)
+                for(const auto& definition:project.InputMap().Actions())
+                    if(action(definition.Name).Pressed){signal({LogicEvent::Input,definition.Name});++visualRevision;}
             if(action("Quit").Pressed||uiAction==ui2d::Action::Quit){renderer.NativeWindow().RequestClose();break;}
             if(action("NewGame").Pressed||uiAction==ui2d::Action::NewGame)
             {
                 progress={};game=Game(campaign.Worlds.front());paused=false;++visualRevision;
-                checkpointWritable=true;save();updateTitle();accumulator=0;jumpQueued=false;clearEffects();
+                checkpointWritable=true;updateTitle();accumulator=0;jumpQueued=false;clearEffects();
+                if(logic)logic->NewCampaign();
+                save();beginLogic();
             }
             if((action("Pause").Pressed||uiAction==ui2d::Action::Pause||uiAction==ui2d::Action::Resume)&&!progress.Finished){paused=!paused;++visualRevision;accumulator=0;jumpQueued=false;clearEffects();}
-            if((action("Restart").Pressed||uiAction==ui2d::Action::Restart)&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;clearEffects();}
+            if((action("Restart").Pressed||uiAction==ui2d::Action::Restart)&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;clearEffects();beginLogic();}
             if(w!=lastW||h!=lastH){renderer.ResizeViewport(w,h);lastW=w;lastH=h;++visualRevision;}
             if(jump.Pressed&&!paused)jumpQueued=true;
             accumulator+=dt;
@@ -252,17 +284,19 @@ namespace kairo::player::world2d
                 if(!paused&&!progress.Finished)
                 {
                     const auto before=game.Collected(),deaths=game.Deaths();
+                    if(logic)logic->Tick(game);
                     game.Step({sign(movement.X),sign(movement.Y),jump.Down||jumpQueued});
                     ++visualRevision;
                     jumpQueued=false;
-                    if(game.Deaths()!=deaths)trigger(1);
-                    else if(game.Collected()>before)trigger(0);
+                    if(game.Deaths()!=deaths){trigger(1);signal({LogicEvent::Death});beginLogic();}
+                    else if(game.Collected()>before){trigger(0);signal({LogicEvent::Collect});}
+                    if(logic)logic->Sensors(game);
                     if(game.Won())
                     {
-                        trigger(2);
+                        trigger(2);signal({LogicEvent::Complete});
                         progress=Advance(progress,levelCount);
                         save();updateTitle();
-                        if(!progress.Finished)game=Game(campaign.Worlds.at(progress.Level));
+                        if(!progress.Finished){game=Game(campaign.Worlds.at(progress.Level));beginLogic();}
                         // New level begins on the next frame, never with a
                         // remainder of the previous level's input backlog.
                         accumulator=1./60.;

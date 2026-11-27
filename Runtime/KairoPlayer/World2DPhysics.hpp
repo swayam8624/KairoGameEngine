@@ -48,6 +48,7 @@ namespace kairo::player::world2d
         p2::Scene Scene;
         std::vector<std::pair<std::size_t,std::size_t>> Moving; // actor index, body index
         std::size_t Player=0;
+        std::map<unsigned,std::size_t> IDs;
         template<class Bounds> static p2::Vec Center(Bounds b){return {b.X+b.W*.5,b.Y+b.H*.5};}
         template<class Actors> void Step(Actors& actors,std::size_t player)
         {
@@ -111,6 +112,6 @@ namespace kairo::player::world2d
             p2::Require(ids.contains(j.A)&&ids.contains(j.B),"Joint references missing physics actor.");
             joints.push_back({ids.at(j.A),ids.at(j.B),j.Length});
         }
-        return {p2::Scene(std::move(bodies),std::move(joints),config.Gravity),std::move(moving),player};
+        return {p2::Scene(std::move(bodies),std::move(joints),config.Gravity),std::move(moving),player,std::move(ids)};
     }
 }

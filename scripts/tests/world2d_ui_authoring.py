@@ -54,7 +54,7 @@ class UITests(unittest.TestCase):
         controls=list(walk(root));buttons={w.cget('text'):w for w in controls if isinstance(w,ttk.Button)}
         for name in ('Add widget','Undo','Redo','Save UI'):
             buttons[name].invoke();root.update()
-        saved=parse(self.target.read_bytes());self.assertEqual(len(saved),16)
+        saved=parse(self.target.read_bytes());self.assertEqual(len(saved),17)
         canvas=next(w for w in controls if isinstance(w,tk.Canvas))
         center=(canvas.winfo_width()//2,canvas.winfo_height()//2)
         canvas.event_generate('<ButtonPress-1>',x=center[0],y=center[1]);root.update()

@@ -4,6 +4,7 @@
 #include "CraftSaveFile.hpp"
 #include "World2DUI.hpp"
 #include "World2DAudio.hpp"
+#include "World2DLogic.hpp"
 #include <optional>
 
 namespace kairo::player::world2d
@@ -33,6 +34,7 @@ namespace kairo::player::world2d
         std::vector<World> Worlds;
         std::optional<ui2d::Document> UI;
         std::optional<audio2d::Config> Audio;
+        std::optional<logic2d::Document> Logic;
         std::uint64_t Revision=14695981039346656037ull;
     };
     inline void ValidateAudioBindings(const CampaignProject& project,const audio2d::Config& config)
@@ -46,9 +48,44 @@ namespace kairo::player::world2d
                 "Audio emitter references missing actor.");
         }
     }
+    inline void ValidateLogicBindings(const CampaignProject& project,const logic2d::Document& doc)
+    {
+        using namespace logic2d;
+        for(const auto& r:doc.Rules)
+        {
+            const auto level=std::find(project.Config.Levels.begin(),project.Config.Levels.end(),r.Level);
+            CampaignCheck(level!=project.Config.Levels.end(),"Logic references missing level.");
+            const auto& world=project.Worlds.at(static_cast<std::size_t>(level-project.Config.Levels.begin()));
+            const auto body=[&](unsigned id)->const BodyRecord*
+            {
+                if(world.Physics)for(const auto& b:world.Physics->Bodies)if(b.Actor==id)return &b;
+                return nullptr;
+            };
+            if(r.When==Event::SensorBegin||r.When==Event::SensorEnd)
+            {
+                const auto* b=body(r.Selector);
+                CampaignCheck(b&&b->Body.Sensor,"Logic requires an authored sensor actor.");
+            }
+            if(r.When==Event::UI)
+                CampaignCheck(project.UI&&std::any_of(project.UI->Widgets.begin(),project.UI->Widgets.end(),
+                    [&](const ui2d::Widget& w){return w.Type==ui2d::Kind::Button&&w.ID==r.Argument;}),
+                    "Logic references missing UI button.");
+            if(r.Command==Op::Position||r.Command==Op::Impulse)
+            {
+                const auto actor=std::find_if(world.Actors.begin(),world.Actors.end(),[&](const Actor& a){return a.ID==r.Actor;});
+                CampaignCheck(actor!=world.Actors.end(),"Logic references missing actor.");
+                const auto* b=body(r.Actor);
+                if(r.Command==Op::Impulse)CampaignCheck(b&&b->Body.Type==p2::Motion::Dynamic,"Logic impulse requires dynamic actor.");
+                else CampaignCheck(actor->Type==Kind::Decor&&!b&&r.X>=0&&r.Y>=0&&
+                    std::lround(r.X)+actor->Bounds.W<=world.Width*Tile&&std::lround(r.Y)+actor->Bounds.H<=world.Height*Tile,
+                    "Logic position requires an unbound in-bounds decor actor.");
+            }
+        }
+    }
     inline CampaignProject LoadCampaignProject(const std::filesystem::path& root,
         std::optional<std::string_view> candidate=std::nullopt,
-        std::optional<std::string_view> audioCandidate=std::nullopt)
+        std::optional<std::string_view> audioCandidate=std::nullopt,
+        std::optional<std::string_view> logicCandidate=std::nullopt)
     {
         CampaignProject result;
         const auto config=CampaignPath(root,"Config/Campaign.kcampaign");
@@ -77,6 +114,13 @@ namespace kairo::player::world2d
         {
             result.Audio=audio2d::Parse(audioCandidate?*audioCandidate:CampaignRead(audio,audio2d::MaxBytes));
             ValidateAudioBindings(result,*result.Audio);
+        }
+        const auto logic=CampaignPath(root,"Config/Logic.klogic2d");
+        if(logicCandidate||std::filesystem::exists(logic))
+        {
+            const auto bytes=logicCandidate?std::string(*logicCandidate):CampaignRead(logic,logic2d::MaxBytes);
+            result.Logic=logic2d::Parse(bytes);ValidateLogicBindings(result,*result.Logic);
+            RevisionAppend(result.Revision,bytes);
         }
         // Cosmetic UI/audio edits deliberately do not invalidate gameplay checkpoints.
         return result;

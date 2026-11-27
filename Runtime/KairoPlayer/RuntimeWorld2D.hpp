@@ -200,6 +200,7 @@ namespace kairo::player::world2d
         World m_World;
         std::vector<LiveActor> m_Actors;
         std::optional<PhysicsBinding> m_Physics;
+        std::vector<std::pair<unsigned,bool>> m_SensorEvents;
         std::size_t m_Player=0;
         int m_VY=0;
         bool m_PreviousJump=false,m_Won=false;
@@ -257,7 +258,7 @@ namespace kairo::player::world2d
         }
         void Reset()
         {
-            m_Actors.clear();
+            m_Actors.clear();m_SensorEvents.clear();
             for(const auto& a:m_World.Actors)m_Actors.push_back({a.Bounds,true,1});
             m_VY=0;m_PreviousJump=false;m_Won=false;m_Collected=0;m_Tick=0;
             if(m_World.Physics)m_Physics=BuildPhysics(m_World,*m_World.Physics);
@@ -265,6 +266,7 @@ namespace kairo::player::world2d
         void Step(Input input)
         {
             Require(input.X>=-1&&input.X<=1&&input.Y>=-1&&input.Y<=1,"Invalid 2D input.");
+            m_SensorEvents.clear();
             if(m_Won)return;
             ++m_Tick;
             for(std::size_t i=0;i<m_Actors.size();++i)
@@ -288,8 +290,49 @@ namespace kairo::player::world2d
                 m_VY=std::min(32,m_VY+m_World.Gravity);
                 if(!Sweep(0,m_VY))m_VY=0;
             }
-            if(m_Physics&&m_Deaths==deaths&&!m_Won)m_Physics->Step(m_Actors,m_Player);
+            if(m_Physics&&m_Deaths==deaths&&!m_Won)
+            {
+                m_Physics->Step(m_Actors,m_Player);
+                // Actor ID is stable across scene reloads; map/body indices
+                // are implementation details, never authored script IDs.
+                const auto& events=m_Physics->Scene.Events();
+                if(!events.empty())
+                {
+                    std::array<unsigned,p2::MaxBodies> ids{};
+                    for(const auto& [id,index]:m_Physics->IDs)
+                        if(m_Physics->Scene.Bodies()[index].Sensor)ids[index]=id;
+                    std::set<std::pair<unsigned,bool>> seen;
+                    for(const auto& e:events)
+                        for(const auto index:{e.A,e.B})
+                            if(ids[index]&&seen.emplace(ids[index],e.Begin).second)
+                                m_SensorEvents.emplace_back(ids[index],e.Begin);
+                }
+            }
             m_PreviousJump=input.Jump;
+        }
+        const std::vector<std::pair<unsigned,bool>>& SensorEvents() const noexcept{return m_SensorEvents;}
+        // Only unbound decorative objects can be repositioned. Solids,
+        // player, triggers and simulated objects retain authoritative state.
+        bool ScriptPosition(unsigned id,double x,double y)
+        {
+            if(!std::isfinite(x)||!std::isfinite(y)||x<0||y<0||x>4096||y>4096)return false;
+            for(std::size_t i=0;i<m_World.Actors.size();++i)
+                if(m_World.Actors[i].ID==id&&m_World.Actors[i].Type==Kind::Decor&&
+                    (!m_Physics||!m_Physics->IDs.contains(id)))
+                {
+                    auto b=m_Actors[i].Bounds;b.X=static_cast<int>(std::lround(x));b.Y=static_cast<int>(std::lround(y));
+                    if(b.X+b.W>m_World.Width*Tile||b.Y+b.H>m_World.Height*Tile)return false;
+                    m_Actors[i].Bounds=b;return true;
+                }
+            return false;
+        }
+        bool ScriptImpulse(unsigned id,double x,double y)
+        {
+            if(!m_Physics||!m_Physics->IDs.contains(id)||!std::isfinite(x)||!std::isfinite(y)||
+                std::abs(x)>4096||std::abs(y)>4096)return false;
+            const auto index=m_Physics->IDs.at(id);
+            if(m_Physics->Scene.Bodies()[index].Type!=p2::Motion::Dynamic)return false;
+            m_Physics->Scene.Impulse(index,{x,y});return true;
         }
         [[nodiscard]] const std::optional<PhysicsBinding>& Physics() const noexcept{return m_Physics;}
         [[nodiscard]] const World& Definition() const noexcept{return m_World;}

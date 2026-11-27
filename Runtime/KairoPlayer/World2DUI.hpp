@@ -20,7 +20,7 @@ namespace kairo::player::ui2d
     enum class Screen {Play,Pause,Complete};
     enum class Kind {Panel,Label,Bar,Button,Counter};
     enum class Anchor {TopLeft,Top,TopRight,Left,Center,Right,BottomLeft,Bottom,BottomRight};
-    enum class Binding {None,Coins,Deaths,Level,Title};
+    enum class Binding {None,Coins,Deaths,Level,Title,Script};
     enum class Action {None,Pause,Resume,Restart,NewGame,Quit};
     struct Box {int X=0,Y=0,W=0,H=0;friend bool operator==(Box,Box)=default;};
     struct Rect {Box Bounds;unsigned RGB=0;};
@@ -37,7 +37,7 @@ namespace kairo::player::ui2d
         std::string Text;
     };
     struct Document {std::vector<Widget> Widgets;};
-    struct State {unsigned Coins=0,Total=0,Deaths=0,Level=1,Levels=1;std::string Title;};
+    struct State {unsigned Coins=0,Total=0,Deaths=0,Level=1,Levels=1;std::string Title;int ScriptValue=0;};
     template<class E,std::size_t N> E Decode(std::string_view s,const std::array<std::string_view,N>& names)
     {
         const auto i=std::find(names.begin(),names.end(),s);
@@ -78,7 +78,7 @@ namespace kairo::player::ui2d
             w.Page=Decode<Screen>(page,std::array<std::string_view,3>{"play","pause","complete"});
             w.Type=Decode<Kind>(type,std::array<std::string_view,5>{"panel","label","bar","button","counter"});
             w.Pin=Decode<Anchor>(anchor,std::array<std::string_view,9>{"tl","t","tr","l","c","r","bl","b","br"});
-            w.Value=Decode<Binding>(binding,std::array<std::string_view,5>{"none","coins","deaths","level","title"});
+            w.Value=Decode<Binding>(binding,std::array<std::string_view,6>{"none","coins","deaths","level","title","script"});
             w.Command=Decode<Action>(action,std::array<std::string_view,6>{"none","pause","resume","restart","newgame","quit"});
             w.Background=Color(bg);w.Foreground=Color(fg);
             const auto b=w.Bounds;
@@ -197,6 +197,7 @@ namespace kairo::player::ui2d
     {
         switch(w.Value)
         {
+            case Binding::Script:return w.Text+std::to_string(s.ScriptValue);
             case Binding::Title:return s.Title;
             case Binding::Coins:return w.Text+std::to_string(s.Coins)+"/"+std::to_string(s.Total);
             case Binding::Deaths:return w.Text+std::to_string(s.Deaths);
