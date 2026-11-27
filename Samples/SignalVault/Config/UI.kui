@@ -16,4 +16,4 @@ complete_title complete label c 0 -120 620 80 202832 5cae82 none none "VAULT UNL
 new_game complete button c 0 25 400 85 304d46 ffffff none newgame "NEW GAME"
 exit_complete complete button c 0 132 400 85 463d47 ffffff none quit "QUIT"
 score play counter bl 16 -16 260 50 202832 f5df9b script none "SCORE "
-hint play label bc 0 -16 380 50 202832 e4e8ef none none "FIND SIGNALS AND EXIT"
+hint play label b 0 -16 380 50 202832 e4e8ef none none "FIND SIGNALS AND EXIT"
