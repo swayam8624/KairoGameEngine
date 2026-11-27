@@ -295,10 +295,18 @@ namespace kairo::player::world2d
                 m_Physics->Step(m_Actors,m_Player);
                 // Actor ID is stable across scene reloads; map/body indices
                 // are implementation details, never authored script IDs.
-                for(const auto& e:m_Physics->Scene.Events())
+                const auto& events=m_Physics->Scene.Events();
+                if(!events.empty())
+                {
+                    std::array<unsigned,p2::MaxBodies> ids{};
                     for(const auto& [id,index]:m_Physics->IDs)
-                        if((index==e.A||index==e.B)&&m_Physics->Scene.Bodies()[index].Sensor)
-                            m_SensorEvents.emplace_back(id,e.Begin);
+                        if(m_Physics->Scene.Bodies()[index].Sensor)ids[index]=id;
+                    std::set<std::pair<unsigned,bool>> seen;
+                    for(const auto& e:events)
+                        for(const auto index:{e.A,e.B})
+                            if(ids[index]&&seen.emplace(ids[index],e.Begin).second)
+                                m_SensorEvents.emplace_back(ids[index],e.Begin);
+                }
             }
             m_PreviousJump=input.Jump;
         }
