@@ -583,6 +583,15 @@ def run_editor(project,build,renderer):
             open_designer(root,target,validator,bounded_config,publish_config,report)
         except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
 
+    def vfx_editor():
+        if child is not None and child.poll() is None:
+            report(ValueError("Close Player before editing VFX"));return
+        if doc.dirty and not save():return
+        try:
+            from kairo_vfx2d_editor import open_vfx
+            open_vfx(root,project_root,validator,bounded_config,publish_config,report)
+        except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+
     def logic_editor():
         if child is not None and child.poll() is None:
             report(ValueError("Close Player before editing logic"));return
@@ -625,7 +634,7 @@ def run_editor(project,build,renderer):
             open_audio(root,project_root,tool,bounded_config,publish_config,report)
         except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
 
-    for text,fn in (("Gameplay logic",logic_editor),("Audio studio",audio_editor),("Game UI designer",ui_designer),("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
+    for text,fn in (("VFX studio",vfx_editor),("Gameplay logic",logic_editor),("Audio studio",audio_editor),("Game UI designer",ui_designer),("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
                     ("Input bindings",lambda:config_window(False))):
         ttk.Button(left,text=text,command=fn).pack(fill="x",pady=3)
     def play():

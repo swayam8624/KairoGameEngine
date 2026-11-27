@@ -1,0 +1,10 @@
+kairo-vfx2d 1
+materials 3
+spark fff4bd c27a2d 5 1 cross
+smoke 7eb9a5 344b47 2 7 square
+impact ff9171 80293d 6 1 cross
+emitters 4
+main 1 collect spark 24 1 45 120 90
+main 8 ambient smoke 2 6 48 36 -60
+main 1 death impact 32 1 36 160 180
+main 1 complete spark 48 1 90 100 -30
