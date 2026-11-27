@@ -41,6 +41,17 @@ int main(int argc,char** argv)
     Check(second.Won()&&second.Deaths()==0);
     progress=Advance(progress,2);WriteCheckpoint(root,campaign,progress);
     Check(ReadCheckpoint(root,campaign).Finished);
+    // Cosmetic UI changes are accepted independently of gameplay revision.
+    const auto ui=root/"Config/UI.kui";
+    {std::ofstream out(ui);out<<"kairo-ui2d 1\nwidgets 2\n"
+        "resume pause button c 0 0 300 80 202832 ffffff none resume \"RESUME\"\n"
+        "quit complete button c 0 0 300 80 202832 ffffff none quit \"QUIT\"\n";}
+    const auto styled=LoadCampaignProject(root);
+    Check(styled.UI&&styled.UI->Widgets.size()==2&&styled.Revision==campaign.Revision);
+    Check(ReadCheckpoint(root,styled).Finished);
+    {std::ofstream out(ui,std::ios::app);out<<"invalid\n";}
+    Reject([&]{(void)LoadCampaignProject(root);});
+    std::filesystem::remove(ui);
     // A different valid world revision may not resume the old progress.
     {std::ofstream out(root/"Config/Worlds/climb.k2d",std::ios::app);out<<"\n";}
     const auto revised=LoadCampaignProject(root);
