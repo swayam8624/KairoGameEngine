@@ -6,11 +6,12 @@
 
 namespace kairo::player::world2d
 {
+    enum class CaptureTransfer {Linear,Gamma22};
     struct CaptureEvidence {unsigned Probes=0,Matches=0;};
     // Compare interior pixels, not the exact edge rasterization convention.
     // Reference rectangles remain independent of the atlas and mesh path.
     inline CaptureEvidence CheckAtlasCapture(const Game& game,unsigned width,unsigned height,
-        std::span<const std::uint8_t> rgba)
+        std::span<const std::uint8_t> rgba,CaptureTransfer transfer=CaptureTransfer::Linear)
     {
         Require(width&&height&&width<=32768&&height<=32768&&
             rgba.size()==std::uint64_t(width)*height*4,"Invalid atlas capture dimensions.");
@@ -36,7 +37,11 @@ namespace kairo::player::world2d
             const auto index=(std::size_t(y)*width+std::size_t(x))*4;
             bool matches=true;
             for(unsigned channel=0;channel<3;++channel)
-                matches&=std::abs(int(rgba[index+channel])-int((*expected>>(16-8*channel))&255))<=3;
+            {
+                const auto linear=double((*expected>>(16-8*channel))&255)/255.;
+                const auto encoded=transfer==CaptureTransfer::Gamma22?std::pow(linear,1./2.2):linear;
+                matches&=std::abs(int(rgba[index+channel])-int(std::lround(encoded*255.)))<=3;
+            }
             if(matches)++evidence.Matches;
         };
         // Uniformly cover the camera plus the centers of every expected
