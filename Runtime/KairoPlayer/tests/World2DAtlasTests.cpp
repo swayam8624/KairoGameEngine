@@ -1,4 +1,5 @@
 #include "../World2DAtlas.hpp"
+#include "../World2DLookAhead.hpp"
 #include "../World2DAtlasCapture.hpp"
 #include <iostream>
 #include <random>
@@ -61,6 +62,18 @@ int main(int argc,char** argv)
     Check(argc==2);
     auto world=Load(argv[1]);auto atlas=BuildAtlas(world);Verify(world,atlas);
     auto chunks=BuildTileChunks(world,atlas);VerifyTiles(world,atlas,chunks);
+    // Exercise the same CPU payload/worker used by the native host against
+    // independently constructed baseline pixels and tile coverage.
+    LookAhead<PreparedAtlas> ahead;
+    Check(ahead.Request(1,[&world]{return PrepareAtlas(world);}));
+    auto prepared=ahead.Take(1,[]()->PreparedAtlas{throw std::runtime_error("Unexpected synchronous preparation");});
+    Check(prepared.Pixels.RGBA==atlas.RGBA&&prepared.Pixels.Frames==atlas.Frames&&
+        prepared.Pixels.Palette==atlas.Palette&&prepared.Chunks.size()==chunks.size());
+    Verify(world,prepared.Pixels);VerifyTiles(world,prepared.Pixels,prepared.Chunks);
+    auto other=world;other.Colors[1]^=0xffffffu;
+    auto second=ahead.Take(2,[&other]{return PrepareAtlas(other);});
+    Verify(other,second.Pixels);VerifyTiles(other,second.Pixels,second.Chunks);
+    Check(second.Pixels.RGBA!=prepared.Pixels.RGBA);
     Game game(world);AtlasFrame frame;std::mt19937 rng(2026);
     unsigned maxDraws=0;std::uint64_t rectangles=0,draws=0;
     for(unsigned i=0;i<10000;++i)
