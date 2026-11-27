@@ -10,6 +10,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shlex
+import shutil
 import stat
 import struct
 import tempfile
@@ -197,14 +198,43 @@ def verify(path):
         return index
 
 
+def unpack(archive, destination):
+    """Verify before extraction, then recheck each extracted byte stream.
+
+    The destination must not exist. On failure remove only this newly reserved
+    directory. No executable is run. POSIX launch permissions are restored.
+    """
+    archive=Path(archive); destination=Path(destination)
+    require(not destination.exists() and not destination.is_symlink(), 'Destination already exists')
+    index=verify(archive)
+    destination.mkdir()  # exclusive reservation, never overwrite a caller directory
+    try:
+        with zipfile.ZipFile(archive) as source:
+            for name,record in sorted(index['files'].items()):
+                info=source.getinfo(name); path=destination/safe_name(name)
+                path.parent.mkdir(parents=True,exist_ok=True)
+                with source.open(info) as stream,path.open('xb') as output:size,digest=copy_hash(stream,output)
+                require(record=={'bytes':size,'sha256':digest},f'Archive changed during extraction: {name}')
+                if os.name!='nt':path.chmod(stat.S_IMODE(info.external_attr>>16))
+            data=json.dumps(index,sort_keys=True,separators=(',',':')).encode('ascii')+b'\n'
+            (destination/INDEX).write_bytes(data)
+    except BaseException:
+        shutil.rmtree(destination)
+        raise
+    return index
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     sub=parser.add_subparsers(dest='action',required=True)
     create=sub.add_parser('export');create.add_argument('bundle',type=Path);create.add_argument('output',type=Path)
     check=sub.add_parser('verify');check.add_argument('archive',type=Path)
+    extract=sub.add_parser('unpack');extract.add_argument('archive',type=Path);extract.add_argument('destination',type=Path)
     args=parser.parse_args()
     try:
-        result=export(args.bundle,args.output) if args.action=='export' else verify(args.archive)
+        if args.action=='export':result=export(args.bundle,args.output)
+        elif args.action=='unpack':result=unpack(args.archive,args.destination)
+        else:result=verify(args.archive)
         print(json.dumps({k:v for k,v in result.items() if k!='files'} | {'file_count':len(result['files'])},sort_keys=True))
     except (ValueError,OSError,RuntimeError,zipfile.BadZipFile) as error:
         parser.exit(1,f'Kairo release rejected: {error}\n')
