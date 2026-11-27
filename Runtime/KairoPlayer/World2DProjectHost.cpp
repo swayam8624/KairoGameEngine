@@ -74,7 +74,12 @@ namespace kairo::player::world2d
         const auto trigger=[&](unsigned event){if(authoredAudio)authoredAudio->Trigger(event);else mixer.Trigger(event);};
         std::unique_ptr<WorldLogic> logic;
         using LogicEvent=logic2d::Event;
-        if(campaign.Logic)logic=std::make_unique<WorldLogic>(*campaign.Logic,trigger,logicTrace);
+        if(campaign.Logic)
+        {
+            logic=std::make_unique<WorldLogic>(*campaign.Logic,trigger,logicTrace);
+            logic->Restore(progress.ScriptValues);
+            logic->SelectLevel(campaign.Config.Levels.at(progress.Level));
+        }
         const auto signal=[&](logic2d::Signal event){if(logic)logic->Dispatch(game,event);};
         const auto beginLogic=[&]{if(logic)logic->Begin(game,campaign.Config.Levels.at(progress.Level));};
         if(!progress.Finished)beginLogic();
@@ -91,6 +96,7 @@ namespace kairo::player::world2d
         const auto save=[&]()
         {
             if(!checkpointWritable)return;
+            if(logic)progress.ScriptValues=logic->Values();
             try{WriteCheckpoint(project.Root(),campaign,progress);}
             catch(const std::exception& e){std::cerr<<"World2D checkpoint write failed: "<<e.what()<<'\n';}
         };
@@ -262,8 +268,9 @@ namespace kairo::player::world2d
             if(action("NewGame").Pressed||uiAction==ui2d::Action::NewGame)
             {
                 progress={};game=Game(campaign.Worlds.front());paused=false;++visualRevision;
-                checkpointWritable=true;save();updateTitle();accumulator=0;jumpQueued=false;clearEffects();
-                if(logic){logic->NewCampaign();beginLogic();}
+                checkpointWritable=true;updateTitle();accumulator=0;jumpQueued=false;clearEffects();
+                if(logic)logic->NewCampaign();
+                save();beginLogic();
             }
             if((action("Pause").Pressed||uiAction==ui2d::Action::Pause||uiAction==ui2d::Action::Resume)&&!progress.Finished){paused=!paused;++visualRevision;accumulator=0;jumpQueued=false;clearEffects();}
             if((action("Restart").Pressed||uiAction==ui2d::Action::Restart)&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;clearEffects();beginLogic();}
