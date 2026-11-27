@@ -69,7 +69,7 @@ namespace kairo::player::detail
 namespace kairo::player::world2d
 {
     int Run(CampaignProject campaign,const kairo::player::RuntimeProject& project,
-        kairo::renderer::GraphicsBackend backend,bool smoke);
+        kairo::renderer::GraphicsBackend backend,bool smoke,bool rectangles);
 }
 
 namespace
@@ -79,6 +79,7 @@ namespace
         std::filesystem::path Project;
         bool ValidateOnly = false;
         bool SmokeTest = false;
+        bool World2DRectangles = false;
         bool ReplacePackage = false;
         std::optional<std::string> PackageProfile;
         std::optional<std::filesystem::path> ProgressFile;
@@ -131,6 +132,7 @@ namespace
             const std::string_view option = values[index];
             if (option == "--validate") result.ValidateOnly = true;
             else if (option == "--smoke") result.SmokeTest = true;
+            else if (option == "--world2d-rectangles") result.World2DRectangles = true;
             else if (option == "--package")
             {
                 if (result.PackageProfile.has_value())
@@ -193,6 +195,8 @@ int main(int argc, char** argv)
         const bool worldProject=project.Descriptor().StartupScene.generic_string()=="Scenes/World2D.kscene";
         if(!worldProject&&(std::filesystem::exists(worldFile)||std::filesystem::is_symlink(worldFile)))
             throw std::invalid_argument("World2D file requires the reserved 2D startup scene.");
+        if(arguments.World2DRectangles&&(!worldProject||arguments.ValidateOnly||arguments.PackageProfile))
+            throw std::invalid_argument("--world2d-rectangles is only for World2D play or smoke.");
         if(worldProject)
         {
             if(project.Scene().Size()!=0||project.Assets().Size()!=0||arguments.ProgressFile||arguments.LogicTraceSession)
@@ -215,7 +219,7 @@ int main(int argc, char** argv)
             }
             const auto backend=arguments.BackendOverride.value_or(
                 kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend));
-            return kairo::player::world2d::Run(std::move(campaign),project,backend,arguments.SmokeTest);
+            return kairo::player::world2d::Run(std::move(campaign),project,backend,arguments.SmokeTest,arguments.World2DRectangles);
         }
         const auto tileFile=project.Root()/"Config/Platformer.k2d";
         const bool platformerProject=project.Descriptor().StartupScene.generic_string()=="Scenes/Platformer.kscene";
