@@ -99,15 +99,24 @@ TEST_CASE("Serialized showcase extracts identically for Editor and Player",
             kairo::assets::TextureSemantic)
         {
             const auto path = (asset.Path.parent_path() /
-                std::filesystem::path(uri)).lexically_normal();
+                kairo::assets::GltfLocalUriPath(uri)).lexically_normal();
             const auto texture = registry.FindByPath(path);
             REQUIRE(texture.has_value());
             return runtimeBindings.ResolveTexture({ texture->ID });
         };
+        // Exercise the shared real decode path, not an invalid handle or
+        // a silent texture omission for embedded showcase materials.
+        const auto resolveEmbedded = [&](const kairo::assets::GltfTextureBinding& binding,
+            kairo::assets::TextureSemantic semantic)
+        {
+            const auto texture=kairo::runtime::renderbridge::DecodeEmbeddedGltfTexture(binding,semantic);
+            REQUIRE_FALSE(texture.Mips.empty());
+            return nextTexture++;
+        };
         const auto imported =
             kairo::runtime::renderbridge::ImportRenderGltfScene(
                 project.Root(), { asset.ID }, registry, imports, cache,
-                resolveTexture);
+                resolveTexture, resolveEmbedded);
         std::vector<kairo::runtime::renderbridge::RenderAssetBindings::ScenePrimitive>
             primitives;
         for (const auto& primitive : imported.Primitives)
