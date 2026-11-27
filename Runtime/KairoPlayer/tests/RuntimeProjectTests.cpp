@@ -258,16 +258,21 @@ int main()
             "logic 00000000-0000-4000-8000-000000000901 true\nend\n");
 
         kairo::engine::LogicProgram logicProgram;
-        logicProgram.Vectors = { { 2.0, 3.0, 4.0 } };
+        logicProgram.Vectors = { { 2.0, 3.0, 4.0 }, { 7.0, 8.0, 9.0 } };
         logicProgram.Entities = { { 1u } };
         logicProgram.RegisterCount = 5u;
         logicProgram.Instructions = {
             { kairo::engine::LogicOpcode::LoadEntity, 3u, 0u },
             { kairo::engine::LogicOpcode::LoadVector3, 4u, 0u },
             { kairo::engine::LogicOpcode::SetEntityPosition, 3u, 4u },
+            { kairo::engine::LogicOpcode::Halt },
+            { kairo::engine::LogicOpcode::LoadEntity, 3u, 0u },
+            { kairo::engine::LogicOpcode::LoadVector3, 4u, 1u },
+            { kairo::engine::LogicOpcode::SetEntityPosition, 3u, 4u },
             { kairo::engine::LogicOpcode::Halt }
         };
-        logicProgram.Entries = { { kairo::engine::LogicEventKind::BeginPlay, {}, 0u } };
+        logicProgram.Entries = { { kairo::engine::LogicEventKind::BeginPlay, {}, 0u },
+            { kairo::engine::LogicEventKind::Tick, {}, 4u } };
         kairo::engine::SaveCompiledLogicArtifact(
             kairo::engine::CompiledLogicPath(root, logicID),
             { logicID, kairo::assets::FingerprintFile(root / "Logic/Runtime.kdoc"), logicProgram });
@@ -286,6 +291,44 @@ int main()
             kairo::foundation::math::Vec3f{ 2.0f, 3.0f, 4.0f },
             "Begin Play bytecode did not mutate the runtime scene through its host.");
 
+        // Same real compiled artifact, but a newly instantiated inactive owner
+        // with an explicit three-step cadence. No mock host is involved.
+        Write(root / "Scenes/Main.kscene",
+            "kairo-scene 2\nentity 1 \"Root\"\nenabled false\nlayer 0\n"
+            "transform 0 0 0 0 0 0 1 1 1 1\n"
+            "logic 00000000-0000-4000-8000-000000000901 true\nend\n");
+        Write(root / "Config/LogicSchedule.klogic","kairo-logic-schedule 1\ntick 1 3\n");
+        {
+            kairo::player::RuntimeProject delayed(root / "Project.kproject");
+            kairo::player::RuntimePhysicsBridge delayedPhysics(delayed.Scene());
+            kairo::player::RuntimeLogicBridge delayedLogic(delayed,delayedPhysics);
+            const kairo::engine::Entity owner{1u};
+            const auto position=[&]{return delayed.Scene().Transform(owner).Local.Translation;};
+            Require(delayedLogic.InstanceCount()==1,"Inactive script was not prevalidated.");
+            delayedLogic.BeginPlay();
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            Require(position()==kairo::foundation::math::Vec3f{0,0,0},"Inactive script executed.");
+            delayed.Scene().SetEnabled(owner,true);
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            Require(position()==kairo::foundation::math::Vec3f{2,3,4},"First activation did not begin.");
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            Require(position()==kairo::foundation::math::Vec3f{2,3,4},"Tick cadence fired early.");
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            Require(position()==kairo::foundation::math::Vec3f{7,8,9},"Scheduled tick did not execute.");
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            delayed.Scene().SetEnabled(owner,false);
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            delayedPhysics.SetEntityPosition(owner,{1,1,1});
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            Require(position()==kairo::foundation::math::Vec3f{1,1,1},"Suspended script executed.");
+            delayed.Scene().SetEnabled(owner,true);
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            Require(position()==kairo::foundation::math::Vec3f{1,1,1},"Resume replayed begin or stale ticks.");
+            delayedLogic.BeforePhysicsStep(1.f/60.f);
+            Require(position()==kairo::foundation::math::Vec3f{7,8,9},"Resumed tick did not execute.");
+        }
+        std::filesystem::remove(root / "Config/LogicSchedule.klogic");
         Write(root / "Logic/Runtime.kdoc", "changed runtime logic source\n");
         bool staleRejected = false;
         try
