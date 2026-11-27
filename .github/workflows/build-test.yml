@@ -212,7 +212,7 @@ jobs:
           import sys
           from kairo_hub_core import create
           from kairo_project_workflow import ProjectTools, run_cli
-          for kind in ("empty", "arena", "beacon", "keygate", "2d", "world2d"):
+          for kind in ("empty", "arena", "beacon", "keygate", "2d", "world2d", "physics2d"):
               project = create(kind, "Hub " + kind, Path(sys.argv[1]))
               if run_cli(ProjectTools(project, Path("build/ci-clang")), "validate"):
                   raise SystemExit("Hub project validation failed: " + kind)
