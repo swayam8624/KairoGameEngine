@@ -39,8 +39,10 @@ int main(int argc,char** argv)
     second.Step({1,0,true});
     for(int i=0;i<100&&!second.Won();++i)second.Step({1,0,false});
     Check(second.Won()&&second.Deaths()==0);
-    progress=Advance(progress,2);WriteCheckpoint(root,campaign,progress);
-    Check(ReadCheckpoint(root,campaign).Finished);
+    progress=Advance(progress,2);progress.ScriptValues[0]=123;progress.ScriptValues[15]=-456;
+    WriteCheckpoint(root,campaign,progress);
+    const auto saved=ReadCheckpoint(root,campaign);
+    Check(saved.Finished&&saved.ScriptValues==progress.ScriptValues);
     // Cosmetic UI changes are accepted independently of gameplay revision.
     const auto ui=root/"Config/UI.kui";
     {std::ofstream out(ui);out<<"kairo-ui2d 1\nwidgets 2\n"
