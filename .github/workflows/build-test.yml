@@ -75,7 +75,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev mesa-vulkan-drivers xauth
+          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev mesa-vulkan-drivers xauth python3-tk
           echo "KAIRO_CXX_COMPILER=$(command -v clang++)" >> "$GITHUB_ENV"
 
       - name: Install macOS dependencies
@@ -345,7 +345,7 @@ jobs:
       - name: Actual World2D UI designer drag and native save
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
-        run: xvfb-run -a python3 scripts/tests/world2d_ui_authoring.py build/ci-clang/Runtime/KairoPlayer/KairoWorld2DTool Samples/PhysicsWorld2DProject/Config/UI.kui --gui
+        run: xvfb-run -a /usr/bin/python3 scripts/tests/world2d_ui_authoring.py build/ci-clang/Runtime/KairoPlayer/KairoWorld2DTool Samples/PhysicsWorld2DProject/Config/UI.kui --gui
 
       - name: Actual authored gameplay event chain
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
