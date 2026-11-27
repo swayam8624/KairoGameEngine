@@ -32,7 +32,7 @@ def inventory(root):
 
 
 def source_files(root):
-    """Match the canonical recipe's two authored profile exclusions.
+    """Match the canonical recipe's reserved Build artifact tree.
     Keep compiled logic; omit only transient .kairo subtrees and root .git.
     Reject links and special files before copying any source payload.
     """
@@ -47,7 +47,7 @@ def source_files(root):
     files = []
     def excluded(p):
         parts = p.parts
-        return parts[0] == '.git' or parts[:2] in (('Build','Development'),('Build','Release')) or (
+        return parts[0] in ('.git','Build') or (
             parts[0] == '.kairo' and len(parts)>1 and parts[1] != 'compiled')
     for folder, dirs, names in os.walk(root, followlinks=False):
         current = Path(folder)
