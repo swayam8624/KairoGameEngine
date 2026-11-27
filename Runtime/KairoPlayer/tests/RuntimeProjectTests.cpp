@@ -113,6 +113,18 @@ namespace
         Require(!std::filesystem::exists(output / "obsolete.txt"),
             "Atomic package replacement retained a stale output file.");
 
+        // Safe game names preserve existing hosts, but metacharacters
+        // cannot become launcher source code. A failed replacement retains
+        // the prior recognized package and its payload.
+        const auto unsafePlayer=testRoot/"bad$game";
+        Write(unsafePlayer,"fixture\n");
+        const auto oldManifest=Read(result.ManifestPath);
+        bool unsafeNameRejected=false;
+        try{(void)kairo::player::PackageRuntimeProject(project,{"Development",unsafePlayer,true});}
+        catch(const std::invalid_argument&){unsafeNameRejected=true;}
+        Require(unsafeNameRejected,"Launcher metacharacter in executable basename was accepted.");
+        Require(Read(result.ManifestPath)==oldManifest,"Rejected executable changed the previous package.");
+
         bool unknownRejected = false;
         try { (void)kairo::player::PackageRuntimeProject(project, { "Shipping", player, false }); }
         catch (const std::invalid_argument&) { unknownRejected = true; }
