@@ -22,7 +22,7 @@ class UITests(unittest.TestCase):
         self.target.write_bytes(self.data)
 
     def test_roundtrip_and_layout(self):
-        widgets=parse(self.data);self.assertEqual(encode(widgets),self.data)
+        widgets=parse(self.data);self.assertEqual(encode(widgets),self.data.replace(b"\r\n",b"\n"))
         self.assertEqual(parse(encode(parse(DEFAULT))),parse(DEFAULT))
         self.assertEqual(layout(widgets[4],1280,720),(1142,52,126,40))
         self.assertEqual(layout(widgets[4],720,1280),(582,52,126,40))

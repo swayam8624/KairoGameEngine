@@ -583,7 +583,17 @@ def run_editor(project,build,renderer):
             open_designer(root,target,validator,bounded_config,publish_config,report)
         except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
 
-    for text,fn in (("Game UI designer",ui_designer),("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
+    def audio_editor():
+        if child is not None and child.poll() is None:
+            report(ValueError("Close Player before editing audio"));return
+        if doc.dirty and not save():return
+        try:
+            from kairo_audio2d_editor import open_audio
+            tool=tools.binary("KairoWorld2DAudioTool","Runtime/KairoPlayer")
+            open_audio(root,project_root,tool,bounded_config,publish_config,report)
+        except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+
+    for text,fn in (("Audio studio",audio_editor),("Game UI designer",ui_designer),("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
                     ("Input bindings",lambda:config_window(False))):
         ttk.Button(left,text=text,command=fn).pack(fill="x",pady=3)
     def play():

@@ -23,3 +23,29 @@ The native parser caps authored bodies at 128, distance joints at 64, and the co
 Choose **Game UI designer** in the World2D editor to edit the project-wide Config/UI.kui. The sample contains 15 widgets across play, pause and completion pages. The canvas supports anchored positioning, drag-to-move, aspect previews (16:9, 4:3, 9:16 and 21:9), widget paint order, property editing, color selection and undo/redo. Save UI runs the native validator before atomic publication; a stale or invalid edit leaves the old file intact. Preview typography uses Tk's font while the Player uses a bounded 5x7 bitmap alphabet, so it is not a pixel-perfect GPU preview.
 
 Use the mouse on buttons, or Tab/Shift+Tab and Enter on pause and completion pages. Counters bind to coins, deaths and campaign level; the coin bar reads the actual objective progress. The campaign title binding reads the current project title. Buttons invoke existing campaign operations (pause, resume, restart, new game and quit). The document is optional: without it the old interface remains. Cosmetic edits do not invalidate saved campaign progress. UI is flat rather than a nested layout hierarchy; no general script callbacks, health/inventory model beyond coins, text input, arbitrary fonts or Unicode yet.
+
+## Audio Studio
+
+Open **Audio studio** in the World2D editor. Config/Audio.kaudio is optional and project-wide. Master, effects, music and ambient volume controls update the document; save validates every cue, actor, level and decoded clip. The sample ships original synthesized pickup/damage/victory sounds and an actor-attached hum. No third-party soundtrack is bundled.
+
+Import a mono/stereo WAV under a new lowercase clip ID; the actual shared WAV importer preflights staged bytes before exclusive publication to Assets/Audio/<id>.wav. Set a music cue to that ID for looping background playback, or map it to an event. Preview auditions up to three seconds through the native audio device, at fixed preview gain; it is an isolated audition, not the complete spatial scene mix. Imported files are retained if you discard the unsaved audio document.
+
+```text
+kairo-audio2d 1
+mix 70 80 35 35
+clips 4
+pickup tone 660 90
+damage tone 160 160
+victory tone 880 250
+hum tone 220 1000
+collect pickup 75
+death damage 85
+complete victory 80
+music - 70
+emitters 1
+main 8 hum 35 96
+```
+
+The four mix percentages are master/effects/music/ambient. Clip records are ID wav or ID tone frequency milliseconds. Cues use ID and gain percentage; "-" disables an event/music cue. Emitter records are level name, actor ID, clip ID, gain, radius in world pixels. Emitters follow active actors and stop when the actor disappears or the level changes. The player is the listener. Pausing freezes music and ambient cursors and clears pending effects (previously queued PCM may drain). Older projects without the audio document keep their original synthesized event sounds. Audio changes do not invalidate gameplay checkpoints.
+
+The native bank supports up to 32 clips, 16 emitters, 32 simultaneous voices, 32 MiB per WAV source, 64 MiB aggregate WAV bytes, 128 MiB decoded sample storage and 120 seconds per WAV. WAV PCM 8/16/24/32-bit and IEEE float32 mono/stereo use the existing KairoAssets decoder; compressed/extensible WAV, MP3, Ogg, FLAC, streaming music, audio DSP and custom bus graphs are not supported by this authoring path. Native playback depends on available Audio Queue, ALSA or WinMM output; the headless mixer remains usable without a device. Runtime source files are packaged with the project; the World2D bank uses its own file naming contract, not a 3D asset registry or derived cache.

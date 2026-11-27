@@ -20,11 +20,23 @@ import Kairo.EngineCore.InputMap;
 import Kairo.EngineCore.Input;
 import Kairo.Assets.TextureArtifact;
 import Kairo.Foundation.Math;
+import Kairo.Assets.WavImporter;
+import Kairo.Assets.AudioArtifact;
+import Kairo.Assets.Importer;
+import Kairo.Assets.Types;
+import Kairo.EngineCore.AudioRuntime;
+
+#include "World2DNativeAudio.hpp"
 
 #include "World2DNativeAtlas.hpp"
 
 namespace kairo::player::world2d
 {
+    void ValidateWorldAudio(const CampaignProject& campaign,const std::filesystem::path& root)
+    {
+        if(campaign.Audio)(void)LoadWorldAudio(root,*campaign.Audio);
+    }
+
     int Run(CampaignProject campaign,const kairo::player::RuntimeProject& project,
         kairo::renderer::GraphicsBackend backend,bool smoke,bool rectangles)
     {
@@ -44,6 +56,10 @@ namespace kairo::player::world2d
         Game game(campaign.Worlds.at(progress.Level));
         bool paused=false;
         EventMixer mixer(campaign.Config);
+        std::unique_ptr<WorldAudio> authoredAudio;
+        if(campaign.Audio)authoredAudio=std::make_unique<WorldAudio>(*campaign.Audio,LoadWorldAudio(project.Root(),*campaign.Audio));
+        const auto clearEffects=[&]{mixer.Clear();if(authoredAudio)authoredAudio->ClearEffects();};
+        const auto trigger=[&](unsigned event){if(authoredAudio)authoredAudio->Trigger(event);else mixer.Trigger(event);};
         std::unique_ptr<kairo::player::detail::RuntimeNativeAudioOutput> audio;
         if(!smoke)
         {
@@ -144,6 +160,13 @@ namespace kairo::player::world2d
                 throw std::runtime_error("World2D capture unavailable.");
             };
             captureScreen();
+            if(authoredAudio)
+            {
+                authoredAudio->Update(game,campaign.Config.Levels.at(progress.Level),false,false);
+                authoredAudio->Trigger(0);authoredAudio->Trigger(1);authoredAudio->Trigger(2);
+                for(unsigned i=0;i<4;++i)(void)authoredAudio->Mix();
+                std::cout<<"Authored audio headless mixer smoke passed\n";
+            }
             if(campaign.UI)
             {
                 paused=true;publish(width,height);captureScreen();
@@ -189,7 +212,8 @@ namespace kairo::player::world2d
                     (void)keyboard.Update(*campaign.UI,page(),w,h,false,false,false,false);
                     (void)pointer.Update(*campaign.UI,page(),w,h,0,0,glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS,false);
                 }
-                accumulator=0;jumpQueued=false;mixer.Clear();
+                accumulator=0;jumpQueued=false;clearEffects();
+                // No PCM is generated while unfocused; queued frames drain.
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));continue;
             }
             ui2d::Action uiAction=ui2d::Action::None;
@@ -214,10 +238,10 @@ namespace kairo::player::world2d
             if(action("NewGame").Pressed||uiAction==ui2d::Action::NewGame)
             {
                 progress={};game=Game(campaign.Worlds.front());paused=false;++visualRevision;
-                checkpointWritable=true;save();updateTitle();accumulator=0;jumpQueued=false;mixer.Clear();
+                checkpointWritable=true;save();updateTitle();accumulator=0;jumpQueued=false;clearEffects();
             }
-            if((action("Pause").Pressed||uiAction==ui2d::Action::Pause||uiAction==ui2d::Action::Resume)&&!progress.Finished){paused=!paused;++visualRevision;accumulator=0;jumpQueued=false;mixer.Clear();}
-            if((action("Restart").Pressed||uiAction==ui2d::Action::Restart)&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;mixer.Clear();}
+            if((action("Pause").Pressed||uiAction==ui2d::Action::Pause||uiAction==ui2d::Action::Resume)&&!progress.Finished){paused=!paused;++visualRevision;accumulator=0;jumpQueued=false;clearEffects();}
+            if((action("Restart").Pressed||uiAction==ui2d::Action::Restart)&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;clearEffects();}
             if(w!=lastW||h!=lastH){renderer.ResizeViewport(w,h);lastW=w;lastH=h;++visualRevision;}
             if(jump.Pressed&&!paused)jumpQueued=true;
             accumulator+=dt;
@@ -231,11 +255,11 @@ namespace kairo::player::world2d
                     game.Step({sign(movement.X),sign(movement.Y),jump.Down||jumpQueued});
                     ++visualRevision;
                     jumpQueued=false;
-                    if(game.Deaths()!=deaths)mixer.Trigger(1);
-                    else if(game.Collected()>before)mixer.Trigger(0);
+                    if(game.Deaths()!=deaths)trigger(1);
+                    else if(game.Collected()>before)trigger(0);
                     if(game.Won())
                     {
-                        mixer.Trigger(2);
+                        trigger(2);
                         progress=Advance(progress,levelCount);
                         save();updateTitle();
                         if(!progress.Finished)game=Game(campaign.Worlds.at(progress.Level));
@@ -244,12 +268,18 @@ namespace kairo::player::world2d
                         accumulator=1./60.;
                     }
                 }
-                if(audio)
+                if(audio&&audio->Failed())audio.reset();
+                if(authoredAudio)
                 {
-                    if(audio->Failed())audio.reset();
-                    else (void)audio->Push(mixer.Mix());
+                    authoredAudio->Update(game,campaign.Config.Levels.at(progress.Level),paused,progress.Finished);
+                    const auto pcm=authoredAudio->Mix();
+                    if(audio)(void)audio->Push(pcm);
                 }
-                else (void)mixer.Mix();
+                else
+                {
+                    const auto pcm=mixer.Mix();
+                    if(audio)(void)audio->Push(pcm);
+                }
                 accumulator-=1./60.;
             }
             if(publishedRevision!=visualRevision){publish(w,h);publishedRevision=visualRevision;}
