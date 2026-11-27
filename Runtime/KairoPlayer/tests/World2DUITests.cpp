@@ -8,10 +8,11 @@ void Assert(bool ok){if(!ok)throw std::runtime_error("UI regression");}
 int main(int argc,char** argv)
 {
     Assert(argc==2);std::ifstream in(argv[1]);std::string source{std::istreambuf_iterator<char>(in),{}};
-    const auto doc=Parse(source);Assert(doc.Widgets.size()==15);
+    const auto doc=Parse(source);Assert(doc.Widgets.size()==16);
     State state{3,5,2,1,2,"KAIRO ADVENTURE"};
     Assert(Text(doc.Widgets[1],state)=="COINS 3/5");
     Assert(Text(doc.Widgets[3],state)=="LEVEL 1/2");
+    state.ScriptValue=42;Assert(Text(doc.Widgets.back(),state)=="SCORE 42");
     const auto pause=Layout(doc.Widgets[4],1280,720);
     const int px=pause.X+pause.W/2,py=pause.Y+pause.H/2;
     Pointer pointer;
