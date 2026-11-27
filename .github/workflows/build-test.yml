@@ -325,7 +325,9 @@ jobs:
       - name: Test distribution gate publication and rollback
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
-        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_signal_vault_release.py -v
+        run: |
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_native_dependency_audit.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_signal_vault_release.py -v
 
       - name: Test release archive rejection and reproducibility
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
