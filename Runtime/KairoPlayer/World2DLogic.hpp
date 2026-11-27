@@ -86,6 +86,12 @@ namespace kairo::player::logic2d
         std::array<int,Slots> m_Values{};
     public:
         int Value(unsigned slot)const{return m_Values.at(slot);}
+        const std::array<int,Slots>& Values()const noexcept{return m_Values;}
+        void Restore(const std::array<int,Slots>& values)
+        {
+            for(int v:values)Check(v>=-1000000&&v<=1000000,"Invalid restored script value.");
+            m_Values=values;
+        }
         void Clear(){m_Values={};}
         void Apply(const Rule& r)
         {
