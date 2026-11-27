@@ -50,7 +50,8 @@ def manifest(data):
         fields[tokens[0]] = tokens[1]
     require(set(fields) == {'project','profile','kind','engine-version','player','project-files','project-bytes'}, 'Incomplete manifest')
     require(fields['project'] == 'project/Project.kproject' and fields['kind'] in ('release','development'), 'Invalid package type')
-    require(fields['player'] in ('bin/KairoPlayer','bin/KairoPlayer.exe'), 'Invalid player path')
+    player=safe_name(fields['player'])
+    require(re.fullmatch(r'bin/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}',player), 'Invalid player path')
     for key in ('project-files','project-bytes'):
         require(re.fullmatch(r'[0-9]{1,20}', fields[key]), 'Invalid package count')
     return fields
@@ -106,7 +107,7 @@ def entries(root):
 def check_layout(fields, sizes, target):
     player=fields['player']; windows=target.startswith('windows-')
     launcher='run.cmd' if windows else 'run.sh'
-    require(player == ('bin/KairoPlayer.exe' if windows else 'bin/KairoPlayer'), 'Executable/target mismatch')
+    require(player.lower().endswith('.exe')==windows, 'Executable/target mismatch')
     project={p:n for p,n in sizes.items() if p.startswith('project/')}
     require(fields['project'] in project and {player,launcher,'package.kmanifest'} <= sizes.keys(), 'Incomplete bundle')
     require(len(project)==int(fields['project-files']) and sum(project.values())==int(fields['project-bytes']), 'Payload counts differ')
