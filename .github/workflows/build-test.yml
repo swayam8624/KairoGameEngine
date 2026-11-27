@@ -131,7 +131,18 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          start=$SECONDS
           cmake --build --preset ${{ matrix.preset }} --parallel 2 2>&1 | tee build-${{ matrix.preset }}.log
+          echo "Initial build wall seconds: $((SECONDS-start))" | tee -a build-${{ matrix.preset }}.log
+
+      - name: Measure incremental native build
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          cmake --build --preset ${{ matrix.preset }} --parallel 2 2>&1 | tee incremental-build.log
+          echo "Repeat build wall seconds: $((SECONDS-start))" | tee -a incremental-build.log
 
       - name: Upload build diagnostics
         if: failure() && steps.build.outcome == 'failure'
@@ -261,7 +272,29 @@ jobs:
           if sys.platform.startswith("linux"):
               subprocess.run(["xvfb-run","-a",str(launcher),"--renderer","vulkan","--smoke"],cwd=root,check=True,timeout=120)
           print("Relocated release verified:",index["target"],len(index["files"]),"files")
+          # Retain the exact verified archive, not a second untested rebuild.
+          import hashlib, json
+          destination=Path("release-evidence");destination.mkdir(exist_ok=True)
+          target=destination/("KairoAdventure-"+index["target"]+".zip")
+          shutil.copyfile(archive,target)
+          digest=hashlib.sha256()
+          with target.open("rb") as stream:
+              while chunk:=stream.read(1024*1024):digest.update(chunk)
+          receipt={"commit":os.environ["GITHUB_SHA"],"target":index["target"],
+                   "sha256":digest.hexdigest(),"file_count":len(index["files"]),
+                   "relocated_validation":True,
+                   "vulkan_capture":sys.platform.startswith("linux")}
+          (destination/"receipt.json").write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n")
           PY
+
+      - name: Retain verified native adventure archive and receipt
+        if: matrix.preset != 'ci-sanitized'
+        uses: actions/upload-artifact@v7
+        with:
+          name: KairoAdventure-${{ matrix.platform }}-${{ matrix.preset }}
+          path: release-evidence/
+          if-no-files-found: error
+          compression-level: 0
 
       - name: Test release archive rejection and reproducibility
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
