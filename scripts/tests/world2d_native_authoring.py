@@ -62,6 +62,22 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(reopened.sprites["new"],(8,8,4,("1"*64,"2"*64)))
         self.assertEqual(reopened.actors[-1].id,99)
 
+    def test_physics_roundtrip_and_invalid_body_rollback(self):
+        config="physics 0 180\nbodies 1\n6 dynamic box 2 0.3 0.7 4 3 0 0 0\njoints 0\n"
+        self.doc.edit(lambda w:setattr(w,"physics",config))
+        self.assertTrue(self.doc.world.encode().startswith(b"kairo-world2d 3\n"))
+        self.doc.undo();self.assertFalse(self.doc.dirty)
+        self.doc.redo();self.doc.save()
+        reopened=Document(self.path,VALIDATOR)
+        self.assertEqual(reopened.world.physics,config)
+        before=self.path.read_bytes()
+        reopened.edit(lambda w:setattr(w,"physics",config.replace("6 dynamic","99 dynamic")))
+        with self.assertRaises(ValueError):reopened.save()
+        self.assertEqual(self.path.read_bytes(),before)
+        reopened.edit(lambda w:setattr(w,"physics",""))
+        reopened.save()
+        self.assertTrue(self.path.read_bytes().startswith(b"kairo-world2d 2\n"))
+
     def test_invalid_projection(self):
         with self.assertRaises(ValueError):World.parse(b"kairo-world2d 1\n")
         with self.assertRaises(ValueError):World.parse(self.doc.world.encode()+b"trailing")
