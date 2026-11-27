@@ -69,11 +69,25 @@ namespace kairo::player::world2d
         for(unsigned i=0;i<8;++i){add(static_cast<unsigned char>(size&255));size>>=8;}
         for(unsigned char b:bytes)add(b);
     }
-    struct Progress {unsigned Level=0;bool Finished=false;};
+    struct Progress
+    {
+        unsigned Level=0;bool Finished=false;
+        std::array<int,16> ScriptValues{};
+    };
     inline std::string EncodeProgress(std::uint64_t revision,Progress progress)
     {
         std::ostringstream out;out.imbue(std::locale::classic());
-        out<<"kairo-world-progress 1\n"<<revision<<' '<<progress.Level<<' '<<int(progress.Finished)<<'\n';
+        const bool extended=std::any_of(progress.ScriptValues.begin(),progress.ScriptValues.end(),[](int v){return v!=0;});
+        out<<"kairo-world-progress "<<(extended?2:1)<<'\n'<<revision<<' '<<progress.Level<<' '<<int(progress.Finished)<<'\n';
+        if(extended)
+        {
+            for(int v:progress.ScriptValues)
+            {
+                CampaignCheck(v>=-1000000&&v<=1000000,"Invalid checkpoint script value.");
+                out<<v<<' ';
+            }
+            out<<'\n';
+        }
         return out.str();
     }
     inline Progress DecodeProgress(std::string_view bytes,std::uint64_t revision,unsigned levelCount)
@@ -81,8 +95,12 @@ namespace kairo::player::world2d
         CampaignCheck(bytes.size()<=256&&levelCount>=1&&levelCount<=16,"Invalid checkpoint bounds.");
         std::istringstream in{std::string(bytes)};in.imbue(std::locale::classic());
         std::string magic,extra;int version=0,finished=0;std::uint64_t key=0;Progress p;
-        CampaignCheck(bool(in>>magic>>version>>key>>p.Level>>finished)&&magic=="kairo-world-progress"&&version==1&&
-            key==revision&&p.Level<levelCount&&(finished==0||finished==1)&&!(in>>extra),"Invalid or stale campaign checkpoint.");
+        CampaignCheck(bool(in>>magic>>version>>key>>p.Level>>finished)&&magic=="kairo-world-progress"&&(version==1||version==2)&&
+            key==revision&&p.Level<levelCount&&(finished==0||finished==1),"Invalid or stale campaign checkpoint.");
+        if(version==2)
+            for(auto& v:p.ScriptValues)
+                CampaignCheck(bool(in>>v)&&v>=-1000000&&v<=1000000,"Invalid checkpoint script values.");
+        CampaignCheck(!(in>>extra),"Trailing checkpoint data.");
         p.Finished=finished!=0;
         CampaignCheck(!p.Finished||p.Level+1==levelCount,"Invalid finished checkpoint.");
         return p;
