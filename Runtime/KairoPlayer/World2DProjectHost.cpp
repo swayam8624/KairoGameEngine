@@ -74,18 +74,22 @@ namespace kairo::player::world2d
         std::vector<DrawRect> rects;
         std::vector<ViewportOverlayRect> native;
         rects.reserve(MaxDrawRects);native.reserve(MaxDrawRects);
+        ui2d::Pointer pointer;
+        ui2d::Keyboard keyboard;
+        std::vector<ui2d::Rect> uiRects;
+        const auto page=[&]{return progress.Finished?ui2d::Screen::Complete:paused?ui2d::Screen::Pause:ui2d::Screen::Play;};
         const auto publish=[&](unsigned w,unsigned h)
         {
             if(paused||progress.Finished)
                 renderer.SubmitRenderScene(RenderScene{});
-            else if(rectangles)BuildView(game,w,h,rects);
+            else if(rectangles)BuildView(game,w,h,rects,!campaign.UI);
             else
             {
                 if(atlasLevel!=progress.Level){atlas.Load(game.Definition());atlasLevel=progress.Level;}
                 atlas.Publish(game,w,h);
-                BuildAtlasHud(game,w,h,rects);
+                BuildAtlasHud(game,w,h,rects,!campaign.UI);
             }
-            if(paused||progress.Finished)
+            if((paused||progress.Finished)&&!campaign.UI)
             {
                 // A modal replaces the scene rather than exceeding the native draw budget.
                 using namespace kairo::player::detail;
@@ -104,6 +108,13 @@ namespace kairo::player::world2d
                     rects.push_back({{item.Box.X,item.Box.Y,item.Box.W,item.Box.H},rgb});
                 }
             }
+            if(campaign.UI)
+            {
+                if(paused||progress.Finished){rects.clear();rects.push_back({{0,0,int(w),int(h)},0x10161f});}
+                ui2d::Paint(*campaign.UI,page(),{game.Collected(),game.Total(),game.Deaths(),progress.Level+1,levelCount,campaign.Config.Title},pointer,w,h,uiRects,keyboard.Focus());
+                for(const auto& item:uiRects)rects.push_back({{item.Bounds.X,item.Bounds.Y,item.Bounds.W,item.Bounds.H},item.RGB});
+            }
+            if(rects.size()>MaxDrawRects)throw std::length_error("Combined World2D/UI rectangle budget exceeded; use the textured renderer or simplify the UI.");
             native.clear();
             for(const auto& rect:rects)
             {
@@ -116,20 +127,31 @@ namespace kairo::player::world2d
         publish(width,height);
         if(smoke)
         {
-            renderer.RequestViewportCapture();
-            for(unsigned i=0;i<16;++i)
+            const auto captureScreen=[&]()
             {
-                renderer.NativeWindow().PollEvents();
-                renderer.DrawFrame();
-                if(auto capture=renderer.TakeViewportCapture())
+                renderer.RequestViewportCapture();
+                for(unsigned i=0;i<16;++i)
                 {
-                    if(!capture->IsVisuallyNonUniform())throw std::runtime_error("World2D capture is uniform.");
-                    if(!rectangles)VerifyAtlasCapture(game,*capture,renderer.Backend());
-                    std::cout<<"Native World2D "<<(rectangles?"rectangle":"textured atlas")<<" viewport smoke passed\n";
-                    return 0;
+                    renderer.NativeWindow().PollEvents();
+                    renderer.DrawFrame();
+                    if(auto capture=renderer.TakeViewportCapture())
+                    {
+                        if(!capture->IsVisuallyNonUniform())throw std::runtime_error("World2D capture is uniform.");
+                        if(!rectangles||campaign.UI)VerifyAtlasCapture(game,*capture,renderer.Backend(),rects,!campaign.UI);
+                        return;
+                    }
                 }
+                throw std::runtime_error("World2D capture unavailable.");
+            };
+            captureScreen();
+            if(campaign.UI)
+            {
+                paused=true;publish(width,height);captureScreen();
+                paused=false;progress.Finished=true;publish(width,height);captureScreen();
+                std::cout<<"Authored play, pause and completion UI captures passed\n";
             }
-            throw std::runtime_error("World2D capture unavailable.");
+            std::cout<<"Native World2D "<<(rectangles?"rectangle":"textured atlas")<<" viewport smoke passed\n";
+            return 0;
         }
         auto* window=renderer.NativeWindow().NativeHandle();
         const auto updateTitle=[&]()
@@ -161,17 +183,41 @@ namespace kairo::player::world2d
             const auto dt=clock.Sample(std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count(),active);
             if(!active)
             {
+                if(campaign.UI)
+                {
+                    if(pointer.Hover()||pointer.Pressed()||keyboard.Focus())++visualRevision;
+                    (void)keyboard.Update(*campaign.UI,page(),w,h,false,false,false,false);
+                    (void)pointer.Update(*campaign.UI,page(),w,h,0,0,glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS,false);
+                }
                 accumulator=0;jumpQueued=false;mixer.Clear();
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));continue;
             }
-            if(action("Quit").Pressed){renderer.NativeWindow().RequestClose();break;}
-            if(action("NewGame").Pressed)
+            ui2d::Action uiAction=ui2d::Action::None;
+            if(campaign.UI)
+            {
+                double mx=0,my=0;int ww=0,wh=0;
+                glfwGetCursorPos(window,&mx,&my);glfwGetWindowSize(window,&ww,&wh);
+                const auto hover=pointer.Hover(),pressed=pointer.Pressed();
+                const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+                const bool valid=ww>0&&wh>0&&std::isfinite(mx)&&std::isfinite(my)&&mx>=0&&my>=0&&mx<ww&&my<wh;
+                // Resizing during a press cancels that capture.
+                uiAction=pointer.Update(*campaign.UI,page(),w,h,valid?int(mx*w/ww):-1,
+                    valid?int(my*h/wh):-1,down,w==lastW&&h==lastH);
+                const auto oldFocus=keyboard.Focus();
+                const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS;};
+                const auto keyAction=keyboard.Update(*campaign.UI,page(),w,h,key(GLFW_KEY_TAB),
+                    key(GLFW_KEY_LEFT_SHIFT)||key(GLFW_KEY_RIGHT_SHIFT),key(GLFW_KEY_ENTER)||key(GLFW_KEY_KP_ENTER),true);
+                if(uiAction==ui2d::Action::None)uiAction=keyAction;
+                if(hover!=pointer.Hover()||pressed!=pointer.Pressed()||oldFocus!=keyboard.Focus())++visualRevision;
+            }
+            if(action("Quit").Pressed||uiAction==ui2d::Action::Quit){renderer.NativeWindow().RequestClose();break;}
+            if(action("NewGame").Pressed||uiAction==ui2d::Action::NewGame)
             {
                 progress={};game=Game(campaign.Worlds.front());paused=false;++visualRevision;
                 checkpointWritable=true;save();updateTitle();accumulator=0;jumpQueued=false;mixer.Clear();
             }
-            if(action("Pause").Pressed&&!progress.Finished){paused=!paused;++visualRevision;accumulator=0;jumpQueued=false;mixer.Clear();}
-            if(action("Restart").Pressed&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;mixer.Clear();}
+            if((action("Pause").Pressed||uiAction==ui2d::Action::Pause||uiAction==ui2d::Action::Resume)&&!progress.Finished){paused=!paused;++visualRevision;accumulator=0;jumpQueued=false;mixer.Clear();}
+            if((action("Restart").Pressed||uiAction==ui2d::Action::Restart)&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;mixer.Clear();}
             if(w!=lastW||h!=lastH){renderer.ResizeViewport(w,h);lastW=w;lastH=h;++visualRevision;}
             if(jump.Pressed&&!paused)jumpQueued=true;
             accumulator+=dt;

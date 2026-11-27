@@ -11,7 +11,7 @@ namespace kairo::player::world2d
     inline constexpr std::size_t MaxDrawRects=4096;
     // Clip each primitive before mapping it to the letterboxed viewport.
     // Two bounded tile layers plus the validated sprite-run budget stay below 4096 draws.
-    inline void BuildView(const Game& game,unsigned width,unsigned height,std::vector<DrawRect>& out)
+    inline void BuildView(const Game& game,unsigned width,unsigned height,std::vector<DrawRect>& out,bool hud=true)
     {
         out.clear();
         if(!width||!height||width>32768||height>32768)return;
@@ -81,10 +81,12 @@ namespace kairo::player::world2d
                 }
         }
         // Small authored-objective HUD, independent of scrolling camera.
+        if(hud){
         draw({4,4,48,6},w.Colors[8]);
         const int filled=game.Total()?int(48u*game.Collected()/game.Total()):48;
         if(filled)draw({4,4,filled,6},w.Colors[4]);
         if(game.Won())draw({camera.W/2-24,camera.H/2-5,48,10},w.Colors[3]);
+        }
         if(out.size()>MaxDrawRects)throw std::logic_error("2D view exceeded native rectangle budget.");
     }
     inline std::vector<DrawRect> View(const Game& game,unsigned width,unsigned height)

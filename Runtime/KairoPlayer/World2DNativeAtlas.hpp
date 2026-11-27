@@ -139,10 +139,11 @@ namespace kairo::player::world2d
         }
     };
 
-    inline void VerifyAtlasCapture(const Game& game,const kairo::renderer::ViewportCapture& capture,kairo::renderer::GraphicsBackend backend)
+    inline void VerifyAtlasCapture(const Game& game,const kairo::renderer::ViewportCapture& capture,kairo::renderer::GraphicsBackend backend,
+        std::span<const DrawRect> overlay={},bool hud=true)
     {
         const auto evidence=CheckAtlasCapture(game,capture.Width,capture.Height,capture.RGBA,
-            backend==kairo::renderer::GraphicsBackend::Vulkan?CaptureTransfer::Gamma22:CaptureTransfer::Linear);
+            backend==kairo::renderer::GraphicsBackend::Vulkan?CaptureTransfer::Gamma22:CaptureTransfer::Linear,overlay,hud);
         if(evidence.Probes<8||evidence.Matches*100u<95u*evidence.Probes)
             throw std::runtime_error("Native atlas capture differs from rectangle reference: "+
                 std::to_string(evidence.Matches)+"/"+std::to_string(evidence.Probes));
@@ -152,7 +153,7 @@ namespace kairo::player::world2d
     // Preserve the old letterbox and objective HUD without rasterizing the
     // atlas sprites back into CPU rectangles. The bars mask geometry outside
     // the authored camera, which the aspect-preserving projection may reveal.
-    inline void BuildAtlasHud(const Game& game,unsigned width,unsigned height,std::vector<DrawRect>& out)
+    inline void BuildAtlasHud(const Game& game,unsigned width,unsigned height,std::vector<DrawRect>& out,bool showHud=true)
     {
         out.clear();
         if(!width||!height)return;
@@ -171,6 +172,7 @@ namespace kairo::player::world2d
             const int r=x+std::min(b.X+b.W,c.W)*sw/c.W,d=y+std::min(b.Y+b.H,c.H)*sh/c.H;
             draw({l,t,r-l,d-t},rgb);
         };
+        if(!showHud)return;
         const auto& colors=game.Definition().Colors;
         hud({4,4,48,6},colors[8]);
         const int filled=game.Total()?int(48u*game.Collected()/game.Total()):48;

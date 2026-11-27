@@ -11,11 +11,14 @@ namespace kairo::player::world2d
     // Compare interior pixels, not the exact edge rasterization convention.
     // Reference rectangles remain independent of the atlas and mesh path.
     inline CaptureEvidence CheckAtlasCapture(const Game& game,unsigned width,unsigned height,
-        std::span<const std::uint8_t> rgba,CaptureTransfer transfer=CaptureTransfer::Linear)
+        std::span<const std::uint8_t> rgba,CaptureTransfer transfer=CaptureTransfer::Linear,
+        std::span<const DrawRect> overlay={},bool hud=true)
     {
         Require(width&&height&&width<=32768&&height<=32768&&
             rgba.size()==std::uint64_t(width)*height*4,"Invalid atlas capture dimensions.");
-        const auto rects=View(game,width,height);
+        std::vector<DrawRect> rects;
+        BuildView(game,width,height,rects,hud);
+        rects.insert(rects.end(),overlay.begin(),overlay.end());
         const auto colorAt=[&](int x,int y)->std::optional<unsigned>
         {
             for(auto i=rects.rbegin();i!=rects.rend();++i)
