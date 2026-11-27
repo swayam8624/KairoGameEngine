@@ -1,5 +1,5 @@
 kairo-ui2d 1
-widgets 17
+widgets 16
 hud play panel tl 16 16 390 100 202832 ffffff none none ""
 coins play counter tl 24 21 220 43 202832 f5df9b coins none "SIGNALS "
 progress play bar tl 28 72 360 14 414b58 e4bc58 coins none ""
@@ -16,4 +16,3 @@ complete_title complete label c 0 -120 620 80 202832 5cae82 none none "VAULT UNL
 new_game complete button c 0 25 400 85 304d46 ffffff none newgame "NEW GAME"
 exit_complete complete button c 0 132 400 85 463d47 ffffff none quit "QUIT"
 score play counter bl 16 -16 260 50 202832 f5df9b script none "SCORE "
-hint play label b 0 -16 380 50 202832 e4e8ef none none "FIND SIGNALS AND EXIT"
