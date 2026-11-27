@@ -1,4 +1,5 @@
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string_view>
@@ -8,7 +9,7 @@ int main(int argc,char** argv)
     try
     {
         if(argc!=2)throw std::invalid_argument("Usage: KairoWorld2DInputTool <Input.kinput>");
-        const auto map=kairo::engine::LoadInputActionMap(argv[1]);
+        const auto map=kairo::engine::LoadInputActionMap(std::filesystem::path(argv[1]));
         const auto* move=map.FindAction("Move");
         if(!move||move->Type!=kairo::engine::InputActionValueType::Axis2D)
             throw std::invalid_argument("World2D requires a Move axis2d action.");
