@@ -203,7 +203,7 @@ namespace kairo::player::ui2d
                 const int y=b.Y+(b.H-7*scale)/2;
                 for(char c:text)
                 {
-                    const auto glyph=kairo::player::detail::MenuGlyph(c);
+                    const auto glyph=c=='/'?std::array<unsigned,7>{1,1,2,4,8,16,16}:kairo::player::detail::MenuGlyph(c);
                     for(int row=0;row<7;++row)for(int col=0;col<5;)
                     {
                         if(!(glyph[row]&(1u<<(4-col)))){++col;continue;}
