@@ -129,6 +129,20 @@
         "KAIRO_GAME_ENGINE_BUILD_EDITOR": "OFF",
         "KAIRO_GAME_ENGINE_REQUIRE_GAMEPLAY_AI_SPLIT": "ON"
       }
+    },
+    {
+      "name": "studio-fast",
+      "displayName": "Focused incremental Studio development",
+      "inherits": "game-clang",
+      "binaryDir": "${sourceDir}/build/studio-fast",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -167,6 +181,32 @@
     {
       "name": "game-player-clang",
       "configurePreset": "game-player-clang"
+    },
+    {
+      "name": "studio-fast",
+      "configurePreset": "studio-fast",
+      "targets": [
+        "KairoEditorApp",
+        "KairoProjectCompiler",
+        "KairoPlayer"
+      ],
+      "jobs": 2
+    },
+    {
+      "name": "studio-editor",
+      "configurePreset": "studio-fast",
+      "targets": [
+        "KairoEditorApp"
+      ],
+      "jobs": 2
+    },
+    {
+      "name": "studio-player",
+      "configurePreset": "studio-fast",
+      "targets": [
+        "KairoPlayer"
+      ],
+      "jobs": 2
     }
   ],
   "testPresets": [

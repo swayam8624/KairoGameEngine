@@ -11,14 +11,14 @@ namespace kairo::player::world2d
     inline constexpr std::size_t MaxDrawRects=4096;
     // Clip each primitive before mapping it to the letterboxed viewport.
     // Two bounded tile layers plus the validated sprite-run budget stay below 4096 draws.
-    inline std::vector<DrawRect> View(const Game& game,unsigned width,unsigned height)
+    inline void BuildView(const Game& game,unsigned width,unsigned height,std::vector<DrawRect>& out)
     {
-        std::vector<DrawRect> out;
-        if(!width||!height||width>32768||height>32768)return out;
+        out.clear();
+        if(!width||!height||width>32768||height>32768)return;
         const auto& w=game.Definition();const Box camera=game.Camera();
         const double scale=std::min(double(width)/camera.W,double(height)/camera.H);
         const int screenW=static_cast<int>(camera.W*scale),screenH=static_cast<int>(camera.H*scale);
-        if(!screenW||!screenH)return out;
+        if(!screenW||!screenH)return;
         const int ox=(static_cast<int>(width)-screenW)/2,oy=(static_cast<int>(height)-screenH)/2;
         const auto drawFractional=[&](double bx,double by,double bw,double bh,unsigned color)
         {
@@ -34,26 +34,36 @@ namespace kairo::player::world2d
         {
             const int endX=std::min(w.Width,(cx+camera.W+Tile-1)/Tile);
             const int endY=std::min(w.Height,(cy+camera.H+Tile-1)/Tile);
-            for(int y=cy/Tile;y<endY;++y)for(int x=cx/Tile;x<endX;++x)
+            for(int y=cy/Tile;y<endY;++y)for(int x=cx/Tile;x<endX;)
             {
-                const char c=rows[y][x];if(c=='.')continue;
-                draw({x*Tile-cx,y*Tile-cy,Tile,Tile},w.Colors[w.Tiles.at(c).Color]);
+                const char c=rows[y][x];
+                if(c=='.'){++x;continue;}
+                const auto color=w.Tiles.at(c).Color;
+                int end=x+1;
+                while(end<endX&&rows[y][end]!='.'&&w.Tiles.at(rows[y][end]).Color==color)++end;
+                // Adjacent opaque tiles with the same color have identical
+                // coverage when rendered as one rectangle.
+                draw({x*Tile-cx,y*Tile-cy,(end-x)*Tile,Tile},w.Colors[color]);
+                x=end;
             }
         };
         layer(w.Back,camera.X*w.Parallax/100,camera.Y*w.Parallax/100);
         layer(w.Map,camera.X,camera.Y);
-        std::vector<std::size_t> order;
+        std::array<std::size_t,MaxActors> order{};
+        std::size_t count=0;
         for(std::size_t i=0;i<game.Actors().size();++i)
-            if(game.Actors()[i].Active&&Overlap(game.Actors()[i].Bounds,camera))order.push_back(i);
-        std::stable_sort(order.begin(),order.end(),[&](auto a,auto b)
+            if(game.Actors()[i].Active&&Overlap(game.Actors()[i].Bounds,camera))order[count++]=i;
+        std::sort(order.begin(),order.begin()+count,[&](auto a,auto b)
         {
             const bool da=w.Actors[a].Type==Kind::Decor,db=w.Actors[b].Type==Kind::Decor;
             if(da!=db)return da;
             const auto p=game.Actors()[a].Bounds,q=game.Actors()[b].Bounds;
-            return p.Y+p.H<q.Y+q.H;
+            const auto depthA=p.Y+p.H,depthB=q.Y+q.H;
+            return depthA==depthB?a<b:depthA<depthB;
         });
-        for(const auto i:order)
+        for(std::size_t slot=0;slot<count;++slot)
         {
+            const auto i=order[slot];
             const auto& actor=w.Actors[i];const auto& sprite=w.Sprites.at(actor.SpriteName);
             const auto& frame=sprite.Frames[(game.Tick()/static_cast<unsigned>(sprite.Period))%sprite.Frames.size()];
             const auto b=game.Actors()[i].Bounds;
@@ -76,6 +86,11 @@ namespace kairo::player::world2d
         if(filled)draw({4,4,filled,6},w.Colors[4]);
         if(game.Won())draw({camera.W/2-24,camera.H/2-5,48,10},w.Colors[3]);
         if(out.size()>MaxDrawRects)throw std::logic_error("2D view exceeded native rectangle budget.");
-        return out;
+    }
+    inline std::vector<DrawRect> View(const Game& game,unsigned width,unsigned height)
+    {
+        std::vector<DrawRect> result;
+        BuildView(game,width,height,result);
+        return result;
     }
 }
