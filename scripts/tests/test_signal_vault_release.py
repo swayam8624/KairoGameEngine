@@ -64,6 +64,11 @@ class DistributionTests(unittest.TestCase):
         self.assertEqual(json.loads((self.output / "receipt.json").read_text()), receipt)
         self.assertTrue(any("Relocated Signal Vault/bin/KairoPlayer" in c[0] for c in self.executed))
         self.assertTrue(any("Relocated Signal Vault/run.sh" in c[0] for c in self.executed))
+        inventory = self.output / "native-dependencies.json"
+        self.assertEqual(gate.digest(inventory), receipt["native_dependencies_sha256"])
+        self.assertEqual(json.loads(inventory.read_text())["tool"], "readelf")
+        self.assertFalse(receipt["dependency_closure_verified"])
+        self.assertFalse(receipt["third_party_licenses_verified"])
         self.assertFalse(receipt["fresh_machine_qualified"])
         self.assertFalse(receipt["signed"])
 
