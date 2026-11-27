@@ -4,19 +4,60 @@
 #include <GLFW/glfw3.h>
 #include "RuntimeWorld2DView.hpp"
 #include "RuntimeFrameClock.hpp"
+#include "World2DCampaignProject.hpp"
+#include "RuntimeNativeAudioOutput.hpp"
+#include "RuntimeGameLabView.hpp"
+#include <memory>
 #include <chrono>
 #include <iostream>
 #include <thread>
 #include <utility>
 
 import Kairo.Renderer;
+import Kairo.Player.RuntimeProject;
+import Kairo.Player.RuntimeInputBridge;
+import Kairo.EngineCore.InputMap;
+import Kairo.EngineCore.Input;
 
 namespace kairo::player::world2d
 {
-    int Run(Game game,const std::string& title,kairo::renderer::GraphicsBackend backend,bool smoke)
+    int Run(CampaignProject campaign,const kairo::player::RuntimeProject& project,
+        kairo::renderer::GraphicsBackend backend,bool smoke)
     {
         using namespace kairo::renderer;
-        RendererRuntime renderer({title+" - Kairo 2D",1280u,720u,!smoke,backend});
+        const auto levelCount=static_cast<unsigned>(campaign.Worlds.size());
+        Progress progress;
+        bool checkpointWritable=true;
+        if(!smoke)
+        {
+            try{progress=ReadCheckpoint(project.Root(),campaign);}
+            catch(const std::exception& e)
+            {
+                std::cerr<<"World2D checkpoint ignored; NewGame required to replace it: "<<e.what()<<'\n';
+                checkpointWritable=false;
+            }
+        }
+        Game game(campaign.Worlds.at(progress.Level));
+        bool paused=false;
+        EventMixer mixer(campaign.Config);
+        std::unique_ptr<kairo::player::detail::RuntimeNativeAudioOutput> audio;
+        if(!smoke)
+        {
+            try
+            {
+                audio=std::make_unique<kairo::player::detail::RuntimeNativeAudioOutput>(48000);
+                if(!audio->Enabled())audio.reset();
+            }
+            catch(const std::exception& e){std::cerr<<"World2D audio unavailable: "<<e.what()<<'\n';}
+        }
+        const auto save=[&]()
+        {
+            if(!checkpointWritable)return;
+            try{WriteCheckpoint(project.Root(),campaign,progress);}
+            catch(const std::exception& e){std::cerr<<"World2D checkpoint write failed: "<<e.what()<<'\n';}
+        };
+        RendererRuntime renderer({project.Descriptor().Name+" - Kairo 2D",1280u,720u,!smoke,backend});
+        kairo::player::RuntimeInputBridge input(project.InputMap());
         if(!renderer.SupportsViewportOverlay())
             throw std::runtime_error("World2D currently requires a Metal or Vulkan viewport overlay.");
         const auto [width,height]=renderer.NativeWindow().FramebufferExtent();
@@ -25,7 +66,26 @@ namespace kairo::player::world2d
         renderer.SubmitRenderScene(RenderScene{});
         const auto publish=[&](unsigned w,unsigned h)
         {
-            const auto rects=View(game,w,h);
+            auto rects=View(game,w,h);
+            if(paused||progress.Finished)
+            {
+                // A modal replaces the scene rather than exceeding the native draw budget.
+                using namespace kairo::player::detail;
+                RuntimeGridCanvas canvas(w,h,240,100);
+                GameLabRects menu;
+                AddGameRect(menu,canvas.Rect(0,0,240,100),{.05f,.07f,.1f});
+                GameLabText(menu,canvas,10,14,220,campaign.Config.Title,{.85f,.9f,1.f});
+                GameLabText(menu,canvas,10,36,220,progress.Finished?"CAMPAIGN COMPLETE":"PAUSED",{.4f,.8f,.65f});
+                if(!progress.Finished)GameLabText(menu,canvas,10,56,220,"PAUSE TO RESUME",{1,1,1});
+                GameLabText(menu,canvas,10,70,220,"NEW GAME / QUIT",{1,1,1});
+                rects.clear();
+                for(const auto& item:menu)
+                {
+                    const auto color=item.Tint;
+                    const auto rgb=(unsigned(color[0]*255)<<16)|(unsigned(color[1]*255)<<8)|unsigned(color[2]*255);
+                    rects.push_back({{item.Box.X,item.Box.Y,item.Box.W,item.Box.H},rgb});
+                }
+            }
             std::vector<ViewportOverlayRect> native;
             native.reserve(rects.size());
             for(const auto& rect:rects)
@@ -54,36 +114,75 @@ namespace kairo::player::world2d
             throw std::runtime_error("World2D capture unavailable.");
         }
         auto* window=renderer.NativeWindow().NativeHandle();
+        const auto updateTitle=[&]()
+        {
+            const auto title=campaign.Config.Title+" | "+std::to_string(progress.Level+1)+"/"+std::to_string(levelCount);
+            glfwSetWindowTitle(window,title.c_str());
+        };
+        updateTitle();
         kairo::player::detail::RuntimeFrameClock clock;
         const auto start=std::chrono::steady_clock::now();
         unsigned lastW=width,lastH=height;
         double accumulator=0;
-        bool previousJump=false,jumpQueued=false,previousReset=false;
+        bool jumpQueued=false;
         while(!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
             const auto [w,h]=renderer.NativeWindow().FramebufferExtent();
-            const bool active=w&&h&&glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE;
-            const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS;};
-            const bool jump=key(GLFW_KEY_SPACE),reset=key(GLFW_KEY_R);
+            const bool active=w&&h&&glfwGetWindowAttrib(window,GLFW_FOCUSED)==GLFW_TRUE&&
+                glfwGetWindowAttrib(window,GLFW_ICONIFIED)!=GLFW_TRUE;
+            input.Poll(renderer.NativeWindow());
+            const auto action=[&](std::string_view name)
+            {
+                return input.HasAction(name)?input.Action(name):kairo::engine::InputActionState{};
+            };
+            const auto jump=action("Jump");
             const auto dt=clock.Sample(std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count(),active);
             if(!active)
             {
-                accumulator=0;jumpQueued=false;previousJump=jump;previousReset=reset;
+                accumulator=0;jumpQueued=false;mixer.Clear();
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));continue;
             }
-            if(key(GLFW_KEY_ESCAPE)){renderer.NativeWindow().RequestClose();break;}
-            if(reset&&!previousReset){game.Reset();accumulator=0;jumpQueued=false;}
-            previousReset=reset;
+            if(action("Quit").Pressed){renderer.NativeWindow().RequestClose();break;}
+            if(action("NewGame").Pressed)
+            {
+                progress={};game=Game(campaign.Worlds.front());paused=false;
+                checkpointWritable=true;save();updateTitle();accumulator=0;jumpQueued=false;mixer.Clear();
+            }
+            if(action("Pause").Pressed&&!progress.Finished){paused=!paused;accumulator=0;jumpQueued=false;mixer.Clear();}
+            if(action("Restart").Pressed&&!progress.Finished){game.Reset();accumulator=0;jumpQueued=false;mixer.Clear();}
             if(w!=lastW||h!=lastH){renderer.ResizeViewport(w,h);lastW=w;lastH=h;}
-            if(jump&&!previousJump)jumpQueued=true;
-            previousJump=jump;
+            if(jump.Pressed&&!paused)jumpQueued=true;
             accumulator+=dt;
+            const auto movement=action("Move").Value;
+            const auto sign=[](float x){return (x>.25f)-(x<-.25f);};
             while(accumulator>=1./60.)
             {
-                game.Step({int(key(GLFW_KEY_D)||key(GLFW_KEY_RIGHT))-int(key(GLFW_KEY_A)||key(GLFW_KEY_LEFT)),
-                    int(key(GLFW_KEY_S)||key(GLFW_KEY_DOWN))-int(key(GLFW_KEY_W)||key(GLFW_KEY_UP)),jump||jumpQueued});
-                jumpQueued=false;accumulator-=1./60.;
+                if(!paused&&!progress.Finished)
+                {
+                    const auto before=game.Collected(),deaths=game.Deaths();
+                    game.Step({sign(movement.X),sign(movement.Y),jump.Down||jumpQueued});
+                    jumpQueued=false;
+                    if(game.Deaths()!=deaths)mixer.Trigger(1);
+                    else if(game.Collected()>before)mixer.Trigger(0);
+                    if(game.Won())
+                    {
+                        mixer.Trigger(2);
+                        progress=Advance(progress,levelCount);
+                        save();updateTitle();
+                        if(!progress.Finished)game=Game(campaign.Worlds.at(progress.Level));
+                        // New level begins on the next frame, never with a
+                        // remainder of the previous level's input backlog.
+                        accumulator=1./60.;
+                    }
+                }
+                if(audio)
+                {
+                    if(audio->Failed())audio.reset();
+                    else (void)audio->Push(mixer.Mix());
+                }
+                else (void)mixer.Mix();
+                accumulator-=1./60.;
             }
             publish(w,h);renderer.DrawFrame();
         }
