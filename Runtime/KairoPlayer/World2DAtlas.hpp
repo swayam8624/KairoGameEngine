@@ -96,6 +96,16 @@ namespace kairo::player::world2d
         return chunks;
     }
 
+    // Immutable CPU payload prepared ahead of a level transition. No GPU
+    // handles or renderer calls belong in this worker-safe representation.
+    struct PreparedAtlas {Atlas Pixels;std::vector<TileChunk> Chunks;};
+    inline PreparedAtlas PrepareAtlas(const World& world)
+    {
+        auto pixels=BuildAtlas(world);
+        auto chunks=BuildTileChunks(world,pixels);
+        return {std::move(pixels),std::move(chunks)};
+    }
+
     struct SpriteDraw {std::size_t ActorIndex=0,Frame=0;Box Bounds;};
     struct AtlasFrame
     {
