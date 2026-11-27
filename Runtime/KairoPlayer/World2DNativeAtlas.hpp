@@ -2,7 +2,8 @@
 // Include from the native host after the Renderer, Math and TextureArtifact
 // imports. All GPU handles are owned by the one RendererRuntime instance.
 #include "World2DAtlas.hpp"
-#include "RuntimeWorld2DView.hpp"
+#include "World2DAtlasCapture.hpp"
+#include <iostream>
 #include <cstddef>
 #include <memory>
 
@@ -137,6 +138,15 @@ namespace kairo::player::world2d
             m_Renderer.SubmitRenderScene(scene);
         }
     };
+
+    inline void VerifyAtlasCapture(const Game& game,const kairo::renderer::ViewportCapture& capture)
+    {
+        const auto evidence=CheckAtlasCapture(game,capture.Width,capture.Height,capture.RGBA);
+        if(evidence.Probes<8||evidence.Matches*100u<95u*evidence.Probes)
+            throw std::runtime_error("Native atlas capture differs from rectangle reference: "+
+                std::to_string(evidence.Matches)+"/"+std::to_string(evidence.Probes));
+        std::cout<<"Native atlas interior probes: "<<evidence.Matches<<"/"<<evidence.Probes<<'\n';
+    }
 
     // Preserve the old letterbox and objective HUD without rasterizing the
     // atlas sprites back into CPU rectangles. The bars mask geometry outside
