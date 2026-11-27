@@ -3,6 +3,7 @@
 #include "World2DCampaign.hpp"
 #include "CraftSaveFile.hpp"
 #include "World2DUI.hpp"
+#include "World2DAudio.hpp"
 #include <optional>
 
 namespace kairo::player::world2d
@@ -31,8 +32,20 @@ namespace kairo::player::world2d
         Campaign Config;
         std::vector<World> Worlds;
         std::optional<ui2d::Document> UI;
+        std::optional<audio2d::Config> Audio;
         std::uint64_t Revision=14695981039346656037ull;
     };
+    inline void ValidateAudioBindings(const CampaignProject& project,const audio2d::Config& config)
+    {
+        for(const auto& emitter:config.Emitters)
+        {
+            const auto level=std::find(project.Config.Levels.begin(),project.Config.Levels.end(),emitter.Level);
+            CampaignCheck(level!=project.Config.Levels.end(),"Audio emitter references missing level.");
+            const auto& actors=project.Worlds.at(static_cast<std::size_t>(level-project.Config.Levels.begin())).Actors;
+            CampaignCheck(std::any_of(actors.begin(),actors.end(),[&](const Actor& actor){return actor.ID==emitter.Actor;}),
+                "Audio emitter references missing actor.");
+        }
+    }
     inline CampaignProject LoadCampaignProject(const std::filesystem::path& root,
         std::optional<std::string_view> candidate=std::nullopt)
     {
@@ -58,7 +71,13 @@ namespace kairo::player::world2d
         }
         const auto ui=CampaignPath(root,"Config/UI.kui");
         if(std::filesystem::exists(ui))result.UI=ui2d::Parse(CampaignRead(ui,ui2d::MaxBytes));
-        // Cosmetic UI edits deliberately do not invalidate gameplay checkpoints.
+        const auto audio=CampaignPath(root,"Config/Audio.kaudio");
+        if(std::filesystem::exists(audio))
+        {
+            result.Audio=audio2d::Parse(CampaignRead(audio,audio2d::MaxBytes));
+            ValidateAudioBindings(result,*result.Audio);
+        }
+        // Cosmetic UI/audio edits deliberately do not invalidate gameplay checkpoints.
         return result;
     }
     inline std::filesystem::path CheckpointPath(const std::filesystem::path& root)
