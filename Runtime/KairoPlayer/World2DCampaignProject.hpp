@@ -5,6 +5,7 @@
 #include "World2DUI.hpp"
 #include "World2DAudio.hpp"
 #include "World2DLogic.hpp"
+#include "World2DVFX.hpp"
 #include <optional>
 
 namespace kairo::player::world2d
@@ -35,6 +36,7 @@ namespace kairo::player::world2d
         std::optional<ui2d::Document> UI;
         std::optional<audio2d::Config> Audio;
         std::optional<logic2d::Document> Logic;
+        std::optional<vfx2d::Config> VFX;
         std::uint64_t Revision=14695981039346656037ull;
     };
     inline void ValidateAudioBindings(const CampaignProject& project,const audio2d::Config& config)
@@ -82,10 +84,22 @@ namespace kairo::player::world2d
             }
         }
     }
+    inline void ValidateVFXBindings(const CampaignProject& project,const vfx2d::Config& config)
+    {
+        for(const auto& emitter:config.Emitters)
+        {
+            const auto level=std::find(project.Config.Levels.begin(),project.Config.Levels.end(),emitter.Level);
+            CampaignCheck(level!=project.Config.Levels.end(),"VFX emitter references missing level.");
+            const auto& world=project.Worlds.at(static_cast<std::size_t>(level-project.Config.Levels.begin()));
+            CampaignCheck(std::any_of(world.Actors.begin(),world.Actors.end(),
+                [&](const Actor& a){return a.ID==emitter.Actor;}),"VFX emitter references missing actor.");
+        }
+    }
     inline CampaignProject LoadCampaignProject(const std::filesystem::path& root,
         std::optional<std::string_view> candidate=std::nullopt,
         std::optional<std::string_view> audioCandidate=std::nullopt,
-        std::optional<std::string_view> logicCandidate=std::nullopt)
+        std::optional<std::string_view> logicCandidate=std::nullopt,
+        std::optional<std::string_view> vfxCandidate=std::nullopt)
     {
         CampaignProject result;
         const auto config=CampaignPath(root,"Config/Campaign.kcampaign");
@@ -122,7 +136,13 @@ namespace kairo::player::world2d
             result.Logic=logic2d::Parse(bytes);ValidateLogicBindings(result,*result.Logic);
             RevisionAppend(result.Revision,bytes);
         }
-        // Cosmetic UI/audio edits deliberately do not invalidate gameplay checkpoints.
+        const auto vfx=CampaignPath(root,"Config/VFX.kvfx");
+        if(vfxCandidate||std::filesystem::exists(vfx))
+        {
+            result.VFX=vfx2d::Parse(vfxCandidate?*vfxCandidate:CampaignRead(vfx,vfx2d::MaxBytes));
+            ValidateVFXBindings(result,*result.VFX);
+        }
+        // Cosmetic UI/audio/VFX edits deliberately do not invalidate gameplay checkpoints.
         return result;
     }
     inline std::filesystem::path CheckpointPath(const std::filesystem::path& root)
