@@ -90,6 +90,10 @@ int main(int argc,char** argv)
     }
     const auto good=CheckAtlasCapture(start,w,h,pixels);
     Check(good.Probes>=8&&good.Probes==good.Matches);
+    for(std::size_t i=0;i<pixels.size();++i)if(i%4!=3)
+        pixels[i]=static_cast<std::uint8_t>(std::lround(std::pow(double(pixels[i])/255.,1./2.2)*255.));
+    const auto gamma=CheckAtlasCapture(start,w,h,pixels,CaptureTransfer::Gamma22);
+    Check(gamma.Matches==gamma.Probes&&gamma.Probes==good.Probes);
     std::fill(pixels.begin(),pixels.end(),0);const auto bad=CheckAtlasCapture(start,w,h,pixels);
     Check(bad.Matches<bad.Probes/2);
     std::cout<<"Capture reference: "<<good.Matches<<"/"<<good.Probes<<"; corrupted "<<bad.Matches<<"/"<<bad.Probes<<"\n";
