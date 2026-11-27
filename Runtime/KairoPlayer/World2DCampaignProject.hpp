@@ -2,6 +2,7 @@
 #include "RuntimeWorld2D.hpp"
 #include "World2DCampaign.hpp"
 #include "CraftSaveFile.hpp"
+#include "World2DUI.hpp"
 #include <optional>
 
 namespace kairo::player::world2d
@@ -29,6 +30,7 @@ namespace kairo::player::world2d
     {
         Campaign Config;
         std::vector<World> Worlds;
+        std::optional<ui2d::Document> UI;
         std::uint64_t Revision=14695981039346656037ull;
     };
     inline CampaignProject LoadCampaignProject(const std::filesystem::path& root,
@@ -54,6 +56,9 @@ namespace kairo::player::world2d
             RevisionAppend(result.Revision,bytes);
             result.Worlds.push_back(Parse(bytes));
         }
+        const auto ui=CampaignPath(root,"Config/UI.kui");
+        if(std::filesystem::exists(ui))result.UI=ui2d::Parse(CampaignRead(ui,ui2d::MaxBytes));
+        // Cosmetic UI edits deliberately do not invalidate gameplay checkpoints.
         return result;
     }
     inline std::filesystem::path CheckpointPath(const std::filesystem::path& root)
