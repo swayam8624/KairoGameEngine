@@ -1,0 +1,9 @@
+kairo-campaign 1
+title "KAIRO ADVENTURE"
+levels 2
+main
+climb
+mix 70 80
+collect 660 90 70
+death 160 160 85
+complete 880 250 70

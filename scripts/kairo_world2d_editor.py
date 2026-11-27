@@ -194,12 +194,49 @@ class Document:
         self.original=self.saved=data
 
 
+def bounded_config(path,limit):
+    if path.is_symlink():raise ValueError("Linked configuration rejected")
+    if not path.exists():return None
+    if not path.is_file():raise ValueError("Configuration must be a regular file")
+    with path.open("rb") as stream:data=stream.read(limit+1)
+    if len(data)>limit:raise ValueError("Configuration exceeds byte budget")
+    return data
+
+
+def publish_config(path,baseline,data,limit,command):
+    if not data or len(data)>limit:raise ValueError("Invalid configuration size")
+    if bounded_config(path,limit)!=baseline:raise ValueError("Configuration changed externally")
+    fd,name=tempfile.mkstemp(prefix=".world-config-",dir=path.parent)
+    temporary=Path(name)
+    try:
+        with os.fdopen(fd,"wb") as stream:
+            stream.write(data);stream.flush();os.fsync(stream.fileno())
+        result=subprocess.run([*map(str,command),str(temporary)],capture_output=True,text=True,timeout=15)
+        if result.returncode:raise ValueError(result.stderr.strip()[:1000] or "Native validation failed")
+        if bounded_config(path,limit)!=baseline:raise ValueError("Configuration changed during validation")
+        os.replace(temporary,path)
+    finally:temporary.unlink(missing_ok=True)
+
+
+DEFAULT_CAMPAIGN=b'kairo-campaign 1\ntitle "KAIRO ADVENTURE"\nlevels 1\nmain\nmix 70 80\ncollect 660 90 70\ndeath 160 160 85\ncomplete 880 250 70\n'
+
+
+def campaign_level_path(root,name):
+    if not 1<=len(name)<=32 or any(c not in "abcdefghijklmnopqrstuvwxyz0123456789_" for c in name):
+        raise ValueError("Use 1–32 lowercase letters, numbers or underscores")
+    path=root/("Config/World.k2d" if name=="main" else f"Config/Worlds/{name}.k2d")
+    for parent in (root/"Config",root/"Config/Worlds",path):
+        if parent.is_symlink():raise ValueError("Linked level path rejected")
+    return path
+
+
 def run_editor(project,build,renderer):
     import tkinter as tk
     from tkinter import ttk,messagebox,simpledialog,filedialog,colorchooser
     from kairo_project_workflow import ProjectTools
     tools=ProjectTools(project,build)
-    path=tools.project.parent/"Config/World.k2d"
+    project_root=tools.project.parent
+    path=campaign_level_path(project_root,"main")
     if path.parent.is_symlink() or not path.resolve(strict=True).is_relative_to(tools.project.parent):
         raise ValueError("World path escapes project")
     validator=tools.binary("KairoWorld2DTool","Runtime/KairoPlayer")
@@ -432,6 +469,73 @@ def run_editor(project,build,renderer):
     def save():
         try:doc.save();refresh();return True
         except (ValueError,OSError,subprocess.SubprocessError) as error:report(error);return False
+    def switch_level():
+        nonlocal doc,selected
+        if doc.dirty and not save():return
+        name=simpledialog.askstring("Open world","Level name (main or a named campaign level)",parent=root)
+        if name is None:return
+        try:
+            candidate=Document(campaign_level_path(project_root,name),validator)
+            doc=candidate;selected=None;refresh()
+            root.title(f"Kairo Studio / World2D / {name}")
+        except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+    def clone_level():
+        nonlocal doc,selected
+        if doc.dirty and not save():return
+        name=simpledialog.askstring("Clone world","New lowercase level name; add it to the campaign order afterwards",parent=root)
+        if name is None:return
+        try:
+            target=campaign_level_path(project_root,name)
+            if target.exists():raise ValueError("Level already exists")
+            target.parent.mkdir(parents=True,exist_ok=True)
+            data=doc.world.encode()
+            # Exclusive creation; native validation checks the complete clone.
+            with target.open("xb") as stream:stream.write(data)
+            try:candidate=Document(target,validator)
+            except BaseException:target.unlink(missing_ok=True);raise
+            doc=candidate;selected=None;refresh()
+            root.title(f"Kairo Studio / World2D / {name}")
+        except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+    def config_window(campaign):
+        if child is not None and child.poll() is None:
+            report(ValueError("Close Player before editing gameplay configuration"));return
+        if doc.dirty and not save():return
+        try:
+            if campaign:
+                target=project_root/"Config/Campaign.kcampaign";limit=8192
+                command=[validator,"--campaign",project_root]
+                default=DEFAULT_CAMPAIGN
+            else:
+                # Resolve the exact authored descriptor input-map path. shlex
+                # handles quoted portable paths; the native parser validates content.
+                import shlex
+                relative="Config/Input.kinput"
+                for line in tools.project.read_text(encoding="utf-8").splitlines():
+                    if line.startswith("input-map "):relative=shlex.split(line)[1]
+                target=project_root/relative
+                if target.is_symlink() or not target.resolve(strict=True).is_relative_to(project_root):
+                    raise ValueError("Input map escapes project")
+                limit=256*1024;default=b""
+                command=[tools.binary("KairoWorld2DInputTool","Runtime/KairoPlayer")]
+            baseline=bounded_config(target,limit)
+            window=tk.Toplevel(root);window.title("Campaign / audio mixer" if campaign else "Input actions")
+            window.geometry("690x510");window.transient(root);window.grab_set()
+            ttk.Label(window,text=("Title, ordered level names, master/effects gains, event frequency/duration/gain." if campaign
+                else "Edit named action bindings. Native validation checks controls before saving."),wraplength=640).pack(fill="x",padx=12,pady=8)
+            editor=tk.Text(window,bg="#161a20",fg="#e4e8ef",insertbackground="white",wrap="none")
+            editor.pack(fill="both",expand=True,padx=12)
+            editor.insert("1.0",(baseline if baseline is not None else default).decode("utf-8"))
+            def commit():
+                try:
+                    data=editor.get("1.0","end-1c").encode("utf-8")
+                    publish_config(target,baseline,data,limit,command)
+                    window.destroy()
+                except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+            ttk.Button(window,text="Validate and save",command=commit).pack(pady=8)
+        except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+    for text,fn in (("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
+                    ("Input bindings",lambda:config_window(False))):
+        ttk.Button(left,text=text,command=fn).pack(fill="x",pady=3)
     def play():
         nonlocal child
         if child is not None and child.poll() is None:return

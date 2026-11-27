@@ -1,6 +1,7 @@
 #include "LogicDebugGate.hpp"
 #include <iostream>
 #include <random>
+#include <string>
 using namespace kairo::player::detail;
 void Check(bool value){if(!value)throw std::runtime_error("debug gate regression");}
 int main(){

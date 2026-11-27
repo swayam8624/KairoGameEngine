@@ -15,7 +15,7 @@
 
 #include "RuntimeFrameClock.hpp"
 #include "RuntimePlatformerProject.hpp"
-#include "RuntimeWorld2D.hpp"
+#include "World2DCampaignProject.hpp"
 #include "RuntimeCollectibleRun.hpp"
 #include "RuntimeProximityTriggers.hpp"
 #include "RuntimeGameplayEvents.hpp"
@@ -68,7 +68,8 @@ namespace kairo::player::detail
 
 namespace kairo::player::world2d
 {
-    int Run(Game game,const std::string& title,kairo::renderer::GraphicsBackend backend,bool smoke);
+    int Run(CampaignProject campaign,const kairo::player::RuntimeProject& project,
+        kairo::renderer::GraphicsBackend backend,bool smoke);
 }
 
 namespace
@@ -196,7 +197,14 @@ int main(int argc, char** argv)
         {
             if(project.Scene().Size()!=0||project.Assets().Size()!=0||arguments.ProgressFile||arguments.LogicTraceSession)
                 throw std::invalid_argument("World2D uses its own inline asset scene; 3D progress and logic tracing are unavailable.");
-            auto world=kairo::player::world2d::Load(project.RequireProjectFile("Config/World.k2d","2D world document"));
+            auto campaign=kairo::player::world2d::LoadCampaignProject(project.Root());
+            const auto* move=project.InputMap().FindAction("Move");
+            if(!move||move->Type!=kairo::engine::InputActionValueType::Axis2D)
+                throw std::invalid_argument("World2D requires a Move axis2d action.");
+            for(const auto* name:{"Jump","Quit","Pause","Restart","NewGame"})
+                if(const auto* action=project.InputMap().FindAction(name);
+                    action&&action->Type!=kairo::engine::InputActionValueType::Button)
+                    throw std::invalid_argument(std::string("World2D requires a button action: ")+name);
             if(arguments.ValidateOnly){std::cout<<"Validated native World2D project\n";return 0;}
             if(arguments.PackageProfile)
             {
@@ -207,8 +215,7 @@ int main(int argc, char** argv)
             }
             const auto backend=arguments.BackendOverride.value_or(
                 kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend));
-            return kairo::player::world2d::Run(kairo::player::world2d::Game(std::move(world)),
-                project.Descriptor().Name,backend,arguments.SmokeTest);
+            return kairo::player::world2d::Run(std::move(campaign),project,backend,arguments.SmokeTest);
         }
         const auto tileFile=project.Root()/"Config/Platformer.k2d";
         const bool platformerProject=project.Descriptor().StartupScene.generic_string()=="Scenes/Platformer.kscene";
