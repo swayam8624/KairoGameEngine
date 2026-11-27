@@ -18,11 +18,15 @@ import Kairo.Player.RuntimeProject;
 import Kairo.Player.RuntimeInputBridge;
 import Kairo.EngineCore.InputMap;
 import Kairo.EngineCore.Input;
+import Kairo.Assets.TextureArtifact;
+import Kairo.Foundation.Math;
+
+#include "World2DNativeAtlas.hpp"
 
 namespace kairo::player::world2d
 {
     int Run(CampaignProject campaign,const kairo::player::RuntimeProject& project,
-        kairo::renderer::GraphicsBackend backend,bool smoke)
+        kairo::renderer::GraphicsBackend backend,bool smoke,bool rectangles)
     {
         using namespace kairo::renderer;
         const auto levelCount=static_cast<unsigned>(campaign.Worlds.size());
@@ -64,12 +68,23 @@ namespace kairo::player::world2d
         if(!width||!height)throw std::runtime_error("World2D framebuffer unavailable.");
         renderer.ResizeViewport(width,height);
         renderer.SubmitRenderScene(RenderScene{});
+        NativeAtlas atlas(renderer);
+        unsigned atlasLevel=progress.Level;
+        if(!rectangles)atlas.Load(game.Definition());
         std::vector<DrawRect> rects;
         std::vector<ViewportOverlayRect> native;
         rects.reserve(MaxDrawRects);native.reserve(MaxDrawRects);
         const auto publish=[&](unsigned w,unsigned h)
         {
-            BuildView(game,w,h,rects);
+            if(paused||progress.Finished)
+                renderer.SubmitRenderScene(RenderScene{});
+            else if(rectangles)BuildView(game,w,h,rects);
+            else
+            {
+                if(atlasLevel!=progress.Level){atlas.Load(game.Definition());atlasLevel=progress.Level;}
+                atlas.Publish(game,w,h);
+                BuildAtlasHud(game,w,h,rects);
+            }
             if(paused||progress.Finished)
             {
                 // A modal replaces the scene rather than exceeding the native draw budget.
@@ -109,7 +124,8 @@ namespace kairo::player::world2d
                 if(auto capture=renderer.TakeViewportCapture())
                 {
                     if(!capture->IsVisuallyNonUniform())throw std::runtime_error("World2D capture is uniform.");
-                    std::cout<<"Native World2D viewport smoke passed\n";
+                    if(!rectangles)VerifyAtlasCapture(game,*capture,renderer.Backend());
+                    std::cout<<"Native World2D "<<(rectangles?"rectangle":"textured atlas")<<" viewport smoke passed\n";
                     return 0;
                 }
             }
