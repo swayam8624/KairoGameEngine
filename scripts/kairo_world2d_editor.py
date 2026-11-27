@@ -39,6 +39,7 @@ class World:
     background: list
     map: list
     actors: list
+    physics: str = ""
 
     @classmethod
     def parse(cls, data):
@@ -60,7 +61,7 @@ class World:
             if not lo <= value <= hi:
                 raise ValueError("Number outside world limit")
             return value
-        expect("kairo-world2d"); version=number(1,2); expect("size")
+        expect("kairo-world2d"); version=number(1,3); expect("size")
         size = (number(3,128), number(3,128))
         expect("mode"); mode = token()
         if mode not in ("topdown","platform"):
@@ -84,7 +85,7 @@ class World:
         expect("sprites"); sprites = {}
         for _ in range(number(1,64)):
             name=token()
-            width,height=(number(1,32),number(1,32)) if version==2 else (4,4)
+            width,height=(number(1,32),number(1,32)) if version>=2 else (4,4)
             period,count=number(1,600),number(1,16)
             frames = tuple(token() for _ in range(count))
             if name in sprites or len(name)>32 or not all(c.isascii() and (c.isalnum() or c=="_") for c in name):
@@ -107,12 +108,21 @@ class World:
             if kind not in KINDS or sprite not in sprites or any(a.id==id for a in actors):
                 raise ValueError("Invalid actor")
             actors.append(Actor(id,kind,x,y,w,h,sprite,patrol))
+        physics=""
+        if version==3:
+            expect("physics")
+            lines=["physics "+token()+" "+token()]
+            expect("bodies"); count=number(1,128);lines.append(f"bodies {count}")
+            for _ in range(count):lines.append(" ".join(token() for _ in range(11)))
+            expect("joints"); count=number(0,64);lines.append(f"joints {count}")
+            for _ in range(count):lines.append(" ".join(token() for _ in range(3)))
+            physics="\n".join(lines)+"\n"
         if next(tokens,None) is not None:
             raise ValueError("Trailing world data")
-        return cls(size,mode,camera,motion,colors,tiles,sprites,background,foreground,actors)
+        return cls(size,mode,camera,motion,colors,tiles,sprites,background,foreground,actors,physics)
 
     def encode(self):
-        lines = ["kairo-world2d 2",f"size {self.size[0]} {self.size[1]}",f"mode {self.mode}",
+        lines = ["kairo-world2d 3" if self.physics else "kairo-world2d 2",f"size {self.size[0]} {self.size[1]}",f"mode {self.mode}",
                  "camera "+" ".join(map(str,self.camera)),"motion "+" ".join(map(str,self.motion)),
                  f"colors {len(self.colors)}"]
         lines += [f"{i} {rgb:06x}" for i,rgb in sorted(self.colors.items())]
@@ -122,6 +132,7 @@ class World:
             lines += [f"{name} {width} {height} {period} {len(frames)}",*frames]
         lines += ["background",*self.background,"map",*self.map,f"actors {len(self.actors)}"]
         lines += [f"{a.id} {a.kind} {a.x} {a.y} {a.w} {a.h} {a.sprite} {a.patrol}" for a in self.actors]
+        if self.physics:lines.append(self.physics.strip())
         data = ("\n".join(lines)+"\n").encode("ascii")
         World.parse(data)
         return data
@@ -533,7 +544,36 @@ def run_editor(project,build,renderer):
                 except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
             ttk.Button(window,text="Validate and save",command=commit).pack(pady=8)
         except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
-    for text,fn in (("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
+    def physics_window():
+        if child is not None and child.poll() is None:
+            report(ValueError("Close Player before editing physics"));return
+        window=tk.Toplevel(root);window.title("World physics")
+        window.geometry("780x580");window.transient(root);window.grab_set()
+        eligible=[a for a in doc.world.actors if a.kind in ("solid","decor")]
+        ttk.Label(window,text="Physics actors: "+(", ".join(f"{a.id}: {a.kind}" for a in eligible) or "Add a solid or decor actor first."),wraplength=740).pack(fill="x",padx=12,pady=8)
+        ttk.Label(window,text="physics gravityX gravityY | bodies count | actorID motion shape mass restitution friction layer mask sensor velocityX velocityY | joints count | actorA actorB length. Map layer 1, player layer 2. Clear text to disable physics.",wraplength=740).pack(fill="x",padx=12,pady=8)
+        editor=tk.Text(window,bg="#161a20",fg="#e4e8ef",insertbackground="white",wrap="none")
+        editor.pack(fill="both",expand=True,padx=12)
+        default=f"physics 0 180\nbodies 1\n{eligible[0].id} dynamic box 1 0.2 0.6 4 3 0 0 0\njoints 0\n" if eligible else ""
+        editor.insert("1.0",doc.world.physics or default)
+        def apply():
+            try:
+                candidate=deepcopy(doc.world)
+                candidate.physics=editor.get("1.0","end-1c").strip()
+                data=candidate.encode()
+                fd,name=tempfile.mkstemp(prefix=".physics-preview-",dir=doc.path.parent)
+                temporary=Path(name)
+                try:
+                    with os.fdopen(fd,"wb") as stream:stream.write(data)
+                    doc.validate(temporary)
+                finally:temporary.unlink(missing_ok=True)
+                parsed=World.parse(data)
+                doc.edit(lambda w:setattr(w,"physics",parsed.physics))
+                refresh();window.destroy()
+            except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+        ttk.Button(window,text="Validate and apply (undoable)",command=apply).pack(pady=8)
+
+    for text,fn in (("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
                     ("Input bindings",lambda:config_window(False))):
         ttk.Button(left,text=text,command=fn).pack(fill="x",pady=3)
     def play():

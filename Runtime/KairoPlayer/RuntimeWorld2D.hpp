@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 #include <utility>
+#include "World2DPhysics.hpp"
 
 namespace kairo::player::world2d
 {
@@ -32,6 +33,7 @@ namespace kairo::player::world2d
         std::map<std::string,Sprite> Sprites;
         std::vector<std::string> Back,Map;
         std::vector<Actor> Actors;
+        std::optional<PhysicsConfig> Physics;
     };
     inline void Require(bool ok,const char* message){if(!ok)throw std::invalid_argument(message);}
     inline bool Overlap(Box a,Box b) noexcept
@@ -76,7 +78,7 @@ namespace kairo::player::world2d
         Require(bytes.size()<=MaxBytes,"2D world exceeds byte budget.");
         std::istringstream in{std::string(bytes)};
         std::string tag;int version=0;
-        Require(bool(in>>tag>>version)&&tag=="kairo-world2d"&&(version==1||version==2),"Unsupported 2D world.");
+        Require(bool(in>>tag>>version)&&tag=="kairo-world2d"&&(version>=1&&version<=3),"Unsupported 2D world.");
         World w;
         Require(bool(in>>tag>>w.Width>>w.Height)&&tag=="size"&&w.Width>=3&&w.Width<=128&&w.Height>=3&&w.Height<=128,"Invalid world size.");
         std::string mode;
@@ -112,7 +114,7 @@ namespace kairo::player::world2d
             std::string name;int period=0,frames=0;
             Sprite sprite;
             Require(bool(in>>name)&&Name(name),"Invalid sprite name.");
-            if(version==2)Require(bool(in>>sprite.Width>>sprite.Height)&&sprite.Width>=1&&sprite.Width<=32&&sprite.Height>=1&&sprite.Height<=32,"Invalid sprite dimensions.");
+            if(version>=2)Require(bool(in>>sprite.Width>>sprite.Height)&&sprite.Width>=1&&sprite.Width<=32&&sprite.Height>=1&&sprite.Height<=32,"Invalid sprite dimensions.");
             Require(bool(in>>period>>frames)&&period>=1&&period<=600&&frames>=1&&frames<=16,"Invalid sprite definition.");
             sprite.Period=period;
             for(int j=0;j<frames;++j)
@@ -155,6 +157,7 @@ namespace kairo::player::world2d
             if(a.Type!=Kind::Decor)Require(!MapBlocked(w,b),"Actor overlaps collision tile.");
             w.Actors.push_back(std::move(a));
         }
+        if(version==3)w.Physics=ReadPhysics(in);
         Require(players==1&&goals>=1&&!(in>>tag),"Expected one player, a goal and no trailing data.");
         // Bound the worst possible simultaneous run count across all actors.
         // No sprite is dropped or silently degraded at render time.
@@ -177,6 +180,7 @@ namespace kairo::player::world2d
         for(const auto& a:w.Actors)if(a.Type==Kind::Player)
             for(const auto& b:w.Actors)if(b.Type==Kind::Solid)
                 Require(!Overlap(a.Bounds,b.Bounds),"Player overlaps solid actor.");
+        if(w.Physics)(void)BuildPhysics(w,*w.Physics);
         return w;
     }
     inline World Load(const std::filesystem::path& path)
@@ -195,6 +199,7 @@ namespace kairo::player::world2d
     {
         World m_World;
         std::vector<LiveActor> m_Actors;
+        std::optional<PhysicsBinding> m_Physics;
         std::size_t m_Player=0;
         int m_VY=0;
         bool m_PreviousJump=false,m_Won=false;
@@ -255,6 +260,7 @@ namespace kairo::player::world2d
             m_Actors.clear();
             for(const auto& a:m_World.Actors)m_Actors.push_back({a.Bounds,true,1});
             m_VY=0;m_PreviousJump=false;m_Won=false;m_Collected=0;m_Tick=0;
+            if(m_World.Physics)m_Physics=BuildPhysics(m_World,*m_World.Physics);
         }
         void Step(Input input)
         {
@@ -282,8 +288,10 @@ namespace kairo::player::world2d
                 m_VY=std::min(32,m_VY+m_World.Gravity);
                 if(!Sweep(0,m_VY))m_VY=0;
             }
+            if(m_Physics&&m_Deaths==deaths&&!m_Won)m_Physics->Step(m_Actors,m_Player);
             m_PreviousJump=input.Jump;
         }
+        [[nodiscard]] const std::optional<PhysicsBinding>& Physics() const noexcept{return m_Physics;}
         [[nodiscard]] const World& Definition() const noexcept{return m_World;}
         [[nodiscard]] const std::vector<LiveActor>& Actors() const noexcept{return m_Actors;}
         [[nodiscard]] Box Player() const noexcept{return m_Actors[m_Player].Bounds;}
