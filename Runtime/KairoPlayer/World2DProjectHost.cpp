@@ -124,7 +124,7 @@ namespace kairo::player::world2d
                 if(auto capture=renderer.TakeViewportCapture())
                 {
                     if(!capture->IsVisuallyNonUniform())throw std::runtime_error("World2D capture is uniform.");
-                    if(!rectangles)VerifyAtlasCapture(game,*capture);
+                    if(!rectangles)VerifyAtlasCapture(game,*capture,renderer.Backend());
                     std::cout<<"Native World2D "<<(rectangles?"rectangle":"textured atlas")<<" viewport smoke passed\n";
                     return 0;
                 }
