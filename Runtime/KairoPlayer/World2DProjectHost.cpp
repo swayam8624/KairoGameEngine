@@ -5,6 +5,7 @@
 #include "RuntimeWorld2DView.hpp"
 #include "RuntimeFrameClock.hpp"
 #include "World2DCampaignProject.hpp"
+#include "World2DLookAhead.hpp"
 #include "RuntimeNativeAudioOutput.hpp"
 #include "RuntimeGameLabView.hpp"
 #include <memory>
@@ -125,7 +126,21 @@ namespace kairo::player::world2d
         renderer.SubmitRenderScene(RenderScene{});
         NativeAtlas atlas(renderer);
         unsigned atlasLevel=progress.Level;
-        if(!rectangles)atlas.Load(game.Definition());
+        LookAhead<PreparedAtlas> atlasAhead;
+        // Campaign worlds are immutable for the lifetime of Run. Capture an
+        // exact level pointer, never Game or mutable progress. atlasAhead
+        // joins before the campaign parameter is destroyed on every exit.
+        const auto prepare=[&](unsigned level)
+        {
+            const World* world=&campaign.Worlds.at(level);
+            return [world]{return PrepareAtlas(*world);};
+        };
+        const auto requestAhead=[&]
+        {
+            if(!rectangles&&!progress.Finished&&progress.Level+1<levelCount)
+                (void)atlasAhead.Request(progress.Level+1,prepare(progress.Level+1));
+        };
+        if(!rectangles){atlas.Load(prepare(atlasLevel)());requestAhead();}
         std::vector<DrawRect> rects;
         std::vector<ViewportOverlayRect> native;
         rects.reserve(MaxDrawRects);native.reserve(MaxDrawRects);
@@ -141,7 +156,14 @@ namespace kairo::player::world2d
             else if(rectangles)BuildView(game,w,h,rects,!campaign.UI);
             else
             {
-                if(atlasLevel!=progress.Level){atlas.Load(game.Definition());atlasLevel=progress.Level;}
+                if(atlasLevel!=progress.Level)
+                {
+                    atlas.Load(atlasAhead.Take(progress.Level,prepare(progress.Level)));
+                    atlasLevel=progress.Level;
+                }
+                // Retry a skipped request after a stale worker completes (for
+                // example when NewGame is pressed during a level transition).
+                requestAhead();
                 atlas.Publish(game,w,h);
                 BuildAtlasHud(game,w,h,rects,!campaign.UI);
             }
