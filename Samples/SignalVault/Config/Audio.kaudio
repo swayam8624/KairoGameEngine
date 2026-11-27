@@ -1,0 +1,14 @@
+kairo-audio2d 1
+mix 70 80 35 30
+clips 4
+pickup tone 740 110
+damage tone 150 180
+victory tone 980 350
+hum tone 110 1800
+collect pickup 75
+death damage 85
+complete victory 80
+music - 70
+emitters 2
+main 8 hum 30 100
+vault 8 hum 30 100
