@@ -14,7 +14,13 @@ int main(int argc,char** argv)
             std::cout<<"Validated "<<campaign.Worlds.size()<<" campaign levels\n";
             return 0;
         }
-        if(argc!=2)throw std::invalid_argument("Usage: KairoWorld2DTool <world.k2d> | --campaign <root> [candidate]");
+        if(argc==3&&std::string_view(argv[1])=="--ui")
+        {
+            const auto doc=kairo::player::ui2d::Parse(kairo::player::world2d::CampaignRead(argv[2],kairo::player::ui2d::MaxBytes));
+            std::cout<<"Validated "<<doc.Widgets.size()<<" UI widgets\n";
+            return 0;
+        }
+        if(argc!=2)throw std::invalid_argument("Usage: KairoWorld2DTool <world.k2d> | --campaign <root> [candidate] | --ui <document.kui>");
         const auto world=kairo::player::world2d::Load(argv[1]);
         std::cout<<"Validated "<<world.Width<<"x"<<world.Height<<" world with "<<world.Actors.size()<<" actors\n";
         return 0;
