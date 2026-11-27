@@ -1,0 +1,16 @@
+kairo-input 1
+action "Move" axis2d
+action "Jump" button
+action "Quit" button
+action "Pause" button
+action "Restart" button
+action "NewGame" button
+bind "Move" key A -1 0 0
+bind "Move" key D 1 0 0
+bind "Move" key W 0 -1 0
+bind "Move" key S 0 1 0
+bind "Jump" key Space 1 0 0
+bind "Quit" key Escape 1 0 0
+bind "Pause" key P 1 0 0
+bind "Restart" key R 1 0 0
+bind "NewGame" key N 1 0 0
