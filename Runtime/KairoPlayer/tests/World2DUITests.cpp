@@ -29,6 +29,22 @@ int main(int argc,char** argv)
     update(Screen::Pause,rx,ry,true);update(Screen::Pause,rx,ry,true,false);
     Assert(update(Screen::Pause,rx,ry,false)==Action::None);
     update(Screen::Pause,rx,ry,true);Assert(update(Screen::Pause,rx,ry,false)==Action::Resume);
+    Keyboard keyboard;
+    const auto keys=[&](Screen page,bool tab,bool reverse,bool enter,bool active=true)
+    {return keyboard.Update(doc,page,1280,720,tab,reverse,enter,active);};
+    Assert(keys(Screen::Pause,false,false,true)==Action::None&&keyboard.Focus()==8);
+    Assert(keys(Screen::Pause,false,false,false)==Action::None);
+    Assert(keys(Screen::Pause,true,false,false)==Action::None&&keyboard.Focus()==9);
+    Assert(keys(Screen::Pause,true,false,false)==Action::None&&keyboard.Focus()==9);
+    keys(Screen::Pause,false,false,false);
+    Assert(keys(Screen::Pause,true,true,false)==Action::None&&keyboard.Focus()==8);
+    Assert(keys(Screen::Pause,false,false,true)==Action::Resume);
+    Assert(keys(Screen::Pause,false,false,true)==Action::None);
+    Assert(keys(Screen::Complete,false,false,true)==Action::None&&keyboard.Focus()==13);
+    keys(Screen::Complete,false,false,false);
+    Assert(keys(Screen::Complete,false,false,true)==Action::NewGame);
+    Assert(keys(Screen::Complete,false,false,true,false)==Action::None&&!keyboard.Focus());
+    Assert(keys(Screen::Complete,false,false,true)==Action::None);
     auto overlapping=doc;auto duplicate=doc.Widgets[8];duplicate.Command=Action::Quit;overlapping.Widgets.push_back(duplicate);
     Assert(Hit(overlapping,Screen::Pause,1280,720,rx,ry)==overlapping.Widgets.size()-1);
     std::vector<Rect> rects;Paint(doc,Screen::Play,state,pointer,1280,720,rects);
