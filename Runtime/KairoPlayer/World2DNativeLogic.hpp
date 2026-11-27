@@ -7,6 +7,12 @@
 
 namespace kairo::player::world2d
 {
+    template<class InputMap> void ValidateWorldLogicInputs(const logic2d::Document& doc,const InputMap& map)
+    {
+        for(const auto& r:doc.Rules)
+            if(r.When==logic2d::Event::Input&&!map.FindAction(r.Argument))
+                throw std::invalid_argument("World2D logic references unknown input action: "+r.Argument);
+    }
     // Translate bounded authored world commands to the SAME validated
     // bytecode/host interface used by the 3D visual logic runtime.
     inline kairo::engine::LogicProgram CompileWorldRule(const logic2d::Rule& rule)
