@@ -192,6 +192,10 @@ if(BUILD_TESTING)
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/tests/world2d_native_authoring.py"
                 $<TARGET_FILE:KairoWorld2DTool> "${CMAKE_SOURCE_DIR}/Samples/World2DProject/Config/World.k2d")
         set_tests_properties(KairoPlayerWorld2DAuthoring PROPERTIES TIMEOUT 60)
+        add_test(NAME KairoPlayerWorld2DUIAuthoring
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/tests/world2d_ui_authoring.py"
+                $<TARGET_FILE:KairoWorld2DTool> "${CMAKE_SOURCE_DIR}/Samples/PhysicsWorld2DProject/Config/UI.kui")
+        set_tests_properties(KairoPlayerWorld2DUIAuthoring PROPERTIES TIMEOUT 60)
     endif()
     add_executable(KairoPlayerPlatformerProjectTests tests/RuntimePlatformerProjectTests.cpp)
     target_compile_features(KairoPlayerPlatformerProjectTests PRIVATE cxx_std_23)
