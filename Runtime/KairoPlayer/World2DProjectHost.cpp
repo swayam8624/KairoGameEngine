@@ -75,6 +75,7 @@ namespace kairo::player::world2d
         std::vector<ViewportOverlayRect> native;
         rects.reserve(MaxDrawRects);native.reserve(MaxDrawRects);
         ui2d::Pointer pointer;
+        ui2d::Keyboard keyboard;
         std::vector<ui2d::Rect> uiRects;
         const auto page=[&]{return progress.Finished?ui2d::Screen::Complete:paused?ui2d::Screen::Pause:ui2d::Screen::Play;};
         const auto publish=[&](unsigned w,unsigned h)
@@ -110,7 +111,7 @@ namespace kairo::player::world2d
             if(campaign.UI)
             {
                 if(paused||progress.Finished){rects.clear();rects.push_back({{0,0,int(w),int(h)},0x10161f});}
-                ui2d::Paint(*campaign.UI,page(),{game.Collected(),game.Total(),game.Deaths(),progress.Level+1,levelCount,campaign.Config.Title},pointer,w,h,uiRects);
+                ui2d::Paint(*campaign.UI,page(),{game.Collected(),game.Total(),game.Deaths(),progress.Level+1,levelCount,campaign.Config.Title},pointer,w,h,uiRects,keyboard.Focus());
                 for(const auto& item:uiRects)rects.push_back({{item.Bounds.X,item.Bounds.Y,item.Bounds.W,item.Bounds.H},item.RGB});
             }
             if(rects.size()>MaxDrawRects)throw std::length_error("Combined World2D/UI rectangle budget exceeded; use the textured renderer or simplify the UI.");
@@ -184,7 +185,8 @@ namespace kairo::player::world2d
             {
                 if(campaign.UI)
                 {
-                    if(pointer.Hover()||pointer.Pressed())++visualRevision;
+                    if(pointer.Hover()||pointer.Pressed()||keyboard.Focus())++visualRevision;
+                    (void)keyboard.Update(*campaign.UI,page(),w,h,false,false,false,false);
                     (void)pointer.Update(*campaign.UI,page(),w,h,0,0,glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS,false);
                 }
                 accumulator=0;jumpQueued=false;mixer.Clear();
@@ -201,7 +203,12 @@ namespace kairo::player::world2d
                 // Resizing during a press cancels that capture.
                 uiAction=pointer.Update(*campaign.UI,page(),w,h,valid?int(mx*w/ww):-1,
                     valid?int(my*h/wh):-1,down,w==lastW&&h==lastH);
-                if(hover!=pointer.Hover()||pressed!=pointer.Pressed())++visualRevision;
+                const auto oldFocus=keyboard.Focus();
+                const auto key=[&](int k){return glfwGetKey(window,k)==GLFW_PRESS;};
+                const auto keyAction=keyboard.Update(*campaign.UI,page(),w,h,key(GLFW_KEY_TAB),
+                    key(GLFW_KEY_LEFT_SHIFT)||key(GLFW_KEY_RIGHT_SHIFT),key(GLFW_KEY_ENTER)||key(GLFW_KEY_KP_ENTER),true);
+                if(uiAction==ui2d::Action::None)uiAction=keyAction;
+                if(hover!=pointer.Hover()||pressed!=pointer.Pressed()||oldFocus!=keyboard.Focus())++visualRevision;
             }
             if(action("Quit").Pressed||uiAction==ui2d::Action::Quit){renderer.NativeWindow().RequestClose();break;}
             if(action("NewGame").Pressed||uiAction==ui2d::Action::NewGame)
