@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
 
 LIMIT=8192
 WAVE_LIMIT=32*1024*1024
@@ -119,18 +120,20 @@ def open_audio(root,project,tool,bounded_config,publish_config,report):
             replace(import_wave(path,project,name,document(),tool))
             status.set("WAV copied. Map the clip to an event/music/emitter, then save. Imported files remain if you discard this document.")
         except (OSError,ValueError,subprocess.SubprocessError) as e:report(e)
-    child=None;preview_path=None
+    child=None;preview_path=None;deadline=0.
     def poll():
         nonlocal child,preview_path
         if child is None:return
-        if child.poll() is None:window.after(100,poll);return
+        if child.poll() is None:
+            if time.monotonic()>deadline:child.kill()
+            window.after(100,poll);return
         _,error=child.communicate()
         if child.returncode:report(ValueError(error.strip()[:1200] or "Audio preview failed"))
         else:status.set("Preview finished.")
         child=None
         if preview_path:preview_path.unlink(missing_ok=True);preview_path=None
     def preview():
-        nonlocal child,preview_path
+        nonlocal child,preview_path,deadline
         if child is not None:return
         name=simpledialog.askstring("Preview","Clip ID to audition (up to three seconds)",parent=window)
         if not name:return
@@ -141,6 +144,7 @@ def open_audio(root,project,tool,bounded_config,publish_config,report):
             preview_path=Path(path)
             with os.fdopen(fd,"wb") as stream:stream.write(data)
             child=subprocess.Popen([str(tool),"--preview",str(project),str(preview_path),name],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            deadline=time.monotonic()+30
             status.set("Preview running…");window.after(100,poll)
         except (OSError,ValueError,subprocess.SubprocessError) as e:
             if preview_path:preview_path.unlink(missing_ok=True);preview_path=None
