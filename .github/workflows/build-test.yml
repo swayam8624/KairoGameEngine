@@ -236,7 +236,15 @@ jobs:
           result=subprocess.run([player,str(project),"--package","Release","--replace"],cwd=root)
           assert result.returncode!=0 and sentinel.read_text()=="keep"
           shutil.rmtree(reserved)
-          assert run_cli(tools,"package",profile="Release",archive=archive)==0
+          # World2D is entirely inline and has no compiled 3D logic.
+          # Runtime-only Windows builds intentionally omit the Editor/compiler.
+          if os.name=="nt":
+              from kairo_release import export
+              subprocess.run([player,str(project),"--validate"],cwd=root,check=True,timeout=120)
+              subprocess.run([player,str(project),"--package","Release"],cwd=root,check=True,timeout=120)
+              export(reserved,archive)
+          else:
+              assert run_cli(tools,"package",profile="Release",archive=archive)==0
           index=verify(archive)
           # A previous release/archive elsewhere under Build must not recurse into a new build.
           shutil.copyfile(archive,project.parent/"Build/old.zip")
