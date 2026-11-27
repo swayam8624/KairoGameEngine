@@ -171,7 +171,11 @@ namespace kairo::player::world2d
             const auto dt=clock.Sample(std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count(),active);
             if(!active)
             {
-                if(campaign.UI)(void)pointer.Update(*campaign.UI,page(),w,h,0,0,glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS,false);
+                if(campaign.UI)
+                {
+                    if(pointer.Hover()||pointer.Pressed())++visualRevision;
+                    (void)pointer.Update(*campaign.UI,page(),w,h,0,0,glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS,false);
+                }
                 accumulator=0;jumpQueued=false;mixer.Clear();
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));continue;
             }
