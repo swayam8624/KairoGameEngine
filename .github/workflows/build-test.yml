@@ -296,6 +296,37 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+      - name: Qualify and retain exact Signal Vault release
+        if: matrix.preset != 'ci-sanitized'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bin="build/${{ matrix.preset }}/Runtime/KairoPlayer"
+          suffix=""
+          if [[ "${{ matrix.platform }}" == "windows" ]]; then suffix=".exe"; fi
+          args=("$bin/KairoPlayer$suffix" Samples/SignalVault signal-vault-evidence
+                --lock workspace.lock --commit "$GITHUB_SHA"
+                --gameplay-test "$bin/KairoPlayerSignalVaultTests$suffix")
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            xvfb-run -a python scripts/signal_vault_release.py "${args[@]}" --smoke
+          else
+            python scripts/signal_vault_release.py "${args[@]}"
+          fi
+
+      - name: Upload qualified Signal Vault archive and receipt
+        if: matrix.preset != 'ci-sanitized'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-${{ matrix.platform }}-${{ matrix.preset }}
+          path: signal-vault-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Test distribution gate publication and rollback
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_signal_vault_release.py -v
+
       - name: Test release archive rejection and reproducibility
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
