@@ -80,10 +80,13 @@ namespace kairo::player::world2d
             }
         }
         int Value(unsigned slot=0)const{return m_State.Value(slot);}
+        const auto& Values()const noexcept{return m_State.Values();}
+        void Restore(const std::array<int,logic2d::Slots>& values){m_State.Restore(values);}
+        void SelectLevel(std::string_view level){m_Level=level;m_Tick=0;}
         void NewCampaign(){m_State.Clear();m_TraceRemaining=128;}
         void Begin(Game& game,std::string_view level)
         {
-            m_Level=level;m_Tick=0;Dispatch(game,{Event::Begin});
+            SelectLevel(level);Dispatch(game,{Event::Begin});
         }
         void Dispatch(Game& game,logic2d::Signal signal)
         {
