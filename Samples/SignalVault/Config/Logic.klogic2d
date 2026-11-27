@@ -1,0 +1,17 @@
+kairo-logic2d 1
+rules 15
+main begin print "Recover the first two signals"
+main collect add 0 100
+main death add 1 1
+main complete add 0 50
+main ui pause add 2 1
+climb begin print "Cross the relay bridge"
+climb collect add 0 100
+climb death add 1 1
+climb complete add 0 50
+climb ui pause add 2 1
+vault begin print "Open the signal vault"
+vault collect add 0 100
+vault death add 1 1
+vault complete add 0 50
+vault ui pause add 2 1

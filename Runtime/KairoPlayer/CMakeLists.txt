@@ -135,6 +135,12 @@ endforeach()
 
 if(BUILD_TESTING)
     find_package(Threads REQUIRED)
+    add_executable(KairoPlayerSignalVaultTests tests/SignalVaultTests.cpp)
+    target_link_libraries(KairoPlayerSignalVaultTests PRIVATE KairoPlayerRuntime)
+    set_property(TARGET KairoPlayerSignalVaultTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerSignalVaultTests COMMAND KairoPlayerSignalVaultTests "${CMAKE_SOURCE_DIR}/Samples/SignalVault")
+    add_test(NAME KairoPlayerSignalVaultValidate COMMAND KairoPlayer "${CMAKE_SOURCE_DIR}/Samples/SignalVault/Project.kproject" --validate)
+    set_tests_properties(KairoPlayerSignalVaultTests KairoPlayerSignalVaultValidate PROPERTIES TIMEOUT 60)
     add_executable(KairoPlayerWorld2DCampaignTests tests/World2DCampaignTests.cpp)
     target_compile_features(KairoPlayerWorld2DCampaignTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerWorld2DCampaignTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
@@ -221,6 +227,9 @@ if(BUILD_TESTING)
         add_test(NAME KairoPlayerWorld2DNativeUISmoke COMMAND KairoPlayer
             "${CMAKE_SOURCE_DIR}/Samples/PhysicsWorld2DProject/Project.kproject" --renderer ${_world2d_renderer} --smoke)
         set_tests_properties(KairoPlayerWorld2DNativeUISmoke PROPERTIES TIMEOUT 40 SKIP_RETURN_CODE 77)
+        add_test(NAME KairoPlayerSignalVaultNativeSmoke COMMAND KairoPlayer
+            "${CMAKE_SOURCE_DIR}/Samples/SignalVault/Project.kproject" --renderer ${_world2d_renderer} --smoke)
+        set_tests_properties(KairoPlayerSignalVaultNativeSmoke PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
         unset(_world2d_renderer)
     endif()
     add_executable(KairoPlayerWorld2DTests tests/RuntimeWorld2DTests.cpp)
@@ -231,6 +240,10 @@ if(BUILD_TESTING)
     set_tests_properties(KairoPlayerWorld2DTests KairoPlayerWorld2DValidate PROPERTIES TIMEOUT 30)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME KairoPlayerSignalVaultPackage
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/tests/signal_vault_package.py"
+                $<TARGET_FILE:KairoPlayer> "${CMAKE_SOURCE_DIR}/Samples/SignalVault" $<TARGET_FILE:KairoPlayerSignalVaultTests>)
+        set_tests_properties(KairoPlayerSignalVaultPackage PROPERTIES TIMEOUT 300)
         add_test(NAME KairoPlayerWorld2DAuthoring
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/tests/world2d_native_authoring.py"
                 $<TARGET_FILE:KairoWorld2DTool> "${CMAKE_SOURCE_DIR}/Samples/World2DProject/Config/World.k2d")
