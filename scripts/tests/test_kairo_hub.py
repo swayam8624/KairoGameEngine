@@ -59,7 +59,7 @@ class HubTests(unittest.TestCase):
         self.assertEqual(recent.paths[-1], str(self.root / "8.kproject"))
 
     def test_actual_repository_templates(self):
-        for kind in ("empty", "arena", "beacon", "keygate", "2d", "world2d"):
+        for kind in ("empty", "arena", "beacon", "keygate", "2d", "world2d", "physics2d"):
             with self.subTest(kind=kind):
                 name = "My " + kind
                 p = create(kind, name, self.root)
