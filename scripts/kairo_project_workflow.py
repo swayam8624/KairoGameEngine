@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -35,7 +36,23 @@ class ProjectTools:
                 return str(path)
         raise ValueError(f'Built {name} not found in {self.build}')
 
-    def commands(self, action, renderer='auto'):
+    def profiles(self):
+        # Native descriptor parsing remains authoritative. This projection only
+        # resolves named output folders for the subsequent archive command.
+        with self.project.open('rb') as stream:data=stream.read(1024*1024+1)
+        if len(data)>1024*1024:raise ValueError('Project descriptor exceeds size limit')
+        profiles={}
+        for line in data.decode('utf-8').splitlines():
+            if not line.lstrip().startswith('build-profile '):continue
+            tokens=shlex.split(line)
+            if len(tokens)!=4 or tokens[1] in profiles:raise ValueError('Invalid build profile')
+            relative=Path(tokens[3])
+            if relative.is_absolute() or len(relative.parts)<2 or relative.parts[0]!='Build' or '..' in relative.parts:
+                raise ValueError('Build profiles must output under Build')
+            profiles[tokens[1]]=relative
+        return profiles or {'Development':Path('Build/Development'),'Release':Path('Build/Release')}
+
+    def commands(self, action, renderer='auto', profile='Release', archive=None, replace=False):
         if action not in ACTIONS or renderer not in ('auto','metal','vulkan','opengl','d3d12'):
             raise ValueError('Unknown action or renderer')
         p = str(self.project)
@@ -93,13 +110,26 @@ class ProjectTools:
             commands.append(launch)
         elif action == 'package':
             # Preserve existing releases; never pass --replace implicitly.
-            commands.append([player,p,'--package','Release'])
+            profiles=self.profiles()
+            if profile not in profiles:raise ValueError('Unknown build profile: '+profile)
+            command=[player,p,'--package',profile]
+            if replace:command.append('--replace')
+            if archive is not None:
+                archive=Path(archive).absolute()
+                if archive.suffix!='.zip' or archive.exists() or archive.is_symlink():
+                    raise ValueError('Choose an unused ZIP output path')
+                if not archive.parent.is_dir():raise ValueError('ZIP output parent does not exist')
+                bundle=self.project.parent/profiles[profile]
+                if archive.resolve().is_relative_to(bundle.resolve()):raise ValueError('ZIP must be outside package folder')
+            commands.append(command)
+            if archive is not None:
+                commands.append([sys.executable,str(self.root/'scripts/kairo_release.py'),'export',str(bundle),str(archive)])
         return commands
 
 
-def run_cli(tools, action, renderer='auto'):
+def run_cli(tools, action, renderer='auto', profile='Release', archive=None, replace=False):
     """Fail fast: no Player execution after compiler/validation failure."""
-    for command in tools.commands(action,renderer):
+    for command in tools.commands(action,renderer,profile,archive,replace):
         print(f'Running {Path(command[0]).name}',flush=True)
         result = subprocess.run(command,cwd=tools.project.parent)
         if result.returncode:
@@ -173,7 +203,18 @@ def gui(project, build, renderer):
             if self.process is not None or self.pending:return
             try:
                 self.tools=ProjectTools(self.project.get(),self.build.get())
-                self.pending=self.tools.commands(action,self.renderer.get())
+                profile='Release';archive=None
+                if action=='package':
+                    from tkinter import simpledialog,messagebox
+                    available=self.tools.profiles()
+                    profile=simpledialog.askstring('Build profile','Choose profile: '+', '.join(available),
+                        initialvalue='Release' if 'Release' in available else next(iter(available)),parent=self.parent)
+                    if profile is None:return
+                    if messagebox.askyesno('Export ZIP','Also export a verified game ZIP?',parent=self.parent):
+                        archive=filedialog.asksaveasfilename(parent=self.parent,defaultextension='.zip',
+                            filetypes=[('Kairo game archive','*.zip')])
+                        if not archive:return
+                self.pending=self.tools.commands(action,self.renderer.get(),profile,archive)
                 self.busy(True)
                 self.status.set(f'Running {action}…')
                 self.advance()
@@ -231,11 +272,15 @@ def main(argv=None):
     parser.add_argument('--build',type=Path,default=ROOT/'build/game-clang')
     parser.add_argument('--renderer',choices=('auto','metal','vulkan','opengl','d3d12'),default='auto')
     parser.add_argument('--action',choices=ACTIONS)
+    parser.add_argument('--profile',default='Release',help='Authored package build profile')
+    parser.add_argument('--archive',type=Path,help='Optional verified ZIP export for package action')
+    parser.add_argument('--replace',action='store_true',help='Explicitly replace a recognized native package, not a ZIP')
     args=parser.parse_args(argv)
     try:
         if args.action:
             if args.project is None:raise ValueError('A project descriptor is required in CLI mode')
-            return run_cli(ProjectTools(args.project,args.build),args.action,args.renderer)
+            if args.action!='package' and (args.archive is not None or args.replace):raise ValueError('Archive and replacement require package action')
+            return run_cli(ProjectTools(args.project,args.build),args.action,args.renderer,args.profile,args.archive,args.replace)
         return gui(args.project,args.build,args.renderer)
     except (ValueError,OSError) as error:
         print(f'Kairo workflow: {error}',file=sys.stderr);return 1
