@@ -68,9 +68,10 @@ namespace kairo::player::detail
 
 namespace kairo::player::world2d
 {
+    void ValidateWorldLogic(const CampaignProject& campaign,const kairo::player::RuntimeProject& project);
     void ValidateWorldAudio(const CampaignProject& campaign,const std::filesystem::path& root);
     int Run(CampaignProject campaign,const kairo::player::RuntimeProject& project,
-        kairo::renderer::GraphicsBackend backend,bool smoke,bool rectangles);
+        kairo::renderer::GraphicsBackend backend,bool smoke,bool rectangles,bool logicTrace);
 }
 
 namespace
@@ -81,6 +82,7 @@ namespace
         bool ValidateOnly = false;
         bool SmokeTest = false;
         bool World2DRectangles = false;
+        bool World2DLogicTrace = false;
         bool ReplacePackage = false;
         std::optional<std::string> PackageProfile;
         std::optional<std::filesystem::path> ProgressFile;
@@ -133,6 +135,7 @@ namespace
             const std::string_view option = values[index];
             if (option == "--validate") result.ValidateOnly = true;
             else if (option == "--smoke") result.SmokeTest = true;
+            else if (option == "--world2d-logic-trace") result.World2DLogicTrace = true;
             else if (option == "--world2d-rectangles") result.World2DRectangles = true;
             else if (option == "--package")
             {
@@ -196,6 +199,8 @@ int main(int argc, char** argv)
         const bool worldProject=project.Descriptor().StartupScene.generic_string()=="Scenes/World2D.kscene";
         if(!worldProject&&(std::filesystem::exists(worldFile)||std::filesystem::is_symlink(worldFile)))
             throw std::invalid_argument("World2D file requires the reserved 2D startup scene.");
+        if(arguments.World2DLogicTrace&&(!worldProject||arguments.ValidateOnly||arguments.PackageProfile))
+            throw std::invalid_argument("--world2d-logic-trace is only for World2D play or smoke.");
         if(arguments.World2DRectangles&&(!worldProject||arguments.ValidateOnly||arguments.PackageProfile))
             throw std::invalid_argument("--world2d-rectangles is only for World2D play or smoke.");
         if(worldProject)
@@ -210,6 +215,7 @@ int main(int argc, char** argv)
                 if(const auto* action=project.InputMap().FindAction(name);
                     action&&action->Type!=kairo::engine::InputActionValueType::Button)
                     throw std::invalid_argument(std::string("World2D requires a button action: ")+name);
+            kairo::player::world2d::ValidateWorldLogic(campaign,project);
             if(arguments.ValidateOnly||arguments.PackageProfile)kairo::player::world2d::ValidateWorldAudio(campaign,project.Root());
             if(arguments.ValidateOnly){std::cout<<"Validated native World2D project\n";return 0;}
             if(arguments.PackageProfile)
@@ -221,7 +227,7 @@ int main(int argc, char** argv)
             }
             const auto backend=arguments.BackendOverride.value_or(
                 kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend));
-            return kairo::player::world2d::Run(std::move(campaign),project,backend,arguments.SmokeTest,arguments.World2DRectangles);
+            return kairo::player::world2d::Run(std::move(campaign),project,backend,arguments.SmokeTest,arguments.World2DRectangles,arguments.World2DLogicTrace);
         }
         const auto tileFile=project.Root()/"Config/Platformer.k2d";
         const bool platformerProject=project.Descriptor().StartupScene.generic_string()=="Scenes/Platformer.kscene";
