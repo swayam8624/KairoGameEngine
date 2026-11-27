@@ -80,6 +80,19 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):release.unpack(archive,target)
         self.assertTrue((target/'project/asset.bin').is_file())
 
+    def test_custom_native_executable_name(self):
+        player=self.bundle/'bin/KairoPlayer'
+        player.rename(self.bundle/'bin/KairoPhase1Game')
+        manifest=self.bundle/'package.kmanifest'
+        manifest.write_text(manifest.read_text().replace('bin/KairoPlayer','bin/KairoPhase1Game'))
+        archive=self.root/'phase1.zip'
+        index=release.export(self.bundle,archive)
+        self.assertIn('bin/KairoPhase1Game',index['files'])
+        self.assertEqual(release.verify(archive),index)
+        for unsafe in ('bin/bad$name','bin/../game','bin/CON.exe','bin/game%PATH%','bin/a/b'):
+            with self.subTest(name=unsafe), self.assertRaises(ValueError):
+                release.manifest(manifest.read_bytes().replace(b'bin/KairoPhase1Game',unsafe.encode()))
+
     def test_executable_header(self):
         import io,struct
         header=bytearray(64);header[:4]=b'\xcf\xfa\xed\xfe';struct.pack_into('<III',header,4,0x100000c,0,2)
