@@ -34,13 +34,21 @@ int main()
     {
         const auto key=rng();const unsigned count=1+static_cast<unsigned>(rng()%16);
         const unsigned index=static_cast<unsigned>(rng()%count);
-        const Progress current{index,index+1==count&&bool(rng()%2)};
+        Progress current{index,index+1==count&&bool(rng()%2)};
+        if(i%2)for(auto& value:current.ScriptValues)value=static_cast<int>(rng()%2000001)-1000000;
         const auto restored=DecodeProgress(EncodeProgress(key,current),key,count);
-        Check(restored.Level==current.Level&&restored.Finished==current.Finished);
+        Check(restored.Level==current.Level&&restored.Finished==current.Finished&&restored.ScriptValues==current.ScriptValues);
         const auto next=Advance(restored,count);
-        Check(next.Level<count&&(!next.Finished||next.Level+1==count));
+        Check(next.Level<count&&(!next.Finished||next.Level+1==count)&&next.ScriptValues==current.ScriptValues);
         Reject([&]{(void)DecodeProgress(EncodeProgress(key,current),key^1u,count);});
     }
+    Progress extreme{1,true};extreme.ScriptValues.fill(-1000000);
+    const auto extended=EncodeProgress(revision,extreme);
+    Check(extended.size()<=256&&extended.starts_with("kairo-world-progress 2\n"));
+    Check(DecodeProgress(extended,revision,2).ScriptValues==extreme.ScriptValues);
+    Check(EncodeProgress(revision,{}).starts_with("kairo-world-progress 1\n"));
+    Reject([&]{(void)DecodeProgress(extended+"1",revision,2);});
+    extreme.ScriptValues[0]=1000001;Reject([&]{(void)EncodeProgress(revision,extreme);});
     EventMixer mixer(config);
     for(float sample:mixer.Mix())Check(sample==0.f);
     mixer.Trigger(0);mixer.Trigger(1);mixer.Trigger(2);
