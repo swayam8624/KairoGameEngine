@@ -17,7 +17,12 @@ int main()
     for(unsigned tick=0;tick<=600;++tick)
         if(Matches(doc.Rules[0],"main",{Event::Timer},tick))state.Apply(doc.Rules[0]);
     Assert(state.Value(0)==20);state.Apply(doc.Rules[2]);Assert(state.Value(1)==5);
+    const auto snapshot=state.Values();
     state.Clear();Assert(state.Value(0)==0&&state.Value(1)==0);
+    state.Restore(snapshot);Assert(state.Value(0)==20&&state.Value(1)==5);
+    auto invalid=snapshot;invalid[15]=1000001;
+    bool badRestore=false;try{state.Restore(invalid);}catch(const std::invalid_argument&){badRestore=true;}
+    Assert(badRestore&&state.Values()==snapshot);
     const auto reject=[](std::string_view bytes){try{(void)Parse(bytes);}catch(const std::invalid_argument&){return;}throw std::runtime_error("Malformed script accepted");};
     reject(source+"junk");reject("kairo-logic2d 1\nrules 1\nmain timer 0 add 0 1\n");
     reject("kairo-logic2d 1\nrules 1\nmain tick add 16 1\n");
