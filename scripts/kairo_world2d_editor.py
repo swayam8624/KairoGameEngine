@@ -573,7 +573,17 @@ def run_editor(project,build,renderer):
             except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
         ttk.Button(window,text="Validate and apply (undoable)",command=apply).pack(pady=8)
 
-    for text,fn in (("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
+    def ui_designer():
+        if child is not None and child.poll() is None:
+            report(ValueError("Close Player before editing UI"));return
+        try:
+            from kairo_ui2d_designer import open_designer
+            target=project_root/"Config/UI.kui"
+            if target.parent.is_symlink() or target.is_symlink():raise ValueError("Linked UI path rejected")
+            open_designer(root,target,validator,bounded_config,publish_config,report)
+        except (OSError,ValueError,subprocess.SubprocessError) as error:report(error)
+
+    for text,fn in (("Game UI designer",ui_designer),("Physics",physics_window),("Open level",switch_level),("Clone level",clone_level),("Campaign / audio",lambda:config_window(True)),
                     ("Input bindings",lambda:config_window(False))):
         ttk.Button(left,text=text,command=fn).pack(fill="x",pady=3)
     def play():
