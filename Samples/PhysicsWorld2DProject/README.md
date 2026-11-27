@@ -69,3 +69,22 @@ main complete sound 2
 Each rule has a level, event, optional event selector, and one command. The events are begin, tick, collect, death, complete, input ACTION (press only), sensor_begin ID, sensor_end ID, ui BUTTON_ID, timer TICKS. Timers run on fixed simulation ticks, not wall clock; 60 ticks = one second. Collection signals once per tick if collection increased. Sensor transitions are coalesced by sensor actor and begin/end kind within each tick, without other-actor identity. Begin runs on level entry, restart and death reset. Commands are print quoted message, position DECOR_ID X Y, impulse DYNAMIC_ID X Y, add SLOT INTEGER, set SLOT INTEGER, sound EVENT_INDEX (0 collect, 1 death, 2 complete). Sound commands invoke existing event cues, and may deliberately retrigger built-in event audio.
 
 There are 64 rules maximum, 16 signed integer slots, saturated to ±1,000,000. Values survive level transitions and death/restart, are saved when the campaign checkpoint is written, and clear on New Game. No mid-level autosave. Use the UI counter binding "script" to display slot 0. Position is limited to in-bounds non-physics decor; impulses target authored dynamic bodies. The engine validates input names, button IDs, sensor and actor references before launch or packaging. A changed script invalidates a stale checkpoint revision. The editor provides a text rule authoring panel, not a 2D visual graph. Run Player with --world2d-logic-trace to emit bounded rule-level console trace; this is not the 3D live debugger or a full instruction trace. The adapter reuses EngineCore LogicInstance for print/position/impulse; the World2D scheduler owns events, counters and sound commands. There are no general control-flow constructs, arbitrary user code, spawning, custom native plugins or scripting API parity with 3D yet.
+
+## VFX Studio
+
+Open **VFX studio** in the World2D editor. Config/VFX.kvfx is optional and project-wide. A material specifies start/end linear RGB, start/end size in world pixels and square/cross shape. An emitter selects a level, actor ID, event, material ID, particle count, interval and lifetime in 60 Hz ticks, speed (px/s) and gravity (px/s²). Ambient emitters follow active actors; collection/death/completion events burst at the configured actor's current position. Death effects use post-reset actor positions. Level changes, explicit restart and New Game clear effects; the final completion screen can show particles underneath authored UI while they expire. Pause freezes simulation and hides particles.
+
+```text
+kairo-vfx2d 1
+materials 3
+spark fff4bd c27a2d 5 1 cross
+smoke 7eb9a5 344b47 2 7 square
+impact ff9171 80293d 6 1 cross
+emitters 4
+main 1 collect spark 24 1 45 120 90
+main 8 ambient smoke 2 6 48 36 -60
+main 1 death impact 32 1 36 160 180
+main 1 complete spark 48 1 90 100 -30
+```
+
+The preview shows actual native particle rectangles at a chosen tick and event, from the authored starting actor positions (not a running physics scene or GPU screenshot). Select an RGB token to replace it with the color picker. Save runs native level/material/actor validation and stale-checked atomic publication. Cosmetic VFX changes do not invalidate progress. Simulation caps live particles at 512 and discards excess new particles; overlay records are clipped and bounded by available draw budget with authored UI reserved first. This is an opaque 2D overlay particle system, not a GPU compute particle engine, general 3D material graph, transparent/additive blending, particle collision, or arbitrary programmable shader system.
