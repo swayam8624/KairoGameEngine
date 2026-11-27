@@ -68,6 +68,7 @@ namespace kairo::player::detail
 
 namespace kairo::player::world2d
 {
+    void ValidateWorldAudio(const CampaignProject& campaign,const std::filesystem::path& root);
     int Run(CampaignProject campaign,const kairo::player::RuntimeProject& project,
         kairo::renderer::GraphicsBackend backend,bool smoke,bool rectangles);
 }
@@ -209,6 +210,7 @@ int main(int argc, char** argv)
                 if(const auto* action=project.InputMap().FindAction(name);
                     action&&action->Type!=kairo::engine::InputActionValueType::Button)
                     throw std::invalid_argument(std::string("World2D requires a button action: ")+name);
+            if(arguments.ValidateOnly||arguments.PackageProfile)kairo::player::world2d::ValidateWorldAudio(campaign,project.Root());
             if(arguments.ValidateOnly){std::cout<<"Validated native World2D project\n";return 0;}
             if(arguments.PackageProfile)
             {
