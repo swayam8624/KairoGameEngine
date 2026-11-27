@@ -159,6 +159,40 @@ namespace kairo::player::ui2d
             m_Down=down;return action;
         }
     };
+    // Modal keyboard focus follows document paint order. Tab/Shift+Tab
+    // traverse visible buttons; Enter activates once after release-to-arm.
+    class Keyboard
+    {
+        std::optional<Screen> m_Page;
+        std::optional<std::size_t> m_Focus;
+        kairo::player::detail::MenuEdge m_Tab,m_Enter;
+    public:
+        std::optional<std::size_t> Focus() const noexcept{return m_Focus;}
+        Action Update(const Document& doc,Screen page,unsigned w,unsigned h,bool tab,bool reverse,bool enter,bool active)
+        {
+            if(!active||page==Screen::Play||m_Page!=page)
+            {
+                m_Page=page;m_Focus.reset();m_Tab.Reset();m_Enter.Reset();
+            }
+            if(!active||page==Screen::Play)return Action::None;
+            std::array<std::size_t,MaxWidgets> visible{};std::size_t count=0;
+            for(std::size_t i=0;i<doc.Widgets.size();++i)
+            {
+                const auto& widget=doc.Widgets[i];
+                if(widget.Page!=page||widget.Type!=Kind::Button)continue;
+                const auto b=Clip(Layout(widget,w,h),w,h);
+                if(b.W&&b.H)visible.at(count++)=i;
+            }
+            const bool move=m_Tab.Press(tab),activate=m_Enter.Press(enter);
+            if(!count){m_Focus.reset();return Action::None;}
+            const auto end=visible.begin()+count;
+            auto it=m_Focus?std::find(visible.begin(),end,*m_Focus):end;
+            std::size_t index=it==end?0:static_cast<std::size_t>(it-visible.begin());
+            if(move)index=reverse?(index+count-1)%count:(index+1)%count;
+            m_Focus=visible[index];
+            return activate?doc.Widgets[*m_Focus].Command:Action::None;
+        }
+    };
     inline std::string Text(const Widget& w,const State& s)
     {
         switch(w.Value)
@@ -171,7 +205,7 @@ namespace kairo::player::ui2d
         }
     }
     inline void Paint(const Document& doc,Screen screen,const State& state,const Pointer& pointer,
-        unsigned width,unsigned height,std::vector<Rect>& out)
+        unsigned width,unsigned height,std::vector<Rect>& out,std::optional<std::size_t> focus={})
     {
         out.clear();
         const auto draw=[&](Box b,unsigned color)
@@ -185,8 +219,8 @@ namespace kairo::player::ui2d
             const auto b=Layout(w,width,height);if(b.W<=0||b.H<=0)continue;
             if(w.Type!=Kind::Label&&w.Type!=Kind::Counter)
             {
-                if(w.Type==Kind::Button&&(pointer.Hover()==i||pointer.Pressed()==i))draw(b,w.Foreground);
-                const int inset=w.Type==Kind::Button&&(pointer.Hover()==i||pointer.Pressed()==i)?2:0;
+                if(w.Type==Kind::Button&&(pointer.Hover()==i||pointer.Pressed()==i||focus==i))draw(b,w.Foreground);
+                const int inset=w.Type==Kind::Button&&(pointer.Hover()==i||pointer.Pressed()==i||focus==i)?2:0;
                 draw({b.X+inset,b.Y+inset,b.W-2*inset,b.H-2*inset},w.Background);
             }
             if(w.Type==Kind::Bar)
