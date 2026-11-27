@@ -35,12 +35,39 @@ int main()
     std::mt19937 rng(2026);unsigned overlaps=0;
     for(unsigned i=0;i<10000;++i)
     {
-        auto x=Make({double(int(rng()%80)-40),double(int(rng()%80)-40)},{5,5},Motion::Dynamic, rng()%2?Shape::Box:Shape::Circle);
-        auto y=Make({double(int(rng()%80)-40),double(int(rng()%80)-40)},{6,6},Motion::Dynamic, rng()%2?Shape::Box:Shape::Circle);
+        const Vec px{double(int(rng()%80)-40),double(int(rng()%80)-40)};
+        const auto sx=rng()%2?Shape::Box:Shape::Circle;
+        const Vec py{double(int(rng()%80)-40),double(int(rng()%80)-40)};
+        const auto sy=rng()%2?Shape::Box:Shape::Circle;
+        auto x=Make(px,{5,5},Motion::Dynamic,sx);
+        auto y=Make(py,{6,6},Motion::Dynamic,sy);
         auto c=Collide(x,y),d=Collide(y,x);
         Check(std::abs(c.Depth-d.Depth)<1e-10);
         if(c.Depth>0){++overlaps;Check(std::abs(Length(c.Normal)-1)<1e-10);y.Position+=c.Normal*(c.Depth+1e-7);Check(Collide(x,y).Depth<1e-6);}
     }
+    // Brute force oracle for broadphase completeness, filtering and event order.
+    std::size_t expectedPairs=0;
+    for(unsigned trial=0;trial<100;++trial)
+    {
+        std::vector<Body> bodies;
+        for(unsigned i=0;i<64;++i)
+        {
+            const Vec pos{double(rng()%100),double(rng()%100)};
+            auto body=Make(pos,{5,5},Motion::Static,rng()%2?Shape::Box:Shape::Circle);
+            body.Sensor=i%5==0;body.Layer=1u<<(rng()%3);body.Mask=rng()%8;
+            bodies.push_back(body);
+        }
+        std::vector<std::pair<std::size_t,std::size_t>> expected;
+        for(std::size_t i=0;i<bodies.size();++i)for(std::size_t j=i+1;j<bodies.size();++j)
+            if((bodies[i].Sensor||bodies[j].Sensor)&&Filter(bodies[i],bodies[j])&&Collide(bodies[i],bodies[j]).Depth>0)
+                expected.emplace_back(i,j);
+        Scene scene(std::move(bodies),{},{});scene.Step();
+        Check(scene.Events().size()==expected.size());
+        for(std::size_t i=0;i<expected.size();++i)
+        {const auto e=scene.Events()[i];Check(e.Begin&&std::pair{e.A,e.B}==expected[i]);}
+        scene.Step();Check(scene.Events().empty());expectedPairs+=expected.size();
+    }
+    std::cout<<"100 brute-force sensor broadphase comparisons, "<<expectedPairs<<" expected transitions\n";
     bool rejected=false;try{auto bad=box;bad.Mass=0;Scene s({bad},{},{});}catch(const std::invalid_argument&){rejected=true;}Check(rejected);
     std::cout<<"10000 randomized shape contacts, "<<overlaps<<" overlaps; gravity, bounce, bounded sweep, sensors, masks, momentum, friction, joint and kinematic fixtures passed\n";
 }
