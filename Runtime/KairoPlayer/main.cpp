@@ -48,6 +48,7 @@ import Kairo.Player.RuntimeDoorBridge;
 import Kairo.Player.RuntimeHealthBridge;
 import Kairo.Player.RuntimeCombatBridge;
 import Kairo.Player.RuntimeCombatPresentationBridge;
+import Kairo.Player.RuntimeParticles3DBridge;
 import Kairo.Player.RuntimeEnemyBridge;
 import Kairo.Player.RuntimeCharacterMotorBridge;
 import Kairo.Player.RuntimePlayerControllerBridge;
@@ -283,6 +284,8 @@ int main(int argc, char** argv)
         if(combat.Enabled())std::cout<<"  combat: enabled\n";
         kairo::player::RuntimeCombatPresentationBridge combatPresentation(project,combat,playerController.PrimaryController());
         if(combatPresentation.MarkerCount())std::cout<<"  projectile markers: "<<combatPresentation.MarkerCount()<<'\n';
+        kairo::player::RuntimeParticles3DBridge particles(project);
+        if(particles.Capacity())std::cout<<"  3D mesh particle slots: "<<particles.Capacity()<<'\n';
         kairo::player::RuntimeHealthBridge health(project,physics,characterMotor,playerController.PrimaryController());
         if(health.Enabled())std::cout<<"  health: "<<health.Health()<<'/'<<health.Maximum()<<'\n';
         kairo::player::RuntimeEnemyBridge enemies(project,physics,characterMotor,playerController.PrimaryController(),health.Enabled());
@@ -569,6 +572,7 @@ int main(int argc, char** argv)
             (void)shipping.Step(static_cast<double>(elapsedSeconds));
             bridge.StepAnimations(elapsedSeconds);
             combatPresentation.Step(elapsedSeconds,&bridge);
+            particles.Advance(elapsedSeconds);
             // Menu frames never advance proximity state. Apply explicit
             // show/hide events in ascending rule order before scene extraction.
             if(triggers&&controlledEntity&&project.Scene().Contains(*controlledEntity))

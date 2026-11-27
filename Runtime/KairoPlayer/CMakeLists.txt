@@ -6,7 +6,7 @@ target_sources(KairoPlayerRuntime PUBLIC FILE_SET CXX_MODULES
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
     FILES RuntimeProject.cppm RuntimeRenderBridge.cppm RuntimeAudioBridge.cppm RuntimeSceneAudioBridge.cppm RuntimePhysicsBridge.cppm
         RuntimeCharacterMotorBridge.cppm RuntimePlayerControllerBridge.cppm RuntimeNavigationAgentBridge.cppm RuntimeCrowdNavigationBridge.cppm RuntimeLocomotionAnimationBridge.cppm RuntimeEntityLifecycleBridge.cppm RuntimeSaveGameBridge.cppm RuntimeWorldSaveBridge.cppm RuntimeInputBridge.cppm RuntimeLogicBridge.cppm RuntimeNativeGameplayBridge.cppm RuntimeProductionSystemsBridge.cppm RuntimeShippingBridge.cppm RuntimePackaging.cppm
-        RuntimeWorldStreamingBridge.cppm RuntimeMenuHost.cppm RuntimeDoorBridge.cppm RuntimeHealthBridge.cppm RuntimeCombatBridge.cppm RuntimeEnemyBridge.cppm RuntimeCombatPresentationBridge.cppm)
+        RuntimeWorldStreamingBridge.cppm RuntimeMenuHost.cppm RuntimeDoorBridge.cppm RuntimeHealthBridge.cppm RuntimeCombatBridge.cppm RuntimeEnemyBridge.cppm RuntimeCombatPresentationBridge.cppm RuntimeParticles3DBridge.cppm)
 # Prefer the small, deterministic gameplay module. Existing sibling checkouts
 # predating the split still provide that module through Kairo::AI.
 if(TARGET Kairo::GameplayAI)
@@ -254,6 +254,17 @@ if(BUILD_TESTING)
     add_test(NAME KairoPlayerPlatformerProjectTests COMMAND KairoPlayerPlatformerProjectTests)
     add_test(NAME KairoPlayerPlatformerProjectValidate COMMAND KairoPlayer "${CMAKE_SOURCE_DIR}/Samples/PlatformerProject/Project.kproject" --validate)
     set_tests_properties(KairoPlayerPlatformerProjectTests KairoPlayerPlatformerProjectValidate PROPERTIES TIMEOUT 30)
+    add_executable(KairoPlayerParticles3DTests tests/RuntimeParticles3DTests.cpp)
+    target_include_directories(KairoPlayerParticles3DTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(KairoPlayerParticles3DTests PRIVATE cxx_std_23)
+    set_property(TARGET KairoPlayerParticles3DTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerParticles3DTests COMMAND KairoPlayerParticles3DTests)
+    add_executable(KairoPlayerParticles3DBridgeTests tests/RuntimeParticles3DBridgeTests.cpp)
+    target_link_libraries(KairoPlayerParticles3DBridgeTests PRIVATE KairoPlayerRuntime)
+    set_property(TARGET KairoPlayerParticles3DBridgeTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerParticles3DBridgeTests COMMAND KairoPlayerParticles3DBridgeTests "${CMAKE_SOURCE_DIR}/Samples/MeshParticleArena/Project.kproject")
+    add_test(NAME KairoPlayerMeshParticleArenaValidate COMMAND KairoPlayer "${CMAKE_SOURCE_DIR}/Samples/MeshParticleArena/Project.kproject" --validate)
+    set_tests_properties(KairoPlayerParticles3DTests KairoPlayerParticles3DBridgeTests KairoPlayerMeshParticleArenaValidate PROPERTIES TIMEOUT 30)
     add_executable(KairoPlayerCombatPresentationTests tests/RuntimeCombatPresentationTests.cpp)
     target_compile_features(KairoPlayerCombatPresentationTests PRIVATE cxx_std_23)
     set_property(TARGET KairoPlayerCombatPresentationTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
