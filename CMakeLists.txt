@@ -160,6 +160,21 @@ if(KAIRO_GAME_ENGINE_BUILD_EDITOR)
     kairo_add_workspace_repo(KairoEditor KairoEditor KAIRO_EDITOR_SOURCE)
 endif()
 
+# Catch2 defaults to the nonstandard __COUNTER__ preprocessor macro for test
+# registration. Recent macOS LLVM diagnoses it as a C2y extension under
+# -Wpedantic -Werror even when expansion starts in a dependency header.
+# Use Catch2's supported __LINE__ fallback for consumers of the test framework;
+# keep strict diagnostics and C++23 unchanged for engine and editor code.
+if(BUILD_TESTING AND APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    if(TARGET Catch2::Catch2)
+        get_target_property(_kairo_catch2_target Catch2::Catch2 ALIASED_TARGET)
+        if(NOT _kairo_catch2_target)
+            set(_kairo_catch2_target Catch2::Catch2)
+        endif()
+        target_compile_definitions(${_kairo_catch2_target} INTERFACE CATCH_CONFIG_NO_COUNTER)
+    endif()
+endif()
+
 if(KAIRO_GAME_ENGINE_BUILD_RAYTRACER)
     kairo_add_workspace_repo(KairoRayTracer KairoRayTracer KAIRO_RAYTRACER_SOURCE)
     add_subdirectory(Runtime/KairoRenderBridge)
