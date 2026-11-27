@@ -54,18 +54,18 @@ namespace kairo::player::world2d
         NativeAtlas(const NativeAtlas&)=delete;
         NativeAtlas& operator=(const NativeAtlas&)=delete;
 
-        void Load(const World& world)
+        void Load(const World& world){Load(PrepareAtlas(world));}
+        void Load(PreparedAtlas prepared)
         {
             using namespace kairo::renderer;
-            // Prepare CPU data first. Retire only after the next atlas is valid.
-            auto next=BuildAtlas(world);
-            auto chunks=BuildTileChunks(world,next);
+            // CPU preparation may have run on a worker; all renderer calls
+            // and handle retirement remain on the owning render thread.
             m_Renderer.SubmitRenderScene(RenderScene{});
             for(const auto mesh:m_Owned)m_Renderer.DestroyMesh(mesh);
             m_Owned.clear();m_ChunkMeshes.clear();m_FrameMeshes.clear();
             if(m_Texture!=InvalidTextureHandle)m_Renderer.DestroyTexture(m_Texture);
             m_Texture=InvalidTextureHandle;
-            m_Atlas=std::move(next);m_Chunks=std::move(chunks);
+            m_Atlas=std::move(prepared.Pixels);m_Chunks=std::move(prepared.Chunks);
             m_Owned.reserve(m_Chunks.size()+MaxSprites*16);
             m_ChunkMeshes.reserve(m_Chunks.size());
             kairo::assets::TextureArtifactData texture;
