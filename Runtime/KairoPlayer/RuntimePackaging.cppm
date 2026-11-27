@@ -356,11 +356,21 @@ export namespace kairo::player
         }
         CopyFilePreservingPermissions(project.DescriptorPath(), packagedProject / "Project.kproject");
 
-#if defined(_WIN32)
-        const std::filesystem::path playerName="KairoPlayer.exe";
-#else
-        const std::filesystem::path playerName="KairoPlayer";
-#endif
+        // Custom native game hosts must retain their executable name. Only
+        // conservative ASCII names can be interpolated into shell launchers.
+        const auto playerName=player.filename();
+        const auto executableName=playerName.string();
+        const auto alnum=[](char c){return (c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9');};
+        if(executableName.empty()||executableName.size()>128||!alnum(executableName.front())||
+            executableName.back()=='.'||!std::all_of(executableName.begin(),executableName.end(),
+                [&](char c){return alnum(c)||c=='_'||c=='-'||c=='.';}))
+            throw std::invalid_argument("Unsafe native package executable name.");
+        // Reject DOS device names even on POSIX, for portable archive layout.
+        auto stem=executableName.substr(0,executableName.find('.'));
+        for(auto& c:stem)if(c>='a'&&c<='z')c=static_cast<char>(c-'a'+'A');
+        if(stem=="CON"||stem=="PRN"||stem=="AUX"||stem=="NUL"||
+            (stem.size()==4&&(stem.starts_with("COM")||stem.starts_with("LPT"))&&stem[3]>='1'&&stem[3]<='9'))
+            throw std::invalid_argument("Reserved native package executable name.");
         const auto packagedPlayer = staging / "bin" / playerName;
         CopyFilePreservingPermissions(player, packagedPlayer);
 
