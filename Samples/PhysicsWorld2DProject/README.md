@@ -49,3 +49,23 @@ main 8 hum 35 96
 The four mix percentages are master/effects/music/ambient. Clip records are ID wav or ID tone frequency milliseconds. Cues use ID and gain percentage; "-" disables an event/music cue. Emitter records are level name, actor ID, clip ID, gain, radius in world pixels. Emitters follow active actors and stop when the actor disappears or the level changes. The player is the listener. Pausing freezes music and ambient cursors and clears pending effects (previously queued PCM may drain). Older projects without the audio document keep their original synthesized event sounds. Audio changes do not invalidate gameplay checkpoints.
 
 The native bank supports up to 32 clips, 16 emitters, 32 simultaneous voices, 32 MiB per WAV source, 64 MiB aggregate WAV bytes, 128 MiB decoded sample storage and 120 seconds per WAV. WAV PCM 8/16/24/32-bit and IEEE float32 mono/stereo use the existing KairoAssets decoder; compressed/extensible WAV, MP3, Ogg, FLAC, streaming music, audio DSP and custom bus graphs are not supported by this authoring path. Native playback depends on available Audio Queue, ALSA or WinMM output; the headless mixer remains usable without a device. Runtime source files are packaged with the project; the World2D bank uses its own file naming contract, not a 3D asset registry or derived cache.
+
+## Gameplay logic
+
+Open **Gameplay logic** in the World2D editor. Config/Logic.klogic2d is optional, level-scoped, native-validated and compiled into shared EngineCore VM commands where applicable. This sample uses:
+
+```text
+kairo-logic2d 1
+rules 7
+main begin print "Physics playground ready"
+main timer 60 add 0 1
+main collect add 0 10
+main death add 1 1
+main input Jump impulse 6 0 -60
+main ui pause add 2 1
+main complete sound 2
+```
+
+Each rule has a level, event, optional event selector, and one command. The events are begin, tick, collect, death, complete, input ACTION (press only), sensor_begin ID, sensor_end ID, ui BUTTON_ID, timer TICKS. Timers run on fixed simulation ticks, not wall clock; 60 ticks = one second. Collection signals once per tick if collection increased. Sensor transitions are coalesced by sensor actor and begin/end kind within each tick, without other-actor identity. Begin runs on level entry, restart and death reset. Commands are print quoted message, position DECOR_ID X Y, impulse DYNAMIC_ID X Y, add SLOT INTEGER, set SLOT INTEGER, sound EVENT_INDEX (0 collect, 1 death, 2 complete). Sound commands invoke existing event cues, and may deliberately retrigger built-in event audio.
+
+There are 64 rules maximum, 16 signed integer slots, saturated to ±1,000,000. Values survive level transitions and death/restart, are saved when the campaign checkpoint is written, and clear on New Game. No mid-level autosave. Use the UI counter binding "script" to display slot 0. Position is limited to in-bounds non-physics decor; impulses target authored dynamic bodies. The engine validates input names, button IDs, sensor and actor references before launch or packaging. A changed script invalidates a stale checkpoint revision. The editor provides a text rule authoring panel, not a 2D visual graph. Run Player with --world2d-logic-trace to emit bounded rule-level console trace; this is not the 3D live debugger or a full instruction trace. The adapter reuses EngineCore LogicInstance for print/position/impulse; the World2D scheduler owns events, counters and sound commands. There are no general control-flow constructs, arbitrary user code, spawning, custom native plugins or scripting API parity with 3D yet.
