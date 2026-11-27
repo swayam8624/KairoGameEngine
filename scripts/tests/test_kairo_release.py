@@ -70,6 +70,16 @@ class ReleaseTests(unittest.TestCase):
             dst.writestr(release.zip_info('project/a'),b'a');dst.writestr(release.zip_info('project/A/b'),b'b')
         with self.assertRaises(ValueError):release.verify(a)
 
+    def test_unpack_verified_archive(self):
+        archive=self.root/'release.zip';target=self.root/'relocated game'
+        index=release.export(self.bundle,archive)
+        self.assertEqual(release.unpack(archive,target),index)
+        for name,record in index['files'].items():
+            self.assertEqual(hashlib.sha256((target/name).read_bytes()).hexdigest(),record['sha256'])
+        self.assertEqual(stat.S_IMODE((target/'run.sh').stat().st_mode),0o755)
+        with self.assertRaises(ValueError):release.unpack(archive,target)
+        self.assertTrue((target/'project/asset.bin').is_file())
+
     def test_executable_header(self):
         import io,struct
         header=bytearray(64);header[:4]=b'\xcf\xfa\xed\xfe';struct.pack_into('<III',header,4,0x100000c,0,2)
