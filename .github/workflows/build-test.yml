@@ -221,24 +221,31 @@ jobs:
           export PYTHONPATH=scripts
           python - "$scratch" "${{ matrix.preset }}" <<'PY'
           from pathlib import Path
-          import os, shutil, stat, subprocess, sys, zipfile
+          import os, shutil, subprocess, sys
           from kairo_hub_core import create
           from kairo_project_workflow import ProjectTools, run_cli
-          from kairo_release import verify
+          from kairo_release import verify, unpack
           root=Path(sys.argv[1]).resolve()
           project=create("world2d","Release Adventure",root)
           archive=root/"adventure.zip"
           tools=ProjectTools(project,Path("build")/sys.argv[2])
+          # An unrelated pre-existing Build directory cannot be erased by replacement.
+          reserved=project.parent/"Build/Release";reserved.mkdir(parents=True)
+          sentinel=reserved/"keep.txt";sentinel.write_text("keep")
+          player=tools.binary("KairoPlayer","Runtime/KairoPlayer")
+          result=subprocess.run([player,str(project),"--package","Release","--replace"],cwd=root)
+          assert result.returncode!=0 and sentinel.read_text()=="keep"
+          shutil.rmtree(reserved)
           assert run_cli(tools,"package",profile="Release",archive=archive)==0
           index=verify(archive)
+          # A previous release/archive elsewhere under Build must not recurse into a new build.
+          shutil.copyfile(archive,project.parent/"Build/old.zip")
+          subprocess.run([player,str(project),"--package","Release","--replace"],cwd=root,check=True,timeout=120)
+          assert not (reserved/"project/Build").exists()
           # Source removal proves the extracted release is independent of its original project.
           shutil.rmtree(project.parent)
-          extracted=root/"relocated game";extracted.mkdir()
-          with zipfile.ZipFile(archive) as z:
-              for item in z.infolist():
-                  path=extracted/item.filename;path.parent.mkdir(parents=True,exist_ok=True)
-                  with z.open(item) as source,path.open("wb") as output:shutil.copyfileobj(source,output)
-                  if os.name!="nt":path.chmod(stat.S_IMODE(item.external_attr>>16))
+          extracted=root/"relocated game"
+          assert unpack(archive,extracted)==index
           launcher=extracted/("run.cmd" if os.name=="nt" else "run.sh")
           command=[str(launcher),"--validate"]
           if os.name=="nt":command=["cmd.exe","/d","/c",*command]
