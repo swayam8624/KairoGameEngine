@@ -342,6 +342,11 @@ jobs:
         run: |
           xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/HealthArena/Project.kproject --renderer vulkan --smoke
 
+      - name: Actual World2D UI designer drag and native save
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: xvfb-run -a python3 scripts/tests/world2d_ui_authoring.py build/ci-clang/Runtime/KairoPlayer/KairoWorld2DTool Samples/PhysicsWorld2DProject/Config/UI.kui --gui
+
       - name: Actual authored gameplay event chain
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
