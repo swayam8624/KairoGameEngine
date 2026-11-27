@@ -16,6 +16,7 @@ import sys
 import tempfile
 
 import kairo_release as release
+import native_dependency_audit
 
 
 def digest(path):
@@ -78,11 +79,15 @@ def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
                             "Launch changed authored content: " + name)
         release.require(not (descriptor.parent / ".kairo/progress").exists(),
                         "Validation or smoke wrote a personal checkpoint")
+        dependencies = native_dependency_audit.audit(packaged_player, index["target"])
+        dependency_bytes = (json.dumps(dependencies, sort_keys=True, indent=2) + "\n").encode("utf-8")
         receipt = {"schema": 1, "commit": commit, "workspace_lock_sha256": lock_hash,
                    "target": index["target"], "profile": index["profile"],
                    "archive_sha256": digest(archive), "player_sha256": player_hash,
                    "file_count": len(index["files"]), "project_file_count": len(expected),
                    "license_sha256": expected["LICENSE"],
+                   "native_dependencies_sha256": hashlib.sha256(dependency_bytes).hexdigest(),
+                   "dependency_closure_verified": False, "third_party_licenses_verified": False,
                    "extracted_player_validation": True, "relocated_launcher_validation": True,
                    "campaign_replay": True, "native_graphics_smoke": smoke,
                    "fresh_machine_qualified": False, "signed": False}
@@ -95,6 +100,8 @@ def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
                 shutil.copyfileobj(src, dst)
             release.require(digest(output / name) == receipt["archive_sha256"],
                             "Published archive differs")
+            with (output / "native-dependencies.json").open("xb") as stream:
+                stream.write(dependency_bytes)
             with (output / "receipt.json").open("x", encoding="utf-8") as stream:
                 json.dump(receipt, stream, sort_keys=True, indent=2)
                 stream.write("\n")
