@@ -139,9 +139,10 @@ namespace kairo::player::world2d
         }
     };
 
-    inline void VerifyAtlasCapture(const Game& game,const kairo::renderer::ViewportCapture& capture)
+    inline void VerifyAtlasCapture(const Game& game,const kairo::renderer::ViewportCapture& capture,kairo::renderer::GraphicsBackend backend)
     {
-        const auto evidence=CheckAtlasCapture(game,capture.Width,capture.Height,capture.RGBA);
+        const auto evidence=CheckAtlasCapture(game,capture.Width,capture.Height,capture.RGBA,
+            backend==kairo::renderer::GraphicsBackend::Vulkan?CaptureTransfer::Gamma22:CaptureTransfer::Linear);
         if(evidence.Probes<8||evidence.Matches*100u<95u*evidence.Probes)
             throw std::runtime_error("Native atlas capture differs from rectangle reference: "+
                 std::to_string(evidence.Matches)+"/"+std::to_string(evidence.Probes));
