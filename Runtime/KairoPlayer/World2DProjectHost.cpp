@@ -64,9 +64,12 @@ namespace kairo::player::world2d
         if(!width||!height)throw std::runtime_error("World2D framebuffer unavailable.");
         renderer.ResizeViewport(width,height);
         renderer.SubmitRenderScene(RenderScene{});
+        std::vector<DrawRect> rects;
+        std::vector<ViewportOverlayRect> native;
+        rects.reserve(MaxDrawRects);native.reserve(MaxDrawRects);
         const auto publish=[&](unsigned w,unsigned h)
         {
-            auto rects=View(game,w,h);
+            BuildView(game,w,h,rects);
             if(paused||progress.Finished)
             {
                 // A modal replaces the scene rather than exceeding the native draw budget.
@@ -86,8 +89,7 @@ namespace kairo::player::world2d
                     rects.push_back({{item.Box.X,item.Box.Y,item.Box.W,item.Box.H},rgb});
                 }
             }
-            std::vector<ViewportOverlayRect> native;
-            native.reserve(rects.size());
+            native.clear();
             for(const auto& rect:rects)
             {
                 const auto b=rect.Bounds;const auto rgb=rect.RGB;
@@ -125,6 +127,9 @@ namespace kairo::player::world2d
         unsigned lastW=width,lastH=height;
         double accumulator=0;
         bool jumpQueued=false;
+        // Revision increments on any new simulation or modal state; redraw
+        // the overlay only when the authoritative visual inputs changed.
+        std::uint64_t visualRevision=0,publishedRevision=0;
         while(!renderer.NativeWindow().ShouldClose())
         {
             renderer.NativeWindow().PollEvents();
@@ -146,12 +151,12 @@ namespace kairo::player::world2d
             if(action("Quit").Pressed){renderer.NativeWindow().RequestClose();break;}
             if(action("NewGame").Pressed)
             {
-                progress={};game=Game(campaign.Worlds.front());paused=false;
+                progress={};game=Game(campaign.Worlds.front());paused=false;++visualRevision;
                 checkpointWritable=true;save();updateTitle();accumulator=0;jumpQueued=false;mixer.Clear();
             }
-            if(action("Pause").Pressed&&!progress.Finished){paused=!paused;accumulator=0;jumpQueued=false;mixer.Clear();}
-            if(action("Restart").Pressed&&!progress.Finished){game.Reset();accumulator=0;jumpQueued=false;mixer.Clear();}
-            if(w!=lastW||h!=lastH){renderer.ResizeViewport(w,h);lastW=w;lastH=h;}
+            if(action("Pause").Pressed&&!progress.Finished){paused=!paused;++visualRevision;accumulator=0;jumpQueued=false;mixer.Clear();}
+            if(action("Restart").Pressed&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;mixer.Clear();}
+            if(w!=lastW||h!=lastH){renderer.ResizeViewport(w,h);lastW=w;lastH=h;++visualRevision;}
             if(jump.Pressed&&!paused)jumpQueued=true;
             accumulator+=dt;
             const auto movement=action("Move").Value;
@@ -162,6 +167,7 @@ namespace kairo::player::world2d
                 {
                     const auto before=game.Collected(),deaths=game.Deaths();
                     game.Step({sign(movement.X),sign(movement.Y),jump.Down||jumpQueued});
+                    ++visualRevision;
                     jumpQueued=false;
                     if(game.Deaths()!=deaths)mixer.Trigger(1);
                     else if(game.Collected()>before)mixer.Trigger(0);
@@ -184,7 +190,8 @@ namespace kairo::player::world2d
                 else (void)mixer.Mix();
                 accumulator-=1./60.;
             }
-            publish(w,h);renderer.DrawFrame();
+            if(publishedRevision!=visualRevision){publish(w,h);publishedRevision=visualRevision;}
+            renderer.DrawFrame();
         }
         renderer.SetViewportOverlay({});
         return 0;
