@@ -47,7 +47,8 @@ namespace kairo::player::world2d
         }
     }
     inline CampaignProject LoadCampaignProject(const std::filesystem::path& root,
-        std::optional<std::string_view> candidate=std::nullopt)
+        std::optional<std::string_view> candidate=std::nullopt,
+        std::optional<std::string_view> audioCandidate=std::nullopt)
     {
         CampaignProject result;
         const auto config=CampaignPath(root,"Config/Campaign.kcampaign");
@@ -72,9 +73,9 @@ namespace kairo::player::world2d
         const auto ui=CampaignPath(root,"Config/UI.kui");
         if(std::filesystem::exists(ui))result.UI=ui2d::Parse(CampaignRead(ui,ui2d::MaxBytes));
         const auto audio=CampaignPath(root,"Config/Audio.kaudio");
-        if(std::filesystem::exists(audio))
+        if(audioCandidate||std::filesystem::exists(audio))
         {
-            result.Audio=audio2d::Parse(CampaignRead(audio,audio2d::MaxBytes));
+            result.Audio=audio2d::Parse(audioCandidate?*audioCandidate:CampaignRead(audio,audio2d::MaxBytes));
             ValidateAudioBindings(result,*result.Audio);
         }
         // Cosmetic UI/audio edits deliberately do not invalidate gameplay checkpoints.
