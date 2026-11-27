@@ -5,6 +5,8 @@ module;
 #include <thread>
 #include <sstream>
 #include "LogicDebugGate.hpp"
+#include "RuntimeLogicSchedule.hpp"
+#include "CraftSaveFile.hpp"
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -255,13 +257,21 @@ export namespace kairo::player
     public:
         RuntimeLogicBridge(RuntimeProject& project, RuntimePhysicsBridge& physics,
             std::optional<kairo::assets::AssetID> traceSession=std::nullopt)
-            : m_Physics(physics)
+            : m_Project(project), m_Physics(physics)
         {
+            std::map<std::uint32_t,unsigned> schedule;
+            const auto relative=std::filesystem::path("Config/LogicSchedule.klogic");
+            if(std::filesystem::exists(project.Root()/relative)||std::filesystem::is_symlink(project.Root()/relative))
+            {
+                const auto path=project.RequireProjectFile(relative,"logic schedule");
+                const auto bytes=detail::ReadCraftSaveFile(path,16384);
+                schedule=detail::ParseLogicSchedule(std::string_view(reinterpret_cast<const char*>(bytes.data()),bytes.size()));
+            }
             if(traceSession)m_Trace.emplace(project.Root(),*traceSession);
             for (const kairo::engine::Entity entity : project.Scene().Entities())
             {
-                if (!project.Scene().IsActiveInHierarchy(entity) || !project.Scene().HasLogic(entity) ||
-                    !project.Scene().Logic(entity).Enabled) continue;
+                // Prevalidate enabled script components even when their owners start inactive.
+                if (!project.Scene().HasLogic(entity) || !project.Scene().Logic(entity).Enabled) continue;
                 const auto document = project.Scene().Logic(entity).Document;
                 const auto metadata = project.Assets().Resolve(document);
                 const auto sourcePath = project.RequireProjectFile(metadata.Path, "logic document");
@@ -279,17 +289,20 @@ export namespace kairo::player
                         entry.Event == kairo::engine::LogicEventKind::InputReleased) &&
                         project.InputMap().FindAction(entry.Action) == nullptr)
                         throw std::invalid_argument("Compiled logic references an unknown input action: " + entry.Action);
+                const auto interval=schedule.find(entity.Value);
+                const unsigned steps=interval==schedule.end()?1u:interval->second;
+                if(interval!=schedule.end())schedule.erase(interval);
                 m_Instances.emplace_back(entity, std::move(artifact.Program),
-                    document.ID.ToString(),artifact.SourceFingerprint.ToHex());
+                    document.ID,artifact.SourceFingerprint.ToHex(),steps);
             }
+            if(!schedule.empty())throw std::invalid_argument("Logic schedule references an unknown or disabled script component.");
         }
 
         [[nodiscard]] std::size_t InstanceCount() const noexcept { return m_Instances.size(); }
 
         void BeginPlay()
         {
-            DispatchAll({ .Event = kairo::engine::LogicEventKind::BeginPlay,
-                .Action = {}, .DeltaSeconds = 0.0, .ActionValue = 0.0, .OtherEntity = {} });
+            for(auto& record:m_Instances)(void)Ready(record);
         }
 
         void DispatchInput(std::string_view action, const kairo::engine::InputActionState& state)
@@ -303,8 +316,11 @@ export namespace kairo::player
 
         void BeforePhysicsStep(float fixedDeltaSeconds) override
         {
-            DispatchAll({ .Event = kairo::engine::LogicEventKind::Tick,
-                .Action = {}, .DeltaSeconds = fixedDeltaSeconds, .ActionValue = 0.0, .OtherEntity = {} });
+            for(auto& record:m_Instances)
+                if(Ready(record))
+                    if(const auto delta=record.Lifecycle.Tick(fixedDeltaSeconds))
+                        DispatchRecord(record,{.Event=kairo::engine::LogicEventKind::Tick,
+                            .Action={},.DeltaSeconds=*delta,.ActionValue=0,.OtherEntity={}});
         }
 
         void DispatchContacts()
@@ -327,12 +343,16 @@ export namespace kairo::player
         {
             kairo::engine::Entity Owner;
             kairo::engine::LogicInstance Instance;
+            kairo::assets::AssetID Source;
             std::string Document,Revision;
+            detail::LogicLifecycle Lifecycle;
             InstanceRecord(kairo::engine::Entity owner, kairo::engine::LogicProgram program,
-                std::string document,std::string revision)
-                : Owner(owner), Instance(std::move(program)),Document(std::move(document)),Revision(std::move(revision)) {}
+                kairo::assets::AssetID source,std::string revision,unsigned interval)
+                : Owner(owner), Instance(std::move(program)),Source(source),Document(source.ToString()),
+                  Revision(std::move(revision)),Lifecycle(interval) {}
         };
 
+        RuntimeProject& m_Project;
         RuntimePhysicsBridge& m_Physics;
         std::vector<InstanceRecord> m_Instances;
         std::optional<RuntimeLogicTrace> m_Trace;
@@ -354,16 +374,37 @@ export namespace kairo::player
             if(trace)trace->Flush();
         }
 
+        // A prevalidated instance belongs to its original owner/document.
+        // Rebinding or creating script components dynamically needs a separate
+        // loading transaction; never dispatch stale bytecode on a new binding.
+        bool Ready(InstanceRecord& record)
+        {
+            const auto& scene=m_Project.Scene();
+            if(!scene.Contains(record.Owner)||!scene.HasLogic(record.Owner)||
+                !scene.Logic(record.Owner).Enabled||scene.Logic(record.Owner).Document.ID!=record.Source||
+                !scene.IsActiveInHierarchy(record.Owner))
+            {
+                record.Lifecycle.Suspend();return false;
+            }
+            if(record.Lifecycle.NeedsBegin())
+            {
+                DispatchRecord(record,{.Event=kairo::engine::LogicEventKind::BeginPlay,
+                    .Action={},.DeltaSeconds=0,.ActionValue=0,.OtherEntity={}});
+                record.Lifecycle.MarkBegun();
+            }
+            return true;
+        }
+
         void DispatchAll(const kairo::engine::LogicDispatch& dispatch)
         {
             for (auto& record : m_Instances)
-                DispatchRecord(record,dispatch);
+                if(Ready(record))DispatchRecord(record,dispatch);
         }
 
         void DispatchOne(kairo::engine::Entity owner, const kairo::engine::LogicDispatch& dispatch)
         {
             for (auto& record : m_Instances)
-                if (record.Owner == owner)
+                if (record.Owner == owner && Ready(record))
                     DispatchRecord(record,dispatch);
         }
 
