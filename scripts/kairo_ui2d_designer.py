@@ -11,7 +11,7 @@ LIMIT=16384
 PAGES=("play","pause","complete")
 KINDS=("panel","label","bar","button","counter")
 ANCHORS=("tl","t","tr","l","c","r","bl","b","br")
-BINDINGS=("none","coins","deaths","level","title")
+BINDINGS=("none","coins","deaths","level","title","script")
 ACTIONS=("none","pause","resume","restart","newgame","quit")
 DEFAULT=b'''kairo-ui2d 1
 widgets 5
@@ -131,7 +131,7 @@ def open_designer(root,target,validator,bounded_config,publish_config,report):
             if w.kind not in ("label","counter"):canvas.create_rectangle(ox+l,oy+t,ox+r,oy+d,fill="#"+w.bg,outline="")
             if w.kind=="bar":canvas.create_rectangle(ox+l,oy+t,ox+min(r,max(l,x+int(bw*.6))),oy+d,fill="#"+w.fg,outline="")
             elif w.kind in ("label","counter","button"):
-                label={"coins":w.text+"3/5","deaths":w.text+"1","level":w.text+"1/2","title":"KAIRO ADVENTURE"}.get(w.binding,w.text)
+                label={"coins":w.text+"3/5","deaths":w.text+"1","level":w.text+"1/2","title":"KAIRO ADVENTURE","script":w.text+"42"}.get(w.binding,w.text)
                 size=max(1,min(bh//3,bw//max(1,len(label))))
                 canvas.create_text(ox+(l+r)/2,oy+(t+d)/2,text=label.upper(),fill="#"+w.fg,font=("TkDefaultFont",size),width=max(1,r-l))
             if selected==i:canvas.create_rectangle(ox+l,oy+t,ox+r,oy+d,outline="#79baff",width=2)
