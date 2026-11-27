@@ -39,6 +39,18 @@ class WorkflowTests(unittest.TestCase):
         p=str(self.project)
         self.assertEqual(self.commands(),[['KairoProjectCompiler',p],['KairoPlayer',p,'--validate'],['KairoPlayer',p,'--package','Release']])
 
+    def test_named_profile_and_archive_sequence(self):
+        self.project.write_text('build-profile "Preview" development "Build/Preview"\n')
+        archive=self.root/'game.zip'
+        commands=self.tools.commands('package',profile='Preview',archive=archive,replace=True)
+        self.assertEqual(commands[2], [self.tools.binary('KairoPlayer','Runtime/KairoPlayer'),str(self.project),'--package','Preview','--replace'])
+        self.assertEqual(commands[3][2:],['export',str(self.project.parent/'Build/Preview'),str(archive)])
+        with self.assertRaises(ValueError):self.tools.commands('package',profile='Release')
+        archive.touch()
+        with self.assertRaises(ValueError):self.tools.commands('package',profile='Preview',archive=archive)
+        self.project.write_text('build-profile "Unsafe" release "Assets"\n')
+        with self.assertRaises(ValueError):self.tools.commands('package',profile='Unsafe')
+
     def test_failure_stops_later_steps(self):
         with patch.dict(os.environ,{'KAIRO_TEST_FAIL':'KairoProjectCompiler'}):
             self.assertEqual(run_cli(self.tools,'play'),9)
@@ -76,7 +88,9 @@ class WorkflowTests(unittest.TestCase):
             wait()
             self.assertIn('successfully',panel.status.get())
             self.assertEqual(len(self.commands()),2)
-            with patch.dict(os.environ,{'KAIRO_TEST_FAIL':'KairoProjectCompiler'}):
+            with patch.dict(os.environ,{'KAIRO_TEST_FAIL':'KairoProjectCompiler'}), \
+                    patch('tkinter.simpledialog.askstring',return_value='Release'), \
+                    patch('tkinter.messagebox.askyesno',return_value=False):
                 buttons['Package Release'].invoke();wait()
             self.assertIn('failed',panel.status.get())
             self.assertEqual(len(self.commands()),3)

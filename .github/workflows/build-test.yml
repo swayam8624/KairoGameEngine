@@ -201,7 +201,7 @@ jobs:
           import sys
           from kairo_hub_core import create
           from kairo_project_workflow import ProjectTools, run_cli
-          for kind in ("empty", "arena", "beacon", "keygate", "2d"):
+          for kind in ("empty", "arena", "beacon", "keygate", "2d", "world2d"):
               project = create(kind, "Hub " + kind, Path(sys.argv[1]))
               if run_cli(ProjectTools(project, Path("build/ci-clang")), "validate"):
                   raise SystemExit("Hub project validation failed: " + kind)
@@ -210,6 +210,55 @@ jobs:
           xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub arena/Project.kproject" --renderer vulkan --smoke
           xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub 2d/Project.kproject" --renderer vulkan --smoke
           build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub 2d/Project.kproject" --package Release
+
+      - name: Verify host-native World2D release ZIP after relocation
+        if: matrix.preset != 'ci-sanitized'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          export PYTHONPATH=scripts
+          python - "$scratch" "${{ matrix.preset }}" <<'PY'
+          from pathlib import Path
+          import os, shutil, subprocess, sys
+          from kairo_hub_core import create
+          from kairo_project_workflow import ProjectTools, run_cli
+          from kairo_release import verify, unpack
+          root=Path(sys.argv[1]).resolve()
+          project=create("world2d","Release Adventure",root)
+          archive=root/"adventure.zip"
+          tools=ProjectTools(project,Path("build")/sys.argv[2])
+          # An unrelated pre-existing Build directory cannot be erased by replacement.
+          reserved=project.parent/"Build/Release";reserved.mkdir(parents=True)
+          sentinel=reserved/"keep.txt";sentinel.write_text("keep")
+          player=tools.binary("KairoPlayer","Runtime/KairoPlayer")
+          result=subprocess.run([player,str(project),"--package","Release","--replace"],cwd=root)
+          assert result.returncode!=0 and sentinel.read_text()=="keep"
+          shutil.rmtree(reserved)
+          assert run_cli(tools,"package",profile="Release",archive=archive)==0
+          index=verify(archive)
+          # A previous release/archive elsewhere under Build must not recurse into a new build.
+          shutil.copyfile(archive,project.parent/"Build/old.zip")
+          subprocess.run([player,str(project),"--package","Release","--replace"],cwd=root,check=True,timeout=120)
+          assert not (reserved/"project/Build").exists()
+          # Source removal proves the extracted release is independent of its original project.
+          shutil.rmtree(project.parent)
+          extracted=root/"relocated game"
+          assert unpack(archive,extracted)==index
+          launcher=extracted/("run.cmd" if os.name=="nt" else "run.sh")
+          command=[str(launcher),"--validate"]
+          if os.name=="nt":command=["cmd.exe","/d","/c",*command]
+          subprocess.run(command,cwd=root,check=True,timeout=120)
+          if sys.platform.startswith("linux"):
+              subprocess.run(["xvfb-run","-a",str(launcher),"--renderer","vulkan","--smoke"],cwd=root,check=True,timeout=120)
+          print("Relocated release verified:",index["target"],len(index["files"]),"files")
+          PY
+
+      - name: Test release archive rejection and reproducibility
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_kairo_release.py -v
 
       - name: Validate actual catalog-generated project and native Vulkan capture
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'

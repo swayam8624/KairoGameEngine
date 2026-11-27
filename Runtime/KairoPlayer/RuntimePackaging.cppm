@@ -1,6 +1,7 @@
 module;
 
 #include <algorithm>
+#include <iterator>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -181,8 +182,9 @@ export namespace kairo::player
                     [&relative](const auto& output) { return IsSameOrDescendant(relative, output); });
                 const auto first = relative.begin();
                 const bool gitMetadata = first != relative.end() && *first == ".git";
+                const bool buildArtifacts = first != relative.end() && *first == "Build";
                 const bool transientKairo = IsTransientKairoPath(relative);
-                if (excludedOutput || gitMetadata || transientKairo)
+                if (excludedOutput || gitMetadata || transientKairo || buildArtifacts)
                 {
                     if (std::filesystem::is_directory(status)) iterator.disable_recursion_pending();
                     continue;
@@ -292,6 +294,26 @@ export namespace kairo::player
         for (const auto& buildProfile : project.Descriptor().BuildProfiles)
             excludedOutputs.push_back(kairo::assets::NormalizeAssetPath(buildProfile.OutputDirectory));
 
+        // A build profile must never cause authored data to be excluded
+        // or deleted during --replace. Reserve Build for release artifacts.
+        for(std::size_t i=0;i<excludedOutputs.size();++i)
+        {
+            const auto& relative=excludedOutputs[i];
+            const auto first=relative.begin();
+            if(first==relative.end()||*first!="Build"||std::next(first)==relative.end())
+                throw std::invalid_argument("Package profile output must be a subdirectory of Build.");
+            for(std::size_t j=0;j<i;++j)
+                if(IsSameOrDescendant(relative,excludedOutputs[j])||
+                    IsSameOrDescendant(excludedOutputs[j],relative))
+                    throw std::invalid_argument("Package profile outputs must not overlap.");
+            auto cursor=project.Root();
+            for(const auto& part:relative)
+            {
+                cursor/=part;
+                if(std::filesystem::is_symlink(cursor))
+                    throw std::invalid_argument("Linked package output component rejected.");
+            }
+        }
         const auto requestedOutput = project.Root() / outputRelative;
         std::error_code error;
         std::filesystem::create_directories(requestedOutput.parent_path(), error);
@@ -306,11 +328,25 @@ export namespace kairo::player
         if (!error && std::filesystem::is_symlink(outputStatus))
             throw std::invalid_argument("Package output cannot be a symbolic link: " + output.string());
         error.clear();
+        if(std::filesystem::exists(output))
+        {
+            if(!options.ReplaceExisting)
+                throw std::invalid_argument("Package output already exists; explicit replacement required.");
+            const auto priorManifest=output/"package.kmanifest";
+            if(!std::filesystem::is_directory(output)||std::filesystem::is_symlink(priorManifest)||
+                !std::filesystem::is_regular_file(priorManifest))
+                throw std::invalid_argument("Refusing to replace a directory without a package manifest.");
+            std::ifstream prior(priorManifest,std::ios::binary);
+            std::string header;
+            if(!std::getline(prior,header)||header!="kairo-package 1")
+                throw std::invalid_argument("Refusing to replace an unrecognized package directory.");
+        }
         const auto staging = FindTemporarySibling(output, "stage");
-        std::filesystem::create_directory(staging, error);
-        if (error) throw std::runtime_error("Cannot create package staging directory: " + error.message());
+        if(!std::filesystem::create_directory(staging, error)||error)
+            throw std::runtime_error("Cannot reserve package staging directory: " + error.message());
         StagingDirectory cleanup(staging);
 
+        excludedOutputs.push_back(staging.lexically_relative(project.Root()));
         const auto payload = CollectProjectPayload(project, excludedOutputs);
         const auto packagedProject = staging / "project";
         for (const auto& relative : payload.Files)
@@ -320,7 +356,12 @@ export namespace kairo::player
         }
         CopyFilePreservingPermissions(project.DescriptorPath(), packagedProject / "Project.kproject");
 
-        const auto packagedPlayer = staging / "bin" / player.filename();
+#if defined(_WIN32)
+        const std::filesystem::path playerName="KairoPlayer.exe";
+#else
+        const std::filesystem::path playerName="KairoPlayer";
+#endif
+        const auto packagedPlayer = staging / "bin" / playerName;
         CopyFilePreservingPermissions(player, packagedPlayer);
 
 #if defined(_WIN32)
@@ -328,7 +369,7 @@ export namespace kairo::player
         WriteTextFile(launcher,
             "@echo off\r\n"
             "set \"KAIRO_PACKAGE_ROOT=%~dp0\"\r\n"
-            "\"%KAIRO_PACKAGE_ROOT%bin\\" + player.filename().string() +
+            "\"%KAIRO_PACKAGE_ROOT%bin\\" + playerName.string() +
             "\" \"%KAIRO_PACKAGE_ROOT%project\\Project.kproject\" %*\r\n");
 #else
         const auto launcher = staging / "run.sh";
@@ -336,7 +377,7 @@ export namespace kairo::player
             "#!/bin/sh\n"
             "set -eu\n"
             "KAIRO_PACKAGE_ROOT=$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\n"
-            "exec \"$KAIRO_PACKAGE_ROOT/bin/" + player.filename().string() +
+            "exec \"$KAIRO_PACKAGE_ROOT/bin/" + playerName.string() +
             "\" \"$KAIRO_PACKAGE_ROOT/project/Project.kproject\" \"$@\"\n");
         std::filesystem::permissions(launcher,
             std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
@@ -352,7 +393,7 @@ export namespace kairo::player
             QuoteManifestText(profile.Name) + "\nkind " +
             std::string(kairo::engine::Name(profile.Kind)) + "\nengine-version " +
             QuoteManifestText(project.Descriptor().EngineVersion) + "\nplayer " +
-            QuoteManifestText((std::filesystem::path("bin") / player.filename()).generic_string()) +
+            QuoteManifestText((std::filesystem::path("bin") / playerName).generic_string()) +
             "\nproject-files " + std::to_string(payload.Files.size()) +
             "\nproject-bytes " + std::to_string(payload.Bytes) + "\n";
         WriteTextFile(manifest, manifestSource);
