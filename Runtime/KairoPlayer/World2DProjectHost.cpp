@@ -83,6 +83,21 @@ namespace kairo::player::world2d
         const auto signal=[&](logic2d::Signal event){if(logic)logic->Dispatch(game,event);};
         const auto beginLogic=[&]{if(logic)logic->Begin(game,campaign.Config.Levels.at(progress.Level));};
         if(!progress.Finished)beginLogic();
+        std::optional<vfx2d::System> effects;
+        if(campaign.VFX)effects.emplace(*campaign.VFX);
+        const auto beginEffects=[&]{if(effects)effects->Begin(campaign.Config.Levels.at(progress.Level));};
+        beginEffects();
+        const auto origin=[&](unsigned id,bool activeOnly)->std::optional<std::pair<int,int>>
+        {
+            const auto& actors=game.Definition().Actors;
+            const auto it=std::find_if(actors.begin(),actors.end(),[&](const Actor& a){return a.ID==id;});
+            if(it==actors.end())return {};
+            const auto& a=game.Actors().at(static_cast<std::size_t>(it-actors.begin()));
+            if(activeOnly&&!a.Active)return {};
+            return std::pair{a.Bounds.X+a.Bounds.W/2,a.Bounds.Y+a.Bounds.H/2};
+        };
+        const auto activeOrigin=[&](unsigned id){return origin(id,true);};
+        const auto burst=[&](vfx2d::Event event){if(effects)effects->Burst(event,[&](unsigned id){return origin(id,false);});};
         std::unique_ptr<kairo::player::detail::RuntimeNativeAudioOutput> audio;
         if(!smoke)
         {
@@ -117,6 +132,7 @@ namespace kairo::player::world2d
         ui2d::Pointer pointer;
         ui2d::Keyboard keyboard;
         std::vector<ui2d::Rect> uiRects;
+        std::vector<vfx2d::Rect> particleRects;particleRects.reserve(1024);
         const auto page=[&]{return progress.Finished?ui2d::Screen::Complete:paused?ui2d::Screen::Pause:ui2d::Screen::Play;};
         const auto publish=[&](unsigned w,unsigned h)
         {
@@ -148,12 +164,22 @@ namespace kairo::player::world2d
                     rects.push_back({{item.Box.X,item.Box.Y,item.Box.W,item.Box.H},rgb});
                 }
             }
+            uiRects.clear();
             if(campaign.UI)
             {
                 if(paused||progress.Finished){rects.clear();rects.push_back({{0,0,int(w),int(h)},0x10161f});}
                 ui2d::Paint(*campaign.UI,page(),{game.Collected(),game.Total(),game.Deaths(),progress.Level+1,levelCount,campaign.Config.Title,logic?logic->Value():0},pointer,w,h,uiRects,keyboard.Focus());
-                for(const auto& item:uiRects)rects.push_back({{item.Bounds.X,item.Bounds.Y,item.Bounds.W,item.Bounds.H},item.RGB});
             }
+            // Particles use native opaque overlay rectangles, below the
+            // authored HUD/modal widgets. Reserve UI budget first.
+            if(effects&&!paused&&(!progress.Finished||campaign.UI))
+            {
+                const auto c=game.Camera();
+                const auto used=rects.size()+uiRects.size();
+                effects->Paint(c.X,c.Y,c.W,c.H,w,h,particleRects,used<MaxDrawRects?std::min<std::size_t>(1024,MaxDrawRects-used):0);
+                for(const auto& item:particleRects)rects.push_back({{item.X,item.Y,item.W,item.H},item.RGB});
+            }
+            for(const auto& item:uiRects)rects.push_back({{item.Bounds.X,item.Bounds.Y,item.Bounds.W,item.Bounds.H},item.RGB});
             if(rects.size()>MaxDrawRects)throw std::length_error("Combined World2D/UI rectangle budget exceeded; use the textured renderer or simplify the UI.");
             native.clear();
             for(const auto& rect:rects)
@@ -184,6 +210,16 @@ namespace kairo::player::world2d
                 throw std::runtime_error("World2D capture unavailable.");
             };
             captureScreen();
+            if(effects)
+            {
+                // Exercise the real sample effect path as well as the
+                // ordinary atlas capture; no checkpoint or device needed.
+                burst(vfx2d::Event::Collect);
+                for(unsigned i=0;i<8;++i)effects->Step(activeOrigin);
+                publish(width,height);
+                if(!effects->Particles().empty())captureScreen();
+                std::cout<<"Authored VFX smoke: "<<effects->Particles().size()<<" live particles\n";
+            }
             if(authoredAudio)
             {
                 authoredAudio->Update(game,campaign.Config.Levels.at(progress.Level),false,false);
@@ -270,10 +306,10 @@ namespace kairo::player::world2d
                 progress={};game=Game(campaign.Worlds.front());paused=false;++visualRevision;
                 checkpointWritable=true;updateTitle();accumulator=0;jumpQueued=false;clearEffects();
                 if(logic)logic->NewCampaign();
-                save();beginLogic();
+                save();beginLogic();beginEffects();
             }
             if((action("Pause").Pressed||uiAction==ui2d::Action::Pause||uiAction==ui2d::Action::Resume)&&!progress.Finished){paused=!paused;++visualRevision;accumulator=0;jumpQueued=false;clearEffects();}
-            if((action("Restart").Pressed||uiAction==ui2d::Action::Restart)&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;clearEffects();beginLogic();}
+            if((action("Restart").Pressed||uiAction==ui2d::Action::Restart)&&!progress.Finished){game.Reset();++visualRevision;accumulator=0;jumpQueued=false;clearEffects();beginLogic();beginEffects();}
             if(w!=lastW||h!=lastH){renderer.ResizeViewport(w,h);lastW=w;lastH=h;++visualRevision;}
             if(jump.Pressed&&!paused)jumpQueued=true;
             accumulator+=dt;
@@ -288,20 +324,22 @@ namespace kairo::player::world2d
                     game.Step({sign(movement.X),sign(movement.Y),jump.Down||jumpQueued});
                     ++visualRevision;
                     jumpQueued=false;
-                    if(game.Deaths()!=deaths){trigger(1);signal({LogicEvent::Death});beginLogic();}
-                    else if(game.Collected()>before){trigger(0);signal({LogicEvent::Collect});}
+                    if(effects)effects->Step(activeOrigin);
+                    if(game.Deaths()!=deaths){trigger(1);signal({LogicEvent::Death});beginLogic();burst(vfx2d::Event::Death);}
+                    else if(game.Collected()>before){trigger(0);signal({LogicEvent::Collect});burst(vfx2d::Event::Collect);}
                     if(logic)logic->Sensors(game);
                     if(game.Won())
                     {
-                        trigger(2);signal({LogicEvent::Complete});
+                        trigger(2);signal({LogicEvent::Complete});burst(vfx2d::Event::Complete);
                         progress=Advance(progress,levelCount);
                         save();updateTitle();
-                        if(!progress.Finished){game=Game(campaign.Worlds.at(progress.Level));beginLogic();}
+                        if(!progress.Finished){game=Game(campaign.Worlds.at(progress.Level));beginLogic();beginEffects();}
                         // New level begins on the next frame, never with a
                         // remainder of the previous level's input backlog.
                         accumulator=1./60.;
                     }
                 }
+                if(progress.Finished&&effects&&!effects->Particles().empty()){effects->Step(activeOrigin,false);++visualRevision;}
                 if(audio&&audio->Failed())audio.reset();
                 if(authoredAudio)
                 {
