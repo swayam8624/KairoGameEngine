@@ -182,8 +182,9 @@ export namespace kairo::player
                     [&relative](const auto& output) { return IsSameOrDescendant(relative, output); });
                 const auto first = relative.begin();
                 const bool gitMetadata = first != relative.end() && *first == ".git";
+                const bool buildArtifacts = first != relative.end() && *first == "Build";
                 const bool transientKairo = IsTransientKairoPath(relative);
-                if (excludedOutput || gitMetadata || transientKairo)
+                if (excludedOutput || gitMetadata || transientKairo || buildArtifacts)
                 {
                     if (std::filesystem::is_directory(status)) iterator.disable_recursion_pending();
                     continue;
