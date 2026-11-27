@@ -2,6 +2,7 @@
 #include "RuntimeWorld2D.hpp"
 #include "World2DCampaign.hpp"
 #include "CraftSaveFile.hpp"
+#include <optional>
 
 namespace kairo::player::world2d
 {
@@ -30,11 +31,16 @@ namespace kairo::player::world2d
         std::vector<World> Worlds;
         std::uint64_t Revision=14695981039346656037ull;
     };
-    inline CampaignProject LoadCampaignProject(const std::filesystem::path& root)
+    inline CampaignProject LoadCampaignProject(const std::filesystem::path& root,
+        std::optional<std::string_view> candidate=std::nullopt)
     {
         CampaignProject result;
         const auto config=CampaignPath(root,"Config/Campaign.kcampaign");
-        if(std::filesystem::exists(config))
+        if(candidate)
+        {
+            result.Config=ParseCampaign(*candidate);RevisionAppend(result.Revision,*candidate);
+        }
+        else if(std::filesystem::exists(config))
         {
             const auto bytes=CampaignRead(config,8192);
             result.Config=ParseCampaign(bytes);RevisionAppend(result.Revision,bytes);
