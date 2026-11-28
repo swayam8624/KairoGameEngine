@@ -7,6 +7,7 @@ on:
       - 'scripts/kairo_hub_core.py'
       - 'scripts/kairo_project_workflow.py'
       - 'scripts/tests/test_hub_workbench.py'
+      - 'scripts/tests/test_workbench_package.py'
       - 'scripts/tests/test_hub_layout.py'
       - 'Samples/World2DProject/**'
       - '.github/workflows/hub-responsive-creation.yml'
@@ -29,3 +30,5 @@ jobs:
         run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_hub_layout.py -v
       - name: Exercise real Hub to Workbench process handoff
         run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_hub_workbench.py -v
+      - name: Exercise repeat packaging intent and Workbench layout
+        run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_workbench_package.py -v
