@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Shared CLI and desktop workflow for an existing authored Kairo game."""
 import argparse
+import codecs
 from pathlib import Path
 import os
 import shlex
@@ -202,6 +203,9 @@ def gui(project, build, renderer):
             self.process=None
             self.pending=[]
             self.log=None
+            self.log_reader=None
+            self.log_directory=None
+            self.decoder=None
             self.tools=None
             self.pack(fill='both',expand=True)
             self.columnconfigure(1,weight=1)
@@ -280,34 +284,54 @@ def gui(project, build, renderer):
                 self.finish('Workflow completed successfully');return
             command=self.pending.pop(0)
             self.append(f'\n> {Path(command[0]).name}\n')
-            # A real file prevents unread-pipe deadlocks while a GUI child
-            # runs. Poll bounded chunks; child output never executes code.
-            self.log=tempfile.TemporaryFile(mode='w+b')
-            self.offset=0
+            # Separate open file handles avoid sharing the child's write
+            # offset on either POSIX or Windows. No unread pipe can deadlock.
             try:
-                self.process=subprocess.Popen(command,cwd=self.tools.project.parent,stdout=self.log,stderr=subprocess.STDOUT)
+                self.log_directory=tempfile.TemporaryDirectory(prefix='kairo-workbench-')
+                path=Path(self.log_directory.name)/'child.log'
+                self.log=path.open('wb')
+                self.log_reader=path.open('rb')
+                self.decoder=codecs.getincrementaldecoder('utf-8')(errors='replace')
+                self.process=subprocess.Popen(command,cwd=self.tools.project.parent,stdout=self.log,stderr=subprocess.STDOUT,
+                                              env={**os.environ,'PYTHONUNBUFFERED':'1'})
             except OSError as error:
                 self.finish(f'Launch failed: {error}');return
             self.after(100,self.poll)
 
+        def drain_log(self, final=False):
+            # Read a bounded tail without blocking the Tk thread. Reset the
+            # decoder when skipping an unusually large burst of output.
+            reader=self.log_reader
+            if reader is None:return
+            length=os.fstat(reader.fileno()).st_size
+            if length-reader.tell()>120000:
+                reader.seek(length-120000)
+                self.decoder.reset()
+                self.append('\n[Earlier child output omitted]\n')
+            data=reader.read(max(0,min(120000,length-reader.tell())))
+            text=self.decoder.decode(data,final=final)
+            if text:self.append(text)
+
+        def release_log(self):
+            for handle in (self.log_reader,self.log):
+                if handle is not None:handle.close()
+            self.log_reader=self.log=None
+            self.decoder=None
+            if self.log_directory is not None:
+                self.log_directory.cleanup();self.log_directory=None
+
         def poll(self):
-            # Popen and the parent share a file offset on POSIX. pread is
-            # unavailable on Windows, so avoid seeking while a child writes:
-            # only read the bounded tail after the child exits.
             code=self.process.poll()
+            self.drain_log(final=code is not None)
             if code is None:
                 self.after(100,self.poll);return
-            self.log.seek(0,os.SEEK_END)
-            length=self.log.tell()
-            self.log.seek(max(0,length-120000))
-            self.append(self.log.read(120000).decode('utf-8',errors='replace'))
-            self.log.close();self.log=None;self.process=None
+            self.release_log();self.process=None
             if code:
                 self.finish(f'Workflow failed (exit {code}); later steps not run')
             else:self.advance()
 
         def finish(self,message):
-            if self.log is not None:self.log.close();self.log=None
+            self.release_log()
             self.process=None;self.pending=[]
             self.status.set(message);self.busy(False)
 
