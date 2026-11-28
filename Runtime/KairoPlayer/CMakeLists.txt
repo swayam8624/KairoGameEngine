@@ -134,6 +134,11 @@ foreach(native_target IN LISTS KAIRO_PLAYER_NATIVE_GAMEPLAY_TARGETS)
 endforeach()
 
 if(BUILD_TESTING)
+    add_executable(KairoPlayerOverlayBackendTests tests/OverlayBackendTests.cpp)
+    target_compile_features(KairoPlayerOverlayBackendTests PRIVATE cxx_std_23)
+    target_link_libraries(KairoPlayerOverlayBackendTests PRIVATE KairoPlayerRuntime)
+    set_property(TARGET KairoPlayerOverlayBackendTests PROPERTY COMPILE_WARNING_AS_ERROR ON)
+    add_test(NAME KairoPlayerOverlayBackendTests COMMAND KairoPlayerOverlayBackendTests)
     find_package(Threads REQUIRED)
     add_executable(KairoPlayerSignalVaultTests tests/SignalVaultTests.cpp)
     target_link_libraries(KairoPlayerSignalVaultTests PRIVATE KairoPlayerRuntime)
@@ -219,7 +224,7 @@ if(BUILD_TESTING)
             set(_world2d_renderer vulkan)
         endif()
         add_test(NAME KairoPlayerWorld2DNativeAtlasSmoke COMMAND KairoPlayer
-            "${CMAKE_SOURCE_DIR}/Samples/World2DProject/Project.kproject" --renderer ${_world2d_renderer} --smoke)
+            "${CMAKE_SOURCE_DIR}/Samples/World2DProject/Project.kproject" --renderer auto --smoke)
         add_test(NAME KairoPlayerWorld2DNativeRectangleSmoke COMMAND KairoPlayer
             "${CMAKE_SOURCE_DIR}/Samples/World2DProject/Project.kproject" --renderer ${_world2d_renderer} --smoke --world2d-rectangles)
         set_tests_properties(KairoPlayerWorld2DNativeAtlasSmoke KairoPlayerWorld2DNativeRectangleSmoke
