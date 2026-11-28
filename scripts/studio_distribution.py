@@ -23,7 +23,7 @@ import build_notice_inventory
 SCRIPTS = ('kairo_hub.py', 'kairo_hub_core.py', 'kairo_project_workflow.py',
            'create_kairo_project.py', 'kairo_world2d_editor.py', 'kairo_platformer_editor.py',
            'kairo_gameplay_editor.py', 'kairo_menu_designer.py', 'kairo_ui2d_designer.py',
-           'kairo_audio2d_editor.py', 'kairo_vfx2d_editor.py', 'kairo_release.py')
+           'kairo_audio2d_editor.py', 'kairo_vfx2d_editor.py', 'kairo_release.py', 'studio_game_export.py')
 SAMPLES = ('PlayableVerticalSlice', 'BeaconRun', 'KeyGateArena', 'PlatformerProject',
            'World2DProject', 'PhysicsWorld2DProject', 'SignalVault')
 TOOLS = {'components/KairoEditor': ('KairoEditorApp', 'KairoProjectCompiler'),
@@ -208,6 +208,29 @@ for template in TEMPLATES:
 print('All installed Hub templates created and validated')
 '''
         run([sys.executable, '-c', code, installed, projects], root, env)
+        if notices is not None:
+            # Test the same installed Workbench export path used by creators.
+            export_code = '''from pathlib import Path
+import sys
+from kairo_project_workflow import ProjectTools, run_cli
+from kairo_release import verify, unpack
+root, projects = map(Path, sys.argv[1:3])
+project = projects / 'Studio world2d/Project.kproject'
+archive = projects / 'Creator game.zip'
+tools = ProjectTools(project, root / 'build/game-clang', root)
+assert run_cli(tools, 'package', archive=archive) == 0
+index = verify(archive)
+assert 'project/KairoNotices/notice-index.json' in index['files']
+assert 'project/ThirdPartySourceNotices/source-notices.json' in index['files']
+assert not any('ThirdPartySourceNotices/dearimgui/' in n or 'ThirdPartySourceNotices/imguizmo/' in n for n in index['files'])
+for name in ('KairoNotices', 'ThirdPartySourceNotices'):
+    assert not (project.parent / name).exists()
+    assert not (project.parent / 'Build/Release/project' / name).exists()
+unpack(archive, projects / 'Exported game')
+'''
+            run([sys.executable, '-c', export_code, installed, projects], root, env)
+            run([projects / 'Exported game/bin' / ('KairoPlayer' + suffix),
+                 projects / 'Exported game/project/Project.kproject', '--validate'], root, env)
         # Exercise the actual packaged launcher without opening a GUI.
         launcher = installed / ('launch-studio.cmd' if os.name == 'nt' else 'launch-studio.sh')
         launch_env = {**env, 'KAIRO_PYTHON': sys.executable}
@@ -242,6 +265,7 @@ print('All installed Hub templates created and validated')
         receipt = {'schema': 1, 'archive_sha256': digest(archive), 'workspace_lock_sha256': digest(installed / 'workspace.lock'),
                    'commit': os.environ.get('GITHUB_SHA'), 'platform': sys.platform,
                    'file_count': len(expected), 'hub_template_validation': True, 'launcher_help_validated': True,
+                   'installed_creator_export_validated': notices is not None,
                    'editor_and_player_graphical_smoke': graphical,
                    'native_import_inventory_sha256': hashlib.sha256(import_bytes).hexdigest(),
                    'native_target': imports['target'], 'native_tools_inspected': len(imports['tools']),
