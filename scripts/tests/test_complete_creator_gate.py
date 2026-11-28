@@ -40,6 +40,33 @@ class CreatorGateTests(unittest.TestCase):
                         raise RuntimeError('fixture failure')
             self.assertEqual(os.environ.copy(), original)
 
+    def test_windows_environment_snapshot_accepts_uppercase_systemroot(self):
+        # Windows os.environ.copy() returns an ordinary dict with uppercase
+        # keys. Patch only this module's platform view and Path factory;
+        # pathlib itself must retain the actual host semantics.
+        from types import SimpleNamespace
+        import qualify_complete_creator_workflow as gate
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            values = {'SYSTEMROOT': str(root), 'PATH': 'developer path',
+                      'VCPKG_ROOT': 'developer root', 'VK_DRIVER_FILES': 'explicit driver'}
+            fake_os = SimpleNamespace(name='nt', environ=values, pathsep=';')
+            with patch.object(gate, 'os', fake_os):
+                with isolated_runtime_path():
+                    self.assertEqual(values['PATH'], str(root / 'System32') + ';' + str(root))
+                    self.assertNotIn('VCPKG_ROOT', values)
+                    self.assertEqual(values['VK_DRIVER_FILES'], 'explicit driver')
+                self.assertEqual(values['PATH'], 'developer path')
+                self.assertEqual(values['VCPKG_ROOT'], 'developer root')
+                for key in ('SystemRoot', 'systemroot'):
+                    values[key] = values.pop('SYSTEMROOT' if key == 'SystemRoot' else 'SystemRoot')
+                    with isolated_runtime_path():
+                        self.assertNotIn('VCPKG_ROOT', values)
+                values.pop('systemroot')
+                with self.assertRaisesRegex(RuntimeError, 'SystemRoot is missing'):
+                    with isolated_runtime_path():
+                        self.fail('Missing root accepted')
+
     def test_inventory_detects_mutation_and_missing_files(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
