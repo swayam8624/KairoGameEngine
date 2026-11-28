@@ -1,0 +1,60 @@
+name: Clean Ubuntu game installer qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/clean_debian_install.sh'
+      - '.github/workflows/clean-debian-host.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  install-tested-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      # Only use the exact package from the completed Linux native job.
+      # This is not a rebuild and does not consume an arbitrary PR artifact.
+      - uses: actions/download-artifact@v5
+        with:
+          name: SignalVault-debian-x86_64
+          path: qualified-debian
+          run-id: 46119943594
+          github-token: ${{ github.token }}
+          repository: swayam8624/KairoGameEngine
+      - name: Verify originating qualification receipt and package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/clean_debian_install.sh
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('qualified-debian')
+          receipt = json.loads((root / 'receipt.json').read_text())
+          assert receipt['commit'] == 'ca1941939ee6935bf3d8ec090bb2465f103b237d'
+          assert receipt['target'] == 'linux-x86_64'
+          assert receipt['installer_sha256'] == 'a60469fe5e10c97bd9f8cf4b5bc1a83c7e4fd8b7d3f20a8511c71486b5ef2ea2'
+          assert receipt['first_party_notice_index_sha256'] == 'f7abdeaa92f374c27a61b6dd3af0836d0596528952a892fedc6b2de778a1c880'
+          assert receipt['third_party_source_notice_index_sha256'] == 'acfb26cc97a150ddfee62d307bb9a4ed44e148e30017dae4ffce411b763ed889'
+          assert receipt['apt_simulation'] and receipt['vulkan_smoke'] and receipt['user_copy_retained']
+          with (root / 'SignalVault.deb').open('rb') as f:
+              assert hashlib.file_digest(f, 'sha256').hexdigest() == receipt['installer_sha256']
+          PY
+      - name: Install and run exact artifact in fresh Ubuntu 26.04
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull ubuntu:26.04
+          docker image inspect ubuntu:26.04 --format '{{json .RepoDigests}}'
+          docker run --rm \
+            --mount "type=bind,source=$(realpath qualified-debian),target=/input,readonly" \
+            --mount "type=bind,source=$(realpath scripts/clean_debian_install.sh),target=/gate.sh,readonly" \
+            ubuntu:26.04 bash /gate.sh \
+            a60469fe5e10c97bd9f8cf4b5bc1a83c7e4fd8b7d3f20a8511c71486b5ef2ea2 \
+            f7abdeaa92f374c27a61b6dd3af0836d0596528952a892fedc6b2de778a1c880 \
+            acfb26cc97a150ddfee62d307bb9a4ed44e148e30017dae4ffce411b763ed889

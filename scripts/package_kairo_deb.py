@@ -11,6 +11,8 @@ import struct
 import subprocess
 import tempfile
 
+from debian_dependencies import valid_dependency
+
 MAX_BYTES = 16 * 1024**3
 MAX_FILES = 100000
 
@@ -111,7 +113,7 @@ def package(bundle, output, name, version, maintainer, depends=()):
     require(re.fullmatch(r'[a-z0-9][a-z0-9+.-]{1,63}', name) is not None, 'Invalid package name')
     require(re.fullmatch(r'[0-9][A-Za-z0-9.+~-]{0,63}', version) is not None, 'Invalid version')
     require(0 < len(maintainer) <= 200 and all(32 <= ord(c) <= 126 for c in maintainer), 'Invalid maintainer')
-    require(all(re.fullmatch(r'[a-z0-9][a-z0-9+.-]{1,63}', dep) for dep in depends), 'Invalid dependency name')
+    require(len(depends) <= 128 and len(set(depends)) == len(depends) and all(map(valid_dependency, depends)), 'Invalid dependency relation')
     require(bundle.is_dir() and not bundle.is_symlink() and output.suffix == '.deb' and not output.exists() and not output.is_symlink(), 'Invalid bundle or output (no overwrite)')
     bundle = bundle.resolve(strict=True)
     manifest = read_manifest(bundle)

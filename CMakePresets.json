@@ -143,6 +143,24 @@
         "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
         "KAIRO_GAME_ENGINE_BUILD_BENCHMARKS": "OFF"
       }
+    },
+    {
+      "name": "studio-msvc",
+      "displayName": "Focused Windows Studio qualification (MSVC)",
+      "inherits": "ci-msvc",
+      "binaryDir": "${sourceDir}/build/studio-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "KAIRO_GAME_ENGINE_BUILD_EDITOR": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_PLAYER": "ON",
+        "KAIRO_GAME_ENGINE_BUILD_RAYTRACER": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_PHASE1_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_RACING_SAMPLE": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_AI_CLOUD": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_COMPUTE_STACK": "OFF",
+        "KAIRO_GAME_ENGINE_BUILD_MIGRATION": "OFF",
+        "KAIRO_GAME_ENGINE_ENABLE_PACKAGING": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -207,6 +225,34 @@
         "KairoPlayer"
       ],
       "jobs": 2
+    },
+    {
+      "name": "studio-msvc",
+      "configurePreset": "studio-msvc",
+      "targets": [
+        "KairoEditorApp",
+        "KairoProjectCompiler",
+        "KairoPlayer",
+        "KairoWorld2DTool",
+        "KairoWorld2DInputTool",
+        "KairoWorld2DAudioTool",
+        "KairoMenuDocumentTool",
+        "KairoEditorTests",
+        "KairoEditorPhase4Tests",
+        "KairoEditorSelectionBoundsTests",
+        "KairoEditorViewportClickTests",
+        "KairoEditorViewportInteractionTests",
+        "KairoEditorSelectionContourTests",
+        "KairoEditorAnimationTimelineTests",
+        "KairoEditorLogicTraceCaptureTests",
+        "KairoEditorAssetPreviewPixelsTests",
+        "KairoEditorAssetImportBatchTests",
+        "KairoEditorRenderBridgeTests",
+        "KairoEditorUITests",
+        "KairoEditorPhysicsPreviewTests",
+        "KairoEditorWindowsProcessArgumentsTests",
+        "KairoEntityModuleBoundaryTests"
+      ]
     }
   ],
   "testPresets": [
@@ -264,6 +310,21 @@
       "configurePreset": "game-player-clang",
       "output": {
         "outputOnFailure": true
+      }
+    },
+    {
+      "name": "studio-msvc",
+      "configurePreset": "studio-msvc",
+      "filter": {
+        "include": {
+          "name": "^KairoEntityModuleBoundaryTests$|^KairoEditor(Tests|Phase4Tests|SelectionBoundsTests|ViewportClickTests|WindowsProcessArgumentsTests|ViewportInteractionTests|SelectionContourTests|AnimationTimelineTests|LogicTraceCaptureTests|AssetPreviewPixelsTests|AssetImportBatchTests|RenderBridgeTests|UITests|PhysicsPreviewTests)$"
+        }
+      },
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
       }
     }
   ]

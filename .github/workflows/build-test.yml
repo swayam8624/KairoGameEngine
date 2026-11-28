@@ -17,7 +17,9 @@ jobs:
   superbuild:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # macOS C++ module compilation reached 1136/1792 build steps at the
+    # previous 45-minute limit. Do not weaken the native test configuration.
+    timeout-minutes: ${{ matrix.platform == 'macos' && 120 || 45 }}
     strategy:
       fail-fast: false
       matrix:
@@ -83,7 +85,10 @@ jobs:
         shell: bash
         run: |
           brew update
-          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang python@3.13 python-tk@3.13
+          studio_python="$(brew --prefix python@3.13)/bin/python3.13"
+          "$studio_python" -c 'import tkinter, _tkinter; print("Studio Tk:", tkinter.TkVersion)'
+          echo "KAIRO_STUDIO_PYTHON=$studio_python" >> "$GITHUB_ENV"
           echo "KAIRO_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
 
       - name: Install Windows dependencies
@@ -305,7 +310,8 @@ jobs:
           suffix=""
           if [[ "${{ matrix.platform }}" == "windows" ]]; then suffix=".exe"; fi
           args=("$bin/KairoPlayer$suffix" Samples/SignalVault signal-vault-evidence
-                --lock workspace.lock --commit "$GITHUB_SHA"
+                --lock workspace.lock --commit "$GITHUB_SHA" --notice-engine "$GITHUB_WORKSPACE"
+                --notice-build "build/${{ matrix.preset }}"
                 --gameplay-test "$bin/KairoPlayerSignalVaultTests$suffix")
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             xvfb-run -a python scripts/signal_vault_release.py "${args[@]}" --smoke
@@ -322,10 +328,106 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+      - name: Capture actual fetched third-party source notices
+        if: matrix.preset != 'ci-sanitized'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python -m unittest discover -s scripts/tests -p test_build_notice_inventory.py -v
+          PYTHONPATH=scripts python -c 'import sys; from build_notice_inventory import collect; collect(sys.argv[1], sys.argv[2], sys.argv[3] == "ci-clang")' \
+            "build/${{ matrix.preset }}" build-source-notices "${{ matrix.preset }}"
+
+      - name: Upload fetched dependency notice evidence
+        if: matrix.preset != 'ci-sanitized'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SourceNotices-${{ matrix.platform }}-${{ matrix.preset }}
+          path: build-source-notices/
+          if-no-files-found: error
+
+      - name: Qualify relocated Studio Hub, Editor, Player and project tools
+        if: matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          git archive HEAD LICENSE workspace.lock scripts \
+            Samples/PlayableVerticalSlice Samples/BeaconRun Samples/KeyGateArena \
+            Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
+            Samples/SignalVault | tar -xf - -C "$scratch"
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_game_export.py -v
+          fi
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_import_inventory.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_dll_bundle.py -v
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical --notice-engine "$GITHUB_WORKSPACE"
+          else
+            "${KAIRO_STUDIO_PYTHON:?Missing Tk-capable Studio Python}" scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE"
+          fi
+
+      - name: Upload exact tested Studio toolset archive
+        if: matrix.preset == 'ci-clang'
+        uses: actions/upload-artifact@v7
+        with:
+          name: KairoStudio-${{ matrix.platform }}
+          path: studio-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Qualify native desktop installation package
+        if: matrix.platform == 'macos' || matrix.platform == 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archives=(signal-vault-evidence/SignalVault-*.zip)
+          [[ "${#archives[@]}" == 1 && -f "${archives[0]}" ]]
+          python scripts/signal_vault_desktop.py "${archives[0]}" \
+              signal-vault-evidence/receipt.json signal-vault-desktop-evidence
+
+      - name: Upload exact tested desktop package
+        if: matrix.platform == 'macos' || matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-desktop-${{ matrix.platform }}
+          path: signal-vault-desktop-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Test desktop launcher first-launch and relaunch contract
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_desktop_launchers.py -v
+
+      - name: Qualify dependency-aware Signal Vault Debian installer
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y dpkg-dev
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_debian_dependencies.py -v
+          xvfb-run -a python3 scripts/signal_vault_debian.py \
+              signal-vault-evidence/SignalVault-linux-x86_64.zip \
+              signal-vault-evidence/receipt.json signal-vault-debian-evidence
+
+      - name: Upload exact tested Debian installer
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-debian-x86_64
+          path: signal-vault-debian-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
       - name: Test distribution gate publication and rollback
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
-        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_signal_vault_release.py -v
+        run: |
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_native_dependency_audit.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_signal_vault_release.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_first_party_notices.py -v
 
       - name: Test release archive rejection and reproducibility
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'

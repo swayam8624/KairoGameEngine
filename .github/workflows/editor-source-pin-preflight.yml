@@ -1,0 +1,26 @@
+name: Editor upstream source pin preflight
+
+on:
+  pull_request:
+    paths:
+      - 'workspace.lock'
+      - 'scripts/editor_source_pin_preflight.py'
+      - 'scripts/tests/test_editor_source_pin_preflight.py'
+      - '.github/workflows/editor-source-pin-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-editor-source-pins:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Materialize the exact locked editor revision
+        run: bash scripts/materialize_workspace_lock.sh KairoEditor
+      - name: Test preflight against real local Git fixtures
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_editor_source_pin_preflight.py -v
+      - name: Independently fetch the editor source commits and verify notices
+        run: python3 scripts/editor_source_pin_preflight.py ../KairoEditor/CMakeLists.txt

@@ -16,6 +16,9 @@ import sys
 import tempfile
 
 import kairo_release as release
+import native_dependency_audit
+import first_party_notices
+import build_notice_inventory
 
 
 def digest(path):
@@ -27,7 +30,7 @@ def run(command, cwd):
     subprocess.run([str(part) for part in command], cwd=cwd, check=True, timeout=120)
 
 
-def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
+def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False, notice_engine=None, notice_build=None):
     """Publish an exclusive evidence directory only after relocation passes."""
     player = Path(player).resolve(strict=True)
     sample = Path(sample).resolve(strict=True)
@@ -48,6 +51,18 @@ def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
         root = Path(temp)
         source = root / "Source Project"
         shutil.copytree(sample, source)
+        notices = None
+        if notice_engine is not None:
+            notices = first_party_notices.stage(notice_engine, lock, source / "KairoNotices")
+            release.require(notices["engine_commit"] == commit, "Notice source commit differs")
+            expected.update({"KairoNotices/" + name: digest(path)
+                             for name, path in release.entries(source / "KairoNotices").items()})
+        third_party = None
+        if notice_build is not None:
+            third_party = build_notice_inventory.collect(notice_build, source / "ThirdPartySourceNotices",
+                                                         distribution=True)
+            expected.update({"ThirdPartySourceNotices/" + name: digest(path)
+                             for name, path in release.entries(source / "ThirdPartySourceNotices").items()})
         run([player, source / "Project.kproject", "--validate"], root)
         run([player, source / "Project.kproject", "--package", "Release"], root)
         archive = root / "candidate.zip"
@@ -78,11 +93,19 @@ def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
                             "Launch changed authored content: " + name)
         release.require(not (descriptor.parent / ".kairo/progress").exists(),
                         "Validation or smoke wrote a personal checkpoint")
+        dependencies = native_dependency_audit.audit(packaged_player, index["target"])
+        dependency_bytes = (json.dumps(dependencies, sort_keys=True, indent=2) + "\n").encode("utf-8")
         receipt = {"schema": 1, "commit": commit, "workspace_lock_sha256": lock_hash,
                    "target": index["target"], "profile": index["profile"],
                    "archive_sha256": digest(archive), "player_sha256": player_hash,
                    "file_count": len(index["files"]), "project_file_count": len(expected),
                    "license_sha256": expected["LICENSE"],
+                   "first_party_notice_count": len(notices["notices"]) if notices else 0,
+                   "first_party_notice_index_sha256": expected.get("KairoNotices/notice-index.json"),
+                   "third_party_source_notice_dependencies": len(third_party["dependencies"]) if third_party else 0,
+                   "third_party_source_notice_index_sha256": expected.get("ThirdPartySourceNotices/source-notices.json"),
+                   "native_dependencies_sha256": hashlib.sha256(dependency_bytes).hexdigest(),
+                   "dependency_closure_verified": False, "third_party_licenses_verified": False,
                    "extracted_player_validation": True, "relocated_launcher_validation": True,
                    "campaign_replay": True, "native_graphics_smoke": smoke,
                    "fresh_machine_qualified": False, "signed": False}
@@ -95,6 +118,8 @@ def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
                 shutil.copyfileobj(src, dst)
             release.require(digest(output / name) == receipt["archive_sha256"],
                             "Published archive differs")
+            with (output / "native-dependencies.json").open("xb") as stream:
+                stream.write(dependency_bytes)
             with (output / "receipt.json").open("x", encoding="utf-8") as stream:
                 json.dump(receipt, stream, sort_keys=True, indent=2)
                 stream.write("\n")
@@ -113,9 +138,11 @@ def main():
     parser.add_argument("--commit", required=True)
     parser.add_argument("--gameplay-test", type=Path, required=True)
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--notice-engine", type=Path)
+    parser.add_argument("--notice-build", type=Path)
     args = parser.parse_args()
     receipt = qualify(args.player, args.sample, args.output, args.lock,
-                      args.commit, args.gameplay_test, args.smoke)
+                      args.commit, args.gameplay_test, args.smoke, args.notice_engine, args.notice_build)
     print(json.dumps(receipt, sort_keys=True))
 
 
