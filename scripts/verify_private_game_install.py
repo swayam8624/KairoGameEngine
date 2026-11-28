@@ -19,16 +19,24 @@ RECEIPT = 'local-runtime.json'
 SHA = re.compile(r'[0-9a-f]{64}')
 
 
+def linked(metadata):
+    # Windows junctions and other reparse points are not necessarily symlinks.
+    return stat.S_ISLNK(metadata.st_mode) or bool(
+        getattr(metadata, 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+
+
 def record(path):
     """Hash a regular file without following a final-component symlink."""
-    release.require(stat.S_ISREG(path.lstat().st_mode), f'Not a regular file: {path}')
+    metadata = path.lstat()
+    release.require(stat.S_ISREG(metadata.st_mode) and not linked(metadata), f'Not a regular file: {path}')
     with path.open('rb') as stream:
         size, checksum = release.copy_hash(stream)
     return {'bytes': size, 'sha256': checksum}
 
 
 def json_file(path, limit):
-    release.require(stat.S_ISREG(path.lstat().st_mode), f'Not a regular file: {path}')
+    metadata = path.lstat()
+    release.require(stat.S_ISREG(metadata.st_mode) and not linked(metadata), f'Not a regular file: {path}')
     with path.open('rb') as stream:
         data = stream.read(limit + 1)
     release.require(len(data) <= limit, f'JSON exceeds limit: {path}')
@@ -39,7 +47,7 @@ def audit(archive, root, receipt_sha256):
     archive, root = Path(archive), Path(root)
     release.require(isinstance(receipt_sha256, str) and SHA.fullmatch(receipt_sha256),
                     'Expected a trusted receipt SHA-256')
-    release.require(root.is_dir() and not root.is_symlink(), 'Invalid installation root')
+    release.require(root.is_dir() and not linked(root.lstat()), 'Invalid installation root')
     index = release.verify(archive)
     archive_hash = record(archive)['sha256']
     release.require(index['kind'] == 'release', 'Expected a release archive')
@@ -65,6 +73,7 @@ def audit(archive, root, receipt_sha256):
     # The archive has already verified its manifest and single executable path.
     with zipfile.ZipFile(archive) as source:
         player = release.manifest(source.read('package.kmanifest'))['player']
+        executable = {player, 'run.cmd' if windows else 'run.sh'}
     changes = receipt['local_runtime_files']
     if windows:
         expected_changes = {'bin/glfw3.dll', 'bin/vulkan-1.dll'}
@@ -86,13 +95,16 @@ def audit(archive, root, receipt_sha256):
     # Reject unexpected files and all linked/special entries before hashing.
     # User saves should live outside this immutable private installation.
     observed = set()
-    directories = {str(Path(name).parent).replace(os.sep, '/') for name in expected}
-    directories |= {p.as_posix() for name in expected for p in Path(name).parents}
+    directories = {p.as_posix() for name in expected for p in Path(name).parents}
+    if not windows:
+        executable |= {'bin/libglfw.3.dylib', 'bin/libvulkan.1.dylib'}
     for current, dirs, files in os.walk(root, followlinks=False):
         for name in dirs + files:
             path = Path(current) / name
             relative = release.safe_name(path.relative_to(root).as_posix())
-            mode = path.lstat().st_mode
+            metadata = path.lstat()
+            mode = metadata.st_mode
+            release.require(not linked(metadata), f'Unexpected file type or reparse point: {relative}')
             if name in dirs:
                 release.require(stat.S_ISDIR(mode) and relative in directories,
                                 f'Unexpected directory: {relative}')
@@ -102,7 +114,12 @@ def audit(archive, root, receipt_sha256):
     release.require(observed == set(expected) | {release.INDEX, RECEIPT},
                     'Installed file inventory differs')
     for name, value in expected.items():
-        release.require(record(root / name) == value, f'Installed file integrity differs: {name}')
+        path = root / name
+        release.require(record(path) == value, f'Installed file integrity differs: {name}')
+        if os.name != 'nt' and not windows:
+            expected_mode = 0o755 if name in executable else 0o644
+            release.require(stat.S_IMODE(path.lstat().st_mode) == expected_mode,
+                            f'Installed file permissions differ: {name}')
     release.require(record(receipt_path)['sha256'] == receipt_sha256
                     and record(archive)['sha256'] == archive_hash, 'Inputs changed during audit')
     return {'target': target, 'verified_files': len(expected), 'source_archive_sha256': archive_hash,
