@@ -119,6 +119,22 @@ for key in ('world2d', 'arena'):
     repeat_gate = Path(__file__).resolve().with_name('repeat_creator_export.py')
     repeat_work = work / 'Repeat packaging'; repeat_work.mkdir()
     run(sys.executable, '-B', repeat_gate, studio, repeat_work)
+    # The prior gate used a dedicated prerequisite PATH. Now install the
+    # exported ZIP privately with explicit app-local DLL bytes, then drop
+    # even that runtime PATH. The original archive stays untouched.
+    from install_local_windows_game import install
+    local = work / 'Private installed game'
+    archive = projects / 'Creator arena.zip'
+    original_archive = digest(archive)
+    receipt = install(archive, local, runtime, {name: digest(runtime / name) for name in DLLS})
+    require(receipt['source_archive_sha256'] == original_archive and
+            digest(archive) == original_archive, 'Original game archive changed')
+    local_before = inventory(local)
+    local_env = {**env, 'PATH': os.pathsep.join(map(str, (system / 'System32', system)))}
+    subprocess.run([str(local / 'bin/KairoPlayer.exe'), str(local / 'project/Project.kproject'),
+                    '--renderer', 'd3d12', '--smoke'], cwd=work, env=local_env, check=True, timeout=180)
+    require(inventory(local) == local_before, 'Private game install changed during smoke')
+    print(json.dumps(receipt, sort_keys=True), flush=True)
     require(inventory(studio) == before, 'Installed Studio changed')
     return {'schema': 1, 'source_commit': COMMIT, 'archive_sha256': ARCHIVE_SHA, 'native_import_inventory_sha256': IMPORT_SHA,
             'runtime_prerequisite_hashes': {name: digest(runtime / name) for name in DLLS},
@@ -126,7 +142,7 @@ for key in ('world2d', 'arena'):
             'system_vulkan_present': (system / 'System32/vulkan-1.dll').is_file(),
             'developer_path_removed': True, 'seven_templates_validated': True, 'creator_export_validated': True,
             'world2d_exported_player_validated': True, 'd3d12_exported_arena_smoke': True,
-            'native_repeat_export_validated': True,
+            'native_repeat_export_validated': True, 'private_game_app_local_runtime_smoke': True,
             'd3d12_editor_and_player_smoke': True, 'installed_tree_unchanged': True,
             'fresh_machine_qualified': False, 'dependency_closure_verified': False, 'third_party_licenses_verified': False}
 
