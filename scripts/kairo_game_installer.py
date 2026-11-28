@@ -4,9 +4,10 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import platform
+import re
+import tempfile
 import subprocess
 import sys
-import zipfile
 
 import kairo_release as release
 from launch_private_game import RENDERERS, host_target, preflight
@@ -74,6 +75,7 @@ def read_ticket(ticket):
                     and type(data['schema']) is int and data['schema'] == 1
                     and all(isinstance(data[k], str) and data[k] for k in
                             ('archive', 'installation', 'receipt_sha256')), 'Invalid launch ticket')
+    release.require(re.fullmatch(r'[0-9a-f]{64}', data['receipt_sha256']), 'Invalid receipt SHA-256')
     archive, installation = Path(data['archive']), Path(data['installation'])
     release.require(archive.is_absolute() and installation.is_absolute(),
                     'Ticket paths must be absolute')
@@ -92,16 +94,23 @@ def use_ticket(ticket, renderer, action):
     script = Path(__file__).resolve().with_name('launch_private_game.py')
     command = [sys.executable, '-B', str(script), str(archive), str(destination),
                '--receipt-sha256', pin, '--renderer', renderer, '--action', action]
-    result = subprocess.run(command, check=False)
-    release.require(result.returncode == 0, f'Game action failed (exit {result.returncode})')
-    return {'action': action, 'exit_code': result.returncode}
+    # Capture a bounded transcript tail from a real file: unlike an unread
+    # pipe this cannot deadlock a noisy child during gameplay.
+    with tempfile.TemporaryFile(mode='w+b') as output:
+        result = subprocess.run(command, check=False, stdout=output, stderr=subprocess.STDOUT)
+        output.seek(0, 2)
+        output.seek(max(0, output.tell() - 16000))
+        tail = output.read(16000).decode('utf-8', errors='replace')
+    release.require(result.returncode == 0, f'Game action failed (exit {result.returncode})\n{tail}')
+    return {'action': action, 'exit_code': result.returncode, 'output_tail': tail}
 
 
-def gui():
+def gui(root=None, *, run_loop=True):
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
 
-    root = tk.Tk()
+    if root is None:
+        root = tk.Tk()
     root.title('Kairo Studio / Game Installer')
     root.geometry('920x650')
     root.minsize(760, 560)
@@ -254,7 +263,9 @@ def gui():
         root.destroy()
 
     root.protocol('WM_DELETE_WINDOW', close)
-    root.mainloop()
+    if run_loop:
+        root.mainloop()
+    return root
 
 
 if __name__ == '__main__':
