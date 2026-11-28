@@ -18,6 +18,7 @@ import studio_import_inventory
 import studio_dll_bundle
 import unix_dependency_resolution
 import first_party_notices
+import build_notice_inventory
 
 SCRIPTS = ('kairo_hub.py', 'kairo_hub_core.py', 'kairo_project_workflow.py',
            'create_kairo_project.py', 'kairo_world2d_editor.py', 'kairo_platformer_editor.py',
@@ -152,10 +153,13 @@ def qualify(source, build, output, graphical=False, dll_roots=(), dll_policy=Non
         staged = root / 'staged Studio'
         stage(source, build, staged)
         notices = None
+        third_party = None
         if notice_engine is not None:
             notices = first_party_notices.stage(notice_engine, staged / 'workspace.lock', staged / 'KairoNotices')
             if os.environ.get('GITHUB_SHA'):
                 require(notices['engine_commit'] == os.environ['GITHUB_SHA'], 'Notice source commit differs')
+            third_party = build_notice_inventory.collect(build, staged / 'ThirdPartySourceNotices',
+                                                         editor=True, distribution=True)
             (staged / INDEX).unlink()
             (staged / INDEX).write_text(json.dumps(inventory(staged), sort_keys=True, indent=2) + '\n',
                                         encoding='utf-8')
@@ -243,6 +247,8 @@ print('All installed Hub templates created and validated')
                    'native_target': imports['target'], 'native_tools_inspected': len(imports['tools']),
                    'first_party_notice_count': len(notices['notices']) if notices else 0,
                    'first_party_notice_index_sha256': digest(installed / 'KairoNotices/notice-index.json') if notices else None,
+                   'third_party_source_notice_dependencies': len(third_party['dependencies']) if third_party else 0,
+                   'third_party_source_notice_index_sha256': digest(installed / 'ThirdPartySourceNotices/source-notices.json') if third_party else None,
                    'host_loader_resolved_tools': sum(bool(t.get('host_resolution', {}).get('host_loader_resolution_verified')) for t in imports['tools']),
                    'dependency_closure_verified': False,
                    'app_local_dll_policy_applied': bundle_evidence is not None,
