@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from test_verify_private_game_install import Tests as ArchiveFixtures
+import test_verify_private_game_install as fixtures
 from test_install_local_windows_game import pe
 from install_local_windows_game import DLLS
 from verify_private_game_install import record
@@ -13,7 +13,7 @@ from kairo_game_installer import install_game, read_ticket, use_ticket
 
 
 class DesktopTests(unittest.TestCase):
-    bundle = ArchiveFixtures.bundle
+    bundle = fixtures.Tests.bundle
 
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
@@ -41,7 +41,7 @@ class DesktopTests(unittest.TestCase):
         receipt = self.install()
         self.assertTrue(receipt['immutable_file_integrity_verified'])
         archive, dest, pin = read_ticket(self.ticket)
-        self.assertEqual((archive, dest), (self.archive, self.dest))
+        self.assertEqual((archive, dest), (self.archive.resolve(), self.dest))
         self.assertEqual(pin, record(dest / 'local-runtime.json')['sha256'])
         before = self.ticket.read_bytes()
         with self.assertRaisesRegex(ValueError, 'Ticket already exists'):
@@ -71,7 +71,7 @@ class DesktopTests(unittest.TestCase):
             run.return_value.returncode = 0
             self.assertEqual(use_ticket(self.ticket, 'd3d12', 'smoke')['exit_code'], 0)
             args = run.call_args.args[0]
-            self.assertIn(str(self.archive), args)
+            self.assertIn(str(self.archive.resolve()), args)
             self.assertEqual(args[-4:], ['--renderer', 'd3d12', '--action', 'smoke'])
             run.return_value.returncode = 9
             with self.assertRaisesRegex(ValueError, 'exit 9'):
