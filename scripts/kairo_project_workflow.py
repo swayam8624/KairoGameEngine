@@ -123,7 +123,13 @@ class ProjectTools:
                 if archive.resolve().is_relative_to(bundle.resolve()):raise ValueError('ZIP must be outside package folder')
             commands.append(command)
             if archive is not None:
-                commands.append([sys.executable,str(self.root/'scripts/kairo_release.py'),'export',str(bundle),str(archive)])
+                if (self.root / 'studio-inventory.json').is_file():
+                    # Installed Studio exports with notices bound to its actual Player.
+                    commands.append([sys.executable, str(self.root/'scripts/studio_game_export.py'),
+                                     str(bundle), str(archive), str(self.root)])
+                else:
+                    # Source-checkout workflows keep the original native export behavior.
+                    commands.append([sys.executable,str(self.root/'scripts/kairo_release.py'),'export',str(bundle),str(archive)])
         return commands
 
 
