@@ -7,6 +7,11 @@ on:
       - 'CMakeLists.txt'
       - 'workspace.lock'
       - 'scripts/studio_distribution.py'
+      - 'scripts/qualify_complete_creator_workflow.py'
+      - 'scripts/windows_vulkan_creator_smoke.py'
+      - 'scripts/local_runtime_discovery.py'
+      - 'scripts/kairo_game_installer.py'
+      - 'scripts/launch_private_game.py'
       - 'scripts/tests/test_studio_distribution.py'
       - 'scripts/studio_import_inventory.py'
       - 'scripts/tests/test_studio_import_inventory.py'
@@ -63,6 +68,7 @@ jobs:
               Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $validator) { throw 'Missing glslangValidator' }
           "CMAKE_PREFIX_PATH=$vcpkg\installed\x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "KAIRO_CREATOR_VCPKG=$vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Append
           "$vcpkg\installed\x64-windows\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           $validator.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append
 
@@ -82,6 +88,29 @@ jobs:
           set -o pipefail
           ctest --preset studio-msvc --output-on-failure --no-tests=error 2>&1 | tee studio-msvc-tests.log
 
+      - name: Locate and verify the installed Windows software Vulkan ICD
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $roots = @(
+            (Join-Path $env:ProgramFiles 'Google\Chrome\Application'),
+            (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application')
+          )
+          $found = @(
+            foreach ($root in $roots) {
+              if (Test-Path -LiteralPath $root -PathType Container) {
+                Get-ChildItem -LiteralPath $root -Filter vk_swiftshader_icd.json -File -Recurse |
+                  Where-Object { Test-Path -LiteralPath (Join-Path $_.DirectoryName 'vk_swiftshader.dll') -PathType Leaf }
+              }
+            }
+          )
+          if ($found.Count -eq 0) { throw 'Hosted Windows Vulkan qualification unavailable: no Chrome SwiftShader ICD' }
+          $driver = $found | Sort-Object LastWriteTimeUtc,FullName -Descending | Select-Object -First 1
+          $env:PYTHONPATH = 'scripts'
+          python -B -c "import json,sys; from windows_vulkan_creator_smoke import driver_manifest; print(json.dumps(driver_manifest(sys.argv[1]),sort_keys=True))" $driver.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Invalid software Vulkan ICD' }
+          "KAIRO_CREATOR_ICD=$($driver.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Qualify relocated native Windows Studio toolset
         shell: bash
         run: |
@@ -97,8 +126,10 @@ jobs:
             Samples/PlayableVerticalSlice Samples/BeaconRun Samples/KeyGateArena \
             Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
             Samples/SignalVault | tar -xf - -C "$scratch"
+          export VK_DRIVER_FILES="$KAIRO_CREATOR_ICD" VK_ICD_FILENAMES="$KAIRO_CREATOR_ICD"
           python scripts/studio_distribution.py "$scratch" build/studio-msvc studio-windows-evidence \
-              --dll-root "$CMAKE_PREFIX_PATH/bin" --notice-engine "$GITHUB_WORKSPACE"
+              --dll-root "$CMAKE_PREFIX_PATH/bin" --notice-engine "$GITHUB_WORKSPACE" \
+              --creator-runtime "$KAIRO_CREATOR_VCPKG" --creator-renderer auto
 
       - name: Upload qualified developer-host Studio archive
         uses: actions/upload-artifact@v7
