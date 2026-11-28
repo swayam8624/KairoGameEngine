@@ -251,7 +251,8 @@
         "KairoEditorUITests",
         "KairoEditorPhysicsPreviewTests",
         "KairoEditorWindowsProcessArgumentsTests",
-        "KairoEntityModuleBoundaryTests"
+        "KairoEntityModuleBoundaryTests",
+        "KairoPlayerOverlayBackendTests"
       ]
     }
   ],
@@ -317,7 +318,7 @@
       "configurePreset": "studio-msvc",
       "filter": {
         "include": {
-          "name": "^KairoEntityModuleBoundaryTests$|^KairoEditor(Tests|Phase4Tests|SelectionBoundsTests|ViewportClickTests|WindowsProcessArgumentsTests|ViewportInteractionTests|SelectionContourTests|AnimationTimelineTests|LogicTraceCaptureTests|AssetPreviewPixelsTests|AssetImportBatchTests|RenderBridgeTests|UITests|PhysicsPreviewTests)$"
+          "name": "^KairoPlayerOverlayBackendTests$|^KairoEntityModuleBoundaryTests$|^KairoEditor(Tests|Phase4Tests|SelectionBoundsTests|ViewportClickTests|WindowsProcessArgumentsTests|ViewportInteractionTests|SelectionContourTests|AnimationTimelineTests|LogicTraceCaptureTests|AssetPreviewPixelsTests|AssetImportBatchTests|RenderBridgeTests|UITests|PhysicsPreviewTests)$"
         }
       },
       "output": {
