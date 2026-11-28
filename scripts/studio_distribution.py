@@ -143,12 +143,15 @@ def run(command, cwd, env=None):
     subprocess.run([str(x) for x in command], cwd=cwd, env=env, check=True, timeout=180)
 
 
-def qualify(source, build, output, graphical=False, dll_roots=(), dll_policy=None, notice_root=None, notice_engine=None):
+def qualify(source, build, output, graphical=False, dll_roots=(), dll_policy=None, notice_root=None, notice_engine=None,
+            creator_runtime=None, creator_renderer=None):
     source, build, output = Path(source).resolve(strict=True), Path(build).resolve(strict=True), Path(output).absolute()
     require(os.name == 'nt' or sys.platform == 'darwin' or sys.platform.startswith('linux'), 'Unsupported native Studio host')
     require(not output.exists() and not output.is_symlink(), 'Output exists')
     require((dll_policy is None) == (notice_root is None), 'DLL policy and notice root must be supplied together')
     require(dll_policy is None or os.name == 'nt', 'App-local DLL bundling requires Windows')
+    require((creator_runtime is None and creator_renderer is None) or notice_engine is not None,
+            'Complete creator qualification requires notice-inclusive Studio')
     with tempfile.TemporaryDirectory(prefix='kairo-studio-', dir=output.parent) as temp:
         root = Path(temp)
         staged = root / 'staged Studio'
@@ -209,6 +212,7 @@ for template in TEMPLATES:
 print('All installed Hub templates created and validated')
 '''
         run([sys.executable, '-c', code, installed, projects], root, env)
+        creator_evidence = None
         if notices is not None:
             # Test the same installed Workbench export path used by creators.
             export_code = '''from pathlib import Path
@@ -232,6 +236,22 @@ unpack(archive, projects / 'Exported game')
             run([sys.executable, '-c', export_code, installed, projects], root, env)
             run([projects / 'Exported game/bin' / ('KairoPlayer' + suffix),
                  projects / 'Exported game/project/Project.kproject', '--validate'], root, env)
+        if notices is not None:
+            creator_work = root / 'Complete creator qualification'; creator_work.mkdir()
+            command = [sys.executable, '-B', str(source / 'scripts/qualify_complete_creator_workflow.py'),
+                       str(installed), str(creator_work)]
+            renderer = creator_renderer or ('vulkan' if graphical else None)
+            if renderer is not None:
+                command += ['--renderer', renderer]
+            if creator_runtime is not None:
+                command += ['--runtime', str(Path(creator_runtime).resolve(strict=True))]
+            result = subprocess.run(command, cwd=root, env=env, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True, errors='replace', timeout=600)
+            print(result.stdout, flush=True)
+            require(result.returncode == 0, 'Complete creator workflow failed')
+            creator_evidence = json.loads(result.stdout.strip().splitlines()[-1])
+            require(creator_evidence['authored_ui_and_campaign_edits_exported'] and
+                    creator_evidence['both_relocated_players_validated'], 'Incomplete creator workflow evidence')
         # Exercise the actual packaged launcher without opening a GUI.
         launcher = installed / ('launch-studio.cmd' if os.name == 'nt' else 'launch-studio.sh')
         launch_env = {**env, 'KAIRO_PYTHON': sys.executable}
@@ -267,6 +287,7 @@ unpack(archive, projects / 'Exported game')
                    'commit': os.environ.get('GITHUB_SHA'), 'platform': sys.platform,
                    'file_count': len(expected), 'hub_template_validation': True, 'launcher_help_validated': True,
                    'installed_creator_export_validated': notices is not None,
+                   'complete_creator_workflow': creator_evidence,
                    'editor_and_player_graphical_smoke': graphical,
                    'native_import_inventory_sha256': hashlib.sha256(import_bytes).hexdigest(),
                    'native_target': imports['target'], 'native_tools_inspected': len(imports['tools']),
@@ -302,6 +323,10 @@ if __name__ == '__main__':
     parser.add_argument('--dll-policy', type=Path)
     parser.add_argument('--notice-root', type=Path)
     parser.add_argument('--notice-engine', type=Path)
+    parser.add_argument('--creator-runtime', type=Path, help='Explicit trusted local runtime for private creator install gate')
+    parser.add_argument('--creator-renderer', choices=('auto', 'metal', 'vulkan'),
+                        help='Require actual complete-game textured atlas rendering')
     args = parser.parse_args()
     print(json.dumps(qualify(args.source, args.build, args.output, args.graphical, args.dll_root,
-                             args.dll_policy, args.notice_root, args.notice_engine), sort_keys=True))
+                             args.dll_policy, args.notice_root, args.notice_engine,
+                             args.creator_runtime, args.creator_renderer), sort_keys=True))
