@@ -1,0 +1,83 @@
+name: Windows Vulkan creator graphics qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/windows_vulkan_creator_smoke.py'
+      - 'scripts/tests/test_windows_vulkan_creator_smoke.py'
+      - '.github/workflows/windows-vulkan-creator-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  exported-world2d:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/download-artifact@v5
+        with:
+          name: KairoStudio-windows-msvc
+          path: qualified-studio
+          run-id: 46135235541
+          github-token: ${{ github.token }}
+          repository: swayam8624/KairoGameEngine
+      - name: Verify driver fixtures and provision local runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PYTHONPATH = 'scripts'
+          python -B -m unittest discover -s scripts/tests -p test_windows_vulkan_creator_smoke.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Driver manifest regression failed' }
+          $vcpkg = $env:VCPKG_INSTALLATION_ROOT
+          if (-not $vcpkg) { $vcpkg = 'C:\vcpkg' }
+          & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE -ne 0) { throw 'vcpkg bootstrap failed' }
+          & "$vcpkg\vcpkg.exe" install glfw3 vulkan-loader --triplet x64-windows
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime prerequisite installation failed' }
+          $packages = & "$vcpkg\vcpkg.exe" list
+          if ($LASTEXITCODE -ne 0) { throw 'vcpkg inventory failed' }
+          $packages | Write-Output
+          if (-not ($packages -match '^glfw3:x64-windows\s+3\.5\.1\s')) { throw 'GLFW version differs from original build' }
+          if (-not ($packages -match '^vulkan-loader:x64-windows\s+1\.4\.363\.0#1\s')) { throw 'Vulkan loader version differs from original build' }
+          $runtime = Join-Path $env:RUNNER_TEMP 'Kairo Vulkan runtime'
+          New-Item -ItemType Directory -Path $runtime | Out-Null
+          foreach ($dll in @('glfw3.dll', 'vulkan-1.dll')) {
+              Copy-Item -LiteralPath "$vcpkg\installed\x64-windows\bin\$dll" -Destination $runtime
+          }
+          "KAIRO_VULKAN_RUNTIME=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Locate an installed SwiftShader ICD without redistributing it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $roots = @(
+            (Join-Path $env:ProgramFiles 'Google\Chrome\Application'),
+            (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application')
+          )
+          $found = @(
+            foreach ($root in $roots) {
+              if (Test-Path -LiteralPath $root -PathType Container) {
+                Get-ChildItem -LiteralPath $root -Filter vk_swiftshader_icd.json -File -Recurse |
+                  Where-Object { Test-Path -LiteralPath (Join-Path $_.DirectoryName 'vk_swiftshader.dll') -PathType Leaf }
+              }
+            }
+          )
+          if ($found.Count -eq 0) { throw 'No installed Chrome SwiftShader ICD; hosted Vulkan qualification unavailable' }
+          $driver = $found | Sort-Object LastWriteTimeUtc,FullName -Descending | Select-Object -First 1
+          $driver.FullName | Write-Output
+          "KAIRO_VULKAN_ICD=$($driver.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Export and render actual 2D game using automatic backend selection
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'Kairo Vulkan creator test'
+          New-Item -ItemType Directory -Path $work | Out-Null
+          python -B scripts/windows_vulkan_creator_smoke.py qualified-studio $work $env:KAIRO_VULKAN_RUNTIME $env:KAIRO_VULKAN_ICD
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows 2D Vulkan qualification failed' }
