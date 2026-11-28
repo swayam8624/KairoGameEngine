@@ -82,6 +82,19 @@ class DesktopTests(unittest.TestCase):
                 use_ticket(self.ticket, 'auto', 'check')
             run.assert_not_called()
 
+    def test_install_from_vcpkg_layout(self):
+        package_root = self.root / 'vcpkg'
+        bin_dir = package_root / 'installed/x64-windows/bin'
+        bin_dir.mkdir(parents=True)
+        for name in DLLS:
+            (self.runtime / name).rename(bin_dir / name)
+        self.runtime = package_root
+        receipt = self.install()
+        self.assertTrue(receipt['immutable_file_integrity_verified'])
+        for name, pin in zip(DLLS, self.hashes):
+            self.assertEqual(record(bin_dir / name)['sha256'], pin)
+            self.assertEqual(record(self.dest / 'bin' / name)['sha256'], pin)
+
     def test_malformed_tickets(self):
         for value in ({}, {'schema': True, 'archive': 'x', 'installation': 'y', 'receipt_sha256': 'z'},
                       {'schema': 1, 'archive': 'relative.zip', 'installation': 'relative', 'receipt_sha256': 'z'}):

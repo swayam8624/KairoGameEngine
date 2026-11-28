@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/kairo_hub.py'
       - 'scripts/kairo_game_installer.py'
+      - 'scripts/local_runtime_discovery.py'
       - 'scripts/tests/test_game_installer_tk.py'
       - 'scripts/kairo_hub_core.py'
       - 'scripts/kairo_project_workflow.py'
