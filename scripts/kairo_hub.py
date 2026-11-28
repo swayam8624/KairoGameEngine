@@ -63,6 +63,7 @@ class Hub(ttk.Frame):
         ttk.Button(nav, text="Projects", command=lambda: self.show("recent")).pack(fill="x", pady=3)
         ttk.Button(nav, text="New project", command=lambda: self.show("new")).pack(fill="x", pady=3)
         ttk.Button(nav, text="Settings", command=lambda: self.show("settings")).pack(fill="x", pady=3)
+        ttk.Button(nav, text="Game installer…", command=self.open_game_installer).pack(fill="x", pady=3)
         self.content = ttk.Frame(self, style="Hub.TFrame")
         self.content.grid(row=1, column=1, sticky="nsew")
         self.content.columnconfigure(0, weight=1)
@@ -273,6 +274,26 @@ class Hub(ttk.Frame):
                 self.status.set("Removed from recents; project files are unchanged.")
             except (OSError, ValueError) as error:
                 self.status.set(str(error))
+
+    def open_game_installer(self):
+        if self.process is not None or self.future is not None:
+            self.status.set("Another project tool or creation is already active.")
+            return
+        script = self.root / "scripts/kairo_game_installer.py"
+        try:
+            if not script.is_file():
+                raise ValueError("Game installer script missing")
+            self.log = tempfile.TemporaryFile(mode="w+b")
+            self.process = subprocess.Popen([sys.executable, "-B", str(script.resolve())],
+                                            cwd=self.root, stdout=self.log, stderr=subprocess.STDOUT)
+            self.process_label = "Game installer"
+            self.status.set("Game installer running.")
+            self.after(100, self.poll_project_tool)
+        except (OSError, ValueError) as error:
+            if self.log is not None:
+                self.log.close()
+                self.log = None
+            self.status.set(f"Cannot open game installer: {error}")
 
     def open_project(self, path):
         self.launch_project(path, editor_command, "Editor")
