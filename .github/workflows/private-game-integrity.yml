@@ -6,6 +6,8 @@ on:
       - 'scripts/verify_private_game_install.py'
       - 'scripts/launch_private_game.py'
       - 'scripts/kairo_game_installer.py'
+      - 'scripts/local_runtime_discovery.py'
+      - 'scripts/tests/test_local_runtime_discovery.py'
       - 'scripts/tests/test_kairo_game_installer.py'
       - 'scripts/tests/test_launch_private_game.py'
       - 'scripts/install_local_*_game.py'
@@ -46,3 +48,6 @@ jobs:
 
       - name: Exercise desktop installer and external launch ticket workflow
         run: python -B scripts/tests/test_kairo_game_installer.py -v
+
+      - name: Exercise local package layouts and pinned runtime staging
+        run: python -B scripts/tests/test_local_runtime_discovery.py -v
