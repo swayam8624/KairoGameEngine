@@ -85,7 +85,10 @@ jobs:
         shell: bash
         run: |
           brew update
-          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang python@3.13 python-tk@3.13
+          studio_python="$(brew --prefix python@3.13)/bin/python3.13"
+          "$studio_python" -c 'import tkinter, _tkinter; print("Studio Tk:", tkinter.TkVersion)'
+          echo "KAIRO_STUDIO_PYTHON=$studio_python" >> "$GITHUB_ENV"
           echo "KAIRO_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
 
       - name: Install Windows dependencies
@@ -362,7 +365,7 @@ jobs:
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical --notice-engine "$GITHUB_WORKSPACE"
           else
-            python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE"
+            "${KAIRO_STUDIO_PYTHON:?Missing Tk-capable Studio Python}" scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE"
           fi
 
       - name: Upload exact tested Studio toolset archive
