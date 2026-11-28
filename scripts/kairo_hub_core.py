@@ -37,6 +37,7 @@ TEMPLATES = (
     Template("2d", "2D Platformer", "Editable tile map, collectibles, jumping, hazards and goal.", sample="PlatformerProject"),
     Template("world2d", "2D Adventure", "Scrolling world, tile layers, animated actors, top-down or platform movement.", sample="World2DProject"),
     Template("physics2d", "2D Physics Playground", "Dynamic props, gravity and collision-material authoring.", sample="PhysicsWorld2DProject"),
+    Template("signalvault", "Signal Vault — Complete Game", "A three-stage 2D adventure with authored menus, checkpoints, logic, audio and effects. Customize your own playable copy.", sample="SignalVault"),
 )
 
 
