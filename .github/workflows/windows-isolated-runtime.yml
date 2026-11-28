@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'scripts/windows_studio_runtime_gate.py'
+      - 'scripts/repeat_creator_export.py'
       - '.github/workflows/windows-isolated-runtime.yml'
   workflow_dispatch:
 
