@@ -26,7 +26,7 @@ class DesktopLayout(unittest.TestCase):
         buttons = {w.cget('text'): w for w in descendants(root) if isinstance(w, ttk.Button)}
         entries = [w for w in descendants(root) if isinstance(w, ttk.Entry) and not isinstance(w, ttk.Combobox)]
         self.assertEqual(len(entries), 6)
-        for label in ('Install', 'Open ticket…', 'Check', 'Validate', 'Smoke', 'Play'):
+        for label in ('Inspect runtime', 'Install', 'Open ticket…', 'Check', 'Validate', 'Smoke', 'Play'):
             self.assertTrue(buttons[label].winfo_ismapped(), label)
             self.assertLessEqual(buttons[label].winfo_rootx() + buttons[label].winfo_width(),
                                  root.winfo_rootx() + root.winfo_width())
@@ -53,6 +53,20 @@ class DesktopLayout(unittest.TestCase):
                 check.assert_called_once_with(directory + '/ticket.json', 'auto', 'check')
             console = next(w for w in descendants(root) if isinstance(w, tk.Text))
             self.assertIn('"verified": true', console.get('1.0', 'end'))
+            with patch('kairo_game_installer.inspect_for_host', return_value={'observed_hashes_only': True}) as inspect:
+                buttons['Inspect runtime'].invoke()
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline:
+                    root.update()
+                    if not buttons['Inspect runtime'].instate(['disabled']):
+                        break
+                    time.sleep(.02)
+                self.assertFalse(buttons['Inspect runtime'].instate(['disabled']))
+                inspect.assert_called_once_with(directory)
+            self.assertIn('"observed_hashes_only": true', console.get('1.0', 'end'))
+            self.assertEqual(entries[3].get(), 'a' * 64)
+            self.assertEqual(entries[4].get(), 'b' * 64)
+
         # Exercise the actual close callback to release its executor.
         root.tk.call(root.protocol('WM_DELETE_WINDOW'))
         self._cleanups.pop()
