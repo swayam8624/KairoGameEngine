@@ -2,6 +2,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
+import sys
+import time
 import tkinter as tk
 from tkinter import ttk
 import unittest
@@ -59,6 +61,39 @@ class Tests(unittest.TestCase):
         self.bundle.symlink_to(self.work / 'missing', target_is_directory=True)
         with self.assertRaises(ValueError):
             self.choose('Release', iter([]))
+
+    def test_live_output_and_failure_stops_later_commands(self):
+        marker = self.work / 'should-not-run'
+        child = [sys.executable, '-c',
+                 "import time; print('live diagnostic', flush=True); time.sleep(1.5); raise SystemExit(7)"]
+        later = [sys.executable, '-c',
+                 "from pathlib import Path; import sys; Path(sys.argv[1]).touch()", str(marker)]
+        def exercise(window):
+            frame = window.winfo_children()[0]
+            with patch.object(ProjectTools, 'commands', return_value=[child, later]):
+                frame.start('validate')
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    window.update()
+                    if 'live diagnostic' in frame.output.get('1.0', 'end'):
+                        break
+                    time.sleep(.01)
+                self.assertIn('live diagnostic', frame.output.get('1.0', 'end'))
+                self.assertIsNotNone(frame.process)
+                self.assertIsNone(frame.process.poll(), 'Log must appear before process exit')
+                deadline = time.monotonic() + 5
+                while frame.process is not None and time.monotonic() < deadline:
+                    window.update()
+                    time.sleep(.01)
+                self.assertIsNone(frame.process)
+                self.assertIn('exit 7', frame.status.get())
+                self.assertFalse(marker.exists())
+                self.assertFalse(frame.pending)
+                self.assertIsNone(frame.log_reader)
+                self.assertIsNone(frame.log_directory)
+            window.destroy()
+        with patch.object(tk.Tk, 'mainloop', exercise):
+            self.assertEqual(gui(self.project, self.build, 'auto'), 0)
 
     def test_real_tk_controls_fit_and_cancel(self):
         def exercise(window):
