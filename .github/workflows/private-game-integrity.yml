@@ -5,6 +5,8 @@ on:
     paths:
       - 'scripts/verify_private_game_install.py'
       - 'scripts/launch_private_game.py'
+      - 'scripts/kairo_game_installer.py'
+      - 'scripts/tests/test_kairo_game_installer.py'
       - 'scripts/tests/test_launch_private_game.py'
       - 'scripts/install_local_*_game.py'
       - 'scripts/kairo_release.py'
@@ -41,3 +43,6 @@ jobs:
 
       - name: Exercise native launch preflight and explicit argument dispatch
         run: python -B scripts/tests/test_launch_private_game.py -v
+
+      - name: Exercise desktop installer and external launch ticket workflow
+        run: python -B scripts/tests/test_kairo_game_installer.py -v
