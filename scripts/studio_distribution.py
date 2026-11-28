@@ -17,6 +17,7 @@ import native_dependency_audit
 import studio_import_inventory
 import studio_dll_bundle
 import unix_dependency_resolution
+import first_party_notices
 
 SCRIPTS = ('kairo_hub.py', 'kairo_hub_core.py', 'kairo_project_workflow.py',
            'create_kairo_project.py', 'kairo_world2d_editor.py', 'kairo_platformer_editor.py',
@@ -140,7 +141,7 @@ def run(command, cwd, env=None):
     subprocess.run([str(x) for x in command], cwd=cwd, env=env, check=True, timeout=180)
 
 
-def qualify(source, build, output, graphical=False, dll_roots=(), dll_policy=None, notice_root=None):
+def qualify(source, build, output, graphical=False, dll_roots=(), dll_policy=None, notice_root=None, notice_engine=None):
     source, build, output = Path(source).resolve(strict=True), Path(build).resolve(strict=True), Path(output).absolute()
     require(os.name == 'nt' or sys.platform == 'darwin' or sys.platform.startswith('linux'), 'Unsupported native Studio host')
     require(not output.exists() and not output.is_symlink(), 'Output exists')
@@ -150,6 +151,14 @@ def qualify(source, build, output, graphical=False, dll_roots=(), dll_policy=Non
         root = Path(temp)
         staged = root / 'staged Studio'
         stage(source, build, staged)
+        notices = None
+        if notice_engine is not None:
+            notices = first_party_notices.stage(notice_engine, staged / 'workspace.lock', staged / 'KairoNotices')
+            if os.environ.get('GITHUB_SHA'):
+                require(notices['engine_commit'] == os.environ['GITHUB_SHA'], 'Notice source commit differs')
+            (staged / INDEX).unlink()
+            (staged / INDEX).write_text(json.dumps(inventory(staged), sort_keys=True, indent=2) + '\n',
+                                        encoding='utf-8')
         suffix = '.exe' if os.name == 'nt' else ''
         native_tools = [Path('build/game-clang') / directory / (name + suffix)
                         for directory, names in TOOLS.items() for name in names]
@@ -232,6 +241,8 @@ print('All installed Hub templates created and validated')
                    'editor_and_player_graphical_smoke': graphical,
                    'native_import_inventory_sha256': hashlib.sha256(import_bytes).hexdigest(),
                    'native_target': imports['target'], 'native_tools_inspected': len(imports['tools']),
+                   'first_party_notice_count': len(notices['notices']) if notices else 0,
+                   'first_party_notice_index_sha256': digest(installed / 'KairoNotices/notice-index.json') if notices else None,
                    'host_loader_resolved_tools': sum(bool(t.get('host_resolution', {}).get('host_loader_resolution_verified')) for t in imports['tools']),
                    'dependency_closure_verified': False,
                    'app_local_dll_policy_applied': bundle_evidence is not None,
@@ -259,6 +270,7 @@ if __name__ == '__main__':
     parser.add_argument('--dll-root', type=Path, action='append', default=[])
     parser.add_argument('--dll-policy', type=Path)
     parser.add_argument('--notice-root', type=Path)
+    parser.add_argument('--notice-engine', type=Path)
     args = parser.parse_args()
     print(json.dumps(qualify(args.source, args.build, args.output, args.graphical, args.dll_root,
-                             args.dll_policy, args.notice_root), sort_keys=True))
+                             args.dll_policy, args.notice_root, args.notice_engine), sort_keys=True))
