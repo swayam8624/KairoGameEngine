@@ -1,0 +1,75 @@
+name: Clean Ubuntu Studio qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/clean_studio_linux.py'
+      - 'scripts/tests/test_clean_studio_linux.py'
+      - '.github/workflows/clean-linux-studio.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  clean-studio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v5
+        with:
+          name: KairoStudio-linux
+          path: qualified-studio
+          run-id: 46119943594
+          github-token: ${{ github.token }}
+          repository: swayam8624/KairoGameEngine
+      - name: Verify original archive and receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_clean_studio_linux.py -v
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('qualified-studio')
+          receipt = json.loads((root / 'receipt.json').read_text())
+          assert receipt['commit'] == 'ca1941939ee6935bf3d8ec090bb2465f103b237d'
+          assert receipt['native_target'] == 'linux-x86_64'
+          assert receipt['archive_sha256'] == 'ed881376f34b1841d153c672fde70451c8ce64a0223ddad3492a7093b4354839'
+          assert receipt['hub_template_validation'] and receipt['installed_creator_export_validated']
+          assert receipt['editor_and_player_graphical_smoke'] and receipt['native_tools_inspected'] == 7
+          assert receipt['first_party_notice_count'] == 14 and receipt['third_party_source_notice_dependencies'] == 6
+          with (root / 'KairoStudio.zip').open('rb') as stream:
+              assert hashlib.file_digest(stream, 'sha256').hexdigest() == receipt['archive_sha256']
+          with (root / 'native-imports.json').open('rb') as stream:
+              assert hashlib.file_digest(stream, 'sha256').hexdigest() == receipt['native_import_inventory_sha256']
+          PY
+      - name: Exercise exact Studio on clean Ubuntu without a build toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull ubuntu:26.04
+          docker image inspect ubuntu:26.04 --format '{{json .RepoDigests}}'
+          docker run --rm \
+            --mount "type=bind,source=$(realpath qualified-studio),target=/input,readonly" \
+            --mount "type=bind,source=$(realpath scripts/clean_studio_linux.py),target=/gate.py,readonly" \
+            ubuntu:26.04 bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends python3 python3-tk libglfw3 libgl1 libglx0 libopengl0 libvulkan1 libasound2t64 libstdc++6 libgcc-s1 xvfb xauth mesa-vulkan-drivers fonts-dejavu-core
+              ! command -v cmake
+              ! command -v ninja
+              ! command -v clang++
+              ! command -v g++
+              python3 -B /gate.py extract /input/KairoStudio.zip "/opt/Kairo Studio" ed881376f34b1841d153c672fde70451c8ce64a0223ddad3492a7093b4354839
+              (cd "/opt/Kairo Studio" && find . -type f -print0 | sort -z | xargs -0 sha256sum) >/tmp/studio-before.sha256
+              useradd -m -s /bin/sh kairo-test
+              mkdir "/home/kairo-test/User Projects"
+              chown kairo-test:kairo-test "/home/kairo-test/User Projects"
+              runuser -u kairo-test -- env HOME=/home/kairo-test PYTHONDONTWRITEBYTECODE=1 xvfb-run -a python3 -B /gate.py run "/opt/Kairo Studio" "/home/kairo-test/User Projects"
+              (cd "/opt/Kairo Studio" && find . -type f -print0 | sort -z | xargs -0 sha256sum) >/tmp/studio-after.sha256
+              cmp /tmp/studio-before.sha256 /tmp/studio-after.sha256
+              echo "Clean Ubuntu Studio install, unprivileged authoring/export, graphical execution and immutable installation passed"
+            '
