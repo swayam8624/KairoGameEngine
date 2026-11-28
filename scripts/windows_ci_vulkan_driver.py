@@ -13,7 +13,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from windows_vulkan_creator_smoke import driver_manifest
+from windows_vulkan_creator_smoke import driver_manifest, check_dll
 
 KEY = r'SOFTWARE\Khronos\Vulkan\Drivers'
 
@@ -69,6 +69,60 @@ def registered(registry, manifest):
             registry.CloseKey(key)
 
 
+def enumerate_devices(loader):
+    """Use the exact local x64 Vulkan loader; no optional SDK executable.
+
+    The fixed Vulkan 1.0 structures below match the public C ABI. Allocate
+    aligned storage larger than VkPhysicalDeviceProperties, reading only
+    its stable leading fields and bounded deviceName array.
+    """
+    import ctypes as C
+    loader = Path(loader).resolve(strict=True)
+    require(loader.name.lower() == 'vulkan-1.dll', 'Expected explicit Vulkan loader DLL')
+    checksum = check_dll(loader)
+    library = C.WinDLL(str(loader))
+    class CreateInfo(C.Structure):
+        _fields_ = [('sType', C.c_uint32), ('pNext', C.c_void_p),
+                    ('flags', C.c_uint32), ('pApplicationInfo', C.c_void_p),
+                    ('enabledLayerCount', C.c_uint32), ('ppEnabledLayerNames', C.c_void_p),
+                    ('enabledExtensionCount', C.c_uint32), ('ppEnabledExtensionNames', C.c_void_p)]
+    create = library.vkCreateInstance
+    create.argtypes = [C.POINTER(CreateInfo), C.c_void_p, C.POINTER(C.c_void_p)]
+    create.restype = C.c_int32
+    enumerate_physical = library.vkEnumeratePhysicalDevices
+    enumerate_physical.argtypes = [C.c_void_p, C.POINTER(C.c_uint32), C.POINTER(C.c_void_p)]
+    enumerate_physical.restype = C.c_int32
+    properties = library.vkGetPhysicalDeviceProperties
+    properties.argtypes = [C.c_void_p, C.c_void_p]
+    properties.restype = None
+    destroy = library.vkDestroyInstance
+    destroy.argtypes = [C.c_void_p, C.c_void_p]
+    destroy.restype = None
+    instance = C.c_void_p()
+    info = CreateInfo(sType=1)
+    status = create(C.byref(info), None, C.byref(instance))
+    require(status == 0 and instance.value, f'vkCreateInstance failed: {status}')
+    try:
+        count = C.c_uint32()
+        status = enumerate_physical(instance, C.byref(count), None)
+        require(status == 0 and 0 < count.value <= 64, f'No bounded Vulkan device inventory: {status}')
+        devices = (C.c_void_p * count.value)()
+        status = enumerate_physical(instance, C.byref(count), devices)
+        require(status == 0 and 0 < count.value <= len(devices), f'Vulkan enumeration failed: {status}')
+        names = []
+        for device in devices[:count.value]:
+            data = (C.c_uint64 * 512)()
+            properties(device, C.byref(data))
+            raw = C.string_at(C.addressof(data) + 20, 256)
+            require(b'\x00' in raw, 'Unterminated Vulkan device name')
+            names.append(raw.split(b'\x00', 1)[0].decode('utf-8', errors='replace'))
+        require(any('swiftshader' in name.casefold() for name in names),
+                'Software Vulkan device was not enumerated by the explicit loader: ' + repr(names))
+        return {'loader_sha256': checksum, 'physical_device_names': names}
+    finally:
+        destroy(instance, None)
+
+
 def run(manifest, command):
     require(hosted_windows(), 'This helper is restricted to disposable GitHub-hosted Windows CI')
     require(command, 'Expected a qualification command')
@@ -85,11 +139,17 @@ def run(manifest, command):
                           'hardware_gpu_qualified': False}, sort_keys=True), flush=True)
         # Require independent loader enumeration before expensive creator
         # work. Actual game rendering remains a separate required gate.
-        probe = subprocess.run(['vulkaninfo', '--summary'], env=env, stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT, text=True, errors='replace', timeout=60)
-        print(probe.stdout, flush=True)
-        require(probe.returncode == 0 and 'swiftshader' in probe.stdout.casefold(),
-                'Software Vulkan device was not enumerated by the native loader')
+        loader = os.environ.get('KAIRO_CI_VULKAN_LOADER')
+        require(loader, 'Set the explicit CI Vulkan loader path')
+        # Override variables are intentionally absent during enumeration too.
+        previous = os.environ.copy()
+        try:
+            os.environ.clear()
+            os.environ.update(env)
+            print(json.dumps(enumerate_devices(loader), sort_keys=True), flush=True)
+        finally:
+            os.environ.clear()
+            os.environ.update(previous)
         result = subprocess.run(command, env=env, check=False)
         return result.returncode if result.returncode >= 0 else 1
 
