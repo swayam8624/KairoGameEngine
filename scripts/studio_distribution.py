@@ -12,6 +12,10 @@ import sys
 import tempfile
 import zipfile
 
+import kairo_release
+import native_dependency_audit
+import studio_import_inventory
+
 SCRIPTS = ('kairo_hub.py', 'kairo_hub_core.py', 'kairo_project_workflow.py',
            'create_kairo_project.py', 'kairo_world2d_editor.py', 'kairo_platformer_editor.py',
            'kairo_gameplay_editor.py', 'kairo_menu_designer.py', 'kairo_ui2d_designer.py',
@@ -134,7 +138,7 @@ def run(command, cwd, env=None):
     subprocess.run([str(x) for x in command], cwd=cwd, env=env, check=True, timeout=180)
 
 
-def qualify(source, build, output, graphical=False):
+def qualify(source, build, output, graphical=False, dll_roots=()):
     source, build, output = Path(source).resolve(strict=True), Path(build).resolve(strict=True), Path(output).absolute()
     require(os.name == 'nt' or sys.platform == 'darwin' or sys.platform.startswith('linux'), 'Unsupported native Studio host')
     require(not output.exists() and not output.is_symlink(), 'Output exists')
@@ -180,15 +184,28 @@ print('All installed Hub templates created and validated')
             player = installed / 'build/game-clang/Runtime/KairoPlayer/KairoPlayer'
             run([player, projects / 'Studio world2d/Project.kproject', '--renderer', 'vulkan', '--smoke'], root, env)
         require(inventory(installed) == expected, 'Studio changed installed tree')
+        def target_of(path):
+            with path.open('rb') as stream:
+                return kairo_release.platform_of(stream)
+        native_tools = [Path('build/game-clang') / directory / (name + suffix)
+                        for directory, names in TOOLS.items() for name in names]
+        imports = studio_import_inventory.collect(
+            installed, native_tools, native_dependency_audit.audit, target_of, dll_roots,
+            Path(os.environ['SystemRoot']) / 'System32' if os.name == 'nt' else None)
+        import_bytes = (json.dumps(imports, sort_keys=True, indent=2) + '\n').encode('utf-8')
         receipt = {'schema': 1, 'archive_sha256': digest(archive), 'workspace_lock_sha256': digest(installed / 'workspace.lock'),
                    'commit': os.environ.get('GITHUB_SHA'), 'platform': sys.platform,
                    'file_count': len(expected), 'hub_template_validation': True, 'launcher_help_validated': True,
                    'editor_and_player_graphical_smoke': graphical,
+                   'native_import_inventory_sha256': hashlib.sha256(import_bytes).hexdigest(),
+                   'native_target': imports['target'], 'native_tools_inspected': len(imports['tools']),
+                   'dependency_closure_verified': False,
                    'fresh_machine_qualified': False, 'signed': False, 'third_party_licenses_verified': False}
         output.mkdir()
         try:
             shutil.copyfile(archive, output / archive.name)
             require(digest(output / archive.name) == receipt['archive_sha256'], 'Published archive differs')
+            (output / 'native-imports.json').write_bytes(import_bytes)
             (output / 'receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
         except BaseException:
             shutil.rmtree(output)
@@ -202,5 +219,6 @@ if __name__ == '__main__':
     parser.add_argument('build', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--graphical', action='store_true')
+    parser.add_argument('--dll-root', type=Path, action='append', default=[])
     args = parser.parse_args()
-    print(json.dumps(qualify(args.source, args.build, args.output, args.graphical), sort_keys=True))
+    print(json.dumps(qualify(args.source, args.build, args.output, args.graphical, args.dll_root), sort_keys=True))
