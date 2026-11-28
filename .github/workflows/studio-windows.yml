@@ -7,6 +7,8 @@ on:
       - 'CMakeLists.txt'
       - 'workspace.lock'
       - 'scripts/studio_distribution.py'
+      - 'scripts/verify_studio_candidate.py'
+      - 'scripts/tests/test_verify_studio_candidate.py'
       - 'scripts/qualify_complete_creator_workflow.py'
       - 'scripts/windows_vulkan_creator_smoke.py'
       - 'scripts/windows_ci_vulkan_driver.py'
@@ -133,6 +135,14 @@ jobs:
           python -B scripts/windows_ci_vulkan_driver.py "$KAIRO_CREATOR_ICD" -- python -B scripts/studio_distribution.py "$scratch" build/studio-msvc studio-windows-evidence \
               --dll-root "$CMAKE_PREFIX_PATH/bin" --notice-engine "$GITHUB_WORKSPACE" \
               --creator-runtime "$KAIRO_CREATOR_VCPKG" --creator-renderer auto
+
+      - name: Verify exact Windows release candidate before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python -B scripts/tests/test_verify_studio_candidate.py -v
+          python -B scripts/verify_studio_candidate.py studio-windows-evidence --target windows-x86_64 --commit "$GITHUB_SHA" > studio-windows-evidence/candidate-verification.json
+          cat studio-windows-evidence/candidate-verification.json
 
       - name: Upload qualified developer-host Studio archive
         uses: actions/upload-artifact@v7
