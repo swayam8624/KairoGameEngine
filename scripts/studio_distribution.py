@@ -40,7 +40,7 @@ def safe_path(name):
     # Archive paths are relative, ASCII, and canonical across desktop hosts.
     parts = name.split('/')
     require(name.isascii() and len(name) <= 1024 and all(p not in ('', '.', '..') and
-            not p.endswith((' ', '.')) and all(32 <= ord(c) < 127 and c not in '\\:<>\"|?*' for c in p)
+            not p.endswith((' ', '.')) and all(32 <= ord(c) < 127 and c not in '\\:<>"|?*' for c in p)
             for p in parts), 'Unsafe path: ' + name)
     return name
 
