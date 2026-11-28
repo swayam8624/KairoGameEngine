@@ -308,6 +308,7 @@ jobs:
           if [[ "${{ matrix.platform }}" == "windows" ]]; then suffix=".exe"; fi
           args=("$bin/KairoPlayer$suffix" Samples/SignalVault signal-vault-evidence
                 --lock workspace.lock --commit "$GITHUB_SHA" --notice-engine "$GITHUB_WORKSPACE"
+                --notice-build "build/${{ matrix.preset }}"
                 --gameplay-test "$bin/KairoPlayerSignalVaultTests$suffix")
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             xvfb-run -a python scripts/signal_vault_release.py "${args[@]}" --smoke
