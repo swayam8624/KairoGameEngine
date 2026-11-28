@@ -31,7 +31,7 @@ class Tests(unittest.TestCase):
                         'archive_sha256': digest(root / 'KairoStudio.zip'),
                         'native_import_inventory_sha256': digest(root / 'native-imports.json'),
                         'hub_template_validation': True, 'installed_creator_export_validated': True,
-                        'launcher_help_validated': True, 'file_count': len(self.index), 'native_tools_inspected': 7,
+                        'launcher_help_validated': True, 'file_count': len(self.index) + 1, 'native_tools_inspected': 7,
                         'workspace_lock_sha256': self.index['workspace.lock']['sha256'],
                         'first_party_notice_index_sha256': self.index['KairoNotices/notice-index.json']['sha256'],
                         'third_party_source_notice_index_sha256': self.index['ThirdPartySourceNotices/source-notices.json']['sha256'],
@@ -55,6 +55,18 @@ class Tests(unittest.TestCase):
             self.assertFalse(result['hardware_gpu_qualified'])
             with self.assertRaisesRegex(ValueError, 'commit or target'):
                 verify_candidate(root, 'linux-x86_64', 'd' * 40)
+
+    def test_receipt_count_includes_inventory_itself(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.fixture(root)
+            self.assertEqual(self.receipt['file_count'], 11)
+            self.assertEqual(verify_candidate(root, 'linux-x86_64', self.commit)['files_verified'], 10)
+            for count in (10, 12):
+                self.receipt['file_count'] = count
+                self.save(root)
+                with self.assertRaisesRegex(ValueError, 'Studio inventory differs'):
+                    verify_candidate(root, 'linux-x86_64', self.commit)
 
     def test_missing_render_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
