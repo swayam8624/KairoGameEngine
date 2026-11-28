@@ -30,16 +30,20 @@ def git(repo, *args):
                           capture_output=True, timeout=60).stdout
 
 
-def collect(build, dest, editor=False, dependencies=DEPENDENCIES):
+def collect(build, dest, editor=False, dependencies=DEPENDENCIES, distribution=False):
     deps = Path(build).resolve(strict=True) / '_deps'
     dest = Path(dest).absolute()
     require(deps.is_dir() and not deps.is_symlink(), 'Missing FetchContent directory')
     require(not dest.exists() and not dest.is_symlink(), 'Notice output exists')
     require(not dest.resolve().is_relative_to(deps), 'Output inside dependency sources')
     found = {p.name.removesuffix('-src') for p in deps.glob('*-src') if p.is_dir()}
-    records, blobs = [], []
+    records, blobs, excluded = [], [], []
     total = 0
     for name, (origin, revision, scope) in sorted(dependencies.items()):
+        if distribution and (scope == 'test' or (scope == 'editor' and not editor)):
+            if name in found:
+                excluded.append(name)
+            continue
         repo = deps / (name + '-src')
         if name not in found:
             require(scope == 'test' or (scope == 'editor' and not editor), 'Missing fetched source: ' + name)
@@ -75,6 +79,8 @@ def collect(build, dest, editor=False, dependencies=DEPENDENCIES):
                         'notices': notices})
     receipt = {'schema': 1, 'scope': 'actual fetched source notices; not linked-binary or redistribution coverage',
                'dependencies': records, 'unclassified_fetched_sources': sorted(found - dependencies.keys()),
+               'distribution_scope': ('studio' if editor else 'game') if distribution else 'build-audit',
+               'excluded_fetched_sources': excluded,
                'system_and_generated_code_reviewed': False, 'third_party_licenses_verified': False}
     dest.mkdir()
     try:
