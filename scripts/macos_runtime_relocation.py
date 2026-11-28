@@ -12,7 +12,7 @@ EXPECTED = {
     '/opt/homebrew/opt/vulkan-loader/lib/libvulkan.1.dylib': 'libvulkan.1.dylib',
 }
 ARCHIVE_SHA = '6957beef5dc7dc342c5d229ee61bad3546d8e5fe5d3f1cb06fba8b9c845d15f0'
-IMPORT_SHA = '77a083ed7a39e52164ec4a0a4f2dede3e733abe5c83fe7970463bba7ffc89'
+IMPORT_SHA = '77a083ed7a39e52164ec4a0a0aa4f2dede3e733abe5c83fe7970463bba7ffc89'
 
 
 def require(ok, message):
@@ -23,6 +23,22 @@ def require(ok, message):
 def digest(path):
     with Path(path).open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def verify_source(source):
+    """Bind the archive and import inventory to the exact qualified receipt."""
+    source = Path(source)
+    receipt = json.loads((source / 'receipt.json').read_bytes())
+    require(receipt['commit'] == '786e0c66a156fd3b37efdd8ba1bf5bcd7a3208ff' and
+            receipt['native_target'] == 'macos-arm64' and receipt['native_tools_inspected'] == 7 and
+            receipt['hub_template_validation'] and receipt['installed_creator_export_validated'],
+            'Unexpected source qualification receipt')
+    require(digest(source / 'KairoStudio.zip') == receipt['archive_sha256'] == ARCHIVE_SHA,
+            'Unexpected source archive')
+    actual = digest(source / 'native-imports.json')
+    require(actual == receipt['native_import_inventory_sha256'] == IMPORT_SHA,
+            f'Unexpected source import inventory: expected {IMPORT_SHA}, observed {actual}')
+    return json.loads((source / 'native-imports.json').read_bytes())
 
 
 def system(name):
@@ -129,6 +145,4 @@ def relocate(studio, evidence):
 
 if __name__ == '__main__':
     source, studio = map(Path, sys.argv[1:3])
-    require(digest(source / 'KairoStudio.zip') == ARCHIVE_SHA, 'Unexpected source archive')
-    require(digest(source / 'native-imports.json') == IMPORT_SHA, 'Unexpected source import inventory')
-    print(json.dumps(relocate(studio, json.loads((source / 'native-imports.json').read_bytes())), sort_keys=True))
+    print(json.dumps(relocate(studio, verify_source(source)), sort_keys=True))
