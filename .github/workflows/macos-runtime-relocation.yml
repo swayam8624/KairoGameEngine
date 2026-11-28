@@ -1,0 +1,75 @@
+name: macOS private runtime relocation
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/macos_runtime_relocation.py'
+      - 'scripts/tests/test_macos_runtime_relocation.py'
+      - '.github/workflows/macos-runtime-relocation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  private-relocation:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v5
+        with:
+          name: KairoStudio-macos
+          path: qualified-macos
+          run-id: 46126537377
+          github-token: ${{ github.token }}
+          repository: swayam8624/KairoGameEngine
+      - name: Verify plan and prepare local runtime prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(uname -m)" == arm64 ]]
+          brew install python@3.13 python-tk@3.13 glfw vulkan-loader
+          studio_python="$(brew --prefix python@3.13)/bin/python3.13"
+          "$studio_python" -c 'import tkinter, _tkinter'
+          PYTHONPATH=scripts "$studio_python" -B -m unittest discover -s scripts/tests -p test_macos_runtime_relocation.py -v
+          echo "KAIRO_STUDIO_PYTHON=$studio_python" >> "$GITHUB_ENV"
+      - name: Relocate exact Studio native tools and execute with restricted PATH
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'chmod -R u+w "$work"; rm -rf "$work"' EXIT
+          studio="$work/Installed Studio"
+          projects="$work/User Projects"
+          mkdir "$projects"
+          PYTHONPATH=scripts "$KAIRO_STUDIO_PYTHON" -B -c 'import sys; from clean_studio_linux import extract; extract(*sys.argv[1:])' \
+            qualified-macos/KairoStudio.zip "$studio" 6957beef5dc7dc342c5d229ee61bad3546d8e5fe5d3f1cb06fba8b9c845d15f0
+          find "$studio" -type d -exec chmod u+w {} +
+          "$KAIRO_STUDIO_PYTHON" -B scripts/macos_runtime_relocation.py qualified-macos "$studio"
+          (cd "$studio" && find . -type f -print0 | xargs -0 shasum -a 256 | sort) > "$work/before"
+          run_clean() {
+            env -i HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+              PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$studio/scripts" KAIRO_PYTHON="$KAIRO_STUDIO_PYTHON" "$@"
+          }
+          run_clean "$KAIRO_STUDIO_PYTHON" -B - "$studio" "$projects" <<'PY'
+          from pathlib import Path
+          import sys
+          from kairo_hub_core import TEMPLATES, create, editor_command
+          from kairo_project_workflow import ProjectTools, run_cli
+          studio, projects = map(Path, sys.argv[1:])
+          build = studio / 'build/game-clang'
+          for template in TEMPLATES:
+              project = create(template.key, 'Relocated ' + template.key, projects, studio)
+              assert run_cli(ProjectTools(project, build, studio), 'validate') == 0
+              assert editor_command(project, build, 'auto', studio)
+          PY
+          run_clean "$studio/launch-studio.sh" --help
+          run_clean "$studio/build/game-clang/components/KairoEditor/KairoEditorApp" \
+            --project "$projects/Relocated empty/Project.kproject" --renderer metal --frames 3 --no-layout-persistence
+          run_clean "$studio/build/game-clang/Runtime/KairoPlayer/KairoPlayer" \
+            "$projects/Relocated world2d/Project.kproject" --renderer metal --smoke
+          (cd "$studio" && find . -type f -print0 | xargs -0 shasum -a 256 | sort) > "$work/after"
+          cmp "$work/before" "$work/after"
+          echo "Private relocated Studio Metal Editor and Player passed; no rewritten binaries published"
