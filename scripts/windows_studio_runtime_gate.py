@@ -116,6 +116,9 @@ for key in ('world2d', 'arena'):
     # same relocated Player on the D3D12-supported 3D Arena template.
     arena = projects / 'Exported arena'
     run(arena / 'bin/KairoPlayer.exe', arena / 'project/Project.kproject', '--renderer', 'd3d12', '--smoke')
+    repeat_gate = Path(__file__).resolve().with_name('repeat_creator_export.py')
+    repeat_work = work / 'Repeat packaging'; repeat_work.mkdir()
+    run(sys.executable, '-B', repeat_gate, studio, repeat_work)
     require(inventory(studio) == before, 'Installed Studio changed')
     return {'schema': 1, 'source_commit': COMMIT, 'archive_sha256': ARCHIVE_SHA, 'native_import_inventory_sha256': IMPORT_SHA,
             'runtime_prerequisite_hashes': {name: digest(runtime / name) for name in DLLS},
@@ -123,6 +126,7 @@ for key in ('world2d', 'arena'):
             'system_vulkan_present': (system / 'System32/vulkan-1.dll').is_file(),
             'developer_path_removed': True, 'seven_templates_validated': True, 'creator_export_validated': True,
             'world2d_exported_player_validated': True, 'd3d12_exported_arena_smoke': True,
+            'native_repeat_export_validated': True,
             'd3d12_editor_and_player_smoke': True, 'installed_tree_unchanged': True,
             'fresh_machine_qualified': False, 'dependency_closure_verified': False, 'third_party_licenses_verified': False}
 
