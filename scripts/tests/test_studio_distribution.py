@@ -1,4 +1,5 @@
 import tempfile
+import os
 import unittest
 from pathlib import Path
 import studio_distribution as studio
@@ -18,7 +19,7 @@ class StudioTests(unittest.TestCase):
             self.write(self.source / 'Samples' / name / 'Project.kproject')
         for folder, names in studio.TOOLS.items():
             for name in names:
-                self.write(self.build / folder / name)
+                self.write(self.build / folder / (name + ('.exe' if os.name == 'nt' else '')))
         for name in ('LICENSE', 'workspace.lock'):
             self.write(self.source / name)
 
@@ -34,11 +35,15 @@ class StudioTests(unittest.TestCase):
         expected = studio.archive_and_relocate(self.dest, archive, installed)
         self.assertEqual(studio.inventory(installed), expected)
         self.assertFalse(self.dest.exists())
-        self.assertTrue((installed / 'launch-studio.sh').stat().st_mode & 0o100)
-        self.assertTrue((installed / 'build/game-clang/components/KairoEditor/KairoEditorApp').stat().st_mode & 0o100)
+        if os.name == 'nt':
+            self.assertTrue((installed / 'launch-studio.cmd').is_file())
+            self.assertTrue((installed / 'build/game-clang/components/KairoEditor/KairoEditorApp.exe').is_file())
+        else:
+            self.assertTrue((installed / 'launch-studio.sh').stat().st_mode & 0o100)
+            self.assertTrue((installed / 'build/game-clang/components/KairoEditor/KairoEditorApp').stat().st_mode & 0o100)
 
     def test_missing_tool_rolls_back(self):
-        (self.build / 'Runtime/KairoPlayer/KairoWorld2DTool').unlink()
+        (self.build / 'Runtime/KairoPlayer' / ('KairoWorld2DTool' + ('.exe' if os.name == 'nt' else ''))).unlink()
         with self.assertRaises(ValueError):
             studio.stage(self.source, self.build, self.dest)
         self.assertFalse(self.dest.exists())

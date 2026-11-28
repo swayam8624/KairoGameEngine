@@ -1,0 +1,113 @@
+name: Windows Studio native qualification
+
+on:
+  pull_request:
+    paths:
+      - 'CMakePresets.json'
+      - 'CMakeLists.txt'
+      - 'workspace.lock'
+      - 'scripts/studio_distribution.py'
+      - 'scripts/tests/test_studio_distribution.py'
+      - '.github/workflows/studio-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  studio-msvc:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Materialize locked native workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          components=(KairoMath KairoGeometry KairoSpatial KairoPhysicsMath
+                      KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection
+                      KairoEngineCore KairoRenderer KairoEditor)
+          bash scripts/materialize_workspace_lock.sh "${components[@]}"
+          bash scripts/verify_workspace_lock.sh "${components[@]}"
+
+      - name: Install native build prerequisites
+        shell: pwsh
+        run: |
+          choco install ninja vulkan-sdk -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Native dependency installation failed' }
+          $vcpkg = $env:VCPKG_INSTALLATION_ROOT
+          if (-not $vcpkg) { $vcpkg = 'C:\vcpkg' }
+          if (-not (Test-Path $vcpkg)) {
+            git clone https://github.com/microsoft/vcpkg.git $vcpkg
+            if ($LASTEXITCODE -ne 0) { throw 'vcpkg clone failed' }
+          }
+          & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE -ne 0) { throw 'vcpkg bootstrap failed' }
+          & "$vcpkg\vcpkg.exe" install glfw3 vulkan-headers vulkan-loader --triplet x64-windows
+          if ($LASTEXITCODE -ne 0) { throw 'vcpkg install failed' }
+          $validator = Get-ChildItem -Path 'C:\VulkanSDK' -Filter glslangValidator.exe -Recurse |
+              Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $validator) { throw 'Missing glslangValidator' }
+          "CMAKE_PREFIX_PATH=$vcpkg\installed\x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "$vcpkg\installed\x64-windows\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          $validator.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Configure focused Studio with native Editor
+        shell: bash
+        run: cmake --preset studio-msvc -DCMAKE_CXX_COMPILER=cl
+
+      - name: Build actual Studio and selected editor regression binaries
+        shell: bash
+        run: |
+          set -o pipefail
+          cmake --build --preset studio-msvc --parallel 2 2>&1 | tee studio-msvc-build.log
+
+      - name: Test editor regression suite
+        shell: bash
+        run: |
+          set -o pipefail
+          ctest --preset studio-msvc --output-on-failure --no-tests=error 2>&1 | tee studio-msvc-tests.log
+
+      - name: Qualify relocated native Windows Studio toolset
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH=scripts
+          python -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          git archive HEAD LICENSE workspace.lock scripts \
+            Samples/PlayableVerticalSlice Samples/BeaconRun Samples/KeyGateArena \
+            Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
+            Samples/SignalVault | tar -xf - -C "$scratch"
+          python scripts/studio_distribution.py "$scratch" build/studio-msvc studio-windows-evidence
+
+      - name: Upload qualified developer-host Studio archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: KairoStudio-windows-msvc
+          path: studio-windows-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Native Direct3D12 editor graphics smoke
+        shell: bash
+        run: |
+          set -o pipefail
+          ctest --test-dir build/studio-msvc --output-on-failure --no-tests=error \
+            -R '^KairoEditorDirect3D12SharedContentSmoke$' 2>&1 | tee studio-msvc-graphics.log
+          # CTest may report SKIP_RETURN_CODE 77 on unavailable hosted GPUs.
+          # The archive receipt intentionally does not claim graphics qualification.
+
+      - name: Preserve diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: KairoStudio-windows-diagnostics
+          path: studio-msvc-*.log
+          if-no-files-found: warn

@@ -94,9 +94,14 @@ def stage(source, build, dest):
                 copy_file(build / directory / binary, dest / 'build/game-clang' / directory / binary, True)
         for name in ('LICENSE', 'workspace.lock'):
             copy_file(source / name, dest / name)
-        (dest / 'launch-studio.sh').write_text('#!/bin/sh\nset -eu\nROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "${KAIRO_PYTHON:-python3}" "$ROOT/scripts/kairo_hub.py" "$@"\n', encoding='utf-8')
-        (dest / 'launch-studio.sh').chmod(0o755)
-        (dest / 'README.txt').write_text('Kairo Studio developer-host distribution\nRequires Python 3.11+ with Tk and native graphics/runtime dependencies.\nRun ./launch-studio.sh; projects are stored outside this directory.\nNo compiler or build system is invoked by the launcher.\nUnsigned, not clean-machine qualified.\n', encoding='utf-8')
+        if os.name == 'nt':
+            (dest / 'launch-studio.cmd').write_bytes(
+                b'@echo off\r\nsetlocal\r\nif not defined KAIRO_PYTHON set "KAIRO_PYTHON=python"\r\n'
+                b'"%KAIRO_PYTHON%" -B "%~dp0scripts\\kairo_hub.py" %*\r\nexit /b %errorlevel%\r\n')
+        else:
+            (dest / 'launch-studio.sh').write_text('#!/bin/sh\nset -eu\nROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "${KAIRO_PYTHON:-python3}" -B "$ROOT/scripts/kairo_hub.py" "$@"\n', encoding='utf-8')
+            (dest / 'launch-studio.sh').chmod(0o755)
+        (dest / 'README.txt').write_text('Kairo Studio developer-host distribution\nRequires Python 3.11+ with Tk and native graphics/runtime dependencies.\nRun launch-studio.cmd on Windows or ./launch-studio.sh on Unix; projects are stored outside this directory.\nNo compiler or build system is invoked by the launcher.\nUnsigned, not clean-machine qualified.\n', encoding='utf-8')
         files = inventory(dest)
         (dest / INDEX).write_text(json.dumps(files, sort_keys=True, indent=2) + '\n', encoding='utf-8')
         return files
@@ -131,7 +136,7 @@ def run(command, cwd, env=None):
 
 def qualify(source, build, output, graphical=False):
     source, build, output = Path(source).resolve(strict=True), Path(build).resolve(strict=True), Path(output).absolute()
-    require(sys.platform == 'darwin' or sys.platform.startswith('linux'), 'Studio native qualification requires Linux/macOS')
+    require(os.name == 'nt' or sys.platform == 'darwin' or sys.platform.startswith('linux'), 'Unsupported native Studio host')
     require(not output.exists() and not output.is_symlink(), 'Output exists')
     with tempfile.TemporaryDirectory(prefix='kairo-studio-', dir=output.parent) as temp:
         root = Path(temp)
@@ -159,8 +164,17 @@ for template in TEMPLATES:
 print('All installed Hub templates created and validated')
 '''
         run([sys.executable, '-c', code, installed, projects], root, env)
+        suffix = '.exe' if os.name == 'nt' else ''
+        # Exercise the actual packaged launcher without opening a GUI.
+        launcher = installed / ('launch-studio.cmd' if os.name == 'nt' else 'launch-studio.sh')
+        launch_env = {**env, 'KAIRO_PYTHON': sys.executable}
+        if os.name == 'nt':
+            run(['cmd.exe', '/d', '/c', launcher, '--help'], root, launch_env)
+        else:
+            run([launcher, '--help'], root, launch_env)
         if graphical:
-            editor = installed / 'build/game-clang/components/KairoEditor/KairoEditorApp'
+            require(os.name != 'nt', 'Windows graphics smoke is a separate qualification gate')
+            editor = installed / ('build/game-clang/components/KairoEditor/KairoEditorApp' + suffix)
             project = projects / 'Studio empty/Project.kproject'
             run([editor, '--project', project, '--renderer', 'vulkan', '--frames', '3', '--no-layout-persistence'], root, env)
             player = installed / 'build/game-clang/Runtime/KairoPlayer/KairoPlayer'
@@ -168,7 +182,7 @@ print('All installed Hub templates created and validated')
         require(inventory(installed) == expected, 'Studio changed installed tree')
         receipt = {'schema': 1, 'archive_sha256': digest(archive), 'workspace_lock_sha256': digest(installed / 'workspace.lock'),
                    'commit': os.environ.get('GITHUB_SHA'), 'platform': sys.platform,
-                   'file_count': len(expected), 'hub_template_validation': True,
+                   'file_count': len(expected), 'hub_template_validation': True, 'launcher_help_validated': True,
                    'editor_and_player_graphical_smoke': graphical,
                    'fresh_machine_qualified': False, 'signed': False, 'third_party_licenses_verified': False}
         output.mkdir()
