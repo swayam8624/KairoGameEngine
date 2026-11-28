@@ -17,7 +17,9 @@ jobs:
   superbuild:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # macOS C++ module compilation reached 1136/1792 build steps at the
+    # previous 45-minute limit. Do not weaken the native test configuration.
+    timeout-minutes: ${{ matrix.platform == 'macos' && 120 || 45 }}
     strategy:
       fail-fast: false
       matrix:
