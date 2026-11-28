@@ -53,7 +53,7 @@ def collect(build, dest, editor=False, dependencies=DEPENDENCIES, distribution=F
         require(remote.removesuffix('.git').lower() == ('https://github.com/' + origin).lower(), 'Unexpected dependency origin: ' + name)
         commit = git(repo, 'rev-parse', 'HEAD').decode().strip()
         if revision and re.fullmatch(r'[0-9a-f]{40}', revision):
-            require(commit == revision, 'Unexpected dependency pin: ' + name)
+            require(commit == revision, f'Unexpected dependency pin: {name}: expected {revision}, actual {commit}')
         elif revision:
             require(git(repo, 'rev-parse', revision + '^{commit}').decode().strip() == commit, 'Unexpected dependency tag: ' + name)
         notices = []
