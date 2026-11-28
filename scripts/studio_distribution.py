@@ -109,7 +109,7 @@ def stage(source, build, dest):
         else:
             (dest / 'launch-studio.sh').write_text('#!/bin/sh\nset -eu\nROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "${KAIRO_PYTHON:-python3}" -B "$ROOT/scripts/kairo_hub.py" "$@"\n', encoding='utf-8')
             (dest / 'launch-studio.sh').chmod(0o755)
-        (dest / 'README.txt').write_text('Kairo Studio developer-host distribution\nRequires Python 3.11+ with Tk and native graphics/runtime dependencies.\nRun launch-studio.cmd on Windows or ./launch-studio.sh on Unix; projects are stored outside this directory.\nNo compiler or build system is invoked by the launcher.\nUnsigned, not clean-machine qualified.\n', encoding='utf-8')
+        (dest / 'README.txt').write_text('Kairo Studio developer-host distribution\nRequires Python 3.11+ with Tk and native graphics/runtime dependencies.\nOn macOS, install a matching Python/Tk pair (for example brew install python@3.13 python-tk@3.13), then set KAIRO_PYTHON to its full interpreter path before launching.\nRun launch-studio.cmd on Windows or ./launch-studio.sh on Unix; projects are stored outside this directory.\nNo compiler or build system is invoked by the launcher.\nUnsigned, not clean-machine qualified.\n', encoding='utf-8')
         files = inventory(dest)
         (dest / INDEX).write_text(json.dumps(files, sort_keys=True, indent=2) + '\n', encoding='utf-8')
         return files
