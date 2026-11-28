@@ -307,7 +307,7 @@ jobs:
           suffix=""
           if [[ "${{ matrix.platform }}" == "windows" ]]; then suffix=".exe"; fi
           args=("$bin/KairoPlayer$suffix" Samples/SignalVault signal-vault-evidence
-                --lock workspace.lock --commit "$GITHUB_SHA"
+                --lock workspace.lock --commit "$GITHUB_SHA" --notice-engine "$GITHUB_WORKSPACE"
                 --gameplay-test "$bin/KairoPlayerSignalVaultTests$suffix")
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             xvfb-run -a python scripts/signal_vault_release.py "${args[@]}" --smoke
@@ -339,9 +339,9 @@ jobs:
           PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_import_inventory.py -v
           PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_dll_bundle.py -v
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical
+            xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical --notice-engine "$GITHUB_WORKSPACE"
           else
-            python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence
+            python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE"
           fi
 
       - name: Upload exact tested Studio toolset archive
@@ -403,6 +403,7 @@ jobs:
         run: |
           PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_native_dependency_audit.py -v
           PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_signal_vault_release.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_first_party_notices.py -v
 
       - name: Test release archive rejection and reproducibility
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
