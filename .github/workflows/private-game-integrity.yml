@@ -1,0 +1,38 @@
+name: Private game installation integrity
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/verify_private_game_install.py'
+      - 'scripts/install_local_*_game.py'
+      - 'scripts/kairo_release.py'
+      - 'scripts/tests/test_verify_private_game_install.py'
+      - 'scripts/tests/test_install_local_*_game.py'
+      - '.github/workflows/private-game-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-fixtures:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    env:
+      PYTHONPATH: scripts
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Audit private installations
+        run: python -B scripts/tests/test_verify_private_game_install.py -v
+      - name: Exercise Windows installer fixtures
+        run: python -B scripts/tests/test_install_local_windows_game.py -v
+      - name: Exercise macOS installer parsing fixtures
+        run: python -B scripts/tests/test_install_local_macos_game.py -v
