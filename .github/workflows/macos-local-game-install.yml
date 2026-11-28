@@ -1,0 +1,72 @@
+name: macOS private game installation
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/install_local_macos_game.py'
+      - 'scripts/tests/test_install_local_macos_game.py'
+      - '.github/workflows/macos-local-game-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  exact-game-install:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v5
+        with:
+          name: SignalVault-macos-ci-clang
+          path: qualified-game
+          run-id: 46126537377
+          github-token: ${{ github.token }}
+          repository: swayam8624/KairoGameEngine
+      - name: Prepare local runtime and run portable load-command tests
+        run: |
+          set -euo pipefail
+          [[ "$(uname -m)" == arm64 ]]
+          brew install python@3.13 glfw vulkan-loader
+          p="$(brew --prefix python@3.13)/bin/python3.13"
+          PYTHONPATH=scripts "$p" -B -m unittest discover -s scripts/tests -p test_install_local_macos_game.py -v
+          echo "KAIRO_PYTHON=$p" >> "$GITHUB_ENV"
+      - name: Install exact qualified game privately and render with system-only PATH
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          archive="$PWD/qualified-game/SignalVault-macos-arm64.zip"
+          PYTHONPATH=scripts "$KAIRO_PYTHON" -B - "$PWD/qualified-game" <<'PY'
+          from pathlib import Path
+          import sys,json
+          from install_local_macos_game import digest
+          from kairo_release import verify
+          root = Path(sys.argv[1])
+          receipt = json.loads((root / 'receipt.json').read_bytes())
+          archive = root / 'SignalVault-macos-arm64.zip'
+          assert receipt['commit'] == '786e0c66a156fd3b37efdd8ba1bf5bcd7a3208ff'
+          assert receipt['target'] == 'macos-arm64' and receipt['campaign_replay'] and receipt['extracted_player_validation']
+          assert digest(archive) == receipt['archive_sha256'] == '04e0bc2adc9481081af58d48813c0a1a5f84163f811fc73a18a65abc5eac29fc'
+          assert digest(root / 'native-dependencies.json') == receipt['native_dependencies_sha256'] == 'c819ce0dce218a33c437c19c1f1af73bb9e5111ab17957e912d49d7c2edd3224'
+          assert verify(archive)['files']['bin/KairoPlayer']['sha256'] == receipt['player_sha256'] == 'd0e30c268805eb3c100f2dd85fe20f42fa4ecc27cd9e56eff1e24fc40b021edb'
+          PY
+          runtime="$work/Local runtime"
+          mkdir "$runtime"
+          cp -L /opt/homebrew/opt/glfw/lib/libglfw.3.dylib "$runtime/"
+          cp -L /opt/homebrew/opt/vulkan-loader/lib/libvulkan.1.dylib "$runtime/"
+          glfw="$(shasum -a 256 "$runtime/libglfw.3.dylib" | cut -d ' ' -f 1)"
+          vulkan="$(shasum -a 256 "$runtime/libvulkan.1.dylib" | cut -d ' ' -f 1)"
+          installed="$work/Installed Signal Vault"
+          "$KAIRO_PYTHON" -B scripts/install_local_macos_game.py "$archive" "$installed" "$runtime" \
+            --glfw-sha256 "$glfw" --vulkan-sha256 "$vulkan"
+          (cd "$installed" && find . -type f -print0 | xargs -0 shasum -a 256 | sort) > "$work/before"
+          env -i HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" PATH=/usr/bin:/bin:/usr/sbin:/sbin "$installed/run.sh" --validate
+          env -i HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" PATH=/usr/bin:/bin:/usr/sbin:/sbin "$installed/run.sh" --renderer metal --smoke
+          (cd "$installed" && find . -type f -print0 | xargs -0 shasum -a 256 | sort) > "$work/after"
+          cmp "$work/before" "$work/after"
+          test "$(shasum -a 256 "$archive" | cut -d ' ' -f 1)" = 04e0bc2adc9481081af58d48813c0a1a5f84163f811fc73a18a65abc5eac29fc
+          echo "Private game relocation passed; no rewritten binaries published"
