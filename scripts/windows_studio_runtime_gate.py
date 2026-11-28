@@ -96,26 +96,33 @@ for template in TEMPLATES:
     project = create(template.key, 'Runtime ' + template.key, projects, studio)
     assert run_cli(ProjectTools(project, build, studio), 'validate') == 0
     assert editor_command(project, build, 'auto', studio)
-project = projects / 'Runtime world2d/Project.kproject'
-archive = projects / 'Creator game.zip'
-assert run_cli(ProjectTools(project, build, studio), 'package', archive=archive) == 0
-files = verify(archive)['files']
-assert 'project/KairoNotices/notice-index.json' in files
-assert 'project/ThirdPartySourceNotices/source-notices.json' in files
-unpack(archive, projects / 'Exported game')
+for key in ('world2d', 'arena'):
+    project = projects / f'Runtime {key}/Project.kproject'
+    archive = projects / f'Creator {key}.zip'
+    assert run_cli(ProjectTools(project, build, studio), 'package', archive=archive) == 0
+    files = verify(archive)['files']
+    assert 'project/KairoNotices/notice-index.json' in files
+    assert 'project/ThirdPartySourceNotices/source-notices.json' in files
+    unpack(archive, projects / f'Exported {key}')
 '''
     def run(*args):
         subprocess.run([str(a) for a in args], cwd=work, env=env, check=True, timeout=180)
     run(sys.executable, '-B', '-c', code, studio, projects)
     run(system / 'System32/cmd.exe', '/d', '/c', studio / 'launch-studio.cmd', '--help')
     run(studio / 'build/game-clang/components/KairoEditor/KairoEditorApp.exe', '--project', projects / 'Runtime empty/Project.kproject', '--renderer', 'd3d12', '--frames', '3', '--no-layout-persistence')
-    run(projects / 'Exported game/bin/KairoPlayer.exe', projects / 'Exported game/project/Project.kproject', '--renderer', 'd3d12', '--smoke')
+    world2d = projects / 'Exported world2d'
+    run(world2d / 'bin/KairoPlayer.exe', world2d / 'project/Project.kproject', '--validate')
+    # World2D rendering requires a Metal or Vulkan overlay. Exercise the
+    # same relocated Player on the D3D12-supported 3D Arena template.
+    arena = projects / 'Exported arena'
+    run(arena / 'bin/KairoPlayer.exe', arena / 'project/Project.kproject', '--renderer', 'd3d12', '--smoke')
     require(inventory(studio) == before, 'Installed Studio changed')
     return {'schema': 1, 'source_commit': COMMIT, 'archive_sha256': ARCHIVE_SHA, 'native_import_inventory_sha256': IMPORT_SHA,
             'runtime_prerequisite_hashes': {name: digest(runtime / name) for name in DLLS},
             'glfw_matches_original_candidate': digest(runtime / 'glfw3.dll') == next(r['sha256'] for r in evidence['windows_candidate_graph'] if r['name'] == 'glfw3.dll'),
             'system_vulkan_present': (system / 'System32/vulkan-1.dll').is_file(),
             'developer_path_removed': True, 'seven_templates_validated': True, 'creator_export_validated': True,
+            'world2d_exported_player_validated': True, 'd3d12_exported_arena_smoke': True,
             'd3d12_editor_and_player_smoke': True, 'installed_tree_unchanged': True,
             'fresh_machine_qualified': False, 'dependency_closure_verified': False, 'third_party_licenses_verified': False}
 
