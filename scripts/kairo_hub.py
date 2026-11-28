@@ -9,7 +9,7 @@ import tempfile
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from kairo_hub_core import ROOT, TEMPLATES, RecentProjects, create, descriptor, default_recent_path, editor_command
+from kairo_hub_core import ROOT, TEMPLATES, RecentProjects, create, descriptor, default_recent_path, editor_command, workbench_command
 
 BG, PANEL, FIELD, BORDER = "#1a1c1f", "#25282c", "#202226", "#393d43"
 TEXT, MUTED, ACCENT, HOVER = "#eef0f4", "#adb4bf", "#245ac0", "#2966cc"
@@ -27,6 +27,7 @@ class Hub(ttk.Frame):
         self.template = tk.StringVar(value="empty")
         self.status = tk.StringVar(value=self.recent.warning or "Ready")
         self.process = self.log = self.future = None
+        self.process_label = None
         self.worker = ThreadPoolExecutor(max_workers=1)
         self.pack(fill="both", expand=True)
         self.columnconfigure(1, weight=1)
@@ -105,6 +106,8 @@ class Hub(ttk.Frame):
         bottom = ttk.Frame(page)
         bottom.grid(row=4, column=0, sticky="w", pady=10)
         ttk.Button(bottom, text="Open selected", command=self.open_selected).pack(side="left")
+        self.tools_button = ttk.Button(bottom, text="Project tools…", command=self.open_workbench_selected)
+        self.tools_button.pack(side="left", padx=(8, 0))
         ttk.Button(bottom, text="Remove from recents", command=self.remove_selected).pack(side="left", padx=8)
         self.recent_rows = {}
 
@@ -254,6 +257,13 @@ class Hub(ttk.Frame):
         if value:
             self.open_project(value)
 
+    def open_workbench_selected(self):
+        value = self.selected()
+        if value:
+            self.open_workbench(value)
+        else:
+            self.status.set("Select a project to open its tools.")
+
     def remove_selected(self):
         value = self.selected()
         if value:
@@ -265,44 +275,53 @@ class Hub(ttk.Frame):
                 self.status.set(str(error))
 
     def open_project(self, path):
+        self.launch_project(path, editor_command, "Editor")
+
+    def open_workbench(self, path):
+        self.launch_project(path, workbench_command, "Project Workbench")
+
+    def launch_project(self, path, resolve_command, label):
+        # One project tool at a time from this Hub prevents competing edits.
         if self.process is not None or self.future is not None:
-            self.status.set("An editor or project creation is already active.")
+            self.status.set("A project tool or project creation is already active.")
             return
         try:
             project = descriptor(path)
-            command = editor_command(project, self.build.get(), self.renderer.get(), self.root)
+            command = resolve_command(project, self.build.get(), self.renderer.get(), self.root)
             self.log = tempfile.TemporaryFile(mode="w+b")
             self.process = subprocess.Popen(command, cwd=project.parent, stdout=self.log, stderr=subprocess.STDOUT)
+            self.process_label = label
         except (OSError, ValueError) as error:
             if self.log is not None:
                 self.log.close()
                 self.log = None
-            self.status.set(f"Cannot open project: {error}")
+            self.status.set(f"Cannot open {label}: {error}")
             return
         try:
             self.recent.touch(project)
             self.refresh()
-            self.status.set(f"Editor running · {project.parent.name}")
+            self.status.set(f"{label} running · {project.parent.name}")
         except (OSError, ValueError) as error:
-            self.status.set(f"Editor running; recent list was not saved: {error}")
+            self.status.set(f"{label} running; recent list was not saved: {error}")
         self.show("recent")
-        self.after(100, self.poll_editor)
+        self.after(100, self.poll_project_tool)
 
-    def poll_editor(self):
+    def poll_project_tool(self):
         code = self.process.poll()
         if code is None:
-            self.after(100, self.poll_editor)
+            self.after(100, self.poll_project_tool)
             return
         self.log.seek(0, 2)
         self.log.seek(max(0, self.log.tell() - 4096))
         output = self.log.read(4096).decode("utf-8", errors="replace").strip()
         self.log.close()
         self.log = self.process = None
-        self.status.set("Editor closed." if code == 0 else f"Editor failed ({code}): {output[-500:]}")
+        label, self.process_label = self.process_label, None
+        self.status.set(f"{label} closed." if code == 0 else f"{label} failed ({code}): {output[-500:]}")
 
     def create_project(self):
         if self.future is not None or self.process is not None:
-            self.status.set("An editor or project creation is already active.")
+            self.status.set("A project tool or project creation is already active.")
             return
         self.create_button.configure(state="disabled")
         self.status.set("Creating project…")
@@ -335,7 +354,7 @@ class Hub(ttk.Frame):
             return
         self.worker.shutdown(wait=False)
         if self.log is not None:
-            self.log.close()  # Child has its own handle; do not kill the editor.
+            self.log.close()  # Child has its own handle; do not kill the project tool.
         self.parent.destroy()
 
 
