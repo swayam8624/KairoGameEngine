@@ -55,17 +55,7 @@ jobs:
               Copy-Item -LiteralPath "$vcpkg\installed\x64-windows\bin\$dll" -Destination $runtime
           }
           "KAIRO_VULKAN_RUNTIME=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Append
-      - name: Install native Vulkan enumeration tool
-        shell: pwsh
-        run: |
-          choco install vulkan-sdk -y --no-progress
-          if ($LASTEXITCODE -ne 0) { throw 'Vulkan SDK installation failed' }
-          $tool = Get-ChildItem -Path 'C:\VulkanSDK' -Filter vulkaninfo.exe -Recurse |
-              Where-Object { $_.Directory.Name -eq 'Bin' } |
-              Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $tool) { throw 'Missing native vulkaninfo' }
-          $tool.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append
-
+          "KAIRO_CI_VULKAN_LOADER=$(Join-Path $runtime 'vulkan-1.dll')" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Locate an installed SwiftShader ICD without redistributing it
         shell: pwsh
         run: |
