@@ -5,6 +5,8 @@ on:
     paths:
       - 'scripts/windows_studio_runtime_gate.py'
       - 'scripts/repeat_creator_export.py'
+      - 'scripts/install_local_windows_game.py'
+      - 'scripts/tests/test_install_local_windows_game.py'
       - '.github/workflows/windows-isolated-runtime.yml'
   workflow_dispatch:
 
@@ -50,6 +52,12 @@ jobs:
               Copy-Item -LiteralPath "$vcpkg\installed\x64-windows\bin\$dll" -Destination $runtime
           }
           "KAIRO_RUNTIME_ROOT=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Run private game installer fixtures
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'scripts'
+          python -B -m unittest discover -s scripts/tests -p test_install_local_windows_game.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Local installer regression failed' }
       - name: Run exact installed Studio on isolated runtime PATH
         shell: pwsh
         run: |
