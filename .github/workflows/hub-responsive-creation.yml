@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'scripts/kairo_hub.py'
+      - 'scripts/kairo_game_installer.py'
+      - 'scripts/tests/test_game_installer_tk.py'
       - 'scripts/kairo_hub_core.py'
       - 'scripts/kairo_project_workflow.py'
       - 'scripts/tests/test_hub_workbench.py'
@@ -36,3 +38,5 @@ jobs:
         run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_workbench_package.py -v
       - name: Exercise creation of the complete reference game
         run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_signal_vault_template.py -v
+      - name: Exercise desktop game installer layout and asynchronous check
+        run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_game_installer_tk.py -v
