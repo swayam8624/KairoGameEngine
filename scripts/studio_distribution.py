@@ -24,7 +24,7 @@ SCRIPTS = ('kairo_hub.py', 'kairo_hub_core.py', 'kairo_project_workflow.py',
            'create_kairo_project.py', 'kairo_world2d_editor.py', 'kairo_platformer_editor.py',
            'kairo_gameplay_editor.py', 'kairo_menu_designer.py', 'kairo_ui2d_designer.py',
            'kairo_audio2d_editor.py', 'kairo_vfx2d_editor.py', 'kairo_release.py', 'studio_game_export.py', 'install_local_windows_game.py',
-           'install_local_macos_game.py')
+           'install_local_macos_game.py', 'verify_private_game_install.py')
 SAMPLES = ('PlayableVerticalSlice', 'BeaconRun', 'KeyGateArena', 'PlatformerProject',
            'World2DProject', 'PhysicsWorld2DProject', 'SignalVault')
 TOOLS = {'components/KairoEditor': ('KairoEditorApp', 'KairoProjectCompiler'),
@@ -110,7 +110,7 @@ def stage(source, build, dest):
         else:
             (dest / 'launch-studio.sh').write_text('#!/bin/sh\nset -eu\nROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "${KAIRO_PYTHON:-python3}" -B "$ROOT/scripts/kairo_hub.py" "$@"\n', encoding='utf-8')
             (dest / 'launch-studio.sh').chmod(0o755)
-        (dest / 'README.txt').write_text('Kairo Studio developer-host distribution\nRequires Python 3.11+ with Tk and native graphics/runtime dependencies.\nOn macOS, install a matching Python/Tk pair (for example brew install python@3.13 python-tk@3.13), then set KAIRO_PYTHON to its full interpreter path before launching.\nRun launch-studio.cmd on Windows or ./launch-studio.sh on Unix; projects are stored outside this directory.\nNo compiler or build system is invoked by the launcher.\nWindows private game installation: scripts/install_local_windows_game.py --help describes explicitly supplied, hash-verified local GLFW and Vulkan DLLs. The public game ZIP is unchanged; this does not authorize redistribution.\nApple Silicon private game installation: scripts/install_local_macos_game.py --help describes explicit local dylib hashes and private native relocation. Not a notarized or redistributable package.\nUnsigned, not clean-machine qualified.\n', encoding='utf-8')
+        (dest / 'README.txt').write_text('Kairo Studio developer-host distribution\nRequires Python 3.11+ with Tk and native graphics/runtime dependencies.\nOn macOS, install a matching Python/Tk pair (for example brew install python@3.13 python-tk@3.13), then set KAIRO_PYTHON to its full interpreter path before launching.\nRun launch-studio.cmd on Windows or ./launch-studio.sh on Unix; projects are stored outside this directory.\nNo compiler or build system is invoked by the launcher.\nWindows private game installation: scripts/install_local_windows_game.py --help describes explicitly supplied, hash-verified local GLFW and Vulkan DLLs. The public game ZIP is unchanged; this does not authorize redistribution.\nApple Silicon private game installation: scripts/install_local_macos_game.py --help describes explicit local dylib hashes and private native relocation. Not a notarized or redistributable package.\nPrivate installation audit: scripts/verify_private_game_install.py --help verifies the original ZIP and immutable installation against a trusted receipt SHA-256. Capture the receipt digest at installation time and store it separately. This is not a signature or dependency audit.\nUnsigned, not clean-machine qualified.\n', encoding='utf-8')
         files = inventory(dest)
         (dest / INDEX).write_text(json.dumps(files, sort_keys=True, indent=2) + '\n', encoding='utf-8')
         return files
