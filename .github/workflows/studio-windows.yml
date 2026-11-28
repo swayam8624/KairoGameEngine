@@ -8,6 +8,9 @@ on:
       - 'workspace.lock'
       - 'scripts/studio_distribution.py'
       - 'scripts/tests/test_studio_distribution.py'
+      - 'scripts/studio_import_inventory.py'
+      - 'scripts/tests/test_studio_import_inventory.py'
+      - 'scripts/native_dependency_audit.py'
       - '.github/workflows/studio-windows.yml'
   workflow_dispatch:
 
@@ -79,13 +82,15 @@ jobs:
           set -euo pipefail
           export PYTHONPATH=scripts
           python -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
+          python -m unittest discover -s scripts/tests -p test_studio_import_inventory.py -v
           scratch="$(mktemp -d)"
           trap 'rm -rf "$scratch"' EXIT
           git archive HEAD LICENSE workspace.lock scripts \
             Samples/PlayableVerticalSlice Samples/BeaconRun Samples/KeyGateArena \
             Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
             Samples/SignalVault | tar -xf - -C "$scratch"
-          python scripts/studio_distribution.py "$scratch" build/studio-msvc studio-windows-evidence
+          python scripts/studio_distribution.py "$scratch" build/studio-msvc studio-windows-evidence \
+              --dll-root "$CMAKE_PREFIX_PATH/bin"
 
       - name: Upload qualified developer-host Studio archive
         uses: actions/upload-artifact@v7
