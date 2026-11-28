@@ -336,6 +336,7 @@ jobs:
             Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
             Samples/SignalVault | tar -xf - -C "$scratch"
           PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_import_inventory.py -v
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical
           else
