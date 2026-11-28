@@ -249,7 +249,8 @@
         "KairoEditorAssetImportBatchTests",
         "KairoEditorRenderBridgeTests",
         "KairoEditorUITests",
-        "KairoEditorPhysicsPreviewTests"
+        "KairoEditorPhysicsPreviewTests",
+        "KairoEditorWindowsProcessArgumentsTests"
       ]
     }
   ],
@@ -315,7 +316,7 @@
       "configurePreset": "studio-msvc",
       "filter": {
         "include": {
-          "name": "^KairoEditor(Tests|Phase4Tests|SelectionBoundsTests|ViewportClickTests|ViewportInteractionTests|SelectionContourTests|AnimationTimelineTests|LogicTraceCaptureTests|AssetPreviewPixelsTests|AssetImportBatchTests|RenderBridgeTests|UITests|PhysicsPreviewTests)$"
+          "name": "^KairoEditor(Tests|Phase4Tests|SelectionBoundsTests|ViewportClickTests|WindowsProcessArgumentsTests|ViewportInteractionTests|SelectionContourTests|AnimationTimelineTests|LogicTraceCaptureTests|AssetPreviewPixelsTests|AssetImportBatchTests|RenderBridgeTests|UITests|PhysicsPreviewTests)$"
         }
       },
       "output": {
