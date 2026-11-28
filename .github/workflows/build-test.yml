@@ -324,6 +324,23 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+      - name: Capture actual fetched third-party source notices
+        if: matrix.preset != 'ci-sanitized'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python -m unittest discover -s scripts/tests -p test_build_notice_inventory.py -v
+          PYTHONPATH=scripts python -c 'import sys; from build_notice_inventory import collect; collect(sys.argv[1], sys.argv[2], sys.argv[3] == "ci-clang")' \
+            "build/${{ matrix.preset }}" build-source-notices "${{ matrix.preset }}"
+
+      - name: Upload fetched dependency notice evidence
+        if: matrix.preset != 'ci-sanitized'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SourceNotices-${{ matrix.platform }}-${{ matrix.preset }}
+          path: build-source-notices/
+          if-no-files-found: error
+
       - name: Qualify relocated Studio Hub, Editor, Player and project tools
         if: matrix.preset == 'ci-clang'
         shell: bash
