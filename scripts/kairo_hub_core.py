@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMIT = 32
@@ -214,3 +215,16 @@ def editor_command(path, build, renderer="auto", root=ROOT):
     from kairo_project_workflow import ProjectTools
     tools = ProjectTools(descriptor(path), build, root)
     return tools.commands("editor", renderer)[0]
+
+
+def workbench_command(path, build, renderer="auto", root=ROOT):
+    """Open the existing project workflow with the same project and renderer."""
+    from kairo_project_workflow import ProjectTools
+    tools = ProjectTools(descriptor(path), build, root)
+    if renderer not in ("auto", "metal", "vulkan", "opengl", "d3d12"):
+        raise ValueError("Unknown renderer")
+    script = tools.root / "scripts/kairo_project_workflow.py"
+    if not script.is_file():
+        raise ValueError("Project Workbench script missing")
+    return [sys.executable, "-B", str(script), str(tools.project),
+            "--build", str(tools.build), "--renderer", renderer]

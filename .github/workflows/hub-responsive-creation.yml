@@ -5,6 +5,8 @@ on:
     paths:
       - 'scripts/kairo_hub.py'
       - 'scripts/kairo_hub_core.py'
+      - 'scripts/kairo_project_workflow.py'
+      - 'scripts/tests/test_hub_workbench.py'
       - 'scripts/tests/test_hub_layout.py'
       - 'Samples/World2DProject/**'
       - '.github/workflows/hub-responsive-creation.yml'
@@ -25,3 +27,5 @@ jobs:
           sudo apt-get install -y python3-tk xvfb xauth fonts-dejavu-core
       - name: Exercise real Tk layout and project creation
         run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_hub_layout.py -v
+      - name: Exercise real Hub to Workbench process handoff
+        run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_hub_workbench.py -v
