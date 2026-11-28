@@ -252,6 +252,15 @@ unpack(archive, projects / 'Exported game')
             creator_evidence = json.loads(result.stdout.strip().splitlines()[-1])
             require(creator_evidence['authored_ui_and_campaign_edits_exported'] and
                     creator_evidence['both_relocated_players_validated'], 'Incomplete creator workflow evidence')
+            if renderer is not None:
+                require(creator_evidence['relocated_graphical_smoke'] is True and
+                        creator_evidence['requested_renderer'] == renderer, 'Required creator graphics evidence missing')
+            if creator_runtime is not None:
+                require(creator_evidence['private_install_and_launch_validation'] is True and
+                        creator_evidence['private_developer_path_removed'] is True and
+                        len(creator_evidence['runtime_library_sha256']) == 2 and
+                        (renderer is None or creator_evidence['private_graphical_smoke'] is True),
+                        'Required private creator installation evidence missing')
         # Exercise the actual packaged launcher without opening a GUI.
         launcher = installed / ('launch-studio.cmd' if os.name == 'nt' else 'launch-studio.sh')
         launch_env = {**env, 'KAIRO_PYTHON': sys.executable}

@@ -1,12 +1,14 @@
 """Portable tests for the creator harness's fail-closed native execution gate."""
 from contextlib import redirect_stdout
 import io
+import os
+from unittest.mock import patch
 from pathlib import Path
 import sys
 import tempfile
 import unittest
 
-from qualify_complete_creator_workflow import inventory, native
+from qualify_complete_creator_workflow import inventory, native, isolated_runtime_path
 
 
 class CreatorGateTests(unittest.TestCase):
@@ -19,6 +21,24 @@ class CreatorGateTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'Native operation failed'):
                 native([sys.executable, '-c', "print('real marker'); raise SystemExit(7)"],
                        work, marker='real marker')
+
+    def test_private_launch_environment_is_restored_after_error(self):
+        with patch.dict(os.environ, {'PATH': 'developer path', 'DYLD_LIBRARY_PATH': 'override',
+                                    'VCPKG_ROOT': 'developer root', 'PYTHONPATH': 'source modules',
+                                    'VK_DRIVER_FILES': 'explicit driver'}, clear=True):
+            original = os.environ.copy()
+            # Exercise the macOS policy portably without running native binaries.
+            with patch('qualify_complete_creator_workflow.os.name', 'posix'), \
+                 patch('qualify_complete_creator_workflow.sys.platform', 'darwin'):
+                with self.assertRaisesRegex(RuntimeError, 'fixture failure'):
+                    with isolated_runtime_path():
+                        self.assertEqual(os.environ['PATH'], '/usr/bin:/bin:/usr/sbin:/sbin')
+                        self.assertNotIn('DYLD_LIBRARY_PATH', os.environ)
+                        self.assertNotIn('VCPKG_ROOT', os.environ)
+                        self.assertNotIn('PYTHONPATH', os.environ)
+                        self.assertEqual(os.environ['VK_DRIVER_FILES'], 'explicit driver')
+                        raise RuntimeError('fixture failure')
+            self.assertEqual(os.environ.copy(), original)
 
     def test_inventory_detects_mutation_and_missing_files(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -7,6 +7,7 @@ compiler, document validator and Player. All mutations occur in a new project
 under a caller-selected scratch directory.
 """
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -38,6 +39,32 @@ def native(command, cwd, env=None, marker=None):
     require(result.returncode == 0, 'Native operation failed: ' + str(command[0]))
     if marker:
         require(marker in result.stdout, 'Native execution did not report: ' + marker)
+
+
+@contextmanager
+def isolated_runtime_path():
+    """Remove developer library paths only around the private native launch.
+
+    Retain the explicitly configured graphics ICD and normal user environment.
+    This tests the private installation under a narrower search environment;
+    it does not prove actual OS loader selection or dependency closure.
+    """
+    previous = os.environ.copy()
+    try:
+        if os.name == 'nt':
+            system = Path(previous['SystemRoot'])
+            os.environ['PATH'] = os.pathsep.join(map(str, (system / 'System32', system)))
+        elif sys.platform == 'darwin':
+            os.environ['PATH'] = '/usr/bin:/bin:/usr/sbin:/sbin'
+        else:
+            raise RuntimeError('Private native path isolation is supported on Windows and macOS')
+        for key in list(os.environ):
+            if key.upper().startswith(('DYLD_', 'LD_', 'VCPKG_')) or key.upper() in ('CMAKE_PREFIX_PATH', 'PYTHONPATH', 'PYTHONHOME'):
+                os.environ.pop(key, None)
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(previous)
 
 
 def qualify(studio, work, renderer=None, runtime=None):
@@ -143,6 +170,7 @@ def qualify(studio, work, renderer=None, runtime=None):
                marker='Native World2D textured atlas viewport smoke passed')
         require(inventory(relocated) == before, 'Graphical smoke altered relocated game')
     private_result = False
+    runtime_hashes = None
     if runtime is not None:
         from local_runtime_discovery import inspect_runtime
         from kairo_game_installer import install_game, use_ticket
@@ -151,19 +179,21 @@ def qualify(studio, work, renderer=None, runtime=None):
         report = inspect_runtime(runtime, host_target(platform.system(), platform.machine()))
         # CI supplies a trusted local package source. These observed pins
         # bind this specific test, not third-party publisher authenticity.
-        pins = [entry['sha256'] for entry in report['files'].values()]
+        runtime_hashes = {name: entry['sha256'] for name, entry in report['files'].items()}
+        pins = list(runtime_hashes.values())
         destination, ticket = work / 'Private edited game', work / 'External launch ticket.json'
         install_game(second, destination, runtime, *pins, ticket)
-        require(use_ticket(ticket, renderer or 'auto', 'check')['native_import_preflight_passed'],
-                'Private installation preflight failed')
-        use_ticket(ticket, renderer or 'auto', 'validate')
-        if renderer:
-            outcome = use_ticket(ticket, renderer, 'smoke')
-            print(outcome['output_tail'], flush=True)
-            require('Native World2D textured atlas viewport smoke passed' in outcome['output_tail'],
-                    'Private smoke did not report real atlas rendering')
-        require(use_ticket(ticket, renderer or 'auto', 'check')['immutable_file_integrity_verified'],
-                'Private installed game changed after launch')
+        with isolated_runtime_path():
+            require(use_ticket(ticket, renderer or 'auto', 'check')['native_import_preflight_passed'],
+                    'Private installation preflight failed')
+            use_ticket(ticket, renderer or 'auto', 'validate')
+            if renderer:
+                outcome = use_ticket(ticket, renderer, 'smoke')
+                print(outcome['output_tail'], flush=True)
+                require('Native World2D textured atlas viewport smoke passed' in outcome['output_tail'],
+                        'Private smoke did not report real atlas rendering')
+            require(use_ticket(ticket, renderer or 'auto', 'check')['immutable_file_integrity_verified'],
+                    'Private installed game changed after launch')
         private_result = True
     require(inventory(studio) == studio_before, 'Creator workflow altered installed Studio')
     return {'schema': 1, 'template': 'signalvault', 'original_archive_sha256': first_hash,
@@ -173,6 +203,9 @@ def qualify(studio, work, renderer=None, runtime=None):
             'relocated_graphical_smoke': renderer is not None,
             'private_install_and_launch_validation': private_result,
             'private_graphical_smoke': private_result and renderer is not None,
+            'private_developer_path_removed': private_result,
+            'requested_renderer': renderer, 'runtime_library_sha256': runtime_hashes,
+            'actual_loader_selection_verified': False,
             'hardware_gpu_qualified': False, 'dependency_closure_verified': False,
             'redistribution_approved': False}
 

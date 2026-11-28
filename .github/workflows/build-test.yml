@@ -365,7 +365,8 @@ jobs:
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical --notice-engine "$GITHUB_WORKSPACE"
           else
-            "${KAIRO_STUDIO_PYTHON:?Missing Tk-capable Studio Python}" scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE"
+            "${KAIRO_STUDIO_PYTHON:?Missing Tk-capable Studio Python}" scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE" \
+              --creator-runtime /opt/homebrew --creator-renderer metal
           fi
 
       - name: Upload exact tested Studio toolset archive
