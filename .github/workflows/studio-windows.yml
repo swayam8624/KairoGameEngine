@@ -119,6 +119,7 @@ jobs:
           set -euo pipefail
           export PYTHONPATH=scripts
           python -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
+          python -m unittest discover -s scripts/tests -p test_windows_ci_vulkan_driver.py -v
           python -m unittest discover -s scripts/tests -p test_first_party_notices.py -v
           python -m unittest discover -s scripts/tests -p test_studio_import_inventory.py -v
           python -m unittest discover -s scripts/tests -p test_studio_dll_bundle.py -v
