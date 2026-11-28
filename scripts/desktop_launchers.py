@@ -14,7 +14,9 @@ if [ ! -e "$DATA/project" ]; then
     trap 'exit 1' HUP INT TERM
     if [ ! -e "$DATA/project" ]; then
         cp -R -- "$HERE/../Resources/project" "$LOCK/project"
-        chmod -R u+rwX -- "$LOCK/project"
+        # BSD chmod on macOS treats -- after the mode as a pathname.
+        # LOCK is rooted in the selected absolute data directory.
+        chmod -R u+rwX "$LOCK/project"
         mv -- "$LOCK/project" "$DATA/project"
     fi
     rmdir -- "$LOCK"
