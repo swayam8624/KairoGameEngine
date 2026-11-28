@@ -194,7 +194,7 @@ def qualify(source, build, output, graphical=False, dll_roots=(), dll_policy=Non
             # Windows system libraries and the installed Python remain host prerequisites.
             env['PATH'] = os.pathsep.join((str(system_dir), os.environ['SystemRoot']))
         # Execute the installed Python modules from a different cwd, using
-        # the real compiler and Player for all seven Hub template types.
+        # the real compiler and Player for every available Hub template.
         code = '''from pathlib import Path
 import sys
 from kairo_hub_core import TEMPLATES, create, editor_command
