@@ -11,6 +11,7 @@ import sys
 
 import kairo_release as release
 from launch_private_game import RENDERERS, host_target, preflight
+from local_runtime_discovery import inspect_runtime, staged_runtime
 from verify_private_game_install import audit, record
 
 
@@ -32,6 +33,8 @@ def install_game(archive, destination, runtime, glfw_hash, vulkan_hash, ticket):
                     'Keep the launch ticket outside the game installation')
     release.require(not ticket.resolve().is_relative_to(runtime),
                     'Keep the launch ticket outside the runtime source')
+    release.require(not destination.resolve().is_relative_to(runtime),
+                    'Keep installation outside the runtime source')
     target = release.verify(archive)['target']
     release.require(target == host_target(platform.system(), platform.machine()),
                     'Release archive does not match this native host')
@@ -47,7 +50,8 @@ def install_game(archive, destination, runtime, glfw_hash, vulkan_hash, ticket):
     # A failed installer does not leave a usable launch ticket.
     with ticket.open('x', encoding='utf-8') as stream:
         try:
-            install(archive, destination, runtime, dict(zip(names, (glfw_hash, vulkan_hash))))
+            with staged_runtime(runtime, target, glfw_hash, vulkan_hash) as staged:
+                install(archive, destination, staged, dict(zip(names, (glfw_hash, vulkan_hash))))
             pin = record(destination / 'local-runtime.json')['sha256']
             result = audit(archive, destination, pin)
             data = {'schema': 1, 'archive': str(archive), 'installation': str(destination),
@@ -61,6 +65,10 @@ def install_game(archive, destination, runtime, glfw_hash, vulkan_hash, ticket):
             raise ValueError(f'Installation or ticket creation failed: {error}. '
                              f'Inspect {destination} and the incomplete ticket {ticket}.') from error
     return result
+
+
+def inspect_for_host(root):
+    return inspect_runtime(root, host_target(platform.system(), platform.machine()))
 
 
 def read_ticket(ticket):
@@ -130,7 +138,7 @@ def gui(root=None, *, run_loop=True):
     frame.columnconfigure(1, weight=1)
     frame.rowconfigure(12, weight=1)
     ttk.Label(frame, text='KAIRO / GAME INSTALLER', font=('TkDefaultFont', 16, 'bold')).grid(row=0, column=0, columnspan=3, sticky='w')
-    ttk.Label(frame, text='Private installation only. Supply trusted native libraries and their known SHA-256 hashes.',
+    ttk.Label(frame, text='Private installation only. Select a flat runtime folder, vcpkg root or Homebrew prefix. Inspect local files, then supply trusted SHA-256 pins.',
               style='Muted.TLabel', wraplength=710).grid(row=1, column=0, columnspan=3, sticky='w', pady=(4, 12))
     values = {key: tk.StringVar() for key in ('archive', 'destination', 'runtime', 'glfw', 'vulkan', 'ticket')}
     renderer = tk.StringVar(value='auto')
@@ -167,7 +175,7 @@ def gui(root=None, *, run_loop=True):
             values[key].set(chosen)
 
     for row, (key, label) in enumerate((('archive', 'Game ZIP'), ('destination', 'New game folder'),
-                                        ('runtime', 'Local runtime folder'), ('glfw', 'GLFW SHA-256'),
+                                        ('runtime', 'Local runtime source'), ('glfw', 'GLFW SHA-256'),
                                         ('vulkan', 'Vulkan SHA-256'), ('ticket', 'External launch ticket')), 2):
         ttk.Label(frame, text=label).grid(row=row, column=0, sticky='w', pady=4)
         entry = ttk.Entry(frame, textvariable=values[key])
@@ -204,6 +212,8 @@ def gui(root=None, *, run_loop=True):
             result = future.result()
             output = json.dumps(result, sort_keys=True, indent=2)
             status.set('Completed. Static checks do not certify GPU or driver readiness.')
+            if result.get('observed_hashes_only'):
+                status.set('Runtime pair found. Compare the observed hashes with independently trusted pins before installation.')
         except Exception as error:
             output = str(error)
             status.set('Operation rejected; see details below.')
@@ -217,7 +227,12 @@ def gui(root=None, *, run_loop=True):
         if pending is not None:
             return
         args = {key: value.get().strip() for key, value in values.items()}
-        if action == 'install':
+        if action == 'inspect':
+            if not args['runtime']:
+                status.set('Select a local runtime directory or package-manager prefix first.')
+                return
+            job = (inspect_for_host, args['runtime'])
+        elif action == 'install':
             if not all(args.values()):
                 status.set('Complete every installation field before proceeding.')
                 return
@@ -240,12 +255,14 @@ def gui(root=None, *, run_loop=True):
         pending = worker.submit(*job)
         root.after(80, poll)
 
-    for label, command in [('Install', lambda: start('install')), ('Open ticket…', open_ticket),
+    for label, command in [('Inspect runtime', lambda: start('inspect')), ('Install', lambda: start('install')), ('Open ticket…', open_ticket),
                            ('Check', lambda: start('check')), ('Validate', lambda: start('validate')),
                            ('Smoke', lambda: start('smoke')), ('Play', lambda: start('play'))]:
         button = ttk.Button(bar, text=label, command=command,
                             style='Primary.TButton' if label == 'Install' else 'TButton')
-        button.pack(side='left', padx=(0, 5))
+        index = len(bar.winfo_children()) - 1
+        bar.columnconfigure(index % 4, weight=1, uniform='actions')
+        button.grid(row=index // 4, column=index % 4, sticky='ew', padx=2, pady=2)
         controls.append(button)
     ttk.Label(frame, textvariable=status, wraplength=710).grid(row=10, column=0, columnspan=3, sticky='w')
     ttk.Label(frame, text='Operation details', style='Muted.TLabel').grid(row=11, column=0, columnspan=3, sticky='w', pady=(8, 2))
