@@ -11,6 +11,8 @@ on:
       - 'scripts/studio_import_inventory.py'
       - 'scripts/tests/test_studio_import_inventory.py'
       - 'scripts/native_dependency_audit.py'
+      - 'scripts/first_party_notices.py'
+      - 'scripts/tests/test_first_party_notices.py'
       - 'scripts/studio_dll_bundle.py'
       - 'scripts/tests/test_studio_dll_bundle.py'
       - '.github/workflows/studio-windows.yml'
@@ -36,7 +38,7 @@ jobs:
           set -euo pipefail
           components=(KairoMath KairoGeometry KairoSpatial KairoPhysicsMath
                       KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection
-                      KairoEngineCore KairoRenderer KairoEditor)
+                      KairoEngineCore KairoRenderer KairoEditor KairoRayTracer)
           bash scripts/materialize_workspace_lock.sh "${components[@]}"
           bash scripts/verify_workspace_lock.sh "${components[@]}"
 
@@ -84,6 +86,7 @@ jobs:
           set -euo pipefail
           export PYTHONPATH=scripts
           python -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
+          python -m unittest discover -s scripts/tests -p test_first_party_notices.py -v
           python -m unittest discover -s scripts/tests -p test_studio_import_inventory.py -v
           python -m unittest discover -s scripts/tests -p test_studio_dll_bundle.py -v
           scratch="$(mktemp -d)"
@@ -93,7 +96,7 @@ jobs:
             Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
             Samples/SignalVault | tar -xf - -C "$scratch"
           python scripts/studio_distribution.py "$scratch" build/studio-msvc studio-windows-evidence \
-              --dll-root "$CMAKE_PREFIX_PATH/bin"
+              --dll-root "$CMAKE_PREFIX_PATH/bin" --notice-engine "$GITHUB_WORKSPACE"
 
       - name: Upload qualified developer-host Studio archive
         uses: actions/upload-artifact@v7
