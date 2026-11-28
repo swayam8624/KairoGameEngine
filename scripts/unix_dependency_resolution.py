@@ -29,7 +29,11 @@ def parse_loader_list(output):
         line = line.strip()
         if not line:
             continue
-        if line.endswith(' => not found'):
+        if re.fullmatch(r'\(0x[0-9a-fA-F]+\)', line):
+            # Some glibc builds emit an address-only mapping. Preserve its
+            # presence without inventing a filename or asserting its identity.
+            name, path, status = '[unnamed-loader-mapping]', None, 'unnamed-loader-mapping'
+        elif line.endswith(' => not found'):
             name = line.removesuffix(' => not found')
             path, status = None, 'unresolved'
         else:
@@ -79,7 +83,9 @@ def linux_loader_inventory(binary, target, interpreter):
             require(file.is_file(), 'Resolved object is not a regular file')
             row.update(real_path=str(file), sha256=digest(file))
     return {'method': 'host glibc --list without LD_* overrides', 'objects': rows,
-            'host_loader_resolution_verified': True, 'dynamic_loads_inspected': False,
+            'host_loader_resolution_verified': True,
+            'all_loader_mappings_named': all(r['status'] != 'unnamed-loader-mapping' for r in rows),
+            'dynamic_loads_inspected': False,
             'fresh_machine_qualified': False, 'third_party_licenses_verified': False}
 
 
