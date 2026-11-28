@@ -11,11 +11,11 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAYER = ROOT / 'Runtime/KairoPlayer'
-TESTS = ('QuestDialogue', 'QuestSave', 'ItemInventory', 'RpgSession', 'TwoBoneIK', 'AnimationRetarget', 'SkeletonPose', 'PoseLab', 'ImportedTwoBone',
+TESTS = ('CombatPresentation', 'EventDoor', 'GameplayEvents', 'EnemyNavigation', 'Enemy', 'EnemyDamage', 'ProjectileFlight', 'ProjectileCombat', 'Combat', 'Health', 'SlidingDoor', 'ProximityTriggers', 'CollectibleRun', 'QuestDialogue', 'QuestSave', 'ItemInventory', 'RpgSession', 'TwoBoneIK', 'AnimationRetarget', 'SkeletonPose', 'PoseLab', 'ImportedTwoBone',
          'NetworkProtocol', 'NetworkPrediction', 'LoopbackTcp', 'CoopArena', 'CoopWorker', 'Weather', 'RainStreaks',
          'WaterGrid', 'SoftBody', 'TetraSurface', 'TetraPublication', 'BreakableCube', 'MenuDocument', 'MenuFocus', 'MenuPresentation',
          'Platformer', 'Strategy', 'GridCanvas', 'GameLabView')
-HEADERS = ('CraftSaveFile.hpp', 'RuntimeQuestDialogue.hpp', 'RuntimeQuestSave.hpp', 'RuntimeItemInventory.hpp', 'RuntimeRpgSession.hpp',
+HEADERS = ('RuntimeCombatPresentation.hpp', 'RuntimeGameplayEvents.hpp', 'RuntimeEnemyNavigation.hpp', 'RuntimeEnemy.hpp', 'RuntimeProjectileFlight.hpp', 'RuntimeCombat.hpp', 'RuntimeHealth.hpp', 'RuntimeSlidingDoor.hpp', 'RuntimeProgressCheckpoint.hpp', 'RuntimeProximityTriggers.hpp', 'RuntimeCollectibleRun.hpp', 'CraftSaveFile.hpp', 'RuntimeQuestDialogue.hpp', 'RuntimeQuestSave.hpp', 'RuntimeItemInventory.hpp', 'RuntimeRpgSession.hpp',
            'RuntimeTwoBoneIK.hpp', 'RuntimeAnimationRetarget.hpp', 'RuntimeSkeletonPose.hpp', 'RuntimePoseLab.hpp', 'RuntimeImportedTwoBone.hpp', 'RuntimeNetworkProtocol.hpp',
            'RuntimeNetworkPrediction.hpp', 'RuntimeLoopbackTcp.hpp', 'RuntimeCoopArena.hpp', 'RuntimeCoopSession.hpp', 'RuntimeCoopWorker.hpp', 'RuntimeCoopView.hpp', 'RuntimeWeather.hpp',
            'RuntimeRainStreaks.hpp', 'RuntimeWaterGrid.hpp', 'RuntimeSoftBody.hpp', 'RuntimeTetraSurface.hpp', 'VoxelMeshPublication.hpp',
@@ -44,8 +44,9 @@ def run_suite(compiler, report):
     if not sys.platform.startswith('linux'):
         raise RuntimeError('Portable gate currently supports Linux only')
     paths = [PLAYER / name for name in HEADERS]
-    paths += [PLAYER / 'tests' / f'Runtime{name}Tests.cpp' for name in (*TESTS, 'PluginLoader')]
+    paths += [PLAYER / 'tests' / f'Runtime{name}Tests.cpp' for name in (*TESTS, 'PluginLoader', 'ProgressCheckpoint')]
     paths += [ROOT / name for name in SAMPLES]
+    paths.extend((ROOT / 'scripts/run_progress_checkpoint.py', PLAYER / 'CraftSaveFile.hpp'))
     paths.append(Path(__file__).resolve())
     report['sources'] = {str(p.relative_to(ROOT)): fingerprint(p) for p in paths}
     env = dict(os.environ, PYTHONPATH=str(ROOT / 'scripts'))
@@ -79,6 +80,9 @@ def run_suite(compiler, report):
             binary = work / name
             build(name, PLAYER / 'tests' / f'Runtime{name}Tests.cpp', binary, *(['-pthread'] if name in ('LoopbackTcp', 'CoopWorker') else []))
             step('test ' + name, [binary])
+        checkpoint = work / 'progress-checkpoint'
+        build('progress checkpoint', PLAYER / 'tests/RuntimeProgressCheckpointTests.cpp', checkpoint)
+        step('cold progress restore', [sys.executable, ROOT / 'scripts/run_progress_checkpoint.py', checkpoint])
         network = work / 'network-lab'
         build('network lab', ROOT / SAMPLES[0], network)
         step('native loopback', [sys.executable, ROOT / SAMPLES[1], network])

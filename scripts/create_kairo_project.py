@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import uuid
 
@@ -159,10 +160,81 @@ def entity(entity_id, label, obj, parent=None, component=None, collider=False):
     return "\n".join(lines + ["end"]) + "\n"
 
 
-def compile_recipe(recipe_path, template=TEMPLATE):
+def author_gameplay(gameplay, scene, input_text, menu_validator):
+    """Compile bounded gameplay authoring into the existing native formats.
+
+    This is a template-specific spawn/control/menu layer, not a new runtime
+    scripting language. Keep the original camera framing relative to spawn.
+    The native C++ menu validator is the sole authority for menu acceptance.
+    """
+    fields(gameplay, ("spawn", "keyboard", "menu"))
+    if "spawn" in gameplay:
+        x, y, z = vec(gameplay["spawn"], -7, 7)
+        require(-6 <= x <= 6 and -6 <= z <= 6 and .92 <= y <= 6,
+                "Spawn outside the supported arena")
+        def relocate(match):
+            block = match.group(0)
+            entity_id = int(match.group(1))
+            if entity_id not in (1, 20):
+                return block
+            offset = (x, y, z) if entity_id == 1 else (x, y - .92 + 7, z - 3.4 + 12.5)
+            def change(line):
+                values = line.group(1).split()
+                require(len(values) == 10, "Unexpected template transform")
+                return "transform " + " ".join([*(format(v, ".12g") for v in offset), *values[3:]])
+            block, count = re.subn(r"(?m)^transform (.+)$", change, block)
+            require(count == 1, "Missing player/camera transform")
+            return block
+        require(len(re.findall(r"(?m)^entity (?:1|20) ", scene)) == 2,
+                "Unexpected gameplay template")
+        scene = re.sub(r"(?ms)^entity (\d+) .*?^end$", relocate, scene)
+    if "keyboard" in gameplay:
+        keyboard = gameplay["keyboard"]
+        actions = {"forward": "W", "back": "S", "left": "A", "right": "D",
+                   "jump": "Space", "quit": "Escape"}
+        fields(keyboard, actions.keys())
+        actions.update(keyboard)
+        # Only known key names are accepted, with no duplicate bindings.
+        allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ") | {"Space", "Escape"}
+        require(all(isinstance(v, str) and v in allowed for v in actions.values()),
+                "Unsupported keyboard key")
+        require(len(set(actions.values())) == len(actions), "Duplicate keyboard key")
+        replacements = dict(zip(("W", "S", "A", "D", "Space", "Escape"), actions.values()))
+        input_text, count = re.subn(r'(?m)^(bind "(?:Move|Jump|Quit)" key )(\w+)( .+)$',
+                                  lambda m: m[1] + replacements[m[2]] + m[3], input_text)
+        require(count == 6, "Unexpected gameplay input template")
+    menu = None
+    if "menu" in gameplay:
+        buttons = gameplay["menu"]
+        require(isinstance(buttons, list) and 1 <= len(buttons) <= 64, "Invalid menu buttons")
+        rows = ["kairo-menu 1"]
+        for button in buttons:
+            fields(button, ("id", "label", "action", "rect"), ("id", "label", "action", "rect"))
+            ident, label, action, rect = (button[k] for k in ("id", "label", "action", "rect"))
+            require(isinstance(ident, str) and re.fullmatch(r"[a-z0-9-]{1,64}", ident),
+                    "Invalid menu ID")
+            require(isinstance(label, str) and 1 <= len(label) <= 64 and all(32 <= ord(c) <= 126 for c in label),
+                    "Invalid menu label")
+            require(action in ("resume", "quit"), "Invalid menu action")
+            require(isinstance(rect, list) and len(rect) == 4 and all(type(v) is int and 0 <= v <= 1000 for v in rect),
+                    "Invalid menu coordinates")
+            rows.append("button " + quoted(ident) + " " + quoted(label) + " " + action + " " + " ".join(map(str, rect)))
+        require(menu_validator is not None, "Authored menu requires --menu-validator")
+        validator = Path(menu_validator).resolve(strict=True)
+        result = subprocess.run([str(validator)], input=("\n".join(rows) + "\n").encode("ascii"),
+                                capture_output=True, timeout=5)
+        require(result.returncode == 0, "Native menu validator rejected authored menu: " +
+                result.stderr.decode("utf-8", errors="replace")[:512])
+        require(result.stdout.startswith(b"kairo-menu 1\n") and len(result.stdout) <= 32768,
+                "Invalid native menu validator response")
+        menu = result.stdout
+    return scene, input_text, menu
+
+
+def compile_recipe(recipe_path, template=TEMPLATE, *, menu_validator=None):
     recipe_path = recipe_path.resolve(strict=True)
     recipe = parse_json(read_bounded(recipe_path, MAX_RECIPE))
-    fields(recipe, ("name", "layout", "assets", "prefabs", "instances"), ("name", "prefabs", "instances"))
+    fields(recipe, ("name", "layout", "assets", "prefabs", "instances", "gameplay"), ("name", "prefabs", "instances"))
     project_name = name(recipe["name"])
     layout = recipe.get("layout", "arena")
     require(layout in ("arena", "empty"), "Layout must be arena or empty")
@@ -188,6 +260,12 @@ def compile_recipe(recipe_path, template=TEMPLATE):
             if int(re.match(r"entity (\d+) ", block).group(1)) not in omit)
     files = {"Project.kproject": descriptor.encode(), "Config/Input.kinput":
              (template / "Config/Input.kinput").read_bytes()}
+    if "gameplay" in recipe:
+        scene, input_text, menu = author_gameplay(recipe["gameplay"], scene,
+            files["Config/Input.kinput"].decode("utf-8"), menu_validator)
+        files["Config/Input.kinput"] = input_text.encode("utf-8")
+        if menu is not None:
+            files["Config/Menu.kmenu"] = menu
     imports = {}
     provenance = []
     total = 0
@@ -278,8 +356,8 @@ def compile_recipe(recipe_path, template=TEMPLATE):
     return files
 
 
-def create_project(recipe, output, template=TEMPLATE):
-    files = compile_recipe(recipe, template)
+def create_project(recipe, output, template=TEMPLATE, *, menu_validator=None):
+    files = compile_recipe(recipe, template, menu_validator=menu_validator)
     # All recipe validation precedes destination creation. mkdir exclusively
     # reserves a fresh directory; an existing project is never overwritten.
     output = output.absolute()
@@ -300,10 +378,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("recipe", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--menu-validator", type=Path)
     args = parser.parse_args()
     try:
-        print(create_project(args.recipe, args.output))
-    except (ValueError, OSError, RecursionError) as error:
+        print(create_project(args.recipe, args.output, menu_validator=args.menu_validator))
+    except (ValueError, OSError, RecursionError, subprocess.SubprocessError) as error:
         print(f"Kairo project creation failed: {error}", file=sys.stderr)
         return 1
     return 0

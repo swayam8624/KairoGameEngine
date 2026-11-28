@@ -32,7 +32,7 @@ def inventory(root):
 
 
 def source_files(root):
-    """Match the canonical recipe's two authored profile exclusions.
+    """Match the canonical recipe's reserved Build artifact tree.
     Keep compiled logic; omit only transient .kairo subtrees and root .git.
     Reject links and special files before copying any source payload.
     """
@@ -47,7 +47,7 @@ def source_files(root):
     files = []
     def excluded(p):
         parts = p.parts
-        return parts[0] == '.git' or parts[:2] in (('Build','Development'),('Build','Release')) or (
+        return parts[0] in ('.git','Build') or (
             parts[0] == '.kairo' and len(parts)>1 and parts[1] != 'compiled')
     for folder, dirs, names in os.walk(root, followlinks=False):
         current = Path(folder)
@@ -63,6 +63,12 @@ def source_files(root):
             require(len(files)<=100000,'Too many source files')
     require(sum((root/p).stat().st_size for p in files)<=16*1024**3,'Source exceeds byte budget')
     return sorted(files)
+
+
+def authored_inventory(root):
+    """Runtime may create transient cache/output files; authored bytes may not change."""
+    return {p.as_posix(): ((root/p).stat().st_size, digest(root/p))
+            for p in source_files(root)}
 
 
 def verify_provenance(root, hashes, require_evidence=False):
@@ -124,7 +130,14 @@ def verify(player, project, smoke=False, deb=False, catalog_models=None):
         def launch(executable, env=None):
             run([executable,'--validate'],root,env)
             if smoke:run([executable,'--renderer','vulkan','--smoke'],root,env)
-        launch(relocated/'run.sh')
+        # The launcher runs against a writable project. Never exercise it on
+        # the pristine package input: runtime caches are not release payload.
+        playable=root/'playable release'
+        shutil.copytree(relocated,playable)
+        launch(playable/'run.sh')
+        require(authored_inventory(playable/'project')==expected,'Relocated launch changed authored payload')
+        require(inventory(relocated/'project')==expected,'Pristine release payload changed')
+        shutil.rmtree(playable)
         if deb:
             archive=package(relocated,root/'game.deb','kairo-release-fixture','0.1.0','Kairo release test')
             extracted=root/'installed tree';run(['dpkg-deb','-x',archive,extracted],root)
@@ -134,7 +147,7 @@ def verify(player, project, smoke=False, deb=False, catalog_models=None):
             env=dict(os.environ,XDG_DATA_HOME=str(root/'user data'))
             launch(extracted/'usr/bin/kairo-release-fixture',env)
             user=root/'user data/kairo/kairo-release-fixture/0.1.0/project'
-            require(inventory(user)==expected and inventory(installed/'project')==expected,'Installed/user payload differs')
+            require(authored_inventory(user)==expected and inventory(installed/'project')==expected,'Installed/user authored payload differs')
         result={'files':len(actual),'bytes':sum(v[0] for v in actual.values()),'licensed_models':models,'debian':deb,'native_smoke':smoke}
         print(json.dumps(result,sort_keys=True));return result
 

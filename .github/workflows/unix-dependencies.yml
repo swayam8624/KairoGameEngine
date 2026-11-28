@@ -1,0 +1,20 @@
+name: Unix dependency resolution fixtures
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/unix_dependency_resolution.py'
+      - 'scripts/tests/test_unix_dependency_resolution.py'
+      - '.github/workflows/unix-dependencies.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  elf-loader-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_unix_dependency_resolution.py -v

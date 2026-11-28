@@ -1,0 +1,27 @@
+name: Hub responsive creation regression
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/kairo_hub.py'
+      - 'scripts/kairo_hub_core.py'
+      - 'scripts/tests/test_hub_layout.py'
+      - 'Samples/World2DProject/**'
+      - '.github/workflows/hub-responsive-creation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tk-layout-and-create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install graphical test prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb xauth fonts-dejavu-core
+      - name: Exercise real Tk layout and project creation
+        run: PYTHONPATH=scripts PYTHONDONTWRITEBYTECODE=1 xvfb-run -a /usr/bin/python3 -B scripts/tests/test_hub_layout.py -v

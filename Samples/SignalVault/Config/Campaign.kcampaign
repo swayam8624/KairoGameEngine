@@ -1,0 +1,10 @@
+kairo-campaign 1
+title "SIGNAL VAULT"
+levels 3
+main
+climb
+vault
+mix 70 80
+collect 660 90 70
+death 160 160 85
+complete 880 250 70

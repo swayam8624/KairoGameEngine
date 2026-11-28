@@ -31,6 +31,8 @@ jobs:
           PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_verify_project_release.py
       - name: Test native acceptance report checker with real CTest fixtures
         run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_m50_native_acceptance.py
+      - name: Test gameplay recipes with actual native menu validator
+        run: CXX="${{ matrix.compiler }}" PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_create_kairo_project.py
       - name: Preserve commands, hashes and test evidence
         if: always()
         uses: actions/upload-artifact@v4

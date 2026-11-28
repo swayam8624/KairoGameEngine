@@ -47,6 +47,11 @@ def run(server_binary, client_binary, backend):
                     client.wait(timeout=5)
                 for path in logs:
                     if path.exists():print(path.name,path.read_text(encoding='utf-8',errors='replace'))
+                # The client's EOF is usually a consequence, not the cause.
+                # Preserve the actual server error even if it already exited.
+                if server.poll() is None:server.kill()
+                out,err=server.communicate(timeout=5)
+                print(f"server exit={server.returncode}\nstdout: {out}\nstderr: {err}")
                 raise
         print('Both graphical clients reached the same authoritative victory and changed actual native captures')
     finally:

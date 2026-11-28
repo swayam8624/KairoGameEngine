@@ -1,3 +1,8 @@
 # Compatibility fixtures are byte-exact parser inputs. Do not let Git line-ending
 # conversion rewrite malformed textual payloads on Windows before checksum tests.
 TestContent/Compatibility/committed/** -text
+
+# Release receipts hash exact checkout bytes. Keep the workspace lock and
+# self-contained reference project consistent across native runners.
+workspace.lock text eol=lf
+Samples/SignalVault/** text eol=lf

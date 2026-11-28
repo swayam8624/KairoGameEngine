@@ -300,3 +300,72 @@ Added original deterministic self-contained three-joint skinned GLB generator, i
 - Added direct editable project creation from reviewed catalog records through the canonical recipe compiler, with automatic temporary staging cleanup.
 - Added graphical create/open workflow and explicit native Editor process handoff without shell expansion.
 - Registered graphical project/provenance tests and switched native Vulkan release acceptance to the shared catalog project operation. CI pending; no native Editor launch evidence claimed.
+
+## M50 — generic authored collectible objectives (2026-11-26)
+
+- Restacked the core and six-beacon sample from older PR #108 onto the current integrated engine, without transplanting the old Player wholesale.
+- Integrated proximity collection, score, elapsed time, completion and visual disabling into the generic Player. Modal menus own the overlay; the gameplay HUD is republished only after resume. Linear batch publication replaces the old per-goal result lookup.
+- Exact-source GCC, Clang, and Clang ASan/UBSan runs each passed 1,000 seeded journeys plus a 4,096-goal batch. Native integration and actual capture gate are registered but not yet executed.
+
+## M50 — authored proximity triggers (2026-11-26)
+
+- Added versioned bounded declarative sphere rules, stable event ordering and enter/exit/once semantics. Explicit show/hide actions apply only to opted-in visual root leaves.
+- Added generic Player integration and ordinary Trigger Arena sample, with modal-menu pause semantics and rejection of incompatible targets.
+- Exact core and test blobs passed 50,000 randomized samples each under GCC, Clang and Clang ASan/UBSan. Native entry-effect and frame-capture integration tests registered; full workspace execution pending.
+
+## M50 — persistent objective and trigger state (2026-11-26)
+
+- Added explicit opt-in cold progress restore/save for collectible IDs, time, trigger history and visual enable states, bound to authored source bytes.
+- Parse and validate into copies before publication; reuse bounded atomic save helper and keep personal progress outside project payload. Save only on successful shutdown or explicit smoke completion.
+- Strict GCC, Clang and Clang ASan/UBSan each passed separate-process save, restore and rejection tests with exact source hashes. Native Player cold restore acceptance registered; native build/run pending.
+
+## M50 — physics-backed sliding doors (2026-11-26)
+
+- Added bounded data-only door rules and fixed-step vertical movement; actual Player adapter binds opted-in kinematic solid boxes, verifies player capsule/clearance, and updates authoritative physics and scene together.
+- Added Door Arena project and actual physics raycast/body/scene round-trip CTest.
+- Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized controller samples and invalid-input checks, exact source hashes verified. Native integration test is registered but not yet executed.
+
+## M50 — health, hazards and checkpoint respawn (2026-11-26)
+
+- Added deterministic portable health policy, validated hazard/checkpoint zones, cooldown and fall death. Bound it to the generic Player fixed-step controller and existing motor teleport; combined health and collectible overlay ownership.
+- Added Health Arena authored project, actual physics/motor integration CTest and Vulkan smoke gate. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized core samples; GitHub blobs match the locally tested source. Native execution remains pending.
+
+## M50 — raycast combat and destructible targets (2026-11-26)
+
+- Added authored combat configuration, discrete fixed-tick attack presses, bounded damage and cooldown state. Runtime adapter uses the locked PhysicsWorld RaycastAll query, ignores the player's collider and stops at the nearest solid hit. Destroyed static target roots are deactivated through the existing physics topology adapter before hiding their mesh.
+- Added Combat Arena and actual module integration CTest for occlusion and destruction. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized portable state samples. Exact Git blobs verified. Native execution pending.
+
+## M50 — travelling projectile attacks (2026-11-26)
+
+- Added bounded 512-flight point projectile pool and full travelled-segment queries at each fixed step. Existing hitscan behaviour remains default; optional projectile speed selects delayed impacts. Apply hits in launch order, remove destroyed colliders before subsequent queries, cancel active flights on respawn, pause with the existing modal simulation boundary.
+- Added Projectile Arena, combined combat regression and actual physics bridge CTest. Locally compiled flight (10,000 journeys), previous combat (50,000 samples), and combined launch/impact regressions on GCC, Clang and Clang ASan/UBSan. Exact five source/test Git blobs verified. Native workspace execution remains pending.
+
+## M50 — enemy perception and behaviour (2026-11-26)
+
+- Added deterministic patrol, pursue, attack and last-seen search policy, with bounded memory and attack cooldown. Authored NPC adapter queries real physics visibility, moves via the existing character motor, aggregates damage through the player-health bridge and unregisters defeated enemy motors.
+- Added Enemy Arena and native physics/health/combat integration CTest. Actual strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized decision samples and enemy damage/cooldown/respawn tests. Previous 50,000-sample health regression passed GCC and Clang after the change. Native execution pending.
+
+## M50 — authored enemy navigation (2026-11-26)
+
+- Added a bounded planar walkable-region document and rate-limited decision goal refresh. Optional mesh binds the enemy brain to existing NavMesh, navigation and crowd bridges, preserving direct movement for projects without the document. Unavailable routes stop planar movement; defeated agents unregister from all three adapters.
+- Added Navigation Arena and full-workspace obstacle-detour CTest. Actual strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized replan ticks (4,164 plans) and the existing 50,000 enemy decision regression after goal exposure. Exact source hashes verified. Full-workspace compile and detour execution pending.
+
+## M50 — declarative gameplay event rules (2026-11-26)
+
+- Added bounded typed event dispatch with exact source bindings, occurrence thresholds, one-shot/repeat policies and stable ascending rule order. Generic Player publishes start, actual combat defeat, proximity rule, collection and completion events. Effects are limited to separate opted-in visual roots; reject incompatible checkpoint usage.
+- Added Event Arena and actual native four-rule chain/rejection gate. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 seeded event dispatches and malformed document tests. Exact Git blobs verified; native build/run pending.
+
+## M50 — event-controlled physical gates (2026-11-26)
+
+- Added typed door-open, door-lock and door-auto actions and optional initial door mode. Generic Player validates registered door targets and routes commands through the fixed-step door adapter; old automatic door and visual event records remain supported.
+- Added Key Gate Arena and native collider/command plus collectible-dispatch acceptance gates. All nine actual local strict GCC, Clang and Clang ASan/UBSan runs passed (50,000 original event, 50,000 automatic door, and 50,000 new gate control samples per environment). Exact updated and new test blobs verified. Native tests remain unexecuted locally.
+
+## M50 — combat presentation and attack animation selection (2026-11-26)
+
+- Added accepted launch serial and read-only flight positions; dedicated authored visual-only mesh markers reuse slots without creating per-shot resources. Optional imported player visual selects Idle/Attack through existing render animation clock. Fixed presentation window; no crossfade.
+- Added Visible Projectile Arena, full-workspace marker lifecycle CTest and portable presentation regression. Strict GCC, Clang and Clang ASan/UBSan each passed 50,000 randomized presentation samples. Exact source hashes verified. Native scene adapter, renderer and imported attack clip verification remain pending.
+
+## M50 — graphical gameplay record authoring (2026-11-26)
+
+- Added a standalone Tk desktop companion for seven existing authored configuration formats, record add/replace/remove, same-directory atomic publication, external edit detection, explicit discard/reload and unsaved-close confirmation. No scene or asset rewrite. Structural validation only; native semantic validation required.
+- Executed four local unittest cases using actual Tk windows under Xvfb (7 format subtests, record edits, save, stale-source rejection, symlink rejection and discard recovery). Exact uploaded source/test blobs match the locally executed files. Registered existing graphical CI workflow. Native Mac and full Player validation remain pending.

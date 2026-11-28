@@ -1,0 +1,77 @@
+{
+  "name": "Custom Controls Arena",
+  "layout": "empty",
+  "gameplay": {
+    "spawn": [
+      -2,
+      0.92,
+      2
+    ],
+    "keyboard": {
+      "forward": "I",
+      "back": "K",
+      "left": "J",
+      "right": "L",
+      "jump": "U",
+      "quit": "Q"
+    },
+    "menu": [
+      {
+        "id": "01-play",
+        "label": "START GAME",
+        "action": "resume",
+        "rect": [
+          300,
+          320,
+          400,
+          140
+        ]
+      },
+      {
+        "id": "02-quit",
+        "label": "EXIT",
+        "action": "quit",
+        "rect": [
+          300,
+          520,
+          400,
+          140
+        ]
+      }
+    ]
+  },
+  "prefabs": {
+    "pillar": [
+      {
+        "name": "Pillar",
+        "mesh": "cube",
+        "collider": true,
+        "scale": [
+          0.6,
+          2,
+          0.6
+        ]
+      }
+    ]
+  },
+  "instances": [
+    {
+      "name": "North Pillar",
+      "prefab": "pillar",
+      "position": [
+        0,
+        1,
+        -3
+      ]
+    },
+    {
+      "name": "East Pillar",
+      "prefab": "pillar",
+      "position": [
+        3,
+        1,
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+kairo-vfx2d 1
+materials 3
+spark fff4bd c27a2d 5 1 cross
+glow 55c4ab 213844 2 5 square
+impact ff9171 80293d 6 1 cross
+emitters 11
+main 1 collect spark 24 1 45 120 90
+main 1 death impact 32 1 36 160 180
+main 1 complete spark 48 1 90 100 -30
+climb 1 collect spark 24 1 45 120 90
+climb 1 death impact 32 1 36 160 180
+climb 1 complete spark 48 1 90 100 -30
+vault 1 collect spark 24 1 45 120 90
+vault 1 death impact 32 1 36 160 180
+vault 1 complete spark 48 1 90 100 -30
+main 8 ambient glow 2 12 60 24 -30
+vault 8 ambient glow 2 12 60 24 -30

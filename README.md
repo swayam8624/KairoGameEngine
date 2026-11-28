@@ -491,3 +491,15 @@ Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json` with 
 ### Create and open a game from the catalog
 
 Run `python3 scripts/kairo_asset_catalog_browser.py /path/to/catalog.json --editor /absolute/path/to/KairoEditorApp`. Select models, choose **Create editable project**, select a new destination, then choose **Open in Editor**. The same creation operation is available without Tk: `python3 scripts/kairo_asset_catalog.py /path/to/catalog.json project /path/to/new-game triangle`. This creates an ordinary project rather than modifying an existing game; temporary staging is discarded while model and license provenance remain in the project. The explicit editor executable is required for the launch button. Native acceptance remains separate.
+
+### Graphical gameplay record authoring (candidate)
+
+Run `python3 scripts/kairo_gameplay_editor.py Samples/KeyGateArena/Project.kproject` with Python Tk installed. Select an existing gameplay configuration, edit records through Add/Replace/Remove, and save atomically. Supported documents: doors, events, health, combat, enemies, navigation rectangles and proximity triggers. The companion editor checks document version, record kind and field count; it does not replace native `KairoPlayer --validate` for numeric values, entity bindings, ownership or cross-document checks. The Editor does not create missing files, modify scene/asset data, or provide a 3D viewport. See each sample's README for record grammar. Save or explicitly discard pending changes before switching documents.
+
+## Studio editor iteration
+
+The Studio shell keeps the native Kairo viewport and command/undo architecture; it uses a graphite and cobalt palette, a separate workspace toolbar, an ancestor-preserving hierarchy search, a reflection property grid and a docked asset grid/list. The asset grid displays type glyphs, not fabricated render previews. Older project-scoped layouts are backed up and rebuilt at layout version 3.
+
+For an existing locked checkout, update only the changed sibling revision with `bash scripts/materialize_workspace_lock.sh KairoEditor` and then run `bash scripts/build_studio.sh`. This retains the existing `build/game-clang` cache and builds Editor, Player and the two authoring tools rather than all regression executables. `KAIRO_BUILD_JOBS=2` reduces compile memory; the default is four. Full acceptance remains `ctest --preset game-clang --output-on-failure --no-tests=error` after building all tests.
+
+Launch with `./build/game-clang/components/KairoEditor/KairoEditorApp --project Samples/PlayableVerticalSlice/Project.kproject --renderer metal` on macOS. A native screenshot can be captured with `--frames 3 --no-layout-persistence --screenshot /tmp/kairo-studio.ppm`. Native validation of the revised shell is required before claiming the reference mockup has been realized.

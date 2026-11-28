@@ -8,6 +8,8 @@ module;
 #include <optional>
 #include <stdexcept>
 #include <string_view>
+#include <span>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -139,6 +141,7 @@ export namespace kairo::player
             if (clipIndex >= source.Animations.size())
                 throw std::out_of_range("Runtime animation clip index is out of range.");
 
+            m_Controllers.erase(entity.Value);
             auto found = m_AnimationStates.find(entity.Value);
             if (found == m_AnimationStates.end())
             {
@@ -218,6 +221,7 @@ export namespace kairo::player
         void ClearAnimationControl(kairo::engine::Entity entity) noexcept
         {
             m_AnimationStates.erase(entity.Value);
+            m_Controllers.erase(entity.Value);
             m_Animations.Clear(entity);
         }
 
@@ -237,6 +241,33 @@ export namespace kairo::player
         // Advance each live scene instance's animation clock by delta*playbackRate,
         // normalize according to Loop/Clamp and publish playback overrides for shared
         // RealtimeSceneBridge sampling. Clear stale IDs after entity removal.
+        // A gameplay caller can drive declared boolean parameters without
+        // overriding the controller's clip/blend ownership.
+        void SetControllerBool(kairo::engine::Entity entity,std::string_view name,bool value)
+        {
+            const auto& source=RequireAnimationSource(entity);
+            const auto asset=m_Project.Scene().SceneInstance(entity).SceneAsset;
+            const auto* definition=m_Assets.ResolveController(asset);
+            if(!definition)throw std::logic_error("Entity has no authored animation controller.");
+            bool declared=false;
+            for(const auto& transition:definition->Transitions)
+                for(const auto& condition:transition.Conditions)
+                    declared|=condition.Parameter==name;
+            if(!declared)throw std::invalid_argument("Unknown controller parameter.");
+            auto& binding=EnsureController(entity,asset.ID,*definition,source);
+            binding.Parameters.SetBool(std::string(name),value);
+            m_AnimationStates.erase(entity.Value);
+        }
+
+        [[nodiscard]] std::optional<std::string> ControllerStateName(kairo::engine::Entity entity) const
+        {
+            const auto it=m_Controllers.find(entity.Value);
+            if(it==m_Controllers.end()||!m_Project.Scene().Contains(entity)||
+                !m_Project.Scene().HasSceneInstance(entity)||
+                m_Project.Scene().SceneInstance(entity).SceneAsset.ID!=it->second.Asset)return std::nullopt;
+            return std::string(it->second.Runtime.CurrentStateName());
+        }
+
         void StepAnimations(float deltaSeconds)
         {
             if (!std::isfinite(deltaSeconds) || deltaSeconds < 0.0f ||
@@ -255,9 +286,22 @@ export namespace kairo::player
                 {
                     m_Animations.Clear(entity);
                     m_AnimationStates.erase(entity.Value);
+                    m_Controllers.erase(entity.Value);
                     continue;
                 }
 
+                const auto explicitState=m_AnimationStates.find(entity.Value);
+                const bool explicitClip=explicitState!=m_AnimationStates.end()&&explicitState->second.Explicit;
+                const auto* definition=m_Assets.ResolveController(instance.SceneAsset);
+                if(definition&&!explicitClip)
+                {
+                    auto& binding=EnsureController(entity,instance.SceneAsset.ID,*definition,*source);
+                    m_Animations.SetPose(entity,instance.SceneAsset.ID,
+                        binding.Runtime.Advance(*source,binding.Parameters,deltaSeconds));
+                    m_AnimationStates.erase(entity.Value);
+                    continue;
+                }
+                m_Controllers.erase(entity.Value);
                 auto [iterator, inserted] = m_AnimationStates.try_emplace(
                     entity.Value, RuntimeAnimationPlaybackState{});
                 auto& state = iterator->second;
@@ -289,6 +333,13 @@ export namespace kairo::player
             }
 
             m_Animations.RetainTwoBoneIK(present);
+            for(auto it=m_Controllers.begin();it!=m_Controllers.end();)
+                if(!present.contains(it->first))
+                {
+                    m_Animations.Clear(kairo::engine::Entity{it->first});
+                    it=m_Controllers.erase(it);
+                }
+                else ++it;
             for (auto iterator = m_AnimationStates.begin();
                 iterator != m_AnimationStates.end();)
             {
@@ -306,7 +357,7 @@ export namespace kairo::player
         // implicit clip-zero compatibility path (not number of GPU meshes).
         [[nodiscard]] std::size_t AnimatedSceneInstanceCount() const noexcept
         {
-            return m_AnimationStates.size();
+            return m_AnimationStates.size()+m_Controllers.size();
         }
 
         // Delegate CPU scene extraction to the shared Editor/Player BuildRenderScene
@@ -528,25 +579,43 @@ export namespace kairo::player
                     std::string_view uri, kairo::assets::TextureSemantic semantic)
                 {
                     const auto path = (metadata.Path.parent_path() /
-                        std::filesystem::path(uri)).lexically_normal();
+                        kairo::assets::GltfLocalUriPath(uri)).lexically_normal();
                     const auto texture = m_Project.Assets().FindByPath(path);
                     if (!texture.has_value() ||
                         texture->Type != kairo::assets::AssetType::Texture2D)
                         throw std::invalid_argument(
                             "glTF image URI is not registered as a project texture asset: " +
                             path.generic_string());
-                    kairo::assets::TextureImportSettings settings;
-                    settings.ColorSpace = semantic == kairo::assets::TextureSemantic::Color
-                        ? kairo::assets::TextureColorSpace::SRGB
-                        : kairo::assets::TextureColorSpace::Linear;
-                    settings.NormalMap = semantic == kairo::assets::TextureSemantic::Normal;
-                    return EnsureTexture({ texture->ID }, settings);
+                    const auto settings=kairo::runtime::renderbridge::GltfImageSettings(semantic);
+                    // glTF PBR channels may share the same image with different
+                    // color/data semantics. Keep independent GPU variants.
+                    const auto key=texture->ID.ToString()+":"+kairo::assets::CanonicalTextureImportSettings(settings);
+                    if(const auto found=m_GltfTextures.find(key);found!=m_GltfTextures.end())return found->second;
+                    const auto cpu=kairo::runtime::renderbridge::ImportRenderTexture(
+                        m_Project.Root(),{texture->ID},settings,m_Project.Assets(),m_Imports,m_Cache);
+                    return detail::CreateTrackBind(m_OwnedTextures,
+                        [this,&cpu]{return m_Renderer.CreateTexture(cpu);},
+                        [this,&key](auto handle){m_GltfTextures.emplace(key,handle);});
+                };
+                const auto resolveEmbedded=[this](const kairo::assets::GltfTextureBinding& binding,
+                    kairo::assets::TextureSemantic semantic)
+                {
+                    const auto fingerprint=binding.EmbeddedBytes.empty()?
+                        kairo::assets::FingerprintBytes(std::as_bytes(std::span(binding.Uri.data(),binding.Uri.size()))):
+                        kairo::assets::FingerprintBytes(binding.EmbeddedBytes);
+                    const auto key="embedded:"+fingerprint.ToHex()+":"+
+                        kairo::assets::CanonicalTextureImportSettings(kairo::runtime::renderbridge::GltfImageSettings(semantic));
+                    if(const auto found=m_GltfTextures.find(key);found!=m_GltfTextures.end())return found->second;
+                    const auto cpu=kairo::runtime::renderbridge::DecodeEmbeddedGltfTexture(binding,semantic);
+                    return detail::CreateTrackBind(m_OwnedTextures,
+                        [this,&cpu]{return m_Renderer.CreateTexture(cpu);},
+                        [this,&key](auto handle){m_GltfTextures.emplace(key,handle);});
                 };
 
                 auto imported =
                     kairo::runtime::renderbridge::ImportRenderGltfSceneWithSource(
                         m_Project.Root(), { metadata.ID }, m_Project.Assets(),
-                        m_Imports, m_Cache, resolveTexture);
+                        m_Imports, m_Cache, resolveTexture,resolveEmbedded);
                 std::vector<kairo::renderer::MeshHandle> handles;
                 handles.reserve(imported.RenderAsset.Primitives.size());
                 for (const auto& primitive : imported.RenderAsset.Primitives)
@@ -557,8 +626,29 @@ export namespace kairo::player
                     handles.push_back(handle);
                 }
                 m_Assets.BindGltfScene({ metadata.ID }, std::move(imported.Source),
-                    imported.RenderAsset, handles);
+                    imported.RenderAsset, handles,imported.CacheKey,std::move(imported.AuthoredRevision),
+                    std::move(imported.Controller),std::move(imported.ControllerRevision));
             }
+        }
+
+        struct ControllerBinding
+        {
+            kairo::assets::AssetID Asset;
+            kairo::engine::AnimationControllerRuntime Runtime;
+            kairo::engine::AnimationParameterSet Parameters;
+        };
+        std::unordered_map<std::uint32_t,ControllerBinding> m_Controllers;
+        ControllerBinding& EnsureController(kairo::engine::Entity entity,kairo::assets::AssetID asset,
+            const kairo::engine::AnimationControllerDefinition& definition,
+            const kairo::assets::GltfSceneArtifactData& source)
+        {
+            auto it=m_Controllers.find(entity.Value);
+            if(it!=m_Controllers.end()&&it->second.Asset==asset)return it->second;
+            ControllerBinding binding{asset,kairo::engine::AnimationControllerRuntime(definition,source),{}};
+            for(const auto& transition:definition.Transitions)
+                for(const auto& condition:transition.Conditions)
+                    binding.Parameters.SetBool(condition.Parameter,false);
+            return m_Controllers.insert_or_assign(entity.Value,std::move(binding)).first->second;
         }
 
         kairo::renderer::RendererRuntime& m_Renderer;
@@ -574,5 +664,6 @@ export namespace kairo::player
             m_TextureSettings;
         std::vector<kairo::renderer::MeshHandle> m_OwnedMeshes;
         std::vector<kairo::renderer::TextureHandle> m_OwnedTextures;
+        std::unordered_map<std::string,kairo::renderer::TextureHandle> m_GltfTextures;
     };
 }

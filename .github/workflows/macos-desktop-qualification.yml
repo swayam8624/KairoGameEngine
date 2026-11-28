@@ -1,0 +1,68 @@
+name: macOS Studio Tk and game application qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/macos-desktop-qualification.yml'
+      - '.github/workflows/build-test.yml'
+      - 'scripts/kairo_hub.py'
+      - 'scripts/desktop_launchers.py'
+      - 'scripts/signal_vault_desktop.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  macos-arm64-desktop:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify matching Python and Tk without compiling the engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(uname -m)" == arm64 ]]
+          brew install python@3.13 python-tk@3.13 glfw vulkan-loader molten-vk shaderc
+          studio_python="$(brew --prefix python@3.13)/bin/python3.13"
+          "$studio_python" -c 'import tkinter, _tkinter; print("Studio Tk:", tkinter.TkVersion)'
+          "$studio_python" -B scripts/kairo_hub.py --help
+          PYTHONPATH=scripts "$studio_python" -B -m unittest discover -s scripts/tests -p test_desktop_launchers.py -v
+          echo "KAIRO_STUDIO_PYTHON=$studio_python" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v5
+        with:
+          name: SignalVault-macos-ci-clang
+          path: qualified-macos
+          run-id: 46119943594
+          github-token: ${{ github.token }}
+          repository: swayam8624/KairoGameEngine
+      - name: Verify exact source archive and qualify relocated macOS application
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$KAIRO_STUDIO_PYTHON" -B - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('qualified-macos')
+          receipt = json.loads((root / 'receipt.json').read_text())
+          assert receipt['commit'] == 'ca1941939ee6935bf3d8ec090bb2465f103b237d'
+          assert receipt['target'] == 'macos-arm64'
+          assert receipt['archive_sha256'] == '7f02fc52b1f57f261751d71b532ab7b0fedf8b2449e7942cf2b34298e9d33d3a'
+          assert receipt['player_sha256'] == '5bf0edb09e7504bfdf8e0e22657c4e881fd823b13ad3ebc8b93a7caf19c1cdad'
+          assert receipt['relocated_launcher_validation'] and receipt['campaign_replay']
+          assert receipt['first_party_notice_count'] == 14 and receipt['third_party_source_notice_dependencies'] == 4
+          archives = list(root.glob('SignalVault-*.zip'))
+          assert len(archives) == 1
+          with archives[0].open('rb') as stream:
+              assert hashlib.file_digest(stream, 'sha256').hexdigest() == receipt['archive_sha256']
+          PY
+          archives=(qualified-macos/SignalVault-*.zip)
+          "$KAIRO_STUDIO_PYTHON" -B scripts/signal_vault_desktop.py "${archives[0]}" qualified-macos/receipt.json macos-application-evidence
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-macos-independent-app
+          path: macos-application-evidence/
+          if-no-files-found: error
+          compression-level: 0

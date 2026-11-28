@@ -17,7 +17,9 @@ jobs:
   superbuild:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # macOS C++ module compilation reached 1136/1792 build steps at the
+    # previous 45-minute limit. Do not weaken the native test configuration.
+    timeout-minutes: ${{ matrix.platform == 'macos' && 120 || 45 }}
     strategy:
       fail-fast: false
       matrix:
@@ -75,7 +77,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev mesa-vulkan-drivers xauth
+          sudo apt-get install -y clang ninja-build libglfw3-dev libgl1-mesa-dev libvulkan-dev glslang-tools xvfb libasound2-dev mesa-vulkan-drivers xauth python3-tk
           echo "KAIRO_CXX_COMPILER=$(command -v clang++)" >> "$GITHUB_ENV"
 
       - name: Install macOS dependencies
@@ -83,7 +85,10 @@ jobs:
         shell: bash
         run: |
           brew update
-          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang
+          brew install cmake ninja llvm glfw vulkan-headers vulkan-loader molten-vk shaderc glslang python@3.13 python-tk@3.13
+          studio_python="$(brew --prefix python@3.13)/bin/python3.13"
+          "$studio_python" -c 'import tkinter, _tkinter; print("Studio Tk:", tkinter.TkVersion)'
+          echo "KAIRO_STUDIO_PYTHON=$studio_python" >> "$GITHUB_ENV"
           echo "KAIRO_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
 
       - name: Install Windows dependencies
@@ -131,7 +136,18 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          start=$SECONDS
           cmake --build --preset ${{ matrix.preset }} --parallel 2 2>&1 | tee build-${{ matrix.preset }}.log
+          echo "Initial build wall seconds: $((SECONDS-start))" | tee -a build-${{ matrix.preset }}.log
+
+      - name: Measure incremental native build
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          cmake --build --preset ${{ matrix.preset }} --parallel 2 2>&1 | tee incremental-build.log
+          echo "Repeat build wall seconds: $((SECONDS-start))" | tee -a incremental-build.log
 
       - name: Upload build diagnostics
         if: failure() && steps.build.outcome == 'failure'
@@ -149,7 +165,21 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: |
-          set -o pipefail
+          set -euo pipefail
+          # A hosted headless sanitizer runner has no physical GPU. The
+          # standalone loader probe reproduced a leak on default enumeration
+          # but exited cleanly with the Lavapipe ICD alone. Select that known
+          # software device explicitly; keep every test and leak check active.
+          if [[ "${{ matrix.preset }}" == ci-sanitized ]]; then
+            shopt -s nullglob
+            manifests=(/usr/share/vulkan/icd.d/lvp_icd*.json)
+            if (( ${#manifests[@]} != 1 )); then
+              echo "Expected exactly one Lavapipe ICD manifest." >&2
+              exit 1
+            fi
+            export VK_DRIVER_FILES="${manifests[0]}"
+            echo "Sanitizer Vulkan ICD: $VK_DRIVER_FILES"
+          fi
           xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" \
             ctest --preset ${{ matrix.preset }} --output-on-failure 2>&1 | tee test-${{ matrix.preset }}.log
 
@@ -175,6 +205,235 @@ jobs:
           set -o pipefail
           ctest --preset ${{ matrix.preset }} --output-on-failure 2>&1 | tee test-${{ matrix.preset }}.log
 
+      - name: Validate Hub-created projects with actual native tools
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          PYTHONPATH=scripts python3 - "$scratch" <<'PY'
+          from pathlib import Path
+          import sys
+          from kairo_hub_core import create
+          from kairo_project_workflow import ProjectTools, run_cli
+          for kind in ("empty", "arena", "beacon", "keygate", "2d", "world2d", "physics2d"):
+              project = create(kind, "Hub " + kind, Path(sys.argv[1]))
+              if run_cli(ProjectTools(project, Path("build/ci-clang")), "validate"):
+                  raise SystemExit("Hub project validation failed: " + kind)
+          PY
+          xvfb-run -a build/ci-clang/components/KairoEditor/KairoEditorApp --project "$scratch/Hub empty/Project.kproject" --renderer vulkan --frames 3 --no-layout-persistence
+          xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub arena/Project.kproject" --renderer vulkan --smoke
+          xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub 2d/Project.kproject" --renderer vulkan --smoke
+          build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/Hub 2d/Project.kproject" --package Release
+
+      - name: Verify host-native World2D release ZIP after relocation
+        if: matrix.preset != 'ci-sanitized'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          export PYTHONPATH=scripts
+          python - "$scratch" "${{ matrix.preset }}" <<'PY'
+          from pathlib import Path
+          import os, shutil, subprocess, sys
+          from kairo_hub_core import create
+          from kairo_project_workflow import ProjectTools, run_cli
+          from kairo_release import verify, unpack
+          root=Path(sys.argv[1]).resolve()
+          project=create("world2d","Release Adventure",root)
+          archive=root/"adventure.zip"
+          tools=ProjectTools(project,Path("build")/sys.argv[2])
+          # An unrelated pre-existing Build directory cannot be erased by replacement.
+          reserved=project.parent/"Build/Release";reserved.mkdir(parents=True)
+          sentinel=reserved/"keep.txt";sentinel.write_text("keep")
+          player=tools.binary("KairoPlayer","Runtime/KairoPlayer")
+          result=subprocess.run([player,str(project),"--package","Release","--replace"],cwd=root)
+          assert result.returncode!=0 and sentinel.read_text()=="keep"
+          shutil.rmtree(reserved)
+          # World2D is entirely inline and has no compiled 3D logic.
+          # Runtime-only Windows builds intentionally omit the Editor/compiler.
+          if os.name=="nt":
+              from kairo_release import export
+              subprocess.run([player,str(project),"--validate"],cwd=root,check=True,timeout=120)
+              subprocess.run([player,str(project),"--package","Release"],cwd=root,check=True,timeout=120)
+              export(reserved,archive)
+          else:
+              assert run_cli(tools,"package",profile="Release",archive=archive)==0
+          index=verify(archive)
+          # A previous release/archive elsewhere under Build must not recurse into a new build.
+          shutil.copyfile(archive,project.parent/"Build/old.zip")
+          subprocess.run([player,str(project),"--package","Release","--replace"],cwd=root,check=True,timeout=120)
+          assert not (reserved/"project/Build").exists()
+          # Source removal proves the extracted release is independent of its original project.
+          shutil.rmtree(project.parent)
+          extracted=root/"relocated game"
+          assert unpack(archive,extracted)==index
+          launcher=extracted/("run.cmd" if os.name=="nt" else "run.sh")
+          command=[str(launcher),"--validate"]
+          if os.name=="nt":command=["cmd.exe","/d","/c",*command]
+          subprocess.run(command,cwd=root,check=True,timeout=120)
+          if sys.platform.startswith("linux"):
+              subprocess.run(["xvfb-run","-a",str(launcher),"--renderer","vulkan","--smoke"],cwd=root,check=True,timeout=120)
+          print("Relocated release verified:",index["target"],len(index["files"]),"files")
+          # Retain the exact verified archive, not a second untested rebuild.
+          import hashlib, json
+          destination=Path("release-evidence");destination.mkdir(exist_ok=True)
+          target=destination/("KairoAdventure-"+index["target"]+".zip")
+          shutil.copyfile(archive,target)
+          digest=hashlib.sha256()
+          with target.open("rb") as stream:
+              while chunk:=stream.read(1024*1024):digest.update(chunk)
+          receipt={"commit":os.environ["GITHUB_SHA"],"target":index["target"],
+                   "sha256":digest.hexdigest(),"file_count":len(index["files"]),
+                   "relocated_validation":True,
+                   "vulkan_capture":sys.platform.startswith("linux")}
+          (destination/"receipt.json").write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n")
+          PY
+
+      - name: Retain verified native adventure archive and receipt
+        if: matrix.preset != 'ci-sanitized'
+        uses: actions/upload-artifact@v7
+        with:
+          name: KairoAdventure-${{ matrix.platform }}-${{ matrix.preset }}
+          path: release-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Qualify and retain exact Signal Vault release
+        if: matrix.preset != 'ci-sanitized'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bin="build/${{ matrix.preset }}/Runtime/KairoPlayer"
+          suffix=""
+          if [[ "${{ matrix.platform }}" == "windows" ]]; then suffix=".exe"; fi
+          args=("$bin/KairoPlayer$suffix" Samples/SignalVault signal-vault-evidence
+                --lock workspace.lock --commit "$GITHUB_SHA" --notice-engine "$GITHUB_WORKSPACE"
+                --notice-build "build/${{ matrix.preset }}"
+                --gameplay-test "$bin/KairoPlayerSignalVaultTests$suffix")
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            xvfb-run -a python scripts/signal_vault_release.py "${args[@]}" --smoke
+          else
+            python scripts/signal_vault_release.py "${args[@]}"
+          fi
+
+      - name: Upload qualified Signal Vault archive and receipt
+        if: matrix.preset != 'ci-sanitized'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-${{ matrix.platform }}-${{ matrix.preset }}
+          path: signal-vault-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Capture actual fetched third-party source notices
+        if: matrix.preset != 'ci-sanitized'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python -m unittest discover -s scripts/tests -p test_build_notice_inventory.py -v
+          PYTHONPATH=scripts python -c 'import sys; from build_notice_inventory import collect; collect(sys.argv[1], sys.argv[2], sys.argv[3] == "ci-clang")' \
+            "build/${{ matrix.preset }}" build-source-notices "${{ matrix.preset }}"
+
+      - name: Upload fetched dependency notice evidence
+        if: matrix.preset != 'ci-sanitized'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SourceNotices-${{ matrix.platform }}-${{ matrix.preset }}
+          path: build-source-notices/
+          if-no-files-found: error
+
+      - name: Qualify relocated Studio Hub, Editor, Player and project tools
+        if: matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          git archive HEAD LICENSE workspace.lock scripts \
+            Samples/PlayableVerticalSlice Samples/BeaconRun Samples/KeyGateArena \
+            Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
+            Samples/SignalVault | tar -xf - -C "$scratch"
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_game_export.py -v
+          fi
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_import_inventory.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_dll_bundle.py -v
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical --notice-engine "$GITHUB_WORKSPACE"
+          else
+            "${KAIRO_STUDIO_PYTHON:?Missing Tk-capable Studio Python}" scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE"
+          fi
+
+      - name: Upload exact tested Studio toolset archive
+        if: matrix.preset == 'ci-clang'
+        uses: actions/upload-artifact@v7
+        with:
+          name: KairoStudio-${{ matrix.platform }}
+          path: studio-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Qualify native desktop installation package
+        if: matrix.platform == 'macos' || matrix.platform == 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archives=(signal-vault-evidence/SignalVault-*.zip)
+          [[ "${#archives[@]}" == 1 && -f "${archives[0]}" ]]
+          python scripts/signal_vault_desktop.py "${archives[0]}" \
+              signal-vault-evidence/receipt.json signal-vault-desktop-evidence
+
+      - name: Upload exact tested desktop package
+        if: matrix.platform == 'macos' || matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-desktop-${{ matrix.platform }}
+          path: signal-vault-desktop-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Test desktop launcher first-launch and relaunch contract
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_desktop_launchers.py -v
+
+      - name: Qualify dependency-aware Signal Vault Debian installer
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y dpkg-dev
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_debian_dependencies.py -v
+          xvfb-run -a python3 scripts/signal_vault_debian.py \
+              signal-vault-evidence/SignalVault-linux-x86_64.zip \
+              signal-vault-evidence/receipt.json signal-vault-debian-evidence
+
+      - name: Upload exact tested Debian installer
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-debian-x86_64
+          path: signal-vault-debian-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Test distribution gate publication and rollback
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_native_dependency_audit.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_signal_vault_release.py -v
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_first_party_notices.py -v
+
+      - name: Test release archive rejection and reproducibility
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_kairo_release.py -v
+
       - name: Validate actual catalog-generated project and native Vulkan capture
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
@@ -186,12 +445,85 @@ jobs:
           python3 scripts/kairo_asset_catalog.py "$scratch/catalog/catalog.json" project "$scratch/project" triangle
           rm -rf "$scratch/catalog"
           player=build/ci-clang/Runtime/KairoPlayer/KairoPlayer
-          "$player" "$scratch/project/Project.kproject" --validate
-          xvfb-run -a "$player" "$scratch/project/Project.kproject" --renderer vulkan --smoke
+          xvfb-run -a python3 scripts/kairo_project_workflow.py "$scratch/project/Project.kproject" --build build/ci-clang --action smoke --renderer vulkan
           # Exercise the genuine player, package command, relocated launcher and
           # extracted Debian game with the same generated licensed project.
           command -v dpkg-deb
           xvfb-run -a python3 scripts/verify_project_release.py "$player" "$scratch/project/Project.kproject" --smoke --deb --catalog-models 1
+
+      - name: Exercise actual authored collectible gameplay and native capture
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          xvfb-run -a python3 Samples/BeaconRun/run_native_acceptance.py build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/BeaconRun vulkan
+
+      - name: Exercise authored proximity triggers in actual native Player
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          xvfb-run -a python3 Samples/TriggerArena/run_native_acceptance.py build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/TriggerArena vulkan
+
+      - name: Exercise actual native Player cold progress restore
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          xvfb-run -a python3 Samples/BeaconRun/run_native_progress.py build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/BeaconRun vulkan
+
+      - name: Native health arena capture
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/HealthArena/Project.kproject --renderer vulkan --smoke
+
+      - name: Actual World2D UI designer drag and native save
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: xvfb-run -a /usr/bin/python3 scripts/tests/world2d_ui_authoring.py build/ci-clang/Runtime/KairoPlayer/KairoWorld2DTool Samples/PhysicsWorld2DProject/Config/UI.kui --gui
+
+      - name: Actual authored gameplay event chain
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          xvfb-run -a python3 Samples/EventArena/run_native_acceptance.py build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/EventArena vulkan
+
+      - name: Actual collectible-to-door event chain
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          xvfb-run -a python3 Samples/KeyGateArena/run_native_acceptance.py build/ci-clang/Runtime/KairoPlayer/KairoPlayer Samples/KeyGateArena vulkan
+
+      - name: Validate authored gameplay recipe with actual Player
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          python3 scripts/create_kairo_project.py Samples/ProjectRecipes/CustomControlsArena.json "$scratch/game" --menu-validator build/ci-clang/Runtime/KairoPlayer/KairoMenuDocumentTool
+          build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/game/Project.kproject" --validate
+          xvfb-run -a build/ci-clang/Runtime/KairoPlayer/KairoPlayer "$scratch/game/Project.kproject" --renderer vulkan --smoke
+
+      - name: Diagnose Vulkan loader leak without engine code
+        if: failure() && matrix.platform == 'linux' && matrix.preset == 'ci-sanitized' && steps.test_linux.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++23 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer scripts/diagnose_vulkan_loader_leaks.cpp -lvulkan -o /tmp/kairo-vulkan-loader-probe
+          # Preserve the failed CTest gate. These two independent probes only
+          # report whether the bare loader/driver also produces the leak.
+          set +e
+          ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 xvfb-run -a /tmp/kairo-vulkan-loader-probe
+          default_status=$?
+          shopt -s nullglob
+          manifests=(/usr/share/vulkan/icd.d/lvp_icd*.json)
+          if (( ${#manifests[@]} == 1 )); then
+            VK_DRIVER_FILES="${manifests[0]}" ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 xvfb-run -a /tmp/kairo-vulkan-loader-probe
+            echo "Lavapipe-only diagnostic exit: $?"
+          else
+            echo "Lavapipe manifest is missing or ambiguous; isolation not run."
+          fi
+          echo "Default-loader diagnostic exit: $default_status"
+          exit 0
 
       - name: Upload test diagnostics
         if: failure() && (steps.test_linux.outcome == 'failure' || steps.test_macos.outcome == 'failure' || steps.test_windows.outcome == 'failure')

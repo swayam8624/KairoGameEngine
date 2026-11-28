@@ -587,3 +587,55 @@ Read [kairo_asset_catalog.py](scripts/kairo_asset_catalog.py) first: manifest va
 ### Catalog to editable game
 
 Follow [catalog project creation](scripts/kairo_asset_catalog.py) into [the recipe compiler](scripts/create_kairo_project.py), then return to [the catalog browser](scripts/kairo_asset_catalog_browser.py) for the explicit Editor launch. [GUI tests](scripts/tests/test_kairo_asset_catalog_browser.py) check retained files and the subprocess argument contract; native packaging is a separate gate.
+
+### Generic collectible gameplay
+
+Read [RuntimeCollectibleRun.hpp](Runtime/KairoPlayer/RuntimeCollectibleRun.hpp) for the renderer-independent score, stable IDs and two-phase batch publication. Then follow its integration in [main.cpp](Runtime/KairoPlayer/main.cpp), including headless validation and menu/HUD ownership. [Beacon Run](Samples/BeaconRun/README.md) is an ordinary authored project, and [native acceptance](Samples/BeaconRun/run_native_acceptance.py) tests the real Player boundary. The [portable tests](Runtime/KairoPlayer/tests/RuntimeCollectibleRunTests.cpp) cover seeded runs and maximum-size collection batches.
+
+### Authored proximity triggers
+
+Start with [Trigger Arena](Samples/TriggerArena/README.md) and its [rules](Samples/TriggerArena/Config/Triggers.ktrigger). Read [RuntimeProximityTriggers.hpp](Runtime/KairoPlayer/RuntimeProximityTriggers.hpp) for parser validation, deterministic ID ordering and edge sampling; follow into [main.cpp](Runtime/KairoPlayer/main.cpp) for target validation and event application. The [portable tests](Runtime/KairoPlayer/tests/RuntimeProximityTriggersTests.cpp) check edge parity and rejection; [native acceptance](Samples/TriggerArena/run_native_acceptance.py) exercises the actual Player.
+
+### Persistent objective and trigger state
+
+Read [RuntimeProgressCheckpoint.hpp](Runtime/KairoPlayer/RuntimeProgressCheckpoint.hpp) for source binding, versioned encoding and transactional restore. Follow restore methods in [RuntimeCollectibleRun.hpp](Runtime/KairoPlayer/RuntimeCollectibleRun.hpp) and [RuntimeProximityTriggers.hpp](Runtime/KairoPlayer/RuntimeProximityTriggers.hpp), then the atomic local file publication in [CraftSaveFile.hpp](Runtime/KairoPlayer/CraftSaveFile.hpp). [Cold-process tests](Runtime/KairoPlayer/tests/RuntimeProgressCheckpointTests.cpp) and [native acceptance](Samples/BeaconRun/run_native_progress.py) distinguish portable state verification from actual Player execution.
+
+### Physics-backed door interactions
+
+Read [Door Arena](Samples/DoorArena/README.md) and [door rules](Samples/DoorArena/Config/Doors.kdoor). [RuntimeSlidingDoor.hpp](Runtime/KairoPlayer/RuntimeSlidingDoor.hpp) owns portable motion and parser validation; [RuntimeDoorBridge.cppm](Runtime/KairoPlayer/RuntimeDoorBridge.cppm) binds authored entities to the authoritative physics world. Follow `RuntimeFixedStepFanout` in [main.cpp](Runtime/KairoPlayer/main.cpp) and `SetEntityPosition` in [RuntimePhysicsBridge.cppm](Runtime/KairoPlayer/RuntimePhysicsBridge.cppm). The [portable controller regression](Runtime/KairoPlayer/tests/RuntimeSlidingDoorTests.cpp) and [actual physics integration test](Runtime/KairoPlayer/tests/RuntimeDoorBridgeTests.cpp) cover distinct evidence boundaries.
+
+### Health and checkpoint respawn
+
+Read [Health Arena](Samples/HealthArena/README.md) and [health rules](Samples/HealthArena/Config/Health.khealth). [RuntimeHealth.hpp](Runtime/KairoPlayer/RuntimeHealth.hpp) owns validated configuration and deterministic state; [RuntimeHealthBridge.cppm](Runtime/KairoPlayer/RuntimeHealthBridge.cppm) observes the physics body and uses the existing [character motor](Runtime/KairoPlayer/RuntimeCharacterMotorBridge.cppm) teleport. Follow fixed-step and shared HUD ownership in [main.cpp](Runtime/KairoPlayer/main.cpp). Compare the [portable tests](Runtime/KairoPlayer/tests/RuntimeHealthTests.cpp) with the [actual module integration test](Runtime/KairoPlayer/tests/RuntimeHealthBridgeTests.cpp).
+
+### Raycast combat and destructible targets
+
+Start with [Combat Arena](Samples/CombatArena/README.md) and [combat rules](Samples/CombatArena/Config/Combat.kcombat). [RuntimeCombat.hpp](Runtime/KairoPlayer/RuntimeCombat.hpp) owns deterministic cooldown and target health. [RuntimeCombatBridge.cppm](Runtime/KairoPlayer/RuntimeCombatBridge.cppm) binds the raycast and physics lifecycle to the authored scene. Follow the attack input and fixed-step fanout in [main.cpp](Runtime/KairoPlayer/main.cpp) and deactivation in [RuntimePhysicsBridge.cppm](Runtime/KairoPlayer/RuntimePhysicsBridge.cppm). Compare the [portable tests](Runtime/KairoPlayer/tests/RuntimeCombatTests.cpp) and [actual physics bridge test](Runtime/KairoPlayer/tests/RuntimeCombatBridgeTests.cpp).
+
+### Travelling projectile attacks
+
+Start with [Projectile Arena](Samples/ProjectileArena/README.md) and [combat rules](Samples/ProjectileArena/Config/Combat.kcombat). [RuntimeProjectileFlight.hpp](Runtime/KairoPlayer/RuntimeProjectileFlight.hpp) separates finite range, normalized direction and segment integration from physics queries. [RuntimeCombat.hpp](Runtime/KairoPlayer/RuntimeCombat.hpp) separates launch cooldown from damage application. Follow [RuntimeCombatBridge.cppm](Runtime/KairoPlayer/RuntimeCombatBridge.cppm) to the actual raycast and target removal. Compare [flight tests](Runtime/KairoPlayer/tests/RuntimeProjectileFlightTests.cpp), [combined state tests](Runtime/KairoPlayer/tests/RuntimeProjectileCombatTests.cpp), and [native bridge test](Runtime/KairoPlayer/tests/RuntimeProjectileBridgeTests.cpp).
+
+### Enemy perception and behaviour
+
+Start with [Enemy Arena](Samples/EnemyArena/README.md). [RuntimeEnemy.hpp](Runtime/KairoPlayer/RuntimeEnemy.hpp) owns deterministic decision state; [RuntimeEnemyBridge.cppm](Runtime/KairoPlayer/RuntimeEnemyBridge.cppm) binds visibility and movement. Follow damage through [RuntimeHealth.hpp](Runtime/KairoPlayer/RuntimeHealth.hpp), defeat through [RuntimeCombatBridge.cppm](Runtime/KairoPlayer/RuntimeCombatBridge.cppm), and fixed-step order in [main.cpp](Runtime/KairoPlayer/main.cpp). Compare [decision regression](Runtime/KairoPlayer/tests/RuntimeEnemyTests.cpp), [damage regression](Runtime/KairoPlayer/tests/RuntimeEnemyDamageTests.cpp), and [actual physics integration](Runtime/KairoPlayer/tests/RuntimeEnemyBridgeTests.cpp).
+
+### Authored enemy navigation
+
+Start with [Navigation Arena](Samples/NavigationArena/README.md) and [walkable rectangles](Samples/NavigationArena/Config/EnemyNav.knav). Read [RuntimeEnemyNavigation.hpp](Runtime/KairoPlayer/RuntimeEnemyNavigation.hpp) for document validation and goal-refresh budget. [RuntimeEnemy.hpp](Runtime/KairoPlayer/RuntimeEnemy.hpp) exposes the decision goal, [RuntimeEnemyBridge.cppm](Runtime/KairoPlayer/RuntimeEnemyBridge.cppm) binds it to [RuntimeNavigationAgentBridge.cppm](Runtime/KairoPlayer/RuntimeNavigationAgentBridge.cppm) and [RuntimeCrowdNavigationBridge.cppm](Runtime/KairoPlayer/RuntimeCrowdNavigationBridge.cppm). Compare the [portable parser/replan regression](Runtime/KairoPlayer/tests/RuntimeEnemyNavigationTests.cpp) with the [actual obstacle detour acceptance](Runtime/KairoPlayer/tests/RuntimeEnemyNavigationBridgeTests.cpp).
+
+### Declarative gameplay event rules
+
+Start with [Event Arena](Samples/EventArena/README.md) and [event rules](Samples/EventArena/Config/Events.kevent). [RuntimeGameplayEvents.hpp](Runtime/KairoPlayer/RuntimeGameplayEvents.hpp) validates rules and dispatches actions in deterministic order. [main.cpp](Runtime/KairoPlayer/main.cpp) validates source and target ownership and binds real gameplay events; [RuntimeCombatBridge.cppm](Runtime/KairoPlayer/RuntimeCombatBridge.cppm) records actual defeats. Compare the [portable event tests](Runtime/KairoPlayer/tests/RuntimeGameplayEventsTests.cpp) with [native acceptance](Samples/EventArena/run_native_acceptance.py).
+
+### Event-controlled physical gates
+
+Read [Key Gate Arena](Samples/KeyGateArena/README.md), [door rules](Samples/KeyGateArena/Config/Doors.kdoor), and [event rules](Samples/KeyGateArena/Config/Events.kevent). Follow typed actions in [RuntimeGameplayEvents.hpp](Runtime/KairoPlayer/RuntimeGameplayEvents.hpp) through generic [Player dispatch](Runtime/KairoPlayer/main.cpp) to [RuntimeDoorBridge.cppm](Runtime/KairoPlayer/RuntimeDoorBridge.cppm) and [RuntimeSlidingDoor.hpp](Runtime/KairoPlayer/RuntimeSlidingDoor.hpp). Compare [portable combined regression](Runtime/KairoPlayer/tests/RuntimeEventDoorTests.cpp), [native physics command test](Runtime/KairoPlayer/tests/RuntimeEventDoorBridgeTests.cpp), and [actual Player dispatch acceptance](Samples/KeyGateArena/run_native_acceptance.py).
+
+### Combat presentation and attack clips
+
+Read [Visible Projectile Arena](Samples/VisibleProjectileArena/README.md). [RuntimeCombatPresentation.hpp](Runtime/KairoPlayer/RuntimeCombatPresentation.hpp) owns accepted-launch timing and slot count; [RuntimeCombatBridge.cppm](Runtime/KairoPlayer/RuntimeCombatBridge.cppm) exposes authoritative projectile positions; [RuntimeCombatPresentationBridge.cppm](Runtime/KairoPlayer/RuntimeCombatPresentationBridge.cppm) publishes visual marker state and imported clip selection using [RuntimeRenderBridge.cppm](Runtime/KairoPlayer/RuntimeRenderBridge.cppm). Compare [portable policy tests](Runtime/KairoPlayer/tests/RuntimeCombatPresentationTests.cpp) and [full-workspace marker tests](Runtime/KairoPlayer/tests/RuntimeCombatPresentationBridgeTests.cpp).
+
+### Graphical gameplay record authoring
+
+Read [kairo_gameplay_editor.py](scripts/kairo_gameplay_editor.py) for the structural grammar, document snapshot, atomic replacement and Tk editing callbacks. [Actual widget and document tests](scripts/tests/test_kairo_gameplay_editor.py) exercise edit/save, external changes and discard recovery. Compare the runtime grammar in the corresponding sample README and C++ parser; native Player remains the authority for semantic validation.

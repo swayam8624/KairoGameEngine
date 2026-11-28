@@ -1,0 +1,5 @@
+kairo-events 1
+on 1 begin 0 1 once show 36
+on 2 trigger 1 1 once show 38
+on 3 collected 30 1 once hide 36
+on 4 complete 0 1 once show 39
