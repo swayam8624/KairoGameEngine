@@ -374,6 +374,7 @@ class Hub(ttk.Frame):
             self.log = tempfile.TemporaryFile(mode="w+b")
             self.process = subprocess.Popen(command, cwd=project.parent, stdout=self.log, stderr=subprocess.STDOUT)
             self.process_label = label
+            self.update_project_actions()
         except (OSError, ValueError) as error:
             if self.log is not None:
                 self.log.close()
