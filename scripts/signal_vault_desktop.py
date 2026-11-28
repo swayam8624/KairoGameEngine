@@ -126,6 +126,8 @@ def qualify(archive, source_receipt, output):
                    'workspace_lock_sha256': previous['workspace_lock_sha256'],
                    'first_party_notice_count': previous.get('first_party_notice_count', 0),
                    'first_party_notice_index_sha256': previous.get('first_party_notice_index_sha256'),
+                   'third_party_source_notice_dependencies': previous.get('third_party_source_notice_dependencies', 0),
+                   'third_party_source_notice_index_sha256': previous.get('third_party_source_notice_index_sha256'),
                    'native_launcher_validation': True, 'user_copy_retained': True,
                    'windows_installer_no_overwrite': windows, 'native_graphics_smoke': False,
                    'fresh_machine_qualified': False, 'dependency_closure_verified': False,
