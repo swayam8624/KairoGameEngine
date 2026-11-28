@@ -52,7 +52,13 @@ def isolated_runtime_path():
     previous = os.environ.copy()
     try:
         if os.name == 'nt':
-            system = Path(previous['SystemRoot'])
+            # os.environ is case-insensitive on Windows, but its copied dict
+            # is not. Normalize the snapshot before looking up SystemRoot.
+            system_root = next((value for key, value in previous.items()
+                                if key.upper() == 'SYSTEMROOT'), None)
+            require(system_root, 'Windows SystemRoot is missing')
+            system = Path(system_root)
+            require(system.is_absolute() and system.is_dir(), 'Invalid Windows SystemRoot')
             os.environ['PATH'] = os.pathsep.join(map(str, (system / 'System32', system)))
         elif sys.platform == 'darwin':
             os.environ['PATH'] = '/usr/bin:/bin:/usr/sbin:/sbin'
