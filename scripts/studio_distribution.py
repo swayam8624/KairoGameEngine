@@ -16,6 +16,7 @@ import kairo_release
 import native_dependency_audit
 import studio_import_inventory
 import studio_dll_bundle
+import unix_dependency_resolution
 
 SCRIPTS = ('kairo_hub.py', 'kairo_hub_core.py', 'kairo_project_workflow.py',
            'create_kairo_project.py', 'kairo_world2d_editor.py', 'kairo_platformer_editor.py',
@@ -211,6 +212,19 @@ print('All installed Hub templates created and validated')
         require(inventory(installed) == expected, 'Studio changed installed tree')
         imports = studio_import_inventory.collect(
             installed, native_tools, native_dependency_audit.audit, target_of, dll_roots, system_dir)
+        if imports['target'].startswith('linux-'):
+            for tool in imports['tools']:
+                if tool['interpreter'] is None and not tool['imports']:
+                    tool['host_resolution'] = {'method': 'no ELF interpreter or direct imports',
+                                               'host_loader_resolution_verified': False}
+                else:
+                    tool['host_resolution'] = unix_dependency_resolution.linux_loader_inventory(
+                        installed / tool['path'], imports['target'], tool['interpreter'])
+        elif imports['target'].startswith('macos-'):
+            for tool in imports['tools']:
+                tool['host_resolution'] = unix_dependency_resolution.macos_graph(
+                    installed / tool['path'], tool,
+                    lambda path: native_dependency_audit.audit(path, imports['target']))
         import_bytes = (json.dumps(imports, sort_keys=True, indent=2) + '\n').encode('utf-8')
         receipt = {'schema': 1, 'archive_sha256': digest(archive), 'workspace_lock_sha256': digest(installed / 'workspace.lock'),
                    'commit': os.environ.get('GITHUB_SHA'), 'platform': sys.platform,
@@ -218,6 +232,7 @@ print('All installed Hub templates created and validated')
                    'editor_and_player_graphical_smoke': graphical,
                    'native_import_inventory_sha256': hashlib.sha256(import_bytes).hexdigest(),
                    'native_target': imports['target'], 'native_tools_inspected': len(imports['tools']),
+                   'host_loader_resolved_tools': sum(bool(t.get('host_resolution', {}).get('host_loader_resolution_verified')) for t in imports['tools']),
                    'dependency_closure_verified': False,
                    'app_local_dll_policy_applied': bundle_evidence is not None,
                    'bundled_dll_count': len(bundle_evidence['libraries']) if bundle_evidence else 0,
