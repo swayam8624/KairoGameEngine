@@ -1,6 +1,9 @@
 """Exercise the immutable installation audit using real ZIP/filesystem fixtures."""
 import hashlib
 import json
+import os
+import stat
+from types import SimpleNamespace
 from pathlib import Path
 import tempfile
 import unittest
@@ -9,7 +12,7 @@ import kairo_release as release
 from install_local_windows_game import DLLS, install
 from test_install_local_windows_game import pe
 from test_install_local_macos_game import image, string_command
-from verify_private_game_install import audit, record
+from verify_private_game_install import audit, linked, record
 
 
 class Tests(unittest.TestCase):
@@ -64,6 +67,12 @@ class Tests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'integrity differs'):
                 audit(archive, dest, digest)
             path.write_bytes(original)
+        missing = dest / 'project/Assets/texture'
+        original = missing.read_bytes()
+        missing.unlink()
+        with self.assertRaisesRegex(ValueError, 'inventory differs'):
+            audit(archive, dest, digest)
+        missing.write_bytes(original)
         extra = dest / 'bin/unexpected.dll'
         extra.write_bytes(b'extra')
         with self.assertRaisesRegex(ValueError, 'inventory differs'):
@@ -101,6 +110,11 @@ class Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unexpected file type'):
             audit(archive, dest, digest)
 
+    def test_reparse_metadata_is_rejected(self):
+        self.assertTrue(linked(SimpleNamespace(st_mode=stat.S_IFDIR,
+                                               st_file_attributes=stat.FILE_ATTRIBUTE_REPARSE_POINT)))
+        self.assertFalse(linked(SimpleNamespace(st_mode=stat.S_IFDIR)))
+
     def test_macos_rewritten_player_receipt_fixture(self):
         # Portable fixture tests accounting for changed bytes, not Mach-O
         # relocation or code signing; those are separate native gates.
@@ -110,7 +124,9 @@ class Tests(unittest.TestCase):
         (dest / player).write_bytes(image(2, [string_command(0xc, '@loader_path/libglfw.3.dylib', 24)]))
         names = ('libglfw.3.dylib', 'libvulkan.1.dylib')
         for name in names:
-            (dest / 'bin' / name).write_bytes(name.encode())
+            library = dest / 'bin' / name
+            library.write_bytes(name.encode())
+            library.chmod(0o755)
         receipt = {
             'schema': 1, 'target': 'macos-arm64',
             'source_archive_sha256': record(archive)['sha256'],
@@ -124,6 +140,11 @@ class Tests(unittest.TestCase):
         path.write_text(json.dumps(receipt))
         digest = record(path)['sha256']
         self.assertEqual(audit(archive, dest, digest)['verified_files'], 7)
+        if os.name != 'nt':
+            (dest / player).chmod(0o644)
+            with self.assertRaisesRegex(ValueError, 'permissions differ'):
+                audit(archive, dest, digest)
+            (dest / player).chmod(0o755)
         # Even with an updated receipt hash, an extra local-file claim cannot
         # authorize changing an authored asset or bypass the original ZIP.
         receipt['local_runtime_files']['project/Assets/texture'] = record(dest / 'project/Assets/texture')
