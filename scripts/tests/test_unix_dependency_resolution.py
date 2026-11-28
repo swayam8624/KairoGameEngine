@@ -56,6 +56,7 @@ class Tests(unittest.TestCase):
             self.assertEqual(audit.macos_candidates('@rpath/missing.dylib', owner, exe, [])['status'], 'unresolved')
             self.assertEqual(audit.macos_candidates('/usr/lib/libSystem.B.dylib', owner, exe, [])['status'], 'os-library-reference')
 
+
     def test_macos_graph_cycle_and_missing_candidate(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
