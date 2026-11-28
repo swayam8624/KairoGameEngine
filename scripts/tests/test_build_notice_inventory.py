@@ -1,4 +1,5 @@
 import pathlib
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -44,6 +45,27 @@ class Tests(unittest.TestCase):
         self.deps['fixture'] = ('wrong/fixture', self.pin, 'runtime')
         with self.assertRaises(ValueError): self.collect()
         self.assertFalse(self.dest.exists())
+
+    def test_distribution_scopes_and_exact_bytes(self):
+        for name, scope in (('editor', 'editor'), ('testing', 'test')):
+            shutil.copytree(self.repo, self.root / ('_deps/' + name + '-src'))
+            self.deps[name] = ('example/fixture', self.pin, scope)
+        game = audit.collect(self.root, self.dest, dependencies=self.deps, distribution=True)
+        self.assertEqual(game['distribution_scope'], 'game')
+        self.assertEqual([r['name'] for r in game['dependencies']], ['fixture'])
+        self.assertEqual(game['excluded_fetched_sources'], ['editor', 'testing'])
+        self.assertEqual((self.dest / 'fixture/0000.txt').read_bytes(), b'original notice\n')
+        self.assertFalse((self.dest / 'testing').exists())
+        studio = audit.collect(self.root, self.root / 'studio', editor=True,
+                               dependencies=self.deps, distribution=True)
+        self.assertEqual([r['name'] for r in studio['dependencies']], ['editor', 'fixture'])
+        self.assertEqual(studio['excluded_fetched_sources'], ['testing'])
+        self.assertFalse(studio['third_party_licenses_verified'])
+        shutil.rmtree(self.root / '_deps/editor-src')
+        with self.assertRaises(ValueError):
+            audit.collect(self.root, self.root / 'missing', editor=True,
+                          dependencies=self.deps, distribution=True)
+        self.assertFalse((self.root / 'missing').exists())
 
     def test_missing_and_no_overwrite(self):
         self.dest.mkdir()
