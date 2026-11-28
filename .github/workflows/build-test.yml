@@ -324,6 +324,33 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+      - name: Qualify relocated Studio Hub, Editor, Player and project tools
+        if: matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          trap 'rm -rf "$scratch"' EXIT
+          git archive HEAD LICENSE workspace.lock scripts \
+            Samples/PlayableVerticalSlice Samples/BeaconRun Samples/KeyGateArena \
+            Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
+            Samples/SignalVault | tar -xf - -C "$scratch"
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical
+          else
+            python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence
+          fi
+
+      - name: Upload exact tested Studio toolset archive
+        if: matrix.preset == 'ci-clang'
+        uses: actions/upload-artifact@v7
+        with:
+          name: KairoStudio-${{ matrix.platform }}
+          path: studio-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
       - name: Qualify native desktop installation package
         if: matrix.platform == 'macos' || matrix.platform == 'windows'
         shell: bash
