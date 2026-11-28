@@ -61,7 +61,9 @@ class Tests(unittest.TestCase):
         self.assertEqual([r['name'] for r in studio['dependencies']], ['editor', 'fixture'])
         self.assertEqual(studio['excluded_fetched_sources'], ['testing'])
         self.assertFalse(studio['third_party_licenses_verified'])
-        shutil.rmtree(self.root / '_deps/editor-src')
+        # Git object files can be read-only on Windows. Moving the checkout
+        # out of _deps exercises absence without trying to delete its objects.
+        (self.root / '_deps/editor-src').rename(self.root / 'removed-editor')
         with self.assertRaises(ValueError):
             audit.collect(self.root, self.root / 'missing', editor=True,
                           dependencies=self.deps, distribution=True)
