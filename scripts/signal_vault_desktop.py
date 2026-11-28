@@ -124,6 +124,8 @@ def qualify(archive, source_receipt, output):
         receipt = {'schema': 1, 'commit': previous['commit'], 'target': target,
                    'source_zip_sha256': previous['archive_sha256'], 'package_sha256': digest(package),
                    'workspace_lock_sha256': previous['workspace_lock_sha256'],
+                   'first_party_notice_count': previous.get('first_party_notice_count', 0),
+                   'first_party_notice_index_sha256': previous.get('first_party_notice_index_sha256'),
                    'native_launcher_validation': True, 'user_copy_retained': True,
                    'windows_installer_no_overwrite': windows, 'native_graphics_smoke': False,
                    'fresh_machine_qualified': False, 'dependency_closure_verified': False,
