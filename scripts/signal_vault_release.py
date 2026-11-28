@@ -17,6 +17,7 @@ import tempfile
 
 import kairo_release as release
 import native_dependency_audit
+import first_party_notices
 
 
 def digest(path):
@@ -28,7 +29,7 @@ def run(command, cwd):
     subprocess.run([str(part) for part in command], cwd=cwd, check=True, timeout=120)
 
 
-def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
+def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False, notice_engine=None):
     """Publish an exclusive evidence directory only after relocation passes."""
     player = Path(player).resolve(strict=True)
     sample = Path(sample).resolve(strict=True)
@@ -49,6 +50,12 @@ def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
         root = Path(temp)
         source = root / "Source Project"
         shutil.copytree(sample, source)
+        notices = None
+        if notice_engine is not None:
+            notices = first_party_notices.stage(notice_engine, lock, source / "KairoNotices")
+            release.require(notices["engine_commit"] == commit, "Notice source commit differs")
+            expected.update({"KairoNotices/" + name: digest(path)
+                             for name, path in release.entries(source / "KairoNotices").items()})
         run([player, source / "Project.kproject", "--validate"], root)
         run([player, source / "Project.kproject", "--package", "Release"], root)
         archive = root / "candidate.zip"
@@ -86,6 +93,8 @@ def qualify(player, sample, output, lock, commit, gameplay_test, smoke=False):
                    "archive_sha256": digest(archive), "player_sha256": player_hash,
                    "file_count": len(index["files"]), "project_file_count": len(expected),
                    "license_sha256": expected["LICENSE"],
+                   "first_party_notice_count": len(notices["notices"]) if notices else 0,
+                   "first_party_notice_index_sha256": expected.get("KairoNotices/notice-index.json"),
                    "native_dependencies_sha256": hashlib.sha256(dependency_bytes).hexdigest(),
                    "dependency_closure_verified": False, "third_party_licenses_verified": False,
                    "extracted_player_validation": True, "relocated_launcher_validation": True,
@@ -120,9 +129,10 @@ def main():
     parser.add_argument("--commit", required=True)
     parser.add_argument("--gameplay-test", type=Path, required=True)
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--notice-engine", type=Path)
     args = parser.parse_args()
     receipt = qualify(args.player, args.sample, args.output, args.lock,
-                      args.commit, args.gameplay_test, args.smoke)
+                      args.commit, args.gameplay_test, args.smoke, args.notice_engine)
     print(json.dumps(receipt, sort_keys=True))
 
 
