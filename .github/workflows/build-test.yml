@@ -324,6 +324,26 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+      - name: Qualify dependency-aware Signal Vault Debian installer
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y dpkg-dev
+          PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_debian_dependencies.py -v
+          xvfb-run -a python3 scripts/signal_vault_debian.py \
+              signal-vault-evidence/SignalVault-linux-x86_64.zip \
+              signal-vault-evidence/receipt.json signal-vault-debian-evidence
+
+      - name: Upload exact tested Debian installer
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-debian-x86_64
+          path: signal-vault-debian-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
       - name: Test distribution gate publication and rollback
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
