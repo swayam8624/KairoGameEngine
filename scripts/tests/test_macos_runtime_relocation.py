@@ -20,46 +20,8 @@ def evidence():
 
 class Tests(unittest.TestCase):
     def test_exact_receipt_and_tamper_rejection(self):
-        self.assertRegex(ARCHIVE_SHA, r'^[0-9a-f]{64}
-        tools, libraries = plan(evidence())
-        self.assertEqual(len(tools), 7)
-        self.assertEqual(set(libraries), set(EXPECTED))
-        self.assertEqual(sum(bool(row['changes']) for row in tools.values()), 1)
-
-    def test_unsafe_or_unknown_rejected(self):
-        for mutate in (lambda e: e['tools'][0].update(path='build/game-clang/Runtime/../tool'),
-                       lambda e: e['tools'][0]['imports'].append('/tmp/unknown.dylib'),
-                       lambda e: e['tools'][0]['host_resolution']['images'][0]['edges'][0].update(status='ambiguous'),
-                       lambda e: e['tools'][1].update(path=e['tools'][0]['path'])):
-            data = copy.deepcopy(evidence())
-            mutate(data)
-            with self.assertRaises(ValueError):
-                plan(data)
-
-
-if __name__ == '__main__':
-    unittest.main()
-)
-        self.assertRegex(IMPORT_SHA, r'^[0-9a-f]{64}
-        tools, libraries = plan(evidence())
-        self.assertEqual(len(tools), 7)
-        self.assertEqual(set(libraries), set(EXPECTED))
-        self.assertEqual(sum(bool(row['changes']) for row in tools.values()), 1)
-
-    def test_unsafe_or_unknown_rejected(self):
-        for mutate in (lambda e: e['tools'][0].update(path='build/game-clang/Runtime/../tool'),
-                       lambda e: e['tools'][0]['imports'].append('/tmp/unknown.dylib'),
-                       lambda e: e['tools'][0]['host_resolution']['images'][0]['edges'][0].update(status='ambiguous'),
-                       lambda e: e['tools'][1].update(path=e['tools'][0]['path'])):
-            data = copy.deepcopy(evidence())
-            mutate(data)
-            with self.assertRaises(ValueError):
-                plan(data)
-
-
-if __name__ == '__main__':
-    unittest.main()
-)
+        self.assertRegex(ARCHIVE_SHA, r'^[0-9a-f]{64}$')
+        self.assertRegex(IMPORT_SHA, r'^[0-9a-f]{64}$')
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
             archive = b'archive fixture'
