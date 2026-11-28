@@ -9,6 +9,8 @@ on:
       - 'scripts/studio_distribution.py'
       - 'scripts/qualify_complete_creator_workflow.py'
       - 'scripts/windows_vulkan_creator_smoke.py'
+      - 'scripts/windows_ci_vulkan_driver.py'
+      - 'scripts/tests/test_windows_ci_vulkan_driver.py'
       - 'scripts/local_runtime_discovery.py'
       - 'scripts/kairo_game_installer.py'
       - 'scripts/launch_private_game.py'
@@ -126,8 +128,7 @@ jobs:
             Samples/PlayableVerticalSlice Samples/BeaconRun Samples/KeyGateArena \
             Samples/PlatformerProject Samples/World2DProject Samples/PhysicsWorld2DProject \
             Samples/SignalVault | tar -xf - -C "$scratch"
-          export VK_DRIVER_FILES="$KAIRO_CREATOR_ICD" VK_ICD_FILENAMES="$KAIRO_CREATOR_ICD"
-          python scripts/studio_distribution.py "$scratch" build/studio-msvc studio-windows-evidence \
+          python -B scripts/windows_ci_vulkan_driver.py "$KAIRO_CREATOR_ICD" -- python -B scripts/studio_distribution.py "$scratch" build/studio-msvc studio-windows-evidence \
               --dll-root "$CMAKE_PREFIX_PATH/bin" --notice-engine "$GITHUB_WORKSPACE" \
               --creator-runtime "$KAIRO_CREATOR_VCPKG" --creator-renderer auto
 
