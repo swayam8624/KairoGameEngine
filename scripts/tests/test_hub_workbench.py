@@ -44,6 +44,37 @@ class Tests(unittest.TestCase):
             with self.assertRaises((OSError, ValueError)):
                 workbench_command(project, build, renderer, ROOT)
 
+    def test_search_selection_and_missing_project_actions(self):
+        other = create('2d', 'Platformer Fixture', self.work, ROOT)
+        self.hub.recent.touch(other)
+        self.hub.refresh()
+        self.window.update()
+        self.assertEqual(self.hub.selected(), str(self.project))
+        self.hub.search.set('platformer fixture')
+        self.window.update()
+        self.assertEqual(len(self.hub.tree.get_children()), 1)
+        self.hub.focus_first_result()
+        self.assertEqual(self.hub.selected(), str(other))
+        self.assertFalse(self.hub.open_button.instate(('disabled',)))
+        self.hub.search.set('no matching project')
+        self.window.update()
+        self.assertEqual(len(self.hub.tree.get_children()), 0)
+        self.assertTrue(self.hub.open_button.instate(('disabled',)))
+        self.assertIn('No matching projects', self.hub.project_summary.get())
+        other.unlink()
+        self.hub.search.set('missing')
+        self.window.update()
+        self.hub.focus_first_result()
+        self.assertEqual(self.hub.selected(), str(other))
+        self.assertTrue(self.hub.open_button.instate(('disabled',)))
+        self.assertTrue(self.hub.tools_button.instate(('disabled',)))
+        self.assertFalse(self.hub.remove_button.instate(('disabled',)))
+        self.assertEqual(len(self.hub.recent.paths), 2)
+        self.hub.remove_selected()
+        self.assertEqual(len(self.hub.recent.paths), 1)
+        self.assertTrue(self.project.is_file())
+        self.assertTrue(other.parent.is_dir())
+
     def test_real_child_and_busy_gate(self):
         button = self.hub.tools_button
         self.assertTrue(button.winfo_viewable())

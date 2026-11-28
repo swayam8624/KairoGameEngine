@@ -365,8 +365,23 @@ jobs:
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             xvfb-run -a python3 scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --graphical --notice-engine "$GITHUB_WORKSPACE"
           else
-            "${KAIRO_STUDIO_PYTHON:?Missing Tk-capable Studio Python}" scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE"
+            "${KAIRO_STUDIO_PYTHON:?Missing Tk-capable Studio Python}" scripts/studio_distribution.py "$scratch" build/ci-clang studio-evidence --notice-engine "$GITHUB_WORKSPACE" \
+              --creator-runtime /opt/homebrew --creator-renderer metal
           fi
+
+      - name: Verify exact native Studio candidate before upload
+        if: matrix.preset == 'ci-clang'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python3 -B scripts/tests/test_verify_studio_candidate.py -v
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            target=linux-x86_64
+          else
+            target=macos-arm64
+          fi
+          python3 -B scripts/verify_studio_candidate.py studio-evidence --target "$target" --commit "$GITHUB_SHA" > studio-evidence/candidate-verification.json
+          cat studio-evidence/candidate-verification.json
 
       - name: Upload exact tested Studio toolset archive
         if: matrix.preset == 'ci-clang'

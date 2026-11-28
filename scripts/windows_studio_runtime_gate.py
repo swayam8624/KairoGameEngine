@@ -124,6 +124,7 @@ for key in ('world2d', 'arena'):
     # even that runtime PATH. The original archive stays untouched.
     from install_local_windows_game import install
     from verify_private_game_install import audit
+    from launch_private_game import preflight
     local = work / 'Private installed game'
     archive = projects / 'Creator arena.zip'
     original_archive = digest(archive)
@@ -132,6 +133,9 @@ for key in ('world2d', 'arena'):
             digest(archive) == original_archive, 'Original game archive changed')
     receipt_hash = digest(local / 'local-runtime.json')
     before_audit = audit(archive, local, receipt_hash)
+    readiness = preflight(archive, local, receipt_hash, 'd3d12')
+    require(readiness['native_import_preflight_passed'], 'Private game launch preflight failed')
+    print(json.dumps(readiness, sort_keys=True), flush=True)
     local_before = inventory(local)
     local_env = {**env, 'PATH': os.pathsep.join(map(str, (system / 'System32', system)))}
     subprocess.run([str(local / 'bin/KairoPlayer.exe'), str(local / 'project/Project.kproject'),

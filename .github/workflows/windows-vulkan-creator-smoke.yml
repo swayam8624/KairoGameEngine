@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'scripts/windows_vulkan_creator_smoke.py'
+      - 'scripts/windows_ci_vulkan_driver.py'
+      - 'scripts/tests/test_windows_ci_vulkan_driver.py'
       - 'scripts/tests/test_windows_vulkan_creator_smoke.py'
       - '.github/workflows/windows-vulkan-creator-smoke.yml'
   workflow_dispatch:
@@ -53,6 +55,7 @@ jobs:
               Copy-Item -LiteralPath "$vcpkg\installed\x64-windows\bin\$dll" -Destination $runtime
           }
           "KAIRO_VULKAN_RUNTIME=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "KAIRO_CI_VULKAN_LOADER=$(Join-Path $runtime 'vulkan-1.dll')" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Locate an installed SwiftShader ICD without redistributing it
         shell: pwsh
         run: |
@@ -79,5 +82,5 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $work = Join-Path $env:RUNNER_TEMP 'Kairo Vulkan creator test'
           New-Item -ItemType Directory -Path $work | Out-Null
-          python -B scripts/windows_vulkan_creator_smoke.py qualified-studio $work $env:KAIRO_VULKAN_RUNTIME $env:KAIRO_VULKAN_ICD
+          python -B scripts/windows_ci_vulkan_driver.py $env:KAIRO_VULKAN_ICD -- python -B scripts/windows_vulkan_creator_smoke.py qualified-studio $work $env:KAIRO_VULKAN_RUNTIME $env:KAIRO_VULKAN_ICD
           if ($LASTEXITCODE -ne 0) { throw 'Native Windows 2D Vulkan qualification failed' }

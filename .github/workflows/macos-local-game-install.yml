@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/install_local_macos_game.py'
       - 'scripts/verify_private_game_install.py'
+      - 'scripts/launch_private_game.py'
       - 'scripts/tests/test_install_local_macos_game.py'
       - '.github/workflows/macos-local-game-install.yml'
   workflow_dispatch:
@@ -65,6 +66,7 @@ jobs:
           "$KAIRO_PYTHON" -B scripts/install_local_macos_game.py "$archive" "$installed" "$runtime" \
             --glfw-sha256 "$glfw" --vulkan-sha256 "$vulkan"
           receipt_hash="$(shasum -a 256 "$installed/local-runtime.json" | cut -d ' ' -f 1)"
+          "$KAIRO_PYTHON" -B scripts/launch_private_game.py "$archive" "$installed" --receipt-sha256 "$receipt_hash" --renderer metal --action check
           "$KAIRO_PYTHON" -B scripts/verify_private_game_install.py "$archive" "$installed" --receipt-sha256 "$receipt_hash" > "$work/audit-before"
           (cd "$installed" && find . -type f -print0 | xargs -0 shasum -a 256 | sort) > "$work/before"
           env -i HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" PATH=/usr/bin:/bin:/usr/sbin:/sbin "$installed/run.sh" --validate

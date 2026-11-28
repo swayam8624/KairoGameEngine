@@ -26,6 +26,8 @@ class Hub(ttk.Frame):
         self.location = tk.StringVar(value=str(Path.home()))
         self.template = tk.StringVar(value="empty")
         self.status = tk.StringVar(value=self.recent.warning or "Ready")
+        self.search = tk.StringVar()
+        self.project_summary = tk.StringVar(value="No projects")
         self.process = self.log = self.future = None
         self.process_label = None
         self.worker = ThreadPoolExecutor(max_workers=1)
@@ -63,6 +65,7 @@ class Hub(ttk.Frame):
         ttk.Button(nav, text="Projects", command=lambda: self.show("recent")).pack(fill="x", pady=3)
         ttk.Button(nav, text="New project", command=lambda: self.show("new")).pack(fill="x", pady=3)
         ttk.Button(nav, text="Settings", command=lambda: self.show("settings")).pack(fill="x", pady=3)
+        ttk.Button(nav, text="Game installer…", command=self.open_game_installer).pack(fill="x", pady=3)
         self.content = ttk.Frame(self, style="Hub.TFrame")
         self.content.grid(row=1, column=1, sticky="nsew")
         self.content.columnconfigure(0, weight=1)
@@ -93,23 +96,38 @@ class Hub(ttk.Frame):
         bar.grid(row=2, column=0, sticky="ew", pady=(0, 10))
         ttk.Button(bar, text="Open project…", command=self.browse, style="Primary.TButton").pack(side="left")
         ttk.Button(bar, text="New project", command=lambda: self.show("new")).pack(side="left", padx=8)
+        searchbar = ttk.Frame(page)
+        searchbar.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        ttk.Label(searchbar, text="Find").pack(side="left", padx=(0, 8))
+        self.search_entry = ttk.Entry(searchbar, textvariable=self.search)
+        self.search_entry.pack(side="left", fill="x", expand=True)
+        ttk.Button(searchbar, text="Clear", command=lambda: self.search.set("")).pack(side="left", padx=6)
         self.tree = ttk.Treeview(page, columns=("project", "location", "state"), show="headings", selectmode="browse")
         for key, title, width in (("project", "Project", 160), ("location", "Location", 380), ("state", "Status", 85)):
             self.tree.heading(key, text=title)
             self.tree.column(key, width=width, minwidth=60, stretch=key == "location")
-        self.tree.grid(row=3, column=0, sticky="nsew")
+        self.tree.grid(row=4, column=0, sticky="nsew")
         scroll = ttk.Scrollbar(page, orient="vertical", command=self.tree.yview)
-        scroll.grid(row=3, column=1, sticky="ns")
+        scroll.grid(row=4, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=scroll.set)
-        page.rowconfigure(3, weight=1)
-        self.tree.bind("<Double-1>", lambda _event: self.open_selected())
+        page.rowconfigure(4, weight=1)
+        self.tree.bind("<Double-1>", self.open_clicked)
+        self.tree.bind("<Return>", lambda _event: self.open_selected())
+        self.tree.bind("<<TreeviewSelect>>", lambda _event: self.update_project_actions())
+        self.search_entry.bind("<Escape>", lambda _event: self.search.set(""))
+        self.search_entry.bind("<Return>", lambda _event: self.focus_first_result())
         bottom = ttk.Frame(page)
-        bottom.grid(row=4, column=0, sticky="w", pady=10)
-        ttk.Button(bottom, text="Open selected", command=self.open_selected).pack(side="left")
+        bottom.grid(row=5, column=0, columnspan=2, sticky="w", pady=(10, 4))
+        self.open_button = ttk.Button(bottom, text="Open selected", command=self.open_selected)
+        self.open_button.pack(side="left")
         self.tools_button = ttk.Button(bottom, text="Project tools…", command=self.open_workbench_selected)
         self.tools_button.pack(side="left", padx=(8, 0))
-        ttk.Button(bottom, text="Remove from recents", command=self.remove_selected).pack(side="left", padx=8)
+        self.remove_button = ttk.Button(bottom, text="Remove from recents", command=self.remove_selected)
+        self.remove_button.pack(side="left", padx=8)
+        ttk.Label(page, textvariable=self.project_summary, style="Muted.TLabel", wraplength=600).grid(row=6, column=0, columnspan=2, sticky="w")
         self.recent_rows = {}
+        self.recent_states = {}
+        self.search.trace_add("write", lambda *_args: self.refresh())
 
     def draw_new(self):
         page = self.pages["new"]
@@ -230,8 +248,11 @@ class Hub(ttk.Frame):
             variable.set(value)
 
     def refresh(self):
+        previous = self.selected()
         self.tree.delete(*self.tree.get_children())
         self.recent_rows.clear()
+        self.recent_states.clear()
+        query = self.search.get().strip().casefold()
         for i, value in enumerate(self.recent.paths):
             p = Path(value)
             try:
@@ -239,9 +260,48 @@ class Hub(ttk.Frame):
                 state = "Available"
             except (OSError, ValueError):
                 state = "Missing"
+            if query and query not in (p.parent.name + " " + str(p) + " " + state).casefold():
+                continue
             key = str(i)
             self.recent_rows[key] = value
+            self.recent_states[key] = state
             self.tree.insert("", "end", iid=key, values=(p.parent.name, str(p.parent), state))
+            if previous == value:
+                self.tree.selection_set(key)
+                self.tree.focus(key)
+        self.update_project_actions()
+
+    def update_project_actions(self):
+        selected = self.tree.selection()
+        key = selected[0] if selected else None
+        available = self.recent_states.get(key) == "Available"
+        active = self.process is not None or self.future is not None
+        for button in (self.open_button, self.tools_button):
+            button.configure(state="normal" if available and not active else "disabled")
+        self.remove_button.configure(state="normal" if key in self.recent_rows else "disabled")
+        count = len(self.recent_rows)
+        summary = f"{count} of {len(self.recent.paths)} recent projects"
+        if key in self.recent_rows:
+            summary += " · " + self.recent_states[key]
+        elif not count:
+            summary += " · No matching projects"
+        self.project_summary.set(summary)
+
+    def focus_first_result(self):
+        items = self.tree.get_children()
+        if items:
+            self.tree.selection_set(items[0])
+            self.tree.focus(items[0])
+            self.tree.focus_set()
+            self.update_project_actions()
+        return "break"
+
+    def open_clicked(self, event):
+        row = self.tree.identify_row(event.y)
+        if row and self.recent_states.get(row) == "Available":
+            self.tree.selection_set(row)
+            self.open_selected()
+        return "break"
 
     def selected(self):
         items = self.tree.selection()
@@ -256,6 +316,8 @@ class Hub(ttk.Frame):
         value = self.selected()
         if value:
             self.open_project(value)
+        else:
+            self.status.set("Select an available project first.")
 
     def open_workbench_selected(self):
         value = self.selected()
@@ -274,6 +336,27 @@ class Hub(ttk.Frame):
             except (OSError, ValueError) as error:
                 self.status.set(str(error))
 
+    def open_game_installer(self):
+        if self.process is not None or self.future is not None:
+            self.status.set("Another project tool or creation is already active.")
+            return
+        script = self.root / "scripts/kairo_game_installer.py"
+        try:
+            if not script.is_file():
+                raise ValueError("Game installer script missing")
+            self.log = tempfile.TemporaryFile(mode="w+b")
+            self.process = subprocess.Popen([sys.executable, "-B", str(script.resolve())],
+                                            cwd=self.root, stdout=self.log, stderr=subprocess.STDOUT)
+            self.process_label = "Game installer"
+            self.status.set("Game installer running.")
+            self.update_project_actions()
+            self.after(100, self.poll_project_tool)
+        except (OSError, ValueError) as error:
+            if self.log is not None:
+                self.log.close()
+                self.log = None
+            self.status.set(f"Cannot open game installer: {error}")
+
     def open_project(self, path):
         self.launch_project(path, editor_command, "Editor")
 
@@ -291,6 +374,7 @@ class Hub(ttk.Frame):
             self.log = tempfile.TemporaryFile(mode="w+b")
             self.process = subprocess.Popen(command, cwd=project.parent, stdout=self.log, stderr=subprocess.STDOUT)
             self.process_label = label
+            self.update_project_actions()
         except (OSError, ValueError) as error:
             if self.log is not None:
                 self.log.close()
@@ -318,6 +402,7 @@ class Hub(ttk.Frame):
         self.log = self.process = None
         label, self.process_label = self.process_label, None
         self.status.set(f"{label} closed." if code == 0 else f"{label} failed ({code}): {output[-500:]}")
+        self.update_project_actions()
 
     def create_project(self):
         if self.future is not None or self.process is not None:
@@ -327,6 +412,7 @@ class Hub(ttk.Frame):
         self.status.set("Creating project…")
         # Tk state is read before submission. The worker performs only file I/O.
         self.future = self.worker.submit(create, self.template.get(), self.name.get(), self.location.get(), self.root)
+        self.update_project_actions()
         self.after(60, self.poll_create)
 
     def poll_create(self):
@@ -335,6 +421,7 @@ class Hub(ttk.Frame):
             return
         future, self.future = self.future, None
         self.create_button.configure(state="normal")
+        self.update_project_actions()
         try:
             project = future.result()
         except (OSError, ValueError) as error:
