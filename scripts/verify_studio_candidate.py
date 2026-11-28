@@ -92,7 +92,9 @@ def verify_candidate(folder, target, commit):
                         'Missing bounded Studio inventory')
         index = json.loads(z.read(index_name))
         release.require(isinstance(index, dict) and set(index) == set(names) - {index_name}
-                        and len(index) == receipt.get('file_count'), 'Studio inventory differs')
+                        and len(names) == receipt.get('file_count'), 'Studio inventory differs')
+        # The receipt counts the entire archive, including the index itself.
+        # The index lists only the other files to avoid recursive self-hashing.
         for entry in entries:
             if entry.filename == index_name:
                 continue
