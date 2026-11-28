@@ -12,7 +12,7 @@ DEPENDENCIES = {
     'kairoassetscgltf': ('jkuhlmann/cgltf', '85cd62382dfea638278962690cf515023f33ed00', 'runtime'),
     'nlohmann_json': ('nlohmann/json', 'v3.11.3', 'runtime'),
     'kairoglad': ('Dav1dde/glad', 'v0.1.36', 'runtime'),
-    'dearimgui': ('ocornut/imgui', '572f249ce1975f98ad9f8aabce512ffa12a52d6c', 'editor'),
+    'dearimgui': ('ocornut/imgui', 'b61e56346a92cfcaf1f43a545ca37b0b32239654', 'editor'),
     'imguizmo': ('CedricGuillemet/ImGuizmo', 'fd138a7ce089cfcbfee16da8e8692f37a0e9481e', 'editor'),
     'catch2': ('catchorg/Catch2', None, 'test'),
 }
