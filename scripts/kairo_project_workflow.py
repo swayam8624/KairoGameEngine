@@ -143,14 +143,57 @@ def run_cli(tools, action, renderer='auto', profile='Release', archive=None, rep
     return 0
 
 
+def choose_package_options(tools, parent, simpledialog, messagebox, filedialog):
+    """Collect explicit package intent before launching any native commands.
+
+    Native Player remains authoritative on whether an existing package can
+    safely be replaced. Cancellation never starts compilation or packaging.
+    """
+    available = tools.profiles()
+    profile = simpledialog.askstring('Build profile', 'Choose profile: ' + ', '.join(available),
+        initialvalue='Release' if 'Release' in available else next(iter(available)), parent=parent)
+    if profile is None:
+        return None
+    if profile not in available:
+        raise ValueError('Unknown build profile: ' + profile)
+    bundle = tools.project.parent / available[profile]
+    if bundle.is_symlink():
+        raise ValueError('Package output must not be a symbolic link')
+    replace = bundle.exists()
+    if replace and not messagebox.askyesno('Replace existing build?',
+            f'Rebuild the existing package at {bundle}? The native Player will refuse unrecognized output. Authored project files and previous ZIPs are not replaced.', parent=parent):
+        return None
+    archive = None
+    if messagebox.askyesno('Export ZIP', 'Also export a verified game ZIP?', parent=parent):
+        archive = filedialog.asksaveasfilename(parent=parent, defaultextension='.zip',
+            filetypes=[('Kairo game archive', '*.zip')])
+        if not archive:
+            return None
+    return profile, archive, replace
+
+
 def gui(project, build, renderer):
     # Import Tk only for the GUI so headless CLI remains dependency-free.
     import tkinter as tk
-    from tkinter import filedialog, ttk
+    from tkinter import filedialog, messagebox, simpledialog, ttk
 
     class Workbench(ttk.Frame):
         def __init__(self,parent):
-            super().__init__(parent,padding=12)
+            super().__init__(parent,padding=16)
+            # Match the Studio Hub's restrained, neutral workspace palette.
+            bg, panel, field = '#1a1c1f', '#25282c', '#202226'
+            text, muted, accent = '#eef0f4', '#adb4bf', '#245ac0'
+            parent.configure(background=bg)
+            style = ttk.Style(parent)
+            style.theme_use('clam')
+            style.configure('.', background=bg, foreground=text, font=('TkDefaultFont', 11))
+            style.configure('TButton', background=panel, foreground=text, bordercolor='#393d43', padding=(10, 6))
+            style.map('TButton', background=[('active', field)], foreground=[('disabled', muted)])
+            style.configure('Primary.TButton', background=accent, foreground=text)
+            style.map('Primary.TButton', background=[('active', '#2966cc'), ('disabled', panel)])
+            style.configure('TEntry', fieldbackground=field, foreground=text, insertcolor=text)
+            style.configure('TCombobox', fieldbackground=field, foreground=text, arrowcolor=text)
+            style.map('TCombobox', fieldbackground=[('readonly', field)], foreground=[('readonly', text)])
             self.parent=parent
             self.project=tk.StringVar(value=str(project or ''))
             self.build=tk.StringVar(value=str(build))
@@ -175,12 +218,22 @@ def gui(project, build, renderer):
             self.backend=ttk.Combobox(self,textvariable=self.renderer,values=('auto','metal','vulkan','opengl','d3d12'),state='readonly')
             self.backend.grid(row=2,column=1,sticky='w',padx=6,pady=3)
             bar=ttk.Frame(self);bar.grid(row=3,column=0,columnspan=3,sticky='ew',pady=8)
-            for action,label in zip(ACTIONS,('Open Editor','Design Menu','Edit Gameplay','Validate','Native Smoke','Play','Package Release')):
-                button=ttk.Button(bar,text=label,command=lambda a=action:self.start(a))
-                button.pack(side='left',padx=2)
+            for column in range(4):
+                bar.columnconfigure(column, weight=1, uniform='actions')
+            for index,(action,label) in enumerate(zip(ACTIONS,('Open Editor','Design Menu','Edit Gameplay','Validate','Native Smoke','Play','Package Release'))):
+                button=ttk.Button(bar,text=label,command=lambda a=action:self.start(a),
+                                  style='Primary.TButton' if action=='package' else 'TButton')
+                button.grid(row=index//4,column=index%4,sticky='ew',padx=2,pady=2)
                 self.inputs.append(button)
-            self.output=tk.Text(self,height=18,wrap='word',state='disabled')
-            self.output.grid(row=4,column=0,columnspan=3,sticky='nsew')
+            console=ttk.Frame(self)
+            console.grid(row=4,column=0,columnspan=3,sticky='nsew')
+            console.columnconfigure(0,weight=1);console.rowconfigure(0,weight=1)
+            self.output=tk.Text(console,height=8,wrap='word',state='disabled',background=field,
+                                foreground=text,insertbackground=text,relief='flat',padx=8,pady=8)
+            self.output.grid(row=0,column=0,sticky='nsew')
+            scroll=ttk.Scrollbar(console,orient='vertical',command=self.output.yview)
+            scroll.grid(row=0,column=1,sticky='ns')
+            self.output.configure(yscrollcommand=scroll.set)
             ttk.Label(self,textvariable=self.status,wraplength=850).grid(row=5,column=0,columnspan=3,sticky='w',pady=8)
             self.parent.protocol('WM_DELETE_WINDOW',self.close)
 
@@ -209,18 +262,14 @@ def gui(project, build, renderer):
             if self.process is not None or self.pending:return
             try:
                 self.tools=ProjectTools(self.project.get(),self.build.get())
-                profile='Release';archive=None
+                profile='Release';archive=None;replace=False
                 if action=='package':
-                    from tkinter import simpledialog,messagebox
-                    available=self.tools.profiles()
-                    profile=simpledialog.askstring('Build profile','Choose profile: '+', '.join(available),
-                        initialvalue='Release' if 'Release' in available else next(iter(available)),parent=self.parent)
-                    if profile is None:return
-                    if messagebox.askyesno('Export ZIP','Also export a verified game ZIP?',parent=self.parent):
-                        archive=filedialog.asksaveasfilename(parent=self.parent,defaultextension='.zip',
-                            filetypes=[('Kairo game archive','*.zip')])
-                        if not archive:return
-                self.pending=self.tools.commands(action,self.renderer.get(),profile,archive)
+                    options=choose_package_options(self.tools,self.parent,simpledialog,messagebox,filedialog)
+                    if options is None:
+                        self.status.set('Packaging cancelled; project and existing package unchanged.')
+                        return
+                    profile,archive,replace=options
+                self.pending=self.tools.commands(action,self.renderer.get(),profile,archive,replace)
                 self.busy(True)
                 self.status.set(f'Running {action}…')
                 self.advance()
@@ -267,7 +316,7 @@ def gui(project, build, renderer):
                 self.status.set('Close the running Editor/Player or let the current command finish first.');return
             self.parent.destroy()
 
-    root=tk.Tk();root.title('Kairo Project Workbench');root.geometry('1020x460')
+    root=tk.Tk();root.title('Kairo Project Workbench');root.geometry('1020x560');root.minsize(800,460)
     Workbench(root);root.mainloop()
     return 0
 
