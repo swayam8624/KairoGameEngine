@@ -15,7 +15,11 @@ class Tests(unittest.TestCase):
         rows = audit.parse_loader_list('linux-vdso.so.1 (0x123)\n libx.so => /path with space/libx.so (0xabc)\n /lib/ld.so (0xabc)\n libz.so => not found\n')
         self.assertEqual([r['status'] for r in rows], ['kernel-virtual-object', 'resolved-file', 'resolved-file', 'unresolved'])
         self.assertEqual(rows[1]['path'], '/path with space/libx.so')
-        for text in ('garbage', 'libx => relative.so (0x123)', 'linux-vdso.so.1 (0x123)\nlinux-vdso.so.1 (0x123)'):
+        unnamed = audit.parse_loader_list('(0x00007a39c1bb1000)\nlibc.so.6 => /lib/libc.so.6 (0x123)')
+        self.assertEqual(unnamed[0]['status'], 'unnamed-loader-mapping')
+        self.assertIsNone(unnamed[0]['path'])
+        self.assertEqual(unnamed[1]['path'], '/lib/libc.so.6')
+        for text in ('(0xzz)', '(0x123)\n(0x456)', 'garbage', 'libx => relative.so (0x123)', 'linux-vdso.so.1 (0x123)\nlinux-vdso.so.1 (0x123)'):
             with self.assertRaises(ValueError):
                 audit.parse_loader_list(text)
 
