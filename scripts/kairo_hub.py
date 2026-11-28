@@ -110,27 +110,87 @@ class Hub(ttk.Frame):
 
     def draw_new(self):
         page = self.pages["new"]
+        page.rowconfigure(2, weight=1)
         ttk.Label(page, text="Create a project", style="Heading.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(page, text="Choose an authored starter, then name your own copy.", style="Muted.TLabel").grid(row=1, column=0, sticky="w", pady=(3, 12))
-        for row, template in enumerate(TEMPLATES, 2):
-            frame = ttk.Frame(page, style="Hub.TFrame")
+        # Keep the primary action in a fixed footer. Only the form scrolls,
+        # so small windows and larger system fonts cannot hide Create.
+        scroll_area = ttk.Frame(page, style="Hub.TFrame")
+        scroll_area.grid(row=2, column=0, sticky="nsew")
+        scroll_area.columnconfigure(0, weight=1)
+        scroll_area.rowconfigure(0, weight=1)
+        self.new_canvas = canvas = tk.Canvas(scroll_area, background=BG, highlightthickness=0,
+                                            borderwidth=0, height=1, width=1)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar = ttk.Scrollbar(scroll_area, orient="vertical", command=canvas.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns", padx=(6, 0))
+        canvas.configure(yscrollcommand=scrollbar.set)
+        form = ttk.Frame(canvas, style="Hub.TFrame")
+        form.columnconfigure(0, weight=1)
+        form_window = canvas.create_window((0, 0), window=form, anchor="nw")
+        form.bind("<Configure>", lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(form_window, width=event.width))
+        for row, template in enumerate(TEMPLATES):
+            frame = ttk.Frame(form, style="Hub.TFrame")
             frame.grid(row=row, column=0, sticky="ew", pady=2)
             radio = ttk.Radiobutton(frame, text=template.title, value=template.key, variable=self.template)
             radio.pack(anchor="w")
             if not template.available:
                 radio.configure(state="disabled")
             ttk.Label(frame, text=template.description, style="Muted.TLabel", wraplength=620).pack(anchor="w", padx=24)
-        row = 2 + len(TEMPLATES)
-        ttk.Separator(page).grid(row=row, column=0, sticky="ew", pady=10)
-        ttk.Label(page, text="Project name").grid(row=row+1, column=0, sticky="w")
-        ttk.Entry(page, textvariable=self.name).grid(row=row+2, column=0, sticky="ew", pady=(4, 10))
-        ttk.Label(page, text="Projects directory").grid(row=row+3, column=0, sticky="w")
-        path = ttk.Frame(page)
+        row = len(TEMPLATES)
+        ttk.Separator(form).grid(row=row, column=0, sticky="ew", pady=10)
+        ttk.Label(form, text="Project name").grid(row=row+1, column=0, sticky="w")
+        ttk.Entry(form, textvariable=self.name).grid(row=row+2, column=0, sticky="ew", pady=(4, 10))
+        ttk.Label(form, text="Projects directory").grid(row=row+3, column=0, sticky="w")
+        path = ttk.Frame(form)
         path.grid(row=row+4, column=0, sticky="ew", pady=4)
         ttk.Entry(path, textvariable=self.location).pack(side="left", fill="x", expand=True)
         ttk.Button(path, text="Browse…", command=lambda: self.choose_directory(self.location)).pack(side="left", padx=(8, 0))
-        self.create_button = ttk.Button(page, text="Create & open editor", style="Primary.TButton", command=self.create_project)
-        self.create_button.grid(row=row+5, column=0, sticky="e", pady=12)
+        footer = ttk.Frame(page, style="Hub.TFrame")
+        footer.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        ttk.Label(footer, text="Scroll to view all templates and project fields.", style="Muted.TLabel").pack(side="left")
+        self.create_button = ttk.Button(footer, text="Create & open editor", style="Primary.TButton", command=self.create_project)
+        self.create_button.pack(side="right")
+
+        def wheel(event):
+            if getattr(event, "num", None) == 4:
+                units = -1
+            elif getattr(event, "num", None) == 5:
+                units = 1
+            else:
+                delta = event.delta
+                units = -max(1, abs(delta) // 120) if delta > 0 else max(1, abs(delta) // 120) if delta < 0 else 0
+            if units:
+                canvas.yview_scroll(units, "units")
+            return "break"
+
+        def reveal(event):
+            # Tabbing to an off-screen entry or radio brings it into view.
+            widget = event.widget
+            height = form.winfo_height()
+            viewport = canvas.winfo_height()
+            if height <= viewport:
+                return
+            top = widget.winfo_rooty() - form.winfo_rooty()
+            bottom = top + widget.winfo_height()
+            offset = canvas.canvasy(0)
+            if top < offset:
+                canvas.yview_moveto(max(0, top - 4) / height)
+            elif bottom > offset + viewport:
+                canvas.yview_moveto(max(0, bottom - viewport + 4) / height)
+
+        def bind_form(widget):
+            # Bind only this page's widgets, never the global Tk event table.
+            for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                widget.bind(sequence, wheel, add="+")
+            widget.bind("<FocusIn>", reveal, add="+")
+            for child in widget.winfo_children():
+                bind_form(child)
+
+        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            canvas.bind(sequence, wheel, add="+")
+        bind_form(form)
 
     def draw_settings(self):
         page = self.pages["settings"]
