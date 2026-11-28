@@ -1,0 +1,33 @@
+name: Windows process argument fixtures
+
+on:
+  pull_request:
+    paths:
+      - 'workspace.lock'
+      - '.github/workflows/windows-process-arguments.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-crt-roundtrip:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Materialize exact editor revision
+        shell: bash
+        run: bash scripts/materialize_workspace_lock.sh KairoEditor
+      - name: Compile and run native child-process round-trip
+        shell: pwsh
+        run: |
+          $root = Join-Path (Split-Path -Parent $PWD.Path) 'KairoEditor'
+          $dir = Join-Path $env:RUNNER_TEMP 'Kairo process path with spaces'
+          New-Item -ItemType Directory -Path $dir | Out-Null
+          $exe = Join-Path $dir 'argument roundtrip.exe'
+          & cl.exe /nologo /std:c++latest /EHsc /W4 /WX "/I$root/detail" "$root/tests/WindowsProcessArgumentsTests.cpp" "/Fe:$exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Fixture compilation failed' }
+          & $exe
+          if ($LASTEXITCODE -ne 0) { throw 'Native argument round-trip failed' }
