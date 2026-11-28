@@ -15,6 +15,7 @@ import zipfile
 import kairo_release
 import native_dependency_audit
 import studio_import_inventory
+import studio_dll_bundle
 
 SCRIPTS = ('kairo_hub.py', 'kairo_hub_core.py', 'kairo_project_workflow.py',
            'create_kairo_project.py', 'kairo_world2d_editor.py', 'kairo_platformer_editor.py',
@@ -138,20 +139,45 @@ def run(command, cwd, env=None):
     subprocess.run([str(x) for x in command], cwd=cwd, env=env, check=True, timeout=180)
 
 
-def qualify(source, build, output, graphical=False, dll_roots=()):
+def qualify(source, build, output, graphical=False, dll_roots=(), dll_policy=None, notice_root=None):
     source, build, output = Path(source).resolve(strict=True), Path(build).resolve(strict=True), Path(output).absolute()
     require(os.name == 'nt' or sys.platform == 'darwin' or sys.platform.startswith('linux'), 'Unsupported native Studio host')
     require(not output.exists() and not output.is_symlink(), 'Output exists')
+    require((dll_policy is None) == (notice_root is None), 'DLL policy and notice root must be supplied together')
+    require(dll_policy is None or os.name == 'nt', 'App-local DLL bundling requires Windows')
     with tempfile.TemporaryDirectory(prefix='kairo-studio-', dir=output.parent) as temp:
         root = Path(temp)
         staged = root / 'staged Studio'
         stage(source, build, staged)
+        suffix = '.exe' if os.name == 'nt' else ''
+        native_tools = [Path('build/game-clang') / directory / (name + suffix)
+                        for directory, names in TOOLS.items() for name in names]
+        def target_of(path):
+            with path.open('rb') as stream:
+                return kairo_release.platform_of(stream)
+        system_dir = Path(os.environ['SystemRoot']) / 'System32' if os.name == 'nt' else None
+        bundle_evidence = None
+        if dll_policy is not None:
+            staged_imports = studio_import_inventory.collect(
+                staged, native_tools, native_dependency_audit.audit, target_of, dll_roots, system_dir)
+            bundle_evidence = studio_dll_bundle.stage(
+                staged, native_tools, staged_imports['windows_candidate_graph'],
+                dll_policy, notice_root, dll_roots, staged_imports['target'])
+            (staged / 'dll-bundle.json').write_text(json.dumps(bundle_evidence, sort_keys=True, indent=2) + '\n',
+                                                  encoding='utf-8')
+            (staged / INDEX).unlink()
+            (staged / INDEX).write_text(json.dumps(inventory(staged), sort_keys=True, indent=2) + '\n',
+                                        encoding='utf-8')
         archive = root / 'KairoStudio.zip'
         installed = root / 'relocated Studio'
         expected = archive_and_relocate(staged, archive, installed)
         projects = root / 'user projects'
         projects.mkdir()
         env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': str(installed / 'scripts')}
+        if bundle_evidence is not None:
+            # Exercise explicit app-local copies without the build/vcpkg PATH.
+            # Windows system libraries and the installed Python remain host prerequisites.
+            env['PATH'] = os.pathsep.join((str(system_dir), os.environ['SystemRoot']))
         # Execute the installed Python modules from a different cwd, using
         # the real compiler and Player for all seven Hub template types.
         code = '''from pathlib import Path
@@ -168,7 +194,6 @@ for template in TEMPLATES:
 print('All installed Hub templates created and validated')
 '''
         run([sys.executable, '-c', code, installed, projects], root, env)
-        suffix = '.exe' if os.name == 'nt' else ''
         # Exercise the actual packaged launcher without opening a GUI.
         launcher = installed / ('launch-studio.cmd' if os.name == 'nt' else 'launch-studio.sh')
         launch_env = {**env, 'KAIRO_PYTHON': sys.executable}
@@ -184,14 +209,8 @@ print('All installed Hub templates created and validated')
             player = installed / 'build/game-clang/Runtime/KairoPlayer/KairoPlayer'
             run([player, projects / 'Studio world2d/Project.kproject', '--renderer', 'vulkan', '--smoke'], root, env)
         require(inventory(installed) == expected, 'Studio changed installed tree')
-        def target_of(path):
-            with path.open('rb') as stream:
-                return kairo_release.platform_of(stream)
-        native_tools = [Path('build/game-clang') / directory / (name + suffix)
-                        for directory, names in TOOLS.items() for name in names]
         imports = studio_import_inventory.collect(
-            installed, native_tools, native_dependency_audit.audit, target_of, dll_roots,
-            Path(os.environ['SystemRoot']) / 'System32' if os.name == 'nt' else None)
+            installed, native_tools, native_dependency_audit.audit, target_of, dll_roots, system_dir)
         import_bytes = (json.dumps(imports, sort_keys=True, indent=2) + '\n').encode('utf-8')
         receipt = {'schema': 1, 'archive_sha256': digest(archive), 'workspace_lock_sha256': digest(installed / 'workspace.lock'),
                    'commit': os.environ.get('GITHUB_SHA'), 'platform': sys.platform,
@@ -200,6 +219,9 @@ print('All installed Hub templates created and validated')
                    'native_import_inventory_sha256': hashlib.sha256(import_bytes).hexdigest(),
                    'native_target': imports['target'], 'native_tools_inspected': len(imports['tools']),
                    'dependency_closure_verified': False,
+                   'app_local_dll_policy_applied': bundle_evidence is not None,
+                   'bundled_dll_count': len(bundle_evidence['libraries']) if bundle_evidence else 0,
+                   'developer_path_removed_during_validation': bundle_evidence is not None,
                    'fresh_machine_qualified': False, 'signed': False, 'third_party_licenses_verified': False}
         output.mkdir()
         try:
@@ -220,5 +242,8 @@ if __name__ == '__main__':
     parser.add_argument('output', type=Path)
     parser.add_argument('--graphical', action='store_true')
     parser.add_argument('--dll-root', type=Path, action='append', default=[])
+    parser.add_argument('--dll-policy', type=Path)
+    parser.add_argument('--notice-root', type=Path)
     args = parser.parse_args()
-    print(json.dumps(qualify(args.source, args.build, args.output, args.graphical, args.dll_root), sort_keys=True))
+    print(json.dumps(qualify(args.source, args.build, args.output, args.graphical, args.dll_root,
+                             args.dll_policy, args.notice_root), sort_keys=True))

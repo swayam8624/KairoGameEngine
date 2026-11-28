@@ -11,6 +11,8 @@ on:
       - 'scripts/studio_import_inventory.py'
       - 'scripts/tests/test_studio_import_inventory.py'
       - 'scripts/native_dependency_audit.py'
+      - 'scripts/studio_dll_bundle.py'
+      - 'scripts/tests/test_studio_dll_bundle.py'
       - '.github/workflows/studio-windows.yml'
   workflow_dispatch:
 
@@ -83,6 +85,7 @@ jobs:
           export PYTHONPATH=scripts
           python -m unittest discover -s scripts/tests -p test_studio_distribution.py -v
           python -m unittest discover -s scripts/tests -p test_studio_import_inventory.py -v
+          python -m unittest discover -s scripts/tests -p test_studio_dll_bundle.py -v
           scratch="$(mktemp -d)"
           trap 'rm -rf "$scratch"' EXIT
           git archive HEAD LICENSE workspace.lock scripts \
