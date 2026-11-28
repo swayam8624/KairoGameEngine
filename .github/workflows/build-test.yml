@@ -324,6 +324,30 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+      - name: Qualify native desktop installation package
+        if: matrix.platform == 'macos' || matrix.platform == 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archives=(signal-vault-evidence/SignalVault-*.zip)
+          [[ "${#archives[@]}" == 1 && -f "${archives[0]}" ]]
+          python scripts/signal_vault_desktop.py "${archives[0]}" \
+              signal-vault-evidence/receipt.json signal-vault-desktop-evidence
+
+      - name: Upload exact tested desktop package
+        if: matrix.platform == 'macos' || matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SignalVault-desktop-${{ matrix.platform }}
+          path: signal-vault-desktop-evidence/
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Test desktop launcher first-launch and relaunch contract
+        if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
+        shell: bash
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_desktop_launchers.py -v
+
       - name: Qualify dependency-aware Signal Vault Debian installer
         if: matrix.platform == 'linux' && matrix.preset == 'ci-clang'
         shell: bash
