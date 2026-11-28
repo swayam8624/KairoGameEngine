@@ -60,6 +60,7 @@ import Kairo.Player.RuntimeShippingBridge;
 import Kairo.Player.RuntimeMenuHost;
 import Kairo.Player.RuntimePackaging;
 import Kairo.Renderer;
+#include "OverlayBackend.hpp"
 
 namespace kairo::player::detail
 {
@@ -226,8 +227,10 @@ int main(int argc, char** argv)
                 std::cout<<"Packaged "<<package.ProjectFileCount<<" project files to "<<package.OutputDirectory<<'\n';
                 return 0;
             }
-            const auto backend=arguments.BackendOverride.value_or(
-                kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend));
+            const auto backend=kairo::player::detail::SelectOverlayBackend(
+                arguments.BackendOverride.value_or(
+                    kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend)),
+                kairo::renderer::CompiledGraphicsBackends(), kairo::renderer::CurrentHostPlatform());
             return kairo::player::world2d::Run(std::move(campaign),project,backend,arguments.SmokeTest,arguments.World2DRectangles,arguments.World2DLogicTrace);
         }
         const auto tileFile=project.Root()/"Config/Platformer.k2d";
@@ -248,8 +251,10 @@ int main(int argc, char** argv)
                 std::cout<<"Packaged "<<package.ProjectFileCount<<" project files to "<<package.OutputDirectory<<'\n';
                 return 0;
             }
-            const auto backend=arguments.BackendOverride.value_or(
-                kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend));
+            const auto backend=kairo::player::detail::SelectOverlayBackend(
+                arguments.BackendOverride.value_or(
+                    kairo::renderer::ParseGraphicsBackend(project.Descriptor().GraphicsBackend)),
+                kairo::renderer::CompiledGraphicsBackends(), kairo::renderer::CurrentHostPlatform());
             return kairo::player::detail::RunPlatformerProject(
                 kairo::player::detail::RuntimePlatformer(std::move(rows)),project.Descriptor().Name,backend,arguments.SmokeTest);
         }
