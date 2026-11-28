@@ -1,0 +1,41 @@
+name: Locked component notice audit
+
+on:
+  pull_request:
+    paths:
+      - 'workspace.lock'
+      - 'scripts/component_notice_audit.py'
+      - 'scripts/tests/test_component_notice_audit.py'
+      - '.github/workflows/component-notices.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-notices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test exact-blob notice collection
+        run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -p test_component_notice_audit.py -v
+      - name: Materialize selected native workspace and collect notice candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          components=(KairoMath KairoGeometry KairoSpatial KairoPhysicsMath
+                      KairoPhysicsEngine KairoAssets KairoAI KairoECS KairoReflection
+                      KairoEngineCore KairoRenderer KairoEditor KairoRayTracer)
+          bash scripts/materialize_workspace_lock.sh "${components[@]}"
+          bash scripts/verify_workspace_lock.sh "${components[@]}"
+          python3 scripts/component_notice_audit.py --engine "$GITHUB_WORKSPACE" \
+              --workspace "$(dirname "$GITHUB_WORKSPACE")" \
+              --output "$RUNNER_TEMP/kairo-component-notices" "${components[@]}"
+      - name: Upload exact committed notices and unresolved scope
+        uses: actions/upload-artifact@v7
+        with:
+          name: Kairo-locked-component-notices
+          path: ${{ runner.temp }}/kairo-component-notices/
+          if-no-files-found: error
+          retention-days: 30
