@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'scripts/verify_private_game_install.py'
+      - 'scripts/launch_private_game.py'
+      - 'scripts/tests/test_launch_private_game.py'
       - 'scripts/install_local_*_game.py'
       - 'scripts/kairo_release.py'
       - 'scripts/tests/test_verify_private_game_install.py'
@@ -36,3 +38,6 @@ jobs:
         run: python -B scripts/tests/test_install_local_windows_game.py -v
       - name: Exercise macOS installer parsing fixtures
         run: python -B scripts/tests/test_install_local_macos_game.py -v
+
+      - name: Exercise native launch preflight and explicit argument dispatch
+        run: python -B scripts/tests/test_launch_private_game.py -v
