@@ -82,6 +82,8 @@ def qualify(archive, source_receipt, output):
                 release.require(digest(base / path) == record['sha256'], 'Launch changed install tree')
         receipt = {'schema': 1, 'commit': previous['commit'], 'target': index['target'],
                    'workspace_lock_sha256': previous['workspace_lock_sha256'],
+                   'first_party_notice_count': previous.get('first_party_notice_count', 0),
+                   'first_party_notice_index_sha256': previous.get('first_party_notice_index_sha256'),
                    'source_zip_sha256': previous['archive_sha256'], 'installer_sha256': digest(installer),
                    'depends': depends, 'apt_simulation': True, 'extracted_launcher_validation': True,
                    'vulkan_smoke': True, 'user_copy_retained': True, 'clean_machine_qualified': False,
